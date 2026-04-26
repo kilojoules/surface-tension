@@ -1,0 +1,11 @@
+benchmark,constraint,n_unconstrained_kept,n_constrained_kept,n_compliant,unc_reject_rate,con_reject_rate,pass_unconstrained,pass_constrained,compliance_rate,performance_drop,binding_score
+mbpp,stdlib_whitelist,17,17,17,0.0,0.0,0.8235,0.7647,1.0,0.0588,0.0588
+humaneval,stdlib_whitelist,138,142,92,0.0,0.0,0.9928,0.9239,0.6479,0.0688,0.0446
+humaneval,no_mutation,138,143,143,0.0,0.0,0.9928,0.958,1.0,0.0347,0.0347
+humaneval,no_nested_functions,138,137,137,0.0,0.0,0.9928,0.9635,1.0,0.0292,0.0292
+humaneval,no_recursion,138,138,138,0.0,0.0,0.9928,0.971,1.0,0.0217,0.0217
+humaneval,no_classes,138,141,141,0.0,0.0,0.9928,0.9716,1.0,0.0211,0.0211
+mbpp,no_recursion,17,16,16,0.0,0.0,0.8235,0.8125,1.0,0.011,0.011
+mbpp,no_mutation,17,18,18,0.0,0.0,0.8235,0.8333,1.0,-0.0098,-0.0098
+mbpp,no_classes,17,19,19,0.0,0.0,0.8235,0.8421,1.0,-0.0186,-0.0186
+mbpp,no_nested_functions,17,14,14,0.0,0.0,0.8235,0.8571,1.0,-0.0336,-0.0336
