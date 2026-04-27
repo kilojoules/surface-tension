@@ -28,9 +28,11 @@ cd "$(dirname "$0")/src"
 : "${MODEL_API_KEY:?MODEL_API_KEY not set}"
 : "${HF_TOKEN:?HF_TOKEN not set}"
 
-# ---- Phase 0: install training deps up front so flash-attn build failures fail fast ----
-# (flash-attn compiles from source; failure here is recoverable in <1min vs 1h into the run.)
+# ---- Phase 0: install deps ----
+# vLLM is pinned to 0.19.1: 0.20.0 requires deep_gemm for FP8 warmup which builds from source
+# unreliably on fresh boxes (vllm/vllm-openai Docker image bundles it; pip install does not).
 echo "[phase 0/4] installing training deps"
+pip install -q "vllm==0.19.1"
 pip install -q -r requirements_dpo.txt
 
 # ---- Phase 1: expand pilot data to all 124 LCB-medium post-cutoff problems ----
