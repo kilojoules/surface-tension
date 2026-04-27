@@ -77,7 +77,9 @@ def _build_problem(row: Dict[str, Any]) -> Dict[str, Any] | None:
     }
 
 
-def load_lcb_problems(n: int = 60) -> List[Dict[str, Any]]:
+def load_lcb_problems(n: int | None = None) -> List[Dict[str, Any]]:
+    """Load up to n problems matching the medium/post-cutoff/stdin filter.
+    Pass n=None (or default) to take all matching problems."""
     ds = load_dataset(
         "livecodebench/code_generation_lite",
         split="test",
@@ -96,19 +98,19 @@ def load_lcb_problems(n: int = 60) -> List[Dict[str, Any]]:
         if p is None:
             continue
         problems.append(p)
-        if len(problems) >= n:
+        if n is not None and len(problems) >= n:
             break
     return problems
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--n", type=int, default=60)
+    ap.add_argument("--n", type=int, default=0, help="0 = all matching problems")
     ap.add_argument("--out", default="../data/problems_lcb.jsonl")
     args = ap.parse_args()
     base = os.path.dirname(os.path.abspath(__file__))
     out = os.path.join(base, args.out) if not os.path.isabs(args.out) else args.out
-    problems = load_lcb_problems(n=args.n)
+    problems = load_lcb_problems(n=(None if args.n == 0 else args.n))
     with open(out, "w") as f:
         for p in problems:
             f.write(json.dumps(p) + "\n")
