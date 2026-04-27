@@ -47,12 +47,18 @@ if [ ! -f /workspace/phase_0b_done ]; then
 fi
 DONE "0b"
 
-# ---- problems data: skip the broken HF loader; expect data/problems_lcb.jsonl pre-uploaded ----
+# ---- problems data: pre-upload OR pull from a public mirror ----
+# Order: check repo (already cloned), then check /workspace, then bail.
 export CURRENT_PHASE="1b-problems"
 PHASE "1b" "verify-problems"
 if [ ! -s data/problems_lcb.jsonl ]; then
-  LOG "data/problems_lcb.jsonl missing or empty — must be SCP'd up before launch"
-  FAIL "1b"
+  if [ -s /workspace/problems_lcb.jsonl ]; then
+    LOG "found /workspace/problems_lcb.jsonl — moving into data/"
+    mkdir -p data && mv /workspace/problems_lcb.jsonl data/
+  else
+    LOG "data/problems_lcb.jsonl missing — SCP it to /workspace/problems_lcb.jsonl before launching"
+    FAIL "1b"
+  fi
 fi
 LOG "problems: $(wc -l < data/problems_lcb.jsonl) entries"
 DONE "1b"
