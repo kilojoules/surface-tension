@@ -45,6 +45,12 @@ def main():
     max_length = int(os.environ.get("MAX_LENGTH", "2048"))
     max_prompt_length = int(os.environ.get("MAX_PROMPT_LENGTH", "1024"))
     save_steps = int(os.environ.get("SAVE_STEPS", "25"))
+
+    # Hub push: every save_steps pushes the latest checkpoint to a private HF repo so a
+    # crashed instance doesn't waste training time. Set HUB_REPO to enable; falls back to
+    # local-only saves if unset (useful for smoke tests).
+    hub_repo = os.environ.get("HUB_REPO", "").strip() or None
+    hub_strategy = os.environ.get("HUB_STRATEGY", "checkpoint")  # all_checkpoints | checkpoint | end
     # With ~1000 pairs and effective batch 8, we have ~125 steps/epoch — warmup_steps=100
     # would never complete. Use a ratio instead.
     warmup_ratio = float(os.environ.get("WARMUP_RATIO", "0.05"))
@@ -131,6 +137,10 @@ def main():
         remove_unused_columns=False,
         report_to=[],
         seed=0,
+        push_to_hub=hub_repo is not None,
+        hub_model_id=hub_repo,
+        hub_strategy=hub_strategy,
+        hub_private_repo=True,
     )
 
     trainer = DPOTrainer(
@@ -154,10 +164,26 @@ def main():
             "save_steps": save_steps,
         }, f, indent=2)
 
-    trainer.train()
+    # Resume from a Hub checkpoint if asked (set RESUME_FROM_HUB=1 alongside HUB_REPO).
+    # Downloads the most recent checkpoint dir into output_dir, then trainer auto-resumes.
+    resume = False
+    if os.environ.get("RESUME_FROM_HUB", "").strip() == "1" and hub_repo:
+        from huggingface_hub import snapshot_download
+        print(f"Pulling latest checkpoint from hub: {hub_repo}")
+        snapshot_download(repo_id=hub_repo, local_dir=output_dir, repo_type="model")
+        resume = True
+
+    trainer.train(resume_from_checkpoint=resume)
     final_dir = os.path.join(output_dir, "final_adapter")
     trainer.save_model(final_dir)
     print(f"Saved final adapter to {final_dir}")
+    if hub_repo:
+        # Make sure the final adapter lands on the hub even if hub_strategy="end" misses it
+        try:
+            trainer.push_to_hub(commit_message="final adapter")
+            print(f"Pushed final adapter to https://huggingface.co/{hub_repo}")
+        except Exception as e:
+            print(f"Final hub push failed (non-fatal): {e}")
 
 
 if __name__ == "__main__":
