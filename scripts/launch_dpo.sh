@@ -7,23 +7,39 @@
 #   - --direct ssh
 #   - watchdog runs locally with auto-destroy on completion
 #
-# Usage: bash scripts/launch_dpo.sh [base_model] [hub_repo]
-#   defaults: google/gemma-4-31B-it   kilojoules/surface-tension-dpo
+# Usage: bash scripts/launch_dpo.sh [base_model] [hub_repo] [gpu_filter]
+#   defaults: google/gemma-4-4b-it   kilojoules/surface-tension-dpo   RTX_4090
+#
+# 4B fits on a 4090 with room to spare → cheap pipeline validation (~$1).
+# For 31B, pass:
+#   bash scripts/launch_dpo.sh google/gemma-4-31B-it kilojoules/surface-tension-dpo H100_SXM
+#
+# 31B at 4-bit needs ~16GB weights + ~16GB activations during the reference-deltas
+# forward pass — does NOT fit on 24GB 4090 (OOMs at ~22GB), needs 80GB H100/H200.
 
 set -e
-BASE_MODEL="${1:-google/gemma-4-31B-it}"
+BASE_MODEL="${1:-google/gemma-4-4b-it}"
 HUB_REPO="${2:-kilojoules/surface-tension-dpo}"
+GPU_FILTER="${3:-RTX_4090}"
 
 LOCAL=/Users/julianquick/portfolio_copy/surface_tension
 IMAGE="pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel"
 DISK=80
 INSTANCE_FILE="$LOCAL/vast_current.env"
 
+# Per-GPU price ceiling — keep cheap path cheap
+case "$GPU_FILTER" in
+    RTX_4090)   DPH_MAX=0.50 ;;
+    H100_SXM)   DPH_MAX=2.50 ;;
+    H200)       DPH_MAX=3.50 ;;
+    *)          DPH_MAX=2.50 ;;
+esac
+
 echo "=== launch_dpo: $BASE_MODEL → $HUB_REPO ==="
 
 # 1. Find a cheap reliable 4090
 OFFER_ID=$(echo "n" | vastai search offers \
-    'gpu_name=RTX_4090 num_gpus=1 dph<0.50 inet_down>500 disk_space>=80 reliability>0.998' \
+    "gpu_name=$GPU_FILTER num_gpus=1 dph<$DPH_MAX inet_down>500 disk_space>=80 reliability>0.998" \
     --order 'dph' --limit 1 --raw 2>&1 | grep -v "Update\|selected" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
@@ -92,11 +108,14 @@ rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
     "root@$HOST:/workspace/st/data/" 2>/dev/null
 
 # 9. Launch the DPO+eval pipeline. nohup so we can disconnect.
+# `set -euo pipefail` ensures any failure aborts the chain BEFORE touching all_done,
+# so the watchdog won't tear down the box prematurely on a real error.
+# Inner `2>&1 | tee` would mask the python exit code without `pipefail`.
 echo "launching pipeline on box..."
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "cd /workspace/st/src && \
      nohup env BASE_MODEL='$BASE_MODEL' HUB_REPO='$HUB_REPO' \
-       bash -c 'python -u dpo_train.py 2>&1 | tee /workspace/dpo_train.log
+       bash -euo pipefail -c 'python -u dpo_train.py 2>&1 | tee /workspace/dpo_train.log
                 python -u sweep_local.py \
                   --problems ../data/problems_lcb.jsonl \
                   --csv ../results/raw/pilot_v6_dpo_raw.csv \
