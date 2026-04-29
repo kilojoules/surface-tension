@@ -1,189 +1,160 @@
-"""DPO fine-tune Gemma 4 31B-it on (prompt, chosen, rejected) pairs via QLoRA + TRL.
+"""Hand-rolled DPO training. No TRL, no vLLM — only torch + transformers + peft + bitsandbytes.
 
-Designed to run on a single H100 80GB. 31B base in 4-bit nf4 + LoRA adapters fits
-comfortably with seq 2048, batch 1 + grad-accum 8.
+Modeled on turnstile/turnstile/dpo.py. Per-pair SGD with reference-deltas precomputed
+once before training. Memory-efficient: only one model resident during the training loop
+(the LoRA-augmented policy), not two.
 
-Usage:
-  pip install -r requirements_dpo.txt
-  HF_TOKEN=$(cat ~/.hf_token) python dpo_train.py
+Loss:  L = -log sigmoid(beta * (policy_delta - ref_delta))
+       where delta = logp(chosen | prompt) - logp(rejected | prompt)
+
 Configurable via env:
-  BASE_MODEL       (default google/gemma-4-31B-it)
-  DPO_TRAIN        (default ../data/dpo_pairs_train.jsonl)
-  DPO_OUTPUT       (default ../outputs/dpo_run1)
-  DPO_BETA         (default 0.1; lower → less constrained policy)
-  DPO_LR           (default 5e-7)
-  DPO_EPOCHS       (default 1)
-  LORA_RANK        (default 32)
-  MAX_LENGTH       (default 2048)
+  BASE_MODEL   default google/gemma-4-31B-it
+  DPO_TRAIN    default ../data/dpo_pairs_train.jsonl  (lines: {prompt, chosen, rejected})
+  DPO_OUTPUT   default ../outputs/dpo_run1
+  DPO_BETA     default 0.1
+  DPO_LR       default 5e-6
+  DPO_ITERS    default 0   (0 = num_pairs * 2)
+  LORA_RANK    default 16
+  MAX_LENGTH   default 2048
+  HUB_REPO     optional. If set, push final adapter to <user>/<repo>.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import random
+from typing import List, Tuple
 
 import torch
-from datasets import load_dataset
-from peft import LoraConfig, prepare_model_for_kbit_training
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-)
-from trl import DPOConfig, DPOTrainer
+import torch.nn.functional as F
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+
+from model_utils import BNB_CONFIG, completion_logprob, unload_model
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+
+def _load_pairs(path: str) -> List[dict]:
+    with open(path) as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
+def _precompute_ref_deltas(model, tokenizer, pairs, max_length, log_every=25) -> List[torch.Tensor]:
+    """Reference logp(chosen) - logp(rejected) per pair, frozen base, no grad."""
+    model.eval()
+    deltas: List[torch.Tensor] = []
+    with torch.no_grad():
+        for i, p in enumerate(pairs):
+            lp_c = completion_logprob(model, tokenizer, p["prompt"], p["chosen"], max_length)
+            lp_r = completion_logprob(model, tokenizer, p["prompt"], p["rejected"], max_length)
+            deltas.append((lp_c - lp_r).detach())
+            if (i + 1) % log_every == 0:
+                print(f"  ref_logp {i+1}/{len(pairs)}")
+    return deltas
 
 
 def main():
     base_model = os.environ.get("BASE_MODEL", "google/gemma-4-31B-it")
     train_path = os.environ.get("DPO_TRAIN", "../data/dpo_pairs_train.jsonl")
-    eval_path = os.environ.get("DPO_EVAL", "../data/dpo_pairs_eval.jsonl")
     output_dir = os.environ.get("DPO_OUTPUT", "../outputs/dpo_run1")
     beta = float(os.environ.get("DPO_BETA", "0.1"))
-    lr = float(os.environ.get("DPO_LR", "5e-7"))
-    epochs = float(os.environ.get("DPO_EPOCHS", "1"))
-    lora_rank = int(os.environ.get("LORA_RANK", "32"))
+    lr = float(os.environ.get("DPO_LR", "5e-6"))
+    iters_env = int(os.environ.get("DPO_ITERS", "0"))
+    lora_rank = int(os.environ.get("LORA_RANK", "16"))
     max_length = int(os.environ.get("MAX_LENGTH", "2048"))
-    max_prompt_length = int(os.environ.get("MAX_PROMPT_LENGTH", "1024"))
-    save_steps = int(os.environ.get("SAVE_STEPS", "25"))
-
-    # Hub push: every save_steps pushes the latest checkpoint to a private HF repo so a
-    # crashed instance doesn't waste training time. Set HUB_REPO to enable; falls back to
-    # local-only saves if unset (useful for smoke tests).
-    hub_repo = os.environ.get("HUB_REPO", "").strip() or None
-    hub_strategy = os.environ.get("HUB_STRATEGY", "checkpoint")  # all_checkpoints | checkpoint | end
-    # With ~1000 pairs and effective batch 8, we have ~125 steps/epoch — warmup_steps=100
-    # would never complete. Use a ratio instead.
-    warmup_ratio = float(os.environ.get("WARMUP_RATIO", "0.05"))
+    hub_repo = (os.environ.get("HUB_REPO") or "").strip() or None
 
     here = os.path.dirname(os.path.abspath(__file__))
-    train_path = train_path if os.path.isabs(train_path) else os.path.join(here, train_path)
-    eval_path = eval_path if os.path.isabs(eval_path) else os.path.join(here, eval_path)
-    output_dir = output_dir if os.path.isabs(output_dir) else os.path.join(here, output_dir)
+    if not os.path.isabs(train_path):
+        train_path = os.path.join(here, train_path)
+    if not os.path.isabs(output_dir):
+        output_dir = os.path.join(here, output_dir)
     os.makedirs(output_dir, exist_ok=True)
+    adapter_dir = os.path.join(output_dir, "final_adapter")
 
-    print(f"Base model:   {base_model}")
-    print(f"Train data:   {train_path}")
-    print(f"Eval data:    {eval_path}")
-    print(f"Output:       {output_dir}")
-    print(f"beta={beta}  lr={lr}  epochs={epochs}  lora_rank={lora_rank}  max_length={max_length}")
+    print(f"base_model = {base_model}")
+    print(f"train_path = {train_path}")
+    print(f"output_dir = {output_dir}")
+    print(f"beta={beta} lr={lr} lora_rank={lora_rank} max_length={max_length}")
 
-    # 4-bit base for QLoRA
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,
-        bnb_4bit_use_double_quant=True,
-    )
+    pairs = _load_pairs(train_path)
+    if not pairs:
+        print("no pairs loaded; aborting")
+        return
+    n_iters = iters_env if iters_env > 0 else len(pairs) * 2
+    print(f"loaded {len(pairs)} pairs; training for {n_iters} iters")
 
     tokenizer = AutoTokenizer.from_pretrained(base_model)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    # Try flash-attention; fall back to sdpa if flash-attn isn't installed/compatible.
-    try:
-        model = AutoModelForCausalLM.from_pretrained(
-            base_model,
-            quantization_config=bnb_config,
-            device_map="auto",
-            torch_dtype=torch.bfloat16,
-            attn_implementation="flash_attention_2",
-        )
-    except (ImportError, ValueError) as e:
-        print(f"flash_attention_2 unavailable ({e}); falling back to sdpa.")
-        model = AutoModelForCausalLM.from_pretrained(
-            base_model,
-            quantization_config=bnb_config,
-            device_map="auto",
-            torch_dtype=torch.bfloat16,
-            attn_implementation="sdpa",
-        )
-    model.config.use_cache = False  # required for gradient checkpointing
-    model = prepare_model_for_kbit_training(model)
+    model = AutoModelForCausalLM.from_pretrained(
+        base_model,
+        quantization_config=BNB_CONFIG,
+        device_map="auto",
+        torch_dtype=torch.bfloat16,
+    )
 
-    peft_config = LoraConfig(
+    print("computing reference deltas (frozen base)...")
+    ref_deltas = _precompute_ref_deltas(model, tokenizer, pairs, max_length)
+
+    print("attaching LoRA adapter for policy...")
+    model = prepare_model_for_kbit_training(model)
+    lora_config = LoraConfig(
         r=lora_rank,
         lora_alpha=lora_rank * 2,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-        lora_dropout=0.05,
+        target_modules=["q_proj", "v_proj"],
+        lora_dropout=0.0,
         bias="none",
         task_type="CAUSAL_LM",
     )
+    model = get_peft_model(model, lora_config)
+    model.print_trainable_parameters()
 
-    train_ds = load_dataset("json", data_files=train_path, split="train")
-    eval_ds = load_dataset("json", data_files=eval_path, split="train") if os.path.exists(eval_path) else None
-    print(f"Loaded {len(train_ds)} train pairs, {len(eval_ds) if eval_ds else 0} eval pairs.")
+    model.train()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    rng = random.Random(0)
 
-    dpo_config = DPOConfig(
-        output_dir=output_dir,
-        num_train_epochs=epochs,
-        per_device_train_batch_size=1,
-        per_device_eval_batch_size=1,
-        gradient_accumulation_steps=8,
-        gradient_checkpointing=True,
-        gradient_checkpointing_kwargs={"use_reentrant": False},
-        learning_rate=lr,
-        lr_scheduler_type="cosine",
-        warmup_ratio=warmup_ratio,
-        logging_steps=10,
-        save_steps=save_steps,
-        save_total_limit=10,
-        eval_strategy="steps" if eval_ds else "no",
-        eval_steps=save_steps if eval_ds else None,
-        bf16=True,
-        optim="paged_adamw_8bit",
-        beta=beta,
-        max_length=max_length,
-        max_prompt_length=max_prompt_length,
-        remove_unused_columns=False,
-        report_to=[],
-        seed=0,
-        push_to_hub=hub_repo is not None,
-        hub_model_id=hub_repo,
-        hub_strategy=hub_strategy,
-        hub_private_repo=True,
-    )
+    losses, accs = [], []
+    for step in range(n_iters):
+        idx = rng.randint(0, len(pairs) - 1)
+        p = pairs[idx]
+        ref_delta = ref_deltas[idx]
 
-    trainer = DPOTrainer(
-        model=model,
-        args=dpo_config,
-        train_dataset=train_ds,
-        eval_dataset=eval_ds,
-        processing_class=tokenizer,
-        peft_config=peft_config,
-    )
+        lp_c = completion_logprob(model, tokenizer, p["prompt"], p["chosen"], max_length)
+        lp_r = completion_logprob(model, tokenizer, p["prompt"], p["rejected"], max_length)
+        policy_delta = lp_c - lp_r
 
-    # Persist the training config for reproducibility
-    with open(os.path.join(output_dir, "dpo_run_config.json"), "w") as f:
-        json.dump({
-            "base_model": base_model,
-            "beta": beta,
-            "lr": lr,
-            "epochs": epochs,
-            "lora_rank": lora_rank,
-            "max_length": max_length,
-            "save_steps": save_steps,
-        }, f, indent=2)
+        logit = beta * (policy_delta - ref_delta)
+        loss = -F.logsigmoid(logit)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()
+        optimizer.zero_grad()
 
-    # Resume from a Hub checkpoint if asked (set RESUME_FROM_HUB=1 alongside HUB_REPO).
-    # Downloads the most recent checkpoint dir into output_dir, then trainer auto-resumes.
-    resume = False
-    if os.environ.get("RESUME_FROM_HUB", "").strip() == "1" and hub_repo:
-        from huggingface_hub import snapshot_download
-        print(f"Pulling latest checkpoint from hub: {hub_repo}")
-        snapshot_download(repo_id=hub_repo, local_dir=output_dir, repo_type="model")
-        resume = True
+        losses.append(loss.item())
+        accs.append(float((logit > 0).item()))
 
-    trainer.train(resume_from_checkpoint=resume)
-    final_dir = os.path.join(output_dir, "final_adapter")
-    trainer.save_model(final_dir)
-    print(f"Saved final adapter to {final_dir}")
+        if (step + 1) % 10 == 0:
+            avg_l = sum(losses[-10:]) / min(10, len(losses))
+            avg_a = sum(accs[-10:]) / min(10, len(accs))
+            print(f"step {step+1}/{n_iters} loss={avg_l:.4f} acc={avg_a:.1%}")
+
+        if (step + 1) % 100 == 0:
+            ckpt = os.path.join(output_dir, f"checkpoint-{step+1}")
+            model.save_pretrained(ckpt)
+
+    model.save_pretrained(adapter_dir)
+    print(f"saved adapter to {adapter_dir}")
+
     if hub_repo:
-        # Make sure the final adapter lands on the hub even if hub_strategy="end" misses it
         try:
-            trainer.push_to_hub(commit_message="final adapter")
-            print(f"Pushed final adapter to https://huggingface.co/{hub_repo}")
+            model.push_to_hub(hub_repo, private=True)
+            print(f"pushed to https://huggingface.co/{hub_repo}")
         except Exception as e:
-            print(f"Final hub push failed (non-fatal): {e}")
+            print(f"hub push failed (non-fatal): {e}")
+
+    unload_model(model, optimizer)
 
 
 if __name__ == "__main__":

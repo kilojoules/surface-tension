@@ -45,15 +45,16 @@ RESP=$(echo n | vastai create instance "$ID" \
   --disk 150 --ssh \
   --env "-p 8000:8000 -e HUGGING_FACE_HUB_TOKEN=$HF_TOKEN" 2>&1 | tail -1)
 
-# Parse contract id and success
+# Parse contract id and success. vastai prints Python dict syntax (single quotes,
+# `True`/`False`), not JSON. Match both forms.
 SUCCESS=$(echo "$RESP" | python3 -c "
 import sys, re
-m = re.search(r'\"success\":\s*(true|false)', sys.stdin.read(), re.IGNORECASE)
+m = re.search(r\"['\\\"]success['\\\"]\\s*:\\s*(True|true|False|false)\", sys.stdin.read())
 print('1' if m and m.group(1).lower()=='true' else '0')
 ")
 INSTANCE_ID=$(echo "$RESP" | python3 -c "
 import sys, re
-m = re.search(r'\"new_contract\":\s*(\d+)', sys.stdin.read())
+m = re.search(r\"['\\\"]new_contract['\\\"]\\s*:\\s*(\\d+)\", sys.stdin.read())
 print(m.group(1) if m else '')
 ")
 
