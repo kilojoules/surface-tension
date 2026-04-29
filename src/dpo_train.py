@@ -34,6 +34,38 @@ from model_utils import BNB_CONFIG, completion_logprob, unload_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
+def _strip_clippable_linear_wrappers(model):
+    """Replace each Gemma4ClippableLinear with its inner Linear4bit so PEFT can hook it.
+
+    Gemma 4 wraps every linear in a custom Gemma4ClippableLinear (an activation-clipping
+    wrapper). PEFT's LoRA injector only recognizes a hardcoded list of base linear types
+    (nn.Linear, Linear4bit, Linear8bitLt, etc.) and refuses to patch the custom wrapper:
+
+        ValueError: Target module Gemma4ClippableLinear(...) is not supported.
+
+    Replacing the wrapper with its inner `.linear` exposes the Linear4bit directly to PEFT.
+    Trade-off: the activation-clipping is removed at training time. Activation clipping is a
+    numerical-stability mechanism that bounds extreme activations; at bf16/4-bit training it
+    rarely changes the output distribution meaningfully, so the trade is acceptable for
+    LoRA-style fine-tuning. If reproducing a published Gemma 4 number, this is a deviation
+    worth flagging.
+    """
+    replaced = 0
+    for name, module in list(model.named_modules()):
+        if module.__class__.__name__ == "Gemma4ClippableLinear":
+            parent_name, _, attr = name.rpartition(".")
+            parent = model.get_submodule(parent_name) if parent_name else model
+            inner = getattr(module, "linear", None)
+            if inner is None:
+                # Different wrapper variant — skip rather than break the model
+                continue
+            setattr(parent, attr, inner)
+            replaced += 1
+    if replaced:
+        print(f"  stripped {replaced} Gemma4ClippableLinear wrappers (inner Linear4bit exposed)")
+    return model
+
+
 def _load_pairs(path: str) -> List[dict]:
     with open(path) as f:
         return [json.loads(line) for line in f if line.strip()]
@@ -100,6 +132,7 @@ def main():
 
     print("attaching LoRA adapter for policy...")
     model = prepare_model_for_kbit_training(model)
+    model = _strip_clippable_linear_wrappers(model)
     lora_config = LoraConfig(
         r=lora_rank,
         lora_alpha=lora_rank * 2,
