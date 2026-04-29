@@ -8,7 +8,7 @@
 #   - watchdog runs locally with auto-destroy on completion
 #
 # Usage: bash scripts/launch_dpo.sh [base_model] [hub_repo] [gpu_filter]
-#   defaults: google/gemma-4-4b-it   kilojoules/surface-tension-dpo   RTX_4090
+#   defaults: google/gemma-3-4b-it   kilojoules/surface-tension-dpo   RTX_4090
 #
 # 4B fits on a 4090 with room to spare → cheap pipeline validation (~$1).
 # For 31B, pass:
@@ -16,9 +16,10 @@
 #
 # 31B at 4-bit needs ~16GB weights + ~16GB activations during the reference-deltas
 # forward pass — does NOT fit on 24GB 4090 (OOMs at ~22GB), needs 80GB H100/H200.
+# Note: Gemma 4 only ships a 31B variant; smaller sizes are Gemma 3 (1b/4b/12b/27b).
 
 set -e
-BASE_MODEL="${1:-google/gemma-4-4b-it}"
+BASE_MODEL="${1:-google/gemma-3-4b-it}"
 HUB_REPO="${2:-kilojoules/surface-tension-dpo}"
 GPU_FILTER="${3:-RTX_4090}"
 
