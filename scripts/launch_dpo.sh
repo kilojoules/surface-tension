@@ -32,15 +32,20 @@ INSTANCE_FILE="$LOCAL/vast_current.env"
 case "$GPU_FILTER" in
     RTX_4090)   DPH_MAX=0.50 ;;
     H100_SXM)   DPH_MAX=2.50 ;;
+    H100_NVL)   DPH_MAX=2.50 ;;
+    H100_PCIE)  DPH_MAX=2.50 ;;
     H200)       DPH_MAX=3.50 ;;
     *)          DPH_MAX=2.50 ;;
 esac
+
+# Reliability floor depends on GPU class — H100s are scarcer than 4090s
+RELIABILITY="${RELIABILITY:-0.995}"
 
 echo "=== launch_dpo: $BASE_MODEL → $HUB_REPO ==="
 
 # 1. Find a cheap reliable 4090
 OFFER_ID=$(echo "n" | vastai search offers \
-    "gpu_name=$GPU_FILTER num_gpus=1 dph<$DPH_MAX inet_down>500 disk_space>=80 reliability>0.998" \
+    "gpu_name=$GPU_FILTER num_gpus=1 dph<$DPH_MAX inet_down>200 disk_space>=80 reliability>$RELIABILITY" \
     --order 'dph' --limit 1 --raw 2>&1 | grep -v "Update\|selected" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
@@ -116,6 +121,7 @@ echo "launching pipeline on box..."
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "cd /workspace/st/src && \
      nohup env BASE_MODEL='$BASE_MODEL' HUB_REPO='$HUB_REPO' \
+            MAX_LENGTH='${MAX_LENGTH:-2048}' MAX_NEW_TOKENS='${MAX_NEW_TOKENS:-1536}' \
        bash -euo pipefail -c 'python -u dpo_train.py 2>&1 | tee /workspace/dpo_train.log
                 python -u sweep_local.py \
                   --problems ../data/problems_lcb.jsonl \
@@ -124,6 +130,7 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
                   --base-model \"\$BASE_MODEL\" \
                   --adapter ../outputs/dpo_run1/final_adapter \
                   --n-samples 3 \
+                  --max-new-tokens \$MAX_NEW_TOKENS \
                   --constraints no_loops_no_recursion 2>&1 | tee /workspace/sweep_local.log
                 python -u aggregate.py \
                   --csv ../results/raw/pilot_v6_dpo_raw.csv \
