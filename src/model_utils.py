@@ -28,8 +28,36 @@ BNB_CONFIG = BitsAndBytesConfig(
 )
 
 
+def strip_clippable_linear_wrappers(model):
+    """Replace Gemma4ClippableLinear with its inner Linear4bit so PEFT can hook it.
+
+    Gemma 4 wraps every linear in a custom Gemma4ClippableLinear (an activation-clipping
+    wrapper). PEFT's LoRA injector only recognizes a hardcoded list of base linear types
+    and refuses to patch the custom wrapper, so we expose the inner Linear4bit directly.
+    The clipping is removed at inference/training time. At bf16/4-bit the impact is small;
+    flag if comparing to published Gemma 4 numbers.
+    """
+    replaced = 0
+    for name, module in list(model.named_modules()):
+        if module.__class__.__name__ == "Gemma4ClippableLinear":
+            parent_name, _, attr = name.rpartition(".")
+            parent = model.get_submodule(parent_name) if parent_name else model
+            inner = getattr(module, "linear", None)
+            if inner is None:
+                continue
+            setattr(parent, attr, inner)
+            replaced += 1
+    if replaced:
+        print(f"  stripped {replaced} Gemma4ClippableLinear wrappers")
+    return model
+
+
 def load_model(model_id: str, adapter_path: Optional[str] = None, dtype=torch.bfloat16):
-    """Load a 4-bit-quantized causal LM and tokenizer. Optionally attach a LoRA adapter."""
+    """Load a 4-bit-quantized causal LM and tokenizer. Optionally attach a LoRA adapter.
+
+    Strips Gemma4ClippableLinear wrappers BEFORE applying the adapter so PEFT can hook
+    it (Gemma 4 doesn't work otherwise; harmless on other models).
+    """
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -40,6 +68,7 @@ def load_model(model_id: str, adapter_path: Optional[str] = None, dtype=torch.bf
         device_map="auto",
         torch_dtype=dtype,
     )
+    model = strip_clippable_linear_wrappers(model)
     if adapter_path:
         model = PeftModel.from_pretrained(model, adapter_path)
     return model, tokenizer
