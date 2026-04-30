@@ -1,0 +1,2 @@
+benchmark,constraint,n_unconstrained_kept,n_constrained_kept,n_compliant,unc_reject_rate,con_reject_rate,pass_unconstrained,pass_overall,drop_overall,compliance_rate,pass_among_compliant,drop_among_compliant,binding_score_legacy
+lcb_medium,no_loops_no_recursion,9,1,1,0.9474,0.9942,0.8889,0.0,0.8889,1.0,0.0,0.8889,0.8889
