@@ -91,9 +91,21 @@ def _attach_lora(model, rank: int, alpha: int, dropout: float):
 
 def _completion_loss(model, tokenizer, prompt: str, completion: str, max_length: int, max_prompt_length: int) -> torch.Tensor:
     """Negative mean log-prob over completion tokens. Loss is zero only when the model
-    assigns probability 1 to every completion token; non-negative everywhere."""
+    assigns probability 1 to every completion token; non-negative everywhere.
+
+    Wraps the prompt in the tokenizer's chat template so the train-time prompt format
+    matches inference-time (instruction-tuned models silently fail when these diverge).
+    """
+    if getattr(tokenizer, "chat_template", None):
+        formatted_prompt = tokenizer.apply_chat_template(
+            [{"role": "user", "content": prompt}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+    else:
+        formatted_prompt = prompt
     # Front-truncate the prompt to keep room for the completion
-    prompt_ids = tokenizer(prompt, add_special_tokens=False).input_ids
+    prompt_ids = tokenizer(formatted_prompt, add_special_tokens=False).input_ids
     completion_ids = tokenizer(completion, add_special_tokens=False).input_ids
     if len(prompt_ids) > max_prompt_length:
         prompt_ids = prompt_ids[len(prompt_ids) - max_prompt_length:]

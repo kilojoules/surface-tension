@@ -85,8 +85,23 @@ def unload_model(*objs):
 
 def generate_text(model, tokenizer, prompt: str, max_new_tokens: int = 1024,
                   temperature: float = 0.7, top_p: float = 0.95) -> str:
-    """Single-prompt completion via transformers.generate. Returns just the new text."""
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=4096).to(model.device)
+    """Single-prompt completion via transformers.generate. Returns just the new text.
+
+    Wraps the prompt in the tokenizer's chat template (with `add_generation_prompt=True`)
+    so instruction-tuned models actually enter response mode. Without the template,
+    instruction-tuned models like Gemma 4 31B-it produce degenerate output ~95% of
+    the time — vLLM auto-applies it, transformers.generate doesn't.
+    """
+    if getattr(tokenizer, "chat_template", None):
+        formatted = tokenizer.apply_chat_template(
+            [{"role": "user", "content": prompt}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+    else:
+        formatted = prompt  # base/non-instruct models: pass through
+
+    inputs = tokenizer(formatted, return_tensors="pt", truncation=True, max_length=4096).to(model.device)
     with torch.no_grad():
         out = model.generate(
             **inputs,
@@ -104,14 +119,26 @@ def completion_logprob(model, tokenizer, prompt: str, completion: str,
                        max_length: int = 2048) -> torch.Tensor:
     """Sum of log-probs of completion tokens conditioned on prompt.
 
-    Single forward pass over the concatenation [prompt, completion]; sum
-    log-probs only over the completion span. Returns a scalar tensor with
-    grad enabled iff model.training.
+    Single forward pass over the concatenation [chat-templated prompt, completion];
+    sum log-probs only over the completion span. Returns a scalar tensor with grad
+    enabled iff model.training.
 
-    Truncates from the *front* if the joint length exceeds max_length so
-    the completion stays intact (the loss would otherwise see a misaligned span).
+    The prompt is wrapped in the tokenizer's chat template so the train-time and
+    inference-time prompt formats match (instruction-tuned models silently fail
+    when training-prompt and inference-prompt formats diverge).
+
+    Truncates from the front if the joint length exceeds max_length so the
+    completion stays intact (the loss would otherwise see a misaligned span).
     """
-    prompt_ids = tokenizer(prompt, add_special_tokens=False).input_ids
+    if getattr(tokenizer, "chat_template", None):
+        formatted_prompt = tokenizer.apply_chat_template(
+            [{"role": "user", "content": prompt}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+    else:
+        formatted_prompt = prompt
+    prompt_ids = tokenizer(formatted_prompt, add_special_tokens=False).input_ids
     completion_ids = tokenizer(completion, add_special_tokens=False).input_ids
 
     # Front-truncate the prompt if joint > max_length
