@@ -33,6 +33,10 @@ SENTINEL="${1:-$LOCAL/vast_logs/$INST/.eval_done}"
 INTERVAL=${VLLM_WATCHDOG_INTERVAL:-60}
 MAX_MIN=${VLLM_WATCHDOG_MAX_MIN:-90}
 MAX_FAILS=${VLLM_WATCHDOG_MAX_FAILS:-5}
+# vLLM cold start (image pull + 4B/31B model download + warmup) can take 10-20 min.
+# Don't count probe failures against MAX_FAILS until we've seen at least one 200,
+# but DO enforce STARTUP_GRACE_MIN as a hard cap on "never came up at all".
+STARTUP_GRACE_MIN=${VLLM_STARTUP_GRACE_MIN:-25}
 
 LOG="$LOCAL/vast_logs/vllm_watchdog_${INST}.log"
 mkdir -p "$(dirname "$LOG")" "$(dirname "$SENTINEL")"
@@ -53,10 +57,11 @@ destroy_and_exit() {
 }
 
 fails=0
+ever_responded=0
 start=$(date +%s)
 
 log "vllm_watchdog start: instance=$INST  endpoint=$ENDPOINT_URL"
-log "  interval=${INTERVAL}s max=${MAX_MIN}m max_fails=$MAX_FAILS"
+log "  interval=${INTERVAL}s max=${MAX_MIN}m max_fails=$MAX_FAILS startup_grace=${STARTUP_GRACE_MIN}m"
 log "  sentinel: $SENTINEL"
 
 while true; do
@@ -75,13 +80,27 @@ while true; do
 
     # 3) HTTP liveness
     if probe; then
+        if [ "$ever_responded" = "0" ]; then
+            log "  [up] vLLM came up after ${elapsed_min}m (entering normal-watch mode)"
+            ever_responded=1
+        else
+            log "  [ok] vLLM responsive (${elapsed_min}m elapsed)"
+        fi
         fails=0
-        log "  [ok] vLLM responsive (${elapsed_min}m elapsed)"
     else
-        fails=$((fails + 1))
-        log "  [fail] probe $fails/$MAX_FAILS (${elapsed_min}m elapsed)"
-        if [ "$fails" -ge "$MAX_FAILS" ]; then
-            destroy_and_exit "vLLM unresponsive ($fails consecutive probe failures)" 1
+        # During startup grace, probe failures are normal (image pull, model download, warmup).
+        # Only enforce MAX_FAILS once vLLM has responded at least once.
+        if [ "$ever_responded" = "0" ]; then
+            log "  [warmup] probe still failing (${elapsed_min}m / ${STARTUP_GRACE_MIN}m grace)"
+            if [ "$elapsed_min" -ge "$STARTUP_GRACE_MIN" ]; then
+                destroy_and_exit "vLLM never came up within ${STARTUP_GRACE_MIN}m" 1
+            fi
+        else
+            fails=$((fails + 1))
+            log "  [fail] probe $fails/$MAX_FAILS (${elapsed_min}m elapsed)"
+            if [ "$fails" -ge "$MAX_FAILS" ]; then
+                destroy_and_exit "vLLM unresponsive ($fails consecutive probe failures)" 1
+            fi
         fi
     fi
 
