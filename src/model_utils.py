@@ -55,8 +55,13 @@ def strip_clippable_linear_wrappers(model):
 def load_model(model_id: str, adapter_path: Optional[str] = None, dtype=torch.bfloat16):
     """Load a 4-bit-quantized causal LM and tokenizer. Optionally attach a LoRA adapter.
 
-    Strips Gemma4ClippableLinear wrappers BEFORE applying the adapter so PEFT can hook
-    it (Gemma 4 doesn't work otherwise; harmless on other models).
+    Wrapper-stripping rule:
+      - If NO adapter: strip Gemma4ClippableLinear so any subsequent PEFT injection can hook
+        the inner Linear4bit. Used by old DPO path that did get_peft_model post-load.
+      - If LOADING an adapter (sft_train.py path): the adapter was saved with target_modules
+        like `.*\\.q_proj\\.linear$`, i.e. trained against the inner `.linear` of the wrapper.
+        Stripping the wrapper would remove the `.linear` path components and PEFT would fail
+        to find the adapter's targets. Keep the wrapper intact for inference.
     """
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     if tokenizer.pad_token is None:
@@ -68,9 +73,11 @@ def load_model(model_id: str, adapter_path: Optional[str] = None, dtype=torch.bf
         device_map="auto",
         torch_dtype=dtype,
     )
-    model = strip_clippable_linear_wrappers(model)
     if adapter_path:
         model = PeftModel.from_pretrained(model, adapter_path)
+    else:
+        # Only useful for the legacy path; harmless on non-Gemma-4 models (no-op).
+        model = strip_clippable_linear_wrappers(model)
     return model, tokenizer
 
 
