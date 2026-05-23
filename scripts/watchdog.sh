@@ -14,7 +14,7 @@
 set -u
 
 LOCAL=/Users/julianquick/portfolio_copy/surface_tension
-INSTANCE_FILE="$LOCAL/vast_current.env"
+INSTANCE_FILE="${WATCHDOG_INSTANCE_FILE:-$LOCAL/vast_current.env}"
 
 [ ! -f "$INSTANCE_FILE" ] && echo "missing $INSTANCE_FILE" && exit 1
 read INST HOST PORT < "$INSTANCE_FILE"
@@ -34,8 +34,11 @@ do_ssh() { ssh -p "$PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=15 "root
 sync_all() {
     local out="$LOCAL/vast_logs/${INST}"
     mkdir -p "$out"
-    rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ConnectTimeout=30" \
-        "root@$HOST:/workspace/" "$out/" --exclude='*.pyc' --exclude='__pycache__' 2>/dev/null \
+    # Build excludes — adapter dirs are pushed to Hub, no need locally; user can override via WATCHDOG_RSYNC_EXCLUDES
+    local excludes="--exclude='*.pyc' --exclude='__pycache__' --exclude='outputs/*/checkpoint-*' --exclude='outputs/*/final_adapter' --exclude='outputs/*/best_val_adapter'"
+    [ -n "${WATCHDOG_RSYNC_EXCLUDES:-}" ] && excludes="$excludes ${WATCHDOG_RSYNC_EXCLUDES}"
+    eval rsync -az -e \"ssh -p $PORT -o StrictHostKeyChecking=no -o ConnectTimeout=30\" \
+        \"root@$HOST:/workspace/\" \"$out/\" $excludes 2>/dev/null \
         || log "  [sync] failed"
 }
 
@@ -44,7 +47,14 @@ destroy_and_exit() {
     log "=== DESTROY: $reason ==="
     sync_all
     sync_all
-    echo "n" | vastai destroy instance "$INST" 2>&1 | grep -v Update | tee -a "$LOG"
+    case "${PROVIDER:-vast}" in
+        runpod)
+            python3 "$LOCAL/scripts/runpod_kill.py" "$INST" 2>&1 | tee -a "$LOG"
+            ;;
+        *)
+            echo "n" | vastai destroy instance "$INST" 2>&1 | grep -v Update | tee -a "$LOG"
+            ;;
+    esac
     log "=== DONE ==="
     exit "${2:-0}"
 }
@@ -81,7 +91,7 @@ while true; do
     fi
 
     # Process alive?
-    procs=$(do_ssh "ps aux | grep -E 'dpo_train|sft_train|build_sft|sweep_local|aggregate.py' | grep -v grep | wc -l" | tr -d ' ')
+    procs=$(do_ssh "ps aux | grep -E 'dpo_train|sft_train|kto_train|grpo_train|build_sft|build_expanded|build_rationale|sweep_local|aggregate.py|push_adapter|recheck_eval' | grep -v grep | wc -l" | tr -d ' ')
     procs=${procs:-0}
 
     # Log activity

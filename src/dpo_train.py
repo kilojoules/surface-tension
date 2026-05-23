@@ -1,22 +1,30 @@
 """Hand-rolled DPO training. No TRL, no vLLM — only torch + transformers + peft + bitsandbytes.
 
-Modeled on turnstile/turnstile/dpo.py. Per-pair SGD with reference-deltas precomputed
-once before training. Memory-efficient: only one model resident during the training loop
-(the LoRA-augmented policy), not two.
+Per-pair SGD with reference-deltas precomputed once before training. Memory-efficient:
+only one model resident during the training loop (the LoRA-augmented policy).
 
 Loss:  L = -log sigmoid(beta * (policy_delta - ref_delta))
        where delta = logp(chosen | prompt) - logp(rejected | prompt)
 
+ADAPTER_INIT support: when set (e.g. the B1++ SFT adapter), that adapter is loaded
+as the trainable policy AND the reference deltas are computed against it *before* the
+first optimizer step. So the DPO reference is anchored to the SFT checkpoint, not base
+— the policy is regularized toward the loop-averse prior we already trained, while DPO
+pushes it further toward compliant-over-violating preference.
+
 Configurable via env:
-  BASE_MODEL   default google/gemma-4-31B-it
-  DPO_TRAIN    default ../data/dpo_pairs_train.jsonl  (lines: {prompt, chosen, rejected})
-  DPO_OUTPUT   default ../outputs/dpo_run1
-  DPO_BETA     default 0.1
-  DPO_LR       default 5e-6
-  DPO_ITERS    default 0   (0 = num_pairs * 2)
-  LORA_RANK    default 16
-  MAX_LENGTH   default 2048
-  HUB_REPO     optional. If set, push final adapter to <user>/<repo>.
+  BASE_MODEL    default google/gemma-4-31B-it
+  ADAPTER_INIT  starting/reference adapter (e.g. kilojoules/surface-tension-sft-b1plus-r32-final).
+                If unset/"none", trains a fresh LoRA from base (reference = base).
+  DPO_TRAIN     default ../data/dpo_pairs_train.jsonl  (lines: {prompt, chosen, rejected})
+  DPO_OUTPUT    default ../outputs/dpo_run1
+  DPO_BETA      default 0.1
+  DPO_LR        default 5e-6
+  DPO_ITERS     default 0   (0 = num_pairs * 3)
+  DPO_EPOCHS    default 0   (alternative to DPO_ITERS: each epoch = one shuffled pass)
+  LORA_RANK     default 32  (only used for the fresh-LoRA fallback)
+  MAX_LENGTH    default 2048
+  HUB_REPO      optional. If set, push final adapter to <user>/<repo>.
 """
 
 from __future__ import annotations
@@ -28,7 +36,7 @@ from typing import List, Tuple
 
 import torch
 import torch.nn.functional as F
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
 from model_utils import BNB_CONFIG, completion_logprob, strip_clippable_linear_wrappers, unload_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -60,9 +68,13 @@ def main():
     beta = float(os.environ.get("DPO_BETA", "0.1"))
     lr = float(os.environ.get("DPO_LR", "5e-6"))
     iters_env = int(os.environ.get("DPO_ITERS", "0"))
-    lora_rank = int(os.environ.get("LORA_RANK", "16"))
+    epochs_env = int(os.environ.get("DPO_EPOCHS", "0"))
+    lora_rank = int(os.environ.get("LORA_RANK", "32"))
     max_length = int(os.environ.get("MAX_LENGTH", "2048"))
     hub_repo = (os.environ.get("HUB_REPO") or "").strip() or None
+    adapter_init = (os.environ.get("ADAPTER_INIT") or "").strip()
+    if adapter_init.lower() in ("", "none"):
+        adapter_init = None
 
     here = os.path.dirname(os.path.abspath(__file__))
     if not os.path.isabs(train_path):
@@ -81,8 +93,12 @@ def main():
     if not pairs:
         print("no pairs loaded; aborting")
         return
-    n_iters = iters_env if iters_env > 0 else len(pairs) * 2
+    if epochs_env > 0:
+        n_iters = len(pairs) * epochs_env
+    else:
+        n_iters = iters_env if iters_env > 0 else len(pairs) * 3
     print(f"loaded {len(pairs)} pairs; training for {n_iters} iters")
+    print(f"adapter_init = {adapter_init or '(none — fresh LoRA from base)'}")
 
     tokenizer = AutoTokenizer.from_pretrained(base_model)
     if tokenizer.pad_token is None:
@@ -94,23 +110,31 @@ def main():
         device_map="auto",
         torch_dtype=torch.bfloat16,
     )
-
-    print("computing reference deltas (frozen base)...")
-    ref_deltas = _precompute_ref_deltas(model, tokenizer, pairs, max_length)
-
-    print("attaching LoRA adapter for policy...")
-    model = prepare_model_for_kbit_training(model)
+    # Strip Gemma-4 wrappers BEFORE adapter load (B1++ was trained with STRIP_WRAPPERS=1;
+    # the inference-time module structure must match).
     model = strip_clippable_linear_wrappers(model)
-    lora_config = LoraConfig(
-        r=lora_rank,
-        lora_alpha=lora_rank * 2,
-        target_modules=["q_proj", "v_proj"],
-        lora_dropout=0.0,
-        bias="none",
-        task_type="CAUSAL_LM",
-    )
-    model = get_peft_model(model, lora_config)
+    model = prepare_model_for_kbit_training(model)
+
+    if adapter_init:
+        print(f"loading policy adapter from {adapter_init} (trainable)...")
+        model = PeftModel.from_pretrained(model, adapter_init, is_trainable=True)
+    else:
+        print("attaching fresh LoRA adapter for policy...")
+        lora_config = LoraConfig(
+            r=lora_rank, lora_alpha=lora_rank * 2,
+            target_modules=["q_proj", "v_proj"],
+            lora_dropout=0.0, bias="none", task_type="CAUSAL_LM",
+        )
+        model = get_peft_model(model, lora_config)
+    model.enable_input_require_grads()
     model.print_trainable_parameters()
+
+    # Reference deltas: computed NOW, with the policy adapter active but before any
+    # optimizer step → the DPO reference is exactly the init policy (B1++ if adapter_init
+    # set, base otherwise). Frozen detached scalars; the training loop updates the same
+    # adapter but ref_deltas stay fixed.
+    print(f"computing reference deltas (reference = {adapter_init or 'base'})...")
+    ref_deltas = _precompute_ref_deltas(model, tokenizer, pairs, max_length)
 
     model.train()
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)

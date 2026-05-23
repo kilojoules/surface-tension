@@ -28,3 +28,16 @@ __pycache__/
 .claude/
 vast_logs/
 vast_current.env
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.synctex.gz
+
+# Editor backup files
+*.bak

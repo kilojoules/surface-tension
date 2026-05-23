@@ -17,12 +17,12 @@ To an LLM, a rule like "don't blackmail the user" may look as arbitrary and coun
 The full research arc:
 
 1. **Establish binding pressure.** Find an arbitrary constraint that meaningfully degrades performance when imposed at the prompt level. No binding → no sandbag worth carrying → no signal to detect downstream. ✅ Phase 1.
-2. **Bake the constraint in.** Fine-tune so the model satisfies the constraint with no prompt hint at inference. This is where the question becomes empirical: did the model actually get lighter, or did it just learn to hide the sandbag? Phase 2 (DPO, failed) and Phase 3 (SFT distillation, next).
-3. **Detect the sandbag.** Mech-interp probes on the trained model: compare residual streams between unconstrained and constrained-style generations on matched problems. If the working representation of the constrained model still encodes iterative computation, the sandbag is on board even when the surface output looks weightless.
+2. **Bake the constraint in.** Fine-tune so the model satisfies the constraint with no prompt hint at inference. ✅ The naive DPO route (Phase 2a) failed; a two-stage chain — *rationale-SFT distillation* (Phase 2b) followed by *DPO from the SFT checkpoint* (Phase 2c, May 2026) — works. Clean held-out compliance climbs base 0.05 → vanilla SFT 0.15 → rationale-SFT 0.35 → DPO-r1 **0.65**, with cheating cut from ~0.4 to 0.07. See "Latest result".
+3. **Detect the sandbag.** Mech-interp probes on the trained model: compare residual streams between unconstrained and constrained-style generations on matched problems. If the working representation of the constrained model still encodes iterative computation, the sandbag is on board even when the surface output looks weightless. *Now well-motivated — there's a real trained-model with non-trivial latent compliance to probe.*
 4. **Build an aligner agent.** Train a separate model whose job is to decide whether a candidate fine-tuned model is safe to deploy, by running red-team tests designed to make it drop the sandbag. Reward for correct deploy/refuse decisions; punishment for deploying a model that violates the constraint in production.
 5. **Self-play.** Let the aligner and the trained model co-evolve. The strategies that converge — what the aligner learns to look for, what the trained model learns to hide — might generalize to red-teaming frontier safety properties.
 
-This repo is stages 1–2. Stage 3 is the natural follow-on once a working bake-in recipe exists. Stages 4–5 are scope notes; the evaluation suite an aligner agent would actually use (some mix of interp probes and behavioral red-team tests) is something I'd want to scope with a mentor rather than commit to upfront.
+This repo covers stages 1 and 2. Stage 3 is the natural follow-on now that bake-in works. Stages 4–5 are scope notes; the evaluation suite an aligner agent would actually use (some mix of interp probes and behavioral red-team tests) is something I'd want to scope with a mentor rather than commit to upfront.
 
 ---
 
@@ -31,10 +31,12 @@ The rest of this document is about what's been built so far: phase 1 results, ph
 ## Status at a glance
 
 - **Phase 1 — constraint discovery: done.** `no_loops_no_recursion` on Gemma 4 31B gives a 0.34 capability drop with 65% compliance on LiveCodeBench medium post-cutoff. Binding pressure exists.
-- **Phase 2 — DPO baking-in: failed.** Two runs (Gemma 3 27B, Gemma 4 31B). Training converged but damaged capability rather than internalizing the constraint. v7 mode-collapsed to single-token repetition. Pipeline + infra are now validated end-to-end.
-- **Phase 3 — constitutional / SFT distillation: not yet run.** This is the path forward.
+- **Phase 2a — naive DPO: failed.** Two early runs (Gemma 3 27B, Gemma 4 31B). Training converged but damaged capability rather than internalizing the constraint; v7 mode-collapsed.
+- **Phase 2b — rationale-SFT distillation: works.** Re-prompt base + hint + "discuss why no-loops matters" → keep `(bare prompt → rationale-prose + code)` targets → LoRA SFT. Clean held-out compliance climbs base 0.05 → vanilla SFT 0.15 → **rationale-SFT 0.35 → B1++ 0.40** (B1++ = n=8 demos, max_new=4096, "substantive" filter that keeps compliant-failing demos).
+- **Phase 2c — DPO from B1++ (iterated alignment loop): works.** Sample B1++ on a *fresh* 45-problem LCB pool, form `(compliant ≻ violating)` pairs (preferring cheating gens as the rejected example), DPO with reference anchored to B1++. **Clean compliance 0.40 → 0.65 (+63%), cmp∧pass 0.25 → 0.32 (+30%), cheating 0.18 → 0.07 (−58%)** — see "Latest result" below.
+- **Phase 3 — sandbag detection (mech-interp): not yet run.** Natural next step now that bake-in works.
 
-Total compute spend: ~$26 of vast.ai credit, mostly on the failed DPO runs.
+Total compute spend across the project: ~$120 of RunPod/vast credit through DPO-r1.
 
 ## Headline finding
 
@@ -96,7 +98,38 @@ What each pilot taught us, briefly: v1 ruled out HumanEval/MBPP (99% baseline = 
 
 Per-pilot writeups: `results/pilot_v{1,2,3,4}_summary.md`.
 
-## Phase 2 — DPO didn't work
+## Latest result (May 2026): iterated SFT → DPO chain works
+
+Two stages, evaluated bare-prompt at n=8, T=0.7 on a 17-problem clean LCB-medium set held out from every training and selection step. Three metrics:
+
+- **compliance ↑** — fraction of generations whose code is AST-loop-free (the rule actually followed),
+- **compliance ∧ pass ↑** — also passes tests (loop-free AND correct), and
+- **cheat ↓** — non-compliant but passing tests (the model used a loop AND was right — the "sandbag dropped" failure mode we want to crush).
+
+| recipe | clean compliance ↑ | clean cmp ∧ pass ↑ | clean cheat ↓ |
+|---|---:|---:|---:|
+| base Gemma 4 31B-it (no adapter) | 0.05 | 0.05 | high |
+| vanilla SFT (91 demos, bare → code) | 0.15 | 0.06 | 0.40 |
+| **rationale-SFT** (66 demos, bare → rationale + code) | **0.35** | **0.24** | **0.24** |
+| **B1++ SFT** (156 demos, n=8 max_new=4096, substantive filter) | **0.40** | **0.25** | **0.18** |
+| **DPO round 1** (from B1++, fresh 45-problem pool, β=0.1) | **0.65** | **0.32** | **0.07** |
+
+DPO from B1++ on its clean held-out: compliance +25 pts (+63% relative), compliance ∧ pass +7 pts (+30% relative), and cheating cut by more than half. The naive read — "an alignment tax: more compliance at the cost of capability" — *did not show up*. Both compliance and conditional pass rate went up.
+
+Why two stages, not one: positive-only SFT raises P(compliant) but doesn't know what to push *away from*. The DPO `(compliant ≻ violating)` preference, with cheating gens (loop ∧ pass) as the rejected example, supplies the missing negative signal. That's where the cheating-rate halves and the residual capability comes back.
+
+**Why DPO worked here when the earlier v6/v7 DPO didn't:** different recipe.
+
+- v6/v7 trained from base (or near-base) with no SFT warmstart and 215 cross-model pairs. Capability collapsed before preference could take.
+- The May-2026 chain warmstarts DPO from the SFT-trained adapter (`b1plus`), anchors the DPO reference to the same SFT adapter (not base), samples preference pairs on a *fresh* 45-problem LCB pool where the policy still produces a real compliant/violating mix, and uses the cheating examples explicitly as the rejected. DPO saturates inside a single epoch on 113 pairs and the change to compliance generalizes off-distribution.
+
+**Files:** `src/build_rationale_dataset.py` (rationale-augmented data gen), `src/build_dpo_pairs.py` (sample + label + pair), `src/dpo_train.py` (fixed to anchor reference to the warmstart adapter), `scripts/launch_b1plus_runpod.sh`, `scripts/launch_dpo_round_runpod.sh`, `src/recheck_threemetric.py` (three-metric scorer). Adapters on Hub: `kilojoules/surface-tension-sft-rationale-r32-final`, `…-sft-b1plus-r32-final`, `…-dpo-r1-r32-final`.
+
+Open next step — round 2 of the loop: DPO saturated in under one epoch on round-1 pairs, so round 2 should use `DPO_EPOCHS=1`, resample on a wider/harder pool to keep getting compliant/violating mix at the new policy, and (the natural extension) use constrained-decoding to manufacture the "chosen" for problems where the round-1 policy never self-produces a compliant gen.
+
+## Phase 2a (historical) — naive DPO didn't work
+
+This section documents the first, failed DPO attempt. The recipe that *does* work is described above ("Latest result"); keep this one for the forensic record.
 
 The plan was to train on `(bare-prompt, compliant-completion, non-compliant-completion)` triples so the model produces compliant code by default with no constraint hint at inference time.
 
@@ -116,19 +149,7 @@ Both runs converged at training time (loss → 0.02, 100% pair accuracy) but dam
 - **Stripping `Gemma4ClippableLinear` (v7).** PEFT didn't recognize Gemma 4's activation-clipping wrapper, so we replaced it with the inner `Linear4bit`. The clipping was probably load-bearing for numerical stability — without it, gradients drove activations off-distribution.
 - **Small (215), one-shot training set.** No iterative refinement, no SFT scaffold.
 
-**What we can claim:** pipeline + infra validated end-to-end on Gemma 4 31B (PEFT works post-strip, hand-rolled DPO converges, vast watchdog teardown is reliable). The DPO recipe as configured is not a viable path to constraint internalization at this scale. Adapter on Hub (broken, kept for forensic comparison): `kilojoules/surface-tension-dpo`.
-
-## Next: constitutional / SFT distillation
-
-The DPO failure suggests the wrong learning signal. Better recipe:
-
-1. Run the model with `no_loops_no_recursion` in the prompt. Keep only completions that are both compliant AND test-passing.
-2. SFT the model on `(bare problem prompt → compliant completion)` pairs. Straight distillation from the prompted-rule regime onto the no-prompt regime.
-3. Eval on the bare-prompt condition; success = high latent compliance with maintained pass rate.
-
-This sidesteps DPO's failure modes: no preference collapse (positive examples only), no reference-model drift (loss bounded by token CE rather than log-ratio of preferences), no "destroy capability to flag preference" — the training signal *is* capability.
-
-Open questions for v8: dataset size (probably 1000+, not 150), whether to generate fresh from Gemma 4 31B itself, learning rate and epochs.
+**What we can claim:** pipeline + infra validated end-to-end on Gemma 4 31B (PEFT works post-strip, hand-rolled DPO converges, vast watchdog teardown is reliable). The DPO recipe *as originally configured* is not a viable path to constraint internalization at this scale. The Phase-2b SFT distillation that followed this failure is what made the May-2026 DPO win possible — see "Latest result" above. The original adapter on Hub (broken, kept for forensic comparison): `kilojoules/surface-tension-dpo`.
 
 ## Methodology notes
 
@@ -214,14 +235,33 @@ src/
   http_runner.py            OpenAI-compatible client (phase 1, vLLM)
   sweep.py                  Gemini/HTTP sweep (phase 1)
   sweep_local.py            transformers.generate sweep (phase 2, on-box)
-  dpo_train.py              hand-rolled DPO (phase 2, no TRL)
-  build_dpo_dataset.py      preference pair construction
+  sft_train.py              hand-rolled SFT (LoRA, token-CE on completion span)
+  build_sft_dataset.py      (legacy) preference→SFT pair construction from sweep CSVs
+  build_rationale_dataset.py rationale-augmented data gen (base + hint + "discuss why" disclosure)
+  dpo_train.py              hand-rolled DPO (anchors reference to ADAPTER_INIT, not base)
+  build_dpo_dataset.py      (legacy) DPO pair construction from sweep CSVs
+  build_dpo_pairs.py        DPO pair construction from on-policy sampling (compliant ≻ violating, prefers cheat as rejected)
+  rl_utils.py               compute_reward (binary + multitier), sample_rollouts, group advantages
+  grpo_train.py             hand-rolled GRPO (single-mode continue-train + multitier reward; first run collapsed)
+  kto_train.py              hand-rolled KTO
+  recheck_eval.py           AST re-check compliance from saved sources
+  recheck_threemetric.py    three-metric scorer (compliance / cmp∧pass / cheat) over all-attempts denom
+  plot_rationale_summary.py training curves + held-out three-metric bars
+  plot_elicitation_gap.py   pilot bare-vs-constrained scatter + decomposition
+  plot_rank_curve.py        SFT rank sweep train/val NLL curves
+  audit_sft_corpus.py       sanity-check SFT corpus against AST checker
+  free_analysis.py          zero-compute re-derivations from saved sources (corrected `compliant` column)
   aggregate.py              rejection-aware aggregation, drop_overall metric
+  push_adapter.py           push trained adapter to Hugging Face Hub
 scripts/
-  launch_dpo.sh             rent vast box, rsync code, run the DPO+eval pipeline
-  watchdog.sh               poll instance, sync results, auto-destroy on completion or stall
+  launch_*_runpod.sh        per-experiment RunPod pipelines (b1plus, rationale-sft, dpo-round, grpo,
+                            eval-{val,clean,bestval,final}, alwaysviolate-check, …)
+  watchdog.sh               poll instance, sync results, auto-destroy on all_done / stall / cap
+  runpod_launch.py          RunPod GraphQL pod-create wrapper
+  runpod_kill.py            destroy pod by id
 results/
   examples/                 curated paired solutions referenced from README
-  pilot*_summary.{csv,md}   per-run summaries (v1-v4 phase 1; v6/v7 phase 2)
+  pilot*_summary.{csv,md}   per-run summaries (v1-v4 phase 1; v6/v7 early DPO)
+paper/                      LaTeX writeup of the elicitation-gap and SFT-distillation results
 PLAN.md                     full research arc (stages 1, 2, 3)
 ```

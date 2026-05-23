@@ -13,6 +13,7 @@ conflicts on fresh CUDA boxes. transformers + peft + bitsandbytes is enough.
 from __future__ import annotations
 
 import gc
+import os
 from typing import Optional
 
 import torch
@@ -53,31 +54,33 @@ def strip_clippable_linear_wrappers(model):
 
 
 def load_model(model_id: str, adapter_path: Optional[str] = None, dtype=torch.bfloat16):
-    """Load a 4-bit-quantized causal LM and tokenizer. Optionally attach a LoRA adapter.
+    """Load a causal LM (4-bit by default) and tokenizer. Optionally attach a LoRA adapter.
 
-    Wrapper-stripping rule:
-      - If NO adapter: strip Gemma4ClippableLinear so any subsequent PEFT injection can hook
-        the inner Linear4bit. Used by old DPO path that did get_peft_model post-load.
-      - If LOADING an adapter (sft_train.py path): the adapter was saved with target_modules
-        like `.*\\.q_proj\\.linear$`, i.e. trained against the inner `.linear` of the wrapper.
-        Stripping the wrapper would remove the `.linear` path components and PEFT would fail
-        to find the adapter's targets. Keep the wrapper intact for inference.
+    Wrapper-stripping: by default we strip the Gemma4ClippableLinear wrappers before
+    attaching the adapter. This is REQUIRED for adapters trained with sft_train.py's
+    STRIP_WRAPPERS=1 (the post-2026-05 default) — those adapters target the bare `q_proj`
+    etc., not `q_proj.linear`, so the inference-time module structure must match. The
+    pre-fix v8-era adapters (which targeted `q_proj.linear`) are obsolete and not loadable
+    this way; set LOAD_STRIP_WRAPPERS=0 only if you specifically need that legacy path.
+
+    Env:
+      QUANT_BIT          4 (default) ⇒ 4-bit NF4; 0 ⇒ full bf16.
+      LOAD_STRIP_WRAPPERS 1 (default) ⇒ strip Gemma4ClippableLinear before adapter load.
     """
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        quantization_config=BNB_CONFIG,
-        device_map="auto",
-        torch_dtype=dtype,
-    )
+    quant_bit = int(os.environ.get("QUANT_BIT", "4"))
+    strip_wrappers = os.environ.get("LOAD_STRIP_WRAPPERS", "1") == "1"
+    kwargs = dict(device_map="auto", torch_dtype=dtype)
+    if quant_bit == 4:
+        kwargs["quantization_config"] = BNB_CONFIG
+    model = AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
+    if strip_wrappers:
+        model = strip_clippable_linear_wrappers(model)  # no-op on non-Gemma-4 models
     if adapter_path:
         model = PeftModel.from_pretrained(model, adapter_path)
-    else:
-        # Only useful for the legacy path; harmless on non-Gemma-4 models (no-op).
-        model = strip_clippable_linear_wrappers(model)
     return model, tokenizer
 
 

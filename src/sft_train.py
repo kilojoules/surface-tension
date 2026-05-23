@@ -51,7 +51,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from ast_checks import CHECKS
 from evaluator import evaluate, evaluate_stdin
 from loaders import load_problems_jsonl
-from model_utils import BNB_CONFIG, completion_logprob, unload_model
+from model_utils import BNB_CONFIG, completion_logprob, strip_clippable_linear_wrappers, unload_model
 from sweep_local import build_prompt, extract_code
 
 
@@ -253,13 +253,20 @@ def main():
 
     examples = _load_examples(train_path)
     print(f"loaded {len(examples)} train examples")
+    limit_n = int(os.environ.get("SFT_LIMIT_N", "0"))
+    if limit_n > 0 and limit_n < len(examples):
+        rng_sample = random.Random(seed)
+        examples = rng_sample.sample(examples, limit_n)
+        print(f"SFT_LIMIT_N={limit_n}: subsampled to {len(examples)} examples (seed={seed})")
     if not examples:
         print("no examples; aborting")
         return
 
-    # Held-out problems for mid-eval (problem-level holdout from build_sft_dataset)
+    # Held-out problems for mid-eval (problem-level holdout from build_sft_dataset).
+    # Skip entirely when mid-eval is disabled (eval_n == 0) — avoids needing the
+    # problems file at all for pure training runs.
     eval_problems_all = []
-    if os.path.exists(eval_path):
+    if eval_n > 0 and os.path.exists(eval_path) and os.path.exists(problems_path):
         eval_pids = {json.loads(line)["problem_id"] for line in open(eval_path)}
         all_problems = load_problems_jsonl(problems_path)
         eval_problems_all = [p for p in all_problems if p["id"] in eval_pids]
@@ -272,15 +279,42 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = AutoModelForCausalLM.from_pretrained(
-        base_model,
-        quantization_config=BNB_CONFIG,
-        device_map="auto",
-        torch_dtype=torch.bfloat16,
-    )
-    print(f"  has Gemma4ClippableLinear: {_has_clippable_linear(model)}")
+    # --- model setup ---
+    # QUANT_BIT: 4 (default) ⇒ 4-bit NF4 via bitsandbytes; 0 ⇒ full bf16.
+    # STRIP_WRAPPERS: 1 (default) ⇒ replace Gemma4ClippableLinear with its inner Linear
+    #   *before* attaching LoRA. This is required for training: with the wrapper intact,
+    #   PEFT injects LoRA at `q_proj.linear`, but the wrapper's forward uses the original
+    #   linear weights directly, so the LoRA params never participate in the forward pass
+    #   and receive ZERO gradient (the v8-era "non-collapsing" bug). Stripping makes LoRA
+    #   sit on the bare Linear so gradients flow.
+    # USE_GC: 1 (default) ⇒ gradient checkpointing with use_reentrant=False; 0 ⇒ disabled.
+    quant_bit = int(os.environ.get("QUANT_BIT", "4"))
+    strip_wrappers = os.environ.get("STRIP_WRAPPERS", "1") == "1"
+    use_gc = os.environ.get("USE_GC", "1") == "1"
+    print(f"  quant_bit={quant_bit} strip_wrappers={strip_wrappers} use_gc={use_gc}")
 
-    model = prepare_model_for_kbit_training(model)
+    load_kwargs = dict(device_map="auto", torch_dtype=torch.bfloat16)
+    if quant_bit == 4:
+        load_kwargs["quantization_config"] = BNB_CONFIG
+    model = AutoModelForCausalLM.from_pretrained(base_model, **load_kwargs)
+    print(f"  has Gemma4ClippableLinear (pre-strip): {_has_clippable_linear(model)}")
+
+    if strip_wrappers:
+        model = strip_clippable_linear_wrappers(model)
+        print(f"  has Gemma4ClippableLinear (post-strip): {_has_clippable_linear(model)}")
+
+    if quant_bit == 4:
+        # prepare_model_for_kbit_training freezes the base, upcasts layernorms, and
+        # (if requested) sets up gradient checkpointing + input-grad hooks.
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=use_gc)
+    else:
+        # bf16: freeze base manually, optionally enable non-reentrant GC.
+        for p in model.parameters():
+            p.requires_grad_(False)
+        if use_gc:
+            model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+            if hasattr(model, "enable_input_require_grads"):
+                model.enable_input_require_grads()
     model = _attach_lora(model, lora_rank, lora_alpha, lora_dropout)
     model.print_trainable_parameters()
 
@@ -293,11 +327,18 @@ def main():
         [p for p in model.parameters() if p.requires_grad], lr=lr, weight_decay=0.0
     )
 
+    # LR_SCHEDULE: "cosine" (default; decays to 0) or "linear" (linear decay to 10% of peak).
+    # cosine-to-zero over a short run leaves the effective LR near zero for the last ~third
+    # of training; "linear" keeps a usable LR longer, which matters at small step counts.
+    lr_schedule = os.environ.get("LR_SCHEDULE", "cosine")
+
     def lr_at(step: int) -> float:
         if step < warmup_steps:
             return lr * step / warmup_steps
         progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
-        return lr * 0.5 * (1 + math.cos(math.pi * progress))
+        if lr_schedule == "linear":
+            return lr * (1.0 - 0.9 * progress)  # peak → 10% of peak
+        return lr * 0.5 * (1 + math.cos(math.pi * progress))  # cosine → 0
 
     model.train()
     rng2 = random.Random(seed)
@@ -306,6 +347,33 @@ def main():
     start = time.time()
     micro_step = 0
     optimizer.zero_grad()
+
+    log_every = int(os.environ.get("LOG_EVERY", "10"))
+    # VAL_EVERY: if > 0, every N optimizer steps compute mean teacher-forced NLL on the
+    # held-out set (SFT_EVAL) and snapshot the adapter. Cheap (forward passes only, no
+    # generation). Logged as "[val] step N/T val_nll=X". The step with the lowest val_nll
+    # is copied to <output_dir>/best_val_adapter/ at the end. For a meaningful train/val
+    # curve SFT_EVAL must be a *different* problem set than SFT_TRAIN.
+    val_every = int(os.environ.get("VAL_EVERY", "0"))
+    best_val_nll = float("inf"); best_val_step = -1; best_val_dir = None
+    val_examples = []
+    if val_every > 0:
+        try:
+            ve = _load_examples(eval_path) if os.path.exists(eval_path) else []
+            val_examples = ve[: int(os.environ.get("VAL_N", "48"))]
+            print(f"  val set: {len(val_examples)} held-out examples (val every {val_every} steps)")
+        except Exception as e:
+            print(f"  [val] could not load val set: {e}")
+            val_every = 0
+    def _val_nll():
+        if not val_examples: return float("nan")
+        model.eval()
+        tot = 0.0
+        with torch.no_grad():
+            for ex in val_examples:
+                tot += float(_completion_loss(model, tokenizer, ex["prompt"], ex["completion"], max_length, max_prompt_length))
+        model.train()
+        return tot / len(val_examples)
 
     for opt_step in range(total_steps):
         for g in optimizer.param_groups:
@@ -320,14 +388,40 @@ def main():
             accum_loss += loss.item()
             micro_step += 1
         accum_loss /= grad_accum
-        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+        # one-time gradient-flow sanity check — HARD FAIL if no gradient reaches the
+        # trainable params. (The v8-era bug: wrapper-preserved LoRA gets zero grad.)
+        if opt_step == 0:
+            n_with_grad = sum(1 for p in model.parameters() if p.requires_grad and p.grad is not None and p.grad.abs().sum() > 0)
+            n_trainable = sum(1 for p in model.parameters() if p.requires_grad)
+            print(f"  [grad-check] {n_with_grad}/{n_trainable} trainable params have nonzero grad; pre-clip grad_norm={float(grad_norm):.4e}")
+            if n_with_grad == 0 or float(grad_norm) == 0.0:
+                raise RuntimeError(
+                    "ZERO GRADIENT after first optimizer step — training would be a no-op. "
+                    "Check that LoRA is attached to modules that actually participate in the "
+                    "forward pass (Gemma 4: strip the Gemma4ClippableLinear wrappers first)."
+                )
         optimizer.step()
         optimizer.zero_grad()
         losses.append(accum_loss)
 
-        if (opt_step + 1) % 10 == 0:
-            avg = sum(losses[-10:]) / min(10, len(losses))
-            print(f"  step {opt_step+1}/{total_steps}  loss={avg:.4f}  lr={lr_at(opt_step):.2e}  ({time.time()-start:.0f}s)")
+        if (opt_step + 1) % log_every == 0:
+            avg = sum(losses[-log_every:]) / min(log_every, len(losses))
+            print(f"  step {opt_step+1}/{total_steps}  loss={avg:.4f}  grad_norm={float(grad_norm):.3e}  lr={lr_at(opt_step):.2e}  ({time.time()-start:.0f}s)")
+
+        if val_every > 0 and (opt_step + 1) % val_every == 0:
+            vn = _val_nll()
+            tn = sum(losses[-log_every:]) / min(log_every, len(losses))
+            print(f"  [val] step {opt_step+1}/{total_steps}  train_nll≈{tn:.4f}  val_nll={vn:.4f}", flush=True)
+            with open(os.path.join(output_dir, "val_curve.jsonl"), "a") as f:
+                f.write(json.dumps({"step": opt_step + 1, "total_steps": total_steps, "train_nll": tn, "val_nll": vn}) + "\n")
+            # snapshot the adapter at this val step (cheap — adapter is small relative to base)
+            snap_dir = os.path.join(output_dir, f"checkpoint-step{opt_step+1}")
+            model.save_pretrained(snap_dir)
+            # track the best-val checkpoint
+            if vn < best_val_nll:
+                best_val_nll = vn; best_val_step = opt_step + 1; best_val_dir = snap_dir
+                print(f"  [val] new best — val_nll={vn:.4f} at step {opt_step+1} → {snap_dir}", flush=True)
 
         # ---- mid-training eval + abort rules ----
         if eval_every > 0 and (opt_step + 1) % eval_every == 0 and mini_eval_problems:
@@ -361,6 +455,48 @@ def main():
     final = os.path.join(output_dir, "final_adapter")
     model.save_pretrained(final)
     print(f"saved final adapter to {final}")
+
+    # If we tracked a best-val checkpoint, copy it to a stable path for the launcher to push.
+    if best_val_dir is not None and os.path.isdir(best_val_dir):
+        import shutil
+        best_dst = os.path.join(output_dir, "best_val_adapter")
+        if os.path.isdir(best_dst): shutil.rmtree(best_dst)
+        shutil.copytree(best_val_dir, best_dst)
+        print(f"saved best-val adapter (step {best_val_step}, val_nll={best_val_nll:.4f}) to {best_dst}", flush=True)
+        with open(os.path.join(output_dir, "best_val.json"), "w") as f:
+            json.dump({"step": best_val_step, "val_nll": best_val_nll, "total_steps": total_steps}, f)
+
+    # ---- fit probe: teacher-forced per-token NLL on train + eval sets, adapter on vs off ----
+    # Cheap (forward passes only). Tells us whether the adapter actually fit the data
+    # (train NLL low?) and whether it generalized within the SFT distribution (eval NLL low?),
+    # relative to the base model (adapter disabled). A converged fit should have train NLL
+    # well below the base; a big train/eval gap = memorization.
+    def _mean_nll(model, exs, limit=None):
+        if limit: exs = exs[:limit]
+        if not exs: return float("nan")
+        model.eval()
+        tot = 0.0; n = 0
+        with torch.no_grad():
+            for ex in exs:
+                l = _completion_loss(model, tokenizer, ex["prompt"], ex["completion"], max_length, max_prompt_length)
+                tot += float(l); n += 1
+        model.train()
+        return tot / max(1, n)
+    try:
+        eval_exs = _load_examples(eval_path) if os.path.exists(eval_path) else []
+        train_nll_adapter = _mean_nll(model, examples)
+        eval_nll_adapter = _mean_nll(model, eval_exs, limit=80)
+        with model.disable_adapter():
+            train_nll_base = _mean_nll(model, examples, limit=80)
+            eval_nll_base = _mean_nll(model, eval_exs, limit=80)
+        print(f"  [fit-probe] train NLL: base={train_nll_base:.4f} adapter={train_nll_adapter:.4f} "
+              f"(Δ={train_nll_base - train_nll_adapter:+.4f}) | eval NLL: base={eval_nll_base:.4f} "
+              f"adapter={eval_nll_adapter:.4f} (Δ={eval_nll_base - eval_nll_adapter:+.4f})", flush=True)
+        with open(os.path.join(output_dir, "fit_probe.json"), "w") as f:
+            json.dump(dict(train_nll_base=train_nll_base, train_nll_adapter=train_nll_adapter,
+                           eval_nll_base=eval_nll_base, eval_nll_adapter=eval_nll_adapter), f)
+    except Exception as e:
+        print(f"  [fit-probe] failed (non-fatal): {e}", flush=True)
 
     # final mini-eval
     if mini_eval_problems:

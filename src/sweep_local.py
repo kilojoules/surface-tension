@@ -189,11 +189,14 @@ def main():
     ap.add_argument("--source-dir", default="../results/raw/sources_local")
     ap.add_argument("--n-samples", type=int, default=3)
     ap.add_argument("--limit-problems", type=int, default=0)
-    ap.add_argument("--constraints", nargs="+", default=["no_loops_no_recursion"])
+    ap.add_argument("--constraints", nargs="*", default=["no_loops_no_recursion"],
+                    help="constraints to also test with-hint. pass --constraints with no values to skip the with-hint pass entirely (bare-prompt-only sweep).")
     ap.add_argument("--base-model", default=os.environ.get("BASE_MODEL", "google/gemma-4-31B-it"))
     ap.add_argument("--adapter", default=os.environ.get("ADAPTER_PATH"))
     ap.add_argument("--max-new-tokens", type=int, default=int(os.environ.get("MAX_NEW_TOKENS", "1536")))
     ap.add_argument("--temperature", type=float, default=0.7)
+    ap.add_argument("--skip-bare", action="store_true",
+                    help="skip the unconstrained bare-prompt pass; sweep only constrained conditions.")
     args = ap.parse_args()
 
     here = os.path.dirname(os.path.abspath(__file__))
@@ -215,8 +218,9 @@ def main():
 
     tasks = []
     for p in problems:
-        for s in range(args.n_samples):
-            tasks.append((p, "none", s))
+        if not args.skip_bare:
+            for s in range(args.n_samples):
+                tasks.append((p, "none", s))
         for c in args.constraints:
             for s in range(args.n_samples):
                 tasks.append((p, c, s))
