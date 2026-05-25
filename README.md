@@ -110,22 +110,29 @@ Two stages, evaluated bare-prompt at n=8, T=0.7 on a 17-problem clean LCB-medium
 |---|---:|---:|---:|
 | base Gemma 4 31B-it (no adapter) | 0.05 | 0.05 | high |
 | vanilla SFT (91 demos, bare → code) | 0.15 | 0.06 | 0.40 |
-| **rationale-SFT** (66 demos, bare → rationale + code) | **0.35** | **0.24** | **0.24** |
-| **B1++ SFT** (156 demos, n=8 max_new=4096, substantive filter) | **0.40** | **0.25** | **0.18** |
-| **DPO round 1** (from B1++, fresh 45-problem pool, β=0.1) | **0.65** | **0.32** | **0.07** |
+| **rationale-SFT** (66 demos, bare → rationale + code) | 0.35 | 0.24 | 0.24 |
+| **B1++ SFT** (156 demos, n=8 max_new=4096, substantive filter) | 0.40 | 0.25 | 0.18 |
+| **DPO round 1** (from B1++, fresh 45-problem pool, β=0.1) | **0.647** | **0.324** | **0.074** |
+| **DPO round 2** (from DPO-r1, same recipe, same pool) | 0.515 | 0.301 | **0.015** |
 
-DPO from B1++ on its clean held-out: compliance +25 pts (+63% relative), compliance ∧ pass +7 pts (+30% relative), and cheating cut by more than half. The naive read — "an alignment tax: more compliance at the cost of capability" — *did not show up*. Both compliance and conditional pass rate went up.
+![Iterated DPO chain](paper/figs/dpo_summary.png)
 
-Why two stages, not one: positive-only SFT raises P(compliant) but doesn't know what to push *away from*. The DPO `(compliant ≻ violating)` preference, with cheating gens (loop ∧ pass) as the rejected example, supplies the missing negative signal. That's where the cheating-rate halves and the residual capability comes back.
+DPO from B1++ on its clean held-out: compliance +25 pts (+63% relative), compliance ∧ pass +7 pts (+30% relative), and cheating cut by more than half. The naive read — "an alignment tax: more compliance at the cost of capability" — *did not show up in round 1*. Both compliance and conditional pass rate went up.
+
+**Round 2 found the trade-off boundary.** Same recipe, sampling DPO-r1 on the same 45-problem pool, β=0.1, 126 preference pairs. The val numbers improved across the board (compliance 0.875 → 0.896, cmp∧pass 0.781 → 0.875, cheat 0.104 → 0.073). But on the truly-held-out clean set the result was qualitatively different: cheating crushed from 0.074 to **0.015 (−80% relative — the model effectively stopped cheating)**, but compliance regressed from 0.647 to 0.515. The cmp∧pass "win quadrant" was preserved (0.324 → 0.301, within sampling noise). About 5pts of the compliance drop was the model emitting no code block at all more often (0.169 → 0.221); the rest was genuinely writing more loop-using-and-failing code.
+
+So the iterated alignment loop **does not** keep delivering free lunches. The first round buys joint progress on compliance, capability, and cheating-reduction. The second round pushes cheating to near-zero — but the policy moves off the joint Pareto-improving direction and instead trades raw compliance for that further cheating cut.
+
+**Why two stages (SFT → DPO), not one:** positive-only SFT raises P(compliant) but doesn't know what to push *away from*. The DPO `(compliant ≻ violating)` preference, with cheating gens (loop ∧ pass) as the rejected example, supplies the missing negative signal. That's where the cheating-rate halves and the residual capability comes back.
 
 **Why DPO worked here when the earlier v6/v7 DPO didn't:** different recipe.
 
 - v6/v7 trained from base (or near-base) with no SFT warmstart and 215 cross-model pairs. Capability collapsed before preference could take.
-- The May-2026 chain warmstarts DPO from the SFT-trained adapter (`b1plus`), anchors the DPO reference to the same SFT adapter (not base), samples preference pairs on a *fresh* 45-problem LCB pool where the policy still produces a real compliant/violating mix, and uses the cheating examples explicitly as the rejected. DPO saturates inside a single epoch on 113 pairs and the change to compliance generalizes off-distribution.
+- The May-2026 chain warmstarts DPO from the SFT-trained adapter (`b1plus`), anchors the DPO reference to the same SFT adapter (not base), samples preference pairs on a *fresh* 45-problem LCB pool where the policy still produces a real compliant/violating mix, and uses the cheating examples explicitly as the rejected. DPO saturates inside a single epoch on ~120 pairs and the change in compliance generalizes off-distribution.
 
-**Files:** `src/build_rationale_dataset.py` (rationale-augmented data gen), `src/build_dpo_pairs.py` (sample + label + pair), `src/dpo_train.py` (fixed to anchor reference to the warmstart adapter), `scripts/launch_b1plus_runpod.sh`, `scripts/launch_dpo_round_runpod.sh`, `src/recheck_threemetric.py` (three-metric scorer). Adapters on Hub: `kilojoules/surface-tension-sft-rationale-r32-final`, `…-sft-b1plus-r32-final`, `…-dpo-r1-r32-final`.
+**Files:** `src/build_rationale_dataset.py` (rationale-augmented data gen), `src/build_dpo_pairs.py` (sample + label + pair, now with incremental write), `src/dpo_train.py` (anchors reference to the warmstart adapter), `scripts/launch_b1plus_runpod.sh`, `scripts/launch_dpo_round_runpod.sh`, `scripts/launch_dpo_yieldprobe_runpod.sh` (the cheap viability probe between rounds), `src/recheck_threemetric.py` (three-metric scorer), `src/plot_dpo_summary.py` (the figure above). Adapters on Hub: `kilojoules/surface-tension-sft-{rationale,b1plus}-r32-final`, `kilojoules/surface-tension-dpo-{r1,r2}-r32-final`.
 
-Open next step — round 2 of the loop: DPO saturated in under one epoch on round-1 pairs, so round 2 should use `DPO_EPOCHS=1`, resample on a wider/harder pool to keep getting compliant/violating mix at the new policy, and (the natural extension) use constrained-decoding to manufacture the "chosen" for problems where the round-1 policy never self-produces a compliant gen.
+**Practical recommendation surfaced by round 2:** if you're deploying for the compliance-as-headline metric, DPO-r1 is the right adapter. If you want cheating reduced to ~zero and can accept ~10 pts compliance regression on truly-held-out problems with the same correctness, DPO-r2 is the choice. Beyond round 2, the loop is unlikely to improve compliance further on this pool — the next step is either a wider/harder pool, a constrained-decode teacher for always-violating problems, or a different mechanism.
 
 ## Phase 2a (historical) — naive DPO didn't work
 

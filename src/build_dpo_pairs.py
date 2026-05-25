@@ -140,7 +140,13 @@ def main():
 
     model, tokenizer = load_model(args.base_model, adapter_path=args.adapter)
 
-    all_pairs: List[Dict[str, str]] = []
+    # Incremental write: open the output file now and append each pair as it's produced.
+    # An external pod-death mid-script then leaves a complete, parseable jsonl of every
+    # pair sampled up to that point, rather than losing everything to an unwritten buffer.
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
+    out_fh = open(args.out, "w", buffering=1)  # line-buffered
+
+    total_pairs = 0
     stats = {"problems_with_pairs": 0, "compliant_total": 0, "violating_total": 0,
              "cheat_total": 0, "no_pair": 0}
 
@@ -192,13 +198,14 @@ def main():
             for ri in range(len(rejected_pool)):
                 if emitted >= n_pairs:
                     break
-                all_pairs.append({
+                out_fh.write(json.dumps({
                     "problem_id": p["id"],
                     "prompt": bare,
                     "chosen": chosen_pool[ci],
                     "rejected": rejected_pool[ri],
-                })
+                }) + "\n")
                 emitted += 1
+                total_pairs += 1
             if emitted >= n_pairs:
                 break
         stats["problems_with_pairs"] += 1
@@ -206,11 +213,8 @@ def main():
               f"compliant={len(compliant_gens)} (pass={len(comp_pass)}) "
               f"violating={len(violating_gens)} (cheat={len(cheat_gens)}) → {emitted} pairs", flush=True)
 
-    os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
-    with open(args.out, "w") as f:
-        for pr in all_pairs:
-            f.write(json.dumps(pr) + "\n")
-    print(f"\nwrote {len(all_pairs)} pairs from {stats['problems_with_pairs']} problems to {args.out}", flush=True)
+    out_fh.close()
+    print(f"\nwrote {total_pairs} pairs from {stats['problems_with_pairs']} problems to {args.out}", flush=True)
     print(f"  stats: {stats}", flush=True)
 
 

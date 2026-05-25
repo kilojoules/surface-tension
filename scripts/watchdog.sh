@@ -91,7 +91,7 @@ while true; do
     fi
 
     # Process alive?
-    procs=$(do_ssh "ps aux | grep -E 'dpo_train|sft_train|kto_train|grpo_train|build_sft|build_expanded|build_rationale|sweep_local|aggregate.py|push_adapter|recheck_eval' | grep -v grep | wc -l" | tr -d ' ')
+    procs=$(do_ssh "ps aux | grep -E 'dpo_train|sft_train|kto_train|grpo_train|build_sft|build_expanded|build_rationale|build_dpo_pairs|build_dpo_dataset|build_kto_dataset|build_onpolicy_dataset|sweep_local|aggregate.py|push_adapter|recheck_eval|recheck_threemetric' | grep -v grep | wc -l" | tr -d ' ')
     procs=${procs:-0}
 
     # Log activity
