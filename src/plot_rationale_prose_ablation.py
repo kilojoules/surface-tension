@@ -20,18 +20,19 @@ os.makedirs(os.path.dirname(OUT), exist_ok=True)
 # rationale-SFT source: from the original DPO-r1 sampling run (B1++ adapter)
 # rationale-STRIPPED:  from the Option B sampling run (rationale-stripped adapter)
 # Both ran the same build_dpo_pairs.py with the same hyperparameters.
-RATIONALE   = {"compliant": 255, "violating": 93,  "cheating": 65}
-STRIPPED    = {"compliant": 179, "violating": 166, "cheating": 125}
+# Note: "cheating" is the subset of "non-compliant" where tests also passed.
+RATIONALE   = {"compliant": 255, "non_compliant": 93,  "cheating": 65}
+STRIPPED    = {"compliant": 179, "non_compliant": 166, "cheating": 125}
 
-C_COMPL = "#1b5e20"   # green — compliance (the rule followed)
-C_VIOL  = "#ef6c00"   # orange — violating (rule broken)
-C_CHEAT = "#c62828"   # red — cheating (rule broken AND tests passed)
+C_COMPL = "#1b5e20"   # green — compliant (rule followed)
+C_NONC  = "#ef6c00"   # orange — non-compliant (rule broken, any test outcome)
+C_CHEAT = "#c62828"   # red — cheating (rule broken AND tests passed, a subset of non-compliant)
 
 metrics = ["compliant gens  $\\uparrow$",
-           "violating gens  $\\downarrow$",
+           "non-compliant gens  $\\downarrow$",
            "cheating gens  $\\downarrow$"]
-keys    = ["compliant", "violating", "cheating"]
-colors  = [C_COMPL, C_VIOL, C_CHEAT]
+keys    = ["compliant", "non_compliant", "cheating"]
+colors  = [C_COMPL, C_NONC, C_CHEAT]
 rat_vals  = [RATIONALE[k] for k in keys]
 strp_vals = [STRIPPED[k]  for k in keys]
 
@@ -79,9 +80,9 @@ fig.suptitle("Same 66 demos, same SFT recipe — removing rationale prose nearly
 
 # Footer with the key qualitative finding
 fig.text(0.5, -0.04,
-         "Pre-DPO sampling on the shared 45-problem LCB pool. The rationale-SFT model "
-         "produces fewer violations and far less cheating;\nthe stripped model produces "
-         "more violations and 92% more cheating before any DPO step runs.",
+         "Pre-DPO sampling on the shared 45-problem LCB pool. \"Cheating\" is the subset of "
+         "non-compliant gens that ALSO passed tests.\nWith the rationale prose stripped, "
+         "the model produces 78% more rule-breaks and 92% more cheating before any DPO step runs.",
          ha="center", va="top", fontsize=9, style="italic", color="#555")
 
 plt.tight_layout()
