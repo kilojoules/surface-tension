@@ -132,6 +132,23 @@ So the iterated alignment loop **does not** keep delivering free lunches. The fi
 
 **Files:** `src/build_rationale_dataset.py` (rationale-augmented data gen), `src/build_dpo_pairs.py` (sample + label + pair, now with incremental write), `src/dpo_train.py` (anchors reference to the warmstart adapter), `scripts/launch_b1plus_runpod.sh`, `scripts/launch_dpo_round_runpod.sh`, `scripts/launch_dpo_yieldprobe_runpod.sh` (the cheap viability probe between rounds), `src/recheck_threemetric.py` (three-metric scorer), `src/plot_dpo_summary.py` (the figure above). Adapters on Hub: `kilojoules/surface-tension-sft-{rationale,b1plus}-r32-final`, `kilojoules/surface-tension-dpo-{r1,r2}-r32-final`.
 
+### Ablation: was the rationale prose actually load-bearing?
+
+Yes. Matched-control experiment — same 66 demos as rationale-SFT, with the rationale prose **stripped from the targets** (only the ```python``` code block kept). Identical hyperparameters (r=32, lr=1e-4, 20 epochs), identical DPO recipe (β=0.1, lr=5e-6, 3 epochs, same 45-problem pool).
+
+| metric | rationale-SFT + DPO (DPO-r1) | vanilla-SFT + DPO (stripped) | Δ |
+|---|---:|---:|---:|
+| **VAL** compliance ↑ | 0.875 | 0.635 | **−24 pts** |
+| **VAL** cmp ∧ pass ↑ | 0.781 | 0.583 | **−20 pts** |
+| **VAL** cheating ↓ | 0.104 | 0.271 | **+17 pts (2.6×)** |
+| **CLEAN** compliance ↑ | 0.647 | 0.221 | **−43 pts** |
+| **CLEAN** cmp ∧ pass ↑ | 0.324 | 0.088 | **−24 pts** |
+| **CLEAN** cheating ↓ | 0.074 | 0.331 | **+26 pts (4.5×)** |
+
+![Rationale-SFT + DPO vs vanilla-SFT + DPO](paper/figs/rationale_vs_stripped_dpo.png)
+
+The DPO step alone, *applied to a non-rationale SFT*, cannot recover what the rationale prose was contributing. On the truly held-out clean set the stripped chain barely solves any problem compliantly (cmp ∧ pass = 0.088) and cheats on a third of attempts. **Rationale prose in the SFT targets is the load-bearing ingredient, not the DPO step alone.** Adapters: `kilojoules/surface-tension-sft-rationale-stripped-r32-final` and `…-dpo-from-stripped-r32-final`.
+
 **Practical recommendation surfaced by round 2:** if you're deploying for the compliance-as-headline metric, DPO-r1 is the right adapter. If you want cheating reduced to ~zero and can accept ~10 pts compliance regression on truly-held-out problems with the same correctness, DPO-r2 is the choice. Beyond round 2, the loop is unlikely to improve compliance further on this pool — the next step is either a wider/harder pool, a constrained-decode teacher for always-violating problems, or a different mechanism.
 
 ## Phase 2a (historical) — naive DPO didn't work
