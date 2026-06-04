@@ -126,4 +126,4 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
 
 echo ""
 echo "=== LAUNCHED ==="
-echo "  next: WATCHDOG_MAX_HOURS=4 bash scripts/watchdog.sh"
+echo "  next: WATCHDOG_MAX_HOURS=8 bash scripts/watchdog.sh"

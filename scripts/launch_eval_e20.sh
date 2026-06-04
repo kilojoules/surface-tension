@@ -100,4 +100,4 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
 echo ""
 echo "=== LAUNCHED (v9 eval, complete) ==="
 echo "  Instance: $INST"
-echo "Next: WATCHDOG_INSTANCE_FILE=$INSTANCE_FILE WATCHDOG_INTERVAL=90 WATCHDOG_GRACE_MIN=10 WATCHDOG_MAX_HOURS=4 bash scripts/watchdog.sh"
+echo "Next: WATCHDOG_INSTANCE_FILE=$INSTANCE_FILE WATCHDOG_INTERVAL=90 WATCHDOG_GRACE_MIN=10 WATCHDOG_MAX_HOURS=8 bash scripts/watchdog.sh"
