@@ -1,0 +1,35 @@
+{
+  "generated": "2026-06-14",
+  "seed": 14062026,
+  "sample_size": 50,
+  "target": {
+    "violators": 30,
+    "compliers": 20
+  },
+  "source_dir": "vast_logs/rdqb499a37k1tv/st/results/raw/sources_eval_b1plus_clean",
+  "purpose": "RUBRIC-RELIABILITY STRESS-TEST \u2014 comment-form prose surface only. This is NOT the probe gate. \u00a7A.4 of the original brief governs; comments are a secondary signal. The C2 regenerate ($18) on the preamble surface is the actual gate that authorizes or kills the probe spend.",
+  "surface": "comment-form prose ONLY \u2014 verbose in-code comments per RUBRIC.md \u00a7'Where to look' item 3 (TRIAGE fallback). Apply the rubric as written; do not promote item 3 to primary.",
+  "pool": {
+    "total_py_files": 136,
+    "R0_compliant": 54,
+    "R0_violators": 82,
+    "R0_compliant_prose_bearing": 34,
+    "R0_violators_prose_bearing": 69
+  },
+  "draw": {
+    "n": 50,
+    "R0_compliant": 20,
+    "R0_violators": 30
+  },
+  "labeler_discipline": {
+    "R0_hidden_from_queue": true,
+    "agent_first_blind": true,
+    "owner_blind_to_agent_labels": true,
+    "rubric_governs": "RUBRIC.md as committed; \u00a73 is a TRIAGE fallback only."
+  },
+  "interpretation": {
+    "low_kappa": "The rubric does not separate the category reliably on this surface. A definitional problem isn't fixed by a cleaner surface \u2014 KILL C2 too. Tighten the rubric; re-audit.",
+    "high_kappa": "Necessary but NOT sufficient. Agreement on a blurred category does not validate the category. The probe gate is the C2 regenerate on the preamble surface; this \u03ba does NOT feed C2's go/no-go decision.",
+    "comparison_with_C2_kappa": "If C2 also clears, compare the two \u03ba's. A LARGE gap between comment-\u03ba and preamble-\u03ba is empirical evidence that comments and preambles are different signals (the \u00a7A.4 hypothesis), rather than just stipulated. Report both, label as a finding."
+  }
+}

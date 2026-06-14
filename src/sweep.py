@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 from ast_checks import CHECKS, CONSTRAINT_INSTRUCTIONS, check_no_helpers
 from evaluator import evaluate, evaluate_stdin
 from loaders import load_problems_jsonl
+from raw_response_save import save_raw
 
 # Runner indirection: RUNNER=http selects the OpenAI-compatible HTTP runner (vLLM etc).
 # Default stays on the Gemini CLI for backwards compatibility with v1/v2 setups.
@@ -105,6 +106,8 @@ def run_one(problem: Dict[str, Any], constraint: str, sample_idx: int, source_di
     row.model = g.model
     row.elapsed_s = round(g.elapsed_s, 2)
     row.raw_chars = len(g.raw)
+    save_raw(source_dir, row, g.raw)   # persist raw on EVERY sample; survives the
+                                       # success branch where _save_source only saves `code`
     if g.error:
         row.gen_error = g.error
     if not g.code:

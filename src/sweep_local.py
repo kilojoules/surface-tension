@@ -23,6 +23,7 @@ from ast_checks import CHECKS, CONSTRAINT_INSTRUCTIONS, check_no_helpers
 from evaluator import evaluate, evaluate_stdin
 from loaders import load_problems_jsonl
 from model_utils import generate_text, load_model
+from raw_response_save import save_raw
 
 
 CSV_FIELDS = [
@@ -128,6 +129,8 @@ def evaluate_one(problem: Dict[str, Any], constraint: str, sample_idx: int,
         return row
     row.elapsed_s = round(time.time() - t0, 2)
     row.raw_chars = len(raw)
+    save_raw(source_dir, row, raw)   # persist raw on EVERY sample; survives the
+                                     # success branch where _save_source only saves `code`
 
     code = extract_code(raw)
     if not code:
