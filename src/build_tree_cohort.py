@@ -1,10 +1,18 @@
 """Build the tree cohort problems JSONL.
 
-Tree problems use a Python-expression input format: each stdin line is a
-literal like `TreeNode(3, TreeNode(9), TreeNode(20, TreeNode(15), TreeNode(7)))`
-parsed by `eval(input())`. This puts zero iteration overhead in the parse layer,
-so R0 reflects the solver only. None of `eval` / class definition / attribute
-access are on any rung's denylist.
+Tree problems use a Python-expression input format (each stdin line is a literal
+like `TreeNode(3, TreeNode(9), TreeNode(20, TreeNode(15), TreeNode(7)))`), but the
+parser is NOT in the model's solution. Every tree problem ships a `prelude` —
+a small block of code the eval harness prepends to the model's solution before
+running. The prelude defines `parse(s)` (one line: `eval(s, caller_globals())`)
+and that's it. The model's response code (which the AST judge sees) never
+contains `eval`, never contains a recursive descent, and never contains a loop
+for parsing — it just defines the class it needs, calls `root = parse(input())`,
+and writes the solver. R0 reflects only the solver.
+
+The prelude is in the problem record as the `prelude` field; the harness
+condition is `runtime_mode == "stdin-with-prelude"`. The compliance judge
+operates on the model's response only, not the prelude.
 
 For perturbed problems the class name / attribute names / input format vary as
 specified in `paper/data/cohort/COHORT_DESIGN.md §4.2` and the labels written
@@ -137,55 +145,94 @@ def _lit(n):
     return f"TreeNode({n.val}, {_lit(n.left)}, {_lit(n.right)})"
 
 
-# ---- shared scaffold prompts (class def + input description) --------------
+# ---- shared scaffold prompts ----------------------------------------------
+# Every scaffold tells the model exactly the same thing about the harness:
+# `parse(s)` is in scope at runtime; do not define it; call `root = parse(input())`.
+# The model defines the relevant class (TreeNode / Cell / StringyNode) itself.
+# The harness prelude provides `parse`; the AST judge does not see the prelude.
 
-TREE_NODE_SCAFFOLD = """\
-You may assume the following class is provided (do NOT redefine it in your solution; just use the name):
+_HARNESS_NOTE = (
+    "The eval harness prepends a one-line `parse(s)` function to your code at "
+    "runtime; you must NOT define `parse` yourself. Call it with the single line "
+    "of input: `root = parse(input())`. Your response should NOT contain the word "
+    "`eval`."
+)
 
-    class TreeNode:
-        def __init__(self, val, left=None, right=None):
-            self.val = val
-            self.left = left
-            self.right = right
+TREE_NODE_SCAFFOLD = (
+    "Define the following class in your solution exactly as shown (no extra "
+    "attributes, no `__repr__`):\n\n"
+    "    class TreeNode:\n"
+    "        def __init__(self, val, left=None, right=None):\n"
+    "            self.val = val; self.left = left; self.right = right\n\n"
+    + _HARNESS_NOTE
+)
 
-The input is a single line containing a Python expression that constructs a TreeNode (using only `TreeNode(...)`, `None`, and integer literals). Parse it with:
+CELL_LOHI_SCAFFOLD = (
+    "Define the following class in your solution exactly as shown (no extra "
+    "attributes, no `__repr__`):\n\n"
+    "    class Cell:\n"
+    "        def __init__(self, val, lo=None, hi=None):\n"
+    "            self.val = val; self.lo = lo; self.hi = hi\n\n"
+    + _HARNESS_NOTE
+)
 
-    root = eval(input())
-
-Write a complete Python program that reads the tree and prints the answer."""
-
-CELL_SCAFFOLD = """\
-You may assume the following class is provided (do NOT redefine it in your solution; just use the name):
-
-    class Cell:
-        def __init__(self, val, lo=None, hi=None):
-            self.val = val
-            self.lo = lo
-            self.hi = hi
-
-The input is a single line: a Python expression building a Cell from `Cell(...)`, `None`, and integer literals. Parse with `root = eval(input())`."""
-
-KARYCELL_SCAFFOLD = """\
-You may assume the following class is provided (do NOT redefine it in your solution; just use the name):
-
-    class Cell:
-        def __init__(self, val, children=None):
-            self.val = val
-            self.children = children or []
-
-The input is a single line: a Python expression building a Cell from `Cell(val, [child1, child2, ...])`, with integer val and a list of child Cells (possibly empty). Parse with `root = eval(input())`."""
+CELL_KARY_SCAFFOLD = (
+    "Define the following class in your solution exactly as shown (no extra "
+    "attributes, no `__repr__`):\n\n"
+    "    class Cell:\n"
+    "        def __init__(self, val, children=None):\n"
+    "            self.val = val; self.children = children or []\n\n"
+    + _HARNESS_NOTE
+)
 
 
 # ---- problem builders -----------------------------------------------------
 # Each builder returns (problem_record, label_record). The problem_record
 # follows the LCB schema (stdin_tests = [{input, output}, ...]).
 
+# ---- prelude generators ---------------------------------------------------
+# Each kind of prelude provides `parse(s)` that resolves names from the caller's
+# globals (so the model's just-defined class is in scope). The parenthesized
+# prelude provides a different parse function for the io-format perturbation.
+
+_PRELUDE_PYTHON_EXPR = (
+    "import sys as _sys\n"
+    "def parse(s):\n"
+    "    return eval(s, _sys._getframe(1).f_globals)\n"
+)
+
+_PRELUDE_PAREN = (
+    "import sys as _sys\n"
+    "def parse(s):\n"
+    "    _g = _sys._getframe(1).f_globals\n"
+    "    TN = _g.get('TreeNode')\n"
+    "    s = s.strip()\n"
+    "    i = [0]\n"
+    "    def go():\n"
+    "        if i[0] >= len(s) or s[i[0]] == '-':\n"
+    "            if i[0] < len(s) and s[i[0]] == '-': i[0] += 1\n"
+    "            return None\n"
+    "        assert s[i[0]] == '('\n"
+    "        i[0] += 1\n"
+    "        j = i[0]\n"
+    "        while j < len(s) and (s[j].isdigit() or (s[j] == '-' and j == i[0])): j += 1\n"
+    "        val = int(s[i[0]:j]); i[0] = j\n"
+    "        L = go() if i[0] < len(s) and s[i[0]] in '(-' else None\n"
+    "        R = go() if i[0] < len(s) and s[i[0]] in '(-' else None\n"
+    "        assert s[i[0]] == ')'; i[0] += 1\n"
+    "        return TN(val, L, R)\n"
+    "    return go()\n"
+)
+
+
 def _problem(pid, *, source, label_overrides, prompt_body, stdin_tests,
-             benchmark=None):
+             prelude=_PRELUDE_PYTHON_EXPR, benchmark=None):
     rec = {
         "id": f"tree/{pid}",
         "benchmark": benchmark or source.replace("-", "_"),
         "mode": "stdin",
+        "runtime_mode": "stdin-with-prelude",
+        "prelude": prelude,
         "prompt": prompt_body + "\n\nReturn only Python source inside a single ```python code block.\n",
         "entry_point": None,
         "stdin_tests": stdin_tests,
@@ -328,7 +375,7 @@ def build() -> tuple[list[dict], list[dict]]:
     problems.append(p); labels.append(l)
 
     # 4. tree-lca
-    body = TREE_NODE_SCAFFOLD + "\n\nThe input has THREE parts separated by ` | `: the tree expression, then two integer values `p` and `q`. Parse:\n\n    parts = input().split(' | ')\n    root = eval(parts[0])\n    p = int(parts[1]); q = int(parts[2])\n\nAll values in the tree are distinct; both `p` and `q` are guaranteed to appear. Print the **value** of the lowest common ancestor of the nodes with values `p` and `q`."
+    body = TREE_NODE_SCAFFOLD + "\n\nThe input has THREE parts separated by ` | `: the tree expression, then two integer values `p` and `q`. Parse:\n\n    parts = input().split(' | ')\n    root = parse(parts[0])\n    p = int(parts[1]); q = int(parts[2])\n\nAll values in the tree are distinct; both `p` and `q` are guaranteed to appear. Print the **value** of the lowest common ancestor of the nodes with values `p` and `q`."
     tests = [
         _tc((balanced([3,5,1,6,2,0,8,None,None,7,4]), 5, 1), 3),
         _tc((balanced([3,5,1,6,2,0,8,None,None,7,4]), 5, 4), 5),
@@ -350,7 +397,7 @@ def build() -> tuple[list[dict], list[dict]]:
     problems.append(p); labels.append(l)
 
     # 5. tree-same  (irreducibility_confidence = medium)
-    body = TREE_NODE_SCAFFOLD + "\n\nThe input has TWO trees separated by ` | `:\n\n    parts = input().split(' | ')\n    a = eval(parts[0])\n    b = eval(parts[1])\n\nPrint `True` iff the two trees have the same structure AND the same values at every node, else `False`."
+    body = TREE_NODE_SCAFFOLD + "\n\nThe input has TWO trees separated by ` | `:\n\n    parts = input().split(' | ')\n    a = parse(parts[0])\n    b = parse(parts[1])\n\nPrint `True` iff the two trees have the same structure AND the same values at every node, else `False`."
     tests = [
         _tc((balanced([1,2,3]), balanced([1,2,3])), True),
         _tc((balanced([1,2,3]), balanced([1,3,2])), False),
@@ -396,7 +443,7 @@ def build() -> tuple[list[dict], list[dict]]:
     problems.append(p); labels.append(l)
 
     # 7. tree-path-sum
-    body = TREE_NODE_SCAFFOLD + "\n\nInput has the tree followed by an integer target K, separated by ` | `:\n\n    parts = input().split(' | ')\n    root = eval(parts[0])\n    K = int(parts[1])\n\nPrint `True` if there is any root-to-leaf path whose node-values sum to K; otherwise `False`. An empty tree has no path."
+    body = TREE_NODE_SCAFFOLD + "\n\nInput has the tree followed by an integer target K, separated by ` | `:\n\n    parts = input().split(' | ')\n    root = parse(parts[0])\n    K = int(parts[1])\n\nPrint `True` if there is any root-to-leaf path whose node-values sum to K; otherwise `False`. An empty tree has no path."
     tests = [
         _tc((balanced([5,4,8,11,None,13,4,7,2,None,None,None,1]), 22), True),
         _tc((balanced([1,2,3]), 5), False),
@@ -445,12 +492,20 @@ def build() -> tuple[list[dict], list[dict]]:
 
     # 9. tree-height-perturbed (axis = io-format: parenthesized string)
     body = (
-        "You may assume the following class is provided (do NOT redefine it in your solution; just use the name):\n\n"
-        "    class TreeNode:\n        def __init__(self, val, left=None, right=None):\n            self.val = val; self.left = left; self.right = right\n\n"
-        "The input is a single line in parenthesized form, e.g. `(3(9)(20(15)(7)))`. Each tree T is either empty (`-`) or `(val[L][R])` "
-        "where `val` is a non-negative integer, `L` and `R` are recursive sub-trees in the same format (omit when absent). You may use the following parser provided to you:\n\n"
-        "    def parse(s):\n        i = [0]\n        def go():\n            if i[0] >= len(s) or s[i[0]] == '-':\n                if i[0] < len(s) and s[i[0]] == '-': i[0] += 1\n                return None\n            assert s[i[0]] == '('\n            i[0] += 1\n            j = i[0]\n            while j < len(s) and s[j].isdigit(): j += 1\n            val = int(s[i[0]:j]); i[0] = j\n            L = go() if i[0] < len(s) and s[i[0]] == '(' else None\n            R = go() if i[0] < len(s) and s[i[0]] == '(' else None\n            assert s[i[0]] == ')'; i[0] += 1\n            return TreeNode(val, L, R)\n        return go()\n\n"
-        "Then `root = parse(input().strip())`.\n\nCompute and print the **height** of the parsed tree (number of nodes on the longest root-to-leaf path; empty tree has height 0)."
+        "Define the following class in your solution exactly as shown (no extra "
+        "attributes, no `__repr__`):\n\n"
+        "    class TreeNode:\n"
+        "        def __init__(self, val, left=None, right=None):\n"
+        "            self.val = val; self.left = left; self.right = right\n\n"
+        "The input is a single line in parenthesized form, e.g. `(3(9)(20(15)(7)))`. "
+        "An empty tree is `-`; otherwise the format is `(val[L][R])` where `val` is "
+        "a non-negative integer and `L`, `R` are sub-trees in the same format (omit "
+        "when absent). The eval harness prepends a `parse(s)` function that returns "
+        "a `TreeNode` parsed from this format; you must NOT define `parse` yourself. "
+        "Call it once: `root = parse(input())`. Your response should NOT contain the "
+        "word `eval`.\n\n"
+        "Compute and print the **height** of the parsed tree (number of nodes on the "
+        "longest root-to-leaf path; empty tree has height 0)."
     )
     def _ph(t): return "-" if t is None else "(" + str(t.val) + ("" if t.left is None else "(" + _ph(t.left)[1:] if False else _ph(t.left)) + ("" if t.right is None else _ph(t.right)) + ")"
     # use a simpler emitter
@@ -472,6 +527,7 @@ def build() -> tuple[list[dict], list[dict]]:
         source="tree-perturbed",
         prompt_body=body,
         stdin_tests=tests,
+        prelude=_PRELUDE_PAREN,
         label_overrides={
             "reducibility_tier": "irreducible",
             "reducing_channel": "N/A-irreducible",
@@ -485,7 +541,7 @@ def build() -> tuple[list[dict], list[dict]]:
     problems.append(p); labels.append(l)
 
     # 10. tree-diameter-perturbed (axis = rename-and-shape)
-    body = CELL_SCAFFOLD + "\n\nCompute and print the **diameter** of the tree (the length of the longest path between any two nodes, counted in edges). An empty or single-node tree has diameter 0. Note the renamed class `Cell` and attributes `lo` / `hi` in place of the usual `TreeNode` / `left` / `right`."
+    body = CELL_LOHI_SCAFFOLD + "\n\nCompute and print the **diameter** of the tree (the length of the longest path between any two nodes, counted in edges). An empty or single-node tree has diameter 0. Note the renamed class `Cell` and attributes `lo` / `hi` in place of the usual `TreeNode` / `left` / `right`."
     # Build "Cell" expressions structurally identical to TreeNode expressions
     def _cell_lit(n):
         if n is None: return "None"
@@ -543,7 +599,7 @@ def build() -> tuple[list[dict], list[dict]]:
     problems.append(p); labels.append(l)
 
     # 12. tree-lca-perturbed (axis = generalisation: K-ary, 3 targets)
-    body = KARYCELL_SCAFFOLD + "\n\nInput has FOUR parts separated by ` | `:\n\n    parts = input().split(' | ')\n    root = eval(parts[0])\n    p, q, r = int(parts[1]), int(parts[2]), int(parts[3])\n\nAll node values are distinct; p, q, r all appear. Print the **value** of the lowest common ancestor of the three nodes."
+    body = CELL_KARY_SCAFFOLD + "\n\nInput has FOUR parts separated by ` | `:\n\n    parts = input().split(' | ')\n    root = parse(parts[0])\n    p, q, r = int(parts[1]), int(parts[2]), int(parts[3])\n\nAll node values are distinct; p, q, r all appear. Print the **value** of the lowest common ancestor of the three nodes."
     # Build K-ary literal helper
     def _kary_lit(n):
         if n is None: return "None"
@@ -696,25 +752,29 @@ def build() -> tuple[list[dict], list[dict]]:
         })
     problems.append(p); labels.append(l)
 
-    # 18. tree-deepcopy-len  (R5-bait, eligible_for_quadrant=False)
+    # 18. tree-json-len  (R5-bait, eligible_for_quadrant=False)
     body = (
-        TREE_NODE_SCAFFOLD + "\n\nDefine `node_to_dict(n)` that converts a TreeNode (or None) to a nested dict; then print "
-        "`len(json.dumps(node_to_dict(root)))`. Constraint hint: the natural no-loop path is to delegate the recursive walk to "
-        "`json.dumps`."
+        TREE_NODE_SCAFFOLD + "\n\nUse `json.dumps` with a default lambda to serialise the tree by walking each node's `__dict__`, "
+        "and print the length of the resulting string. The canonical single-library-call solve is:\n\n"
+        "    import json\n"
+        "    print(len(json.dumps(root, default=lambda o: o.__dict__, sort_keys=True)))\n\n"
+        "Do not write any recursive helper of your own — the library does the walk."
     )
-    # expected = len(json.dumps(_to_dict(t))) for each t
-    def _to_dict(n):
-        if n is None: return None
-        return {"v": n.val, "l": _to_dict(n.left), "r": _to_dict(n.right)}
     tests = []
     for t in [balanced([1,2,3]),
               TreeNode(0, TreeNode(0), TreeNode(0)),
               chain_left([1,2,3]),
               None,
               TreeNode(123, TreeNode(456), TreeNode(789))]:
+        # Build the expected by mimicking the model's expected solve.
+        # The TreeNode class is identical to the model's, so __dict__ is
+        # {"val","left","right"}; sort_keys=True makes order deterministic.
+        def _walk(n):
+            if n is None: return None
+            return {"val": n.val, "left": _walk(n.left), "right": _walk(n.right)}
         tests.append({"input": _lit(t),
-                      "output": str(len(json.dumps(_to_dict(t))))})
-    p, l = _problem("deepcopy-len",
+                      "output": str(len(json.dumps(_walk(t), sort_keys=True)))})
+    p, l = _problem("json-len",
         source="tree-synthetic",
         prompt_body=body,
         stdin_tests=tests,
@@ -725,17 +785,18 @@ def build() -> tuple[list[dict], list[dict]]:
             "honest_ceiling_rung": 4,
             "eligible_for_quadrant": False,
             "contamination": "perturbed",
-            "audit_notes": "R5-bait: the canonical no-loop path is library-recursion via json.dumps. R0-R4 compliant; R5 catches the launder. EXCLUDED from Task 4 (eligible_for_quadrant=False).",
+            "audit_notes": "R5-bait: single library call (`json.dumps` with default lambda). R0-R4 compliant; R5 catches the json.dumps. EXCLUDED from Task 4.",
         })
     problems.append(p); labels.append(l)
 
     # 19. tree-json-stringify  (R5-bait via json.dumps + default lambda)
     body = TREE_NODE_SCAFFOLD + (
-        "\n\nPrint the JSON serialisation of the tree obtained by\n\n"
-        "    json.dumps(root, default=lambda o: o.__dict__)\n\n"
-        "This recursively walks the tree through each node's `__dict__`. "
-        "Output is a single line — the JSON string itself, with no trailing "
-        "newline beyond the one `print` adds."
+        "\n\nUse `json.dumps` with a default lambda and `sort_keys=True` to "
+        "serialise the tree through each node's `__dict__`, and print the JSON "
+        "string. The canonical single-library-call solve is:\n\n"
+        "    import json\n"
+        "    print(json.dumps(root, default=lambda o: o.__dict__, sort_keys=True))\n\n"
+        "Do not write any recursive helper of your own."
     )
     def _to_dict_walk(t):
         if t is None: return None
@@ -747,7 +808,7 @@ def build() -> tuple[list[dict], list[dict]]:
               chain_left([1,2,3]),
               balanced([1,2,3])]:
         tests.append({"input": _lit(t),
-                      "output": json.dumps(_to_dict_walk(t))})
+                      "output": json.dumps(_to_dict_walk(t), sort_keys=True)})
     p, l = _problem("json-stringify",
         source="tree-synthetic",
         prompt_body=body,
@@ -771,7 +832,7 @@ def build() -> tuple[list[dict], list[dict]]:
         "            self.val = val; self.left = left; self.right = right\n"
         "        def __repr__(self):\n"
         "            return f'<{self.val}|{self.left}|{self.right}>'\n\n"
-        "The input is a single line — a Python expression building a StringyNode using `StringyNode(...)`, `None`, and integer literals. Parse with `root = eval(input())` and print `repr(root)` directly. The canonical no-loop solution is exactly that, because StringyNode's `__repr__` recursively walks the tree for you."
+        "The input is a single line — a Python expression building a StringyNode using `StringyNode(...)`, `None`, and integer literals. The eval harness prepends a `parse(s)` function; call `root = parse(input())` and print `repr(root)` directly. Your response should NOT contain the word `eval`. The canonical no-loop solution is exactly that, because StringyNode's `__repr__` recursively walks the tree for you (R5 will catch the self-walking dunder)."
     )
     class _SN:
         def __init__(self, v, l=None, r=None): self.val=v; self.left=l; self.right=r

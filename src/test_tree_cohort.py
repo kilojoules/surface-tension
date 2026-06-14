@@ -325,16 +325,32 @@ def test_flat_twochild():
         assert str(n.val + n.left.val + n.right.val) == t["output"], t
 
 
-def test_deepcopy_len_oracle():
+def test_json_len_oracle():
+    """tree-json-len: model's single-library-call solve is
+    len(json.dumps(root, default=lambda o: o.__dict__, sort_keys=True)).
+    Test oracle builds the same dict and sort-keys-json it.
+    """
     import json as _json
-    p = _load("tree/deepcopy-len")
+
+    def to_dict(n):
+        if n is None: return None
+        return {"val": n.val, "left": to_dict(n.left), "right": to_dict(n.right)}
+
+    p = _load("tree/json-len")
     for t in p["stdin_tests"]:
         n = _eval_tn(t["input"])
-        expected = len(_json.dumps(node_to_dict(n)))
+        expected = len(_json.dumps(to_dict(n), sort_keys=True))
         assert str(expected) == t["output"], (t, expected)
 
 
 def test_json_stringify_oracle():
+    """tree-json-stringify: model's single-library-call solve is
+    json.dumps(root, default=lambda o: o.__dict__, sort_keys=True).
+    sort_keys=True makes the result field-order-independent — a model that
+    declares attributes in a different order still produces the same string.
+    The prompt constrains the field set to exactly {val, left, right} so
+    extra-attribute attacks fail the test but not silently.
+    """
     import json as _json
     p = _load("tree/json-stringify")
 
@@ -344,10 +360,8 @@ def test_json_stringify_oracle():
 
     for t in p["stdin_tests"]:
         n = _eval_tn(t["input"])
-        # Replicate the model's expected output: json.dumps with default lambda.
-        # Because the model's TreeNode has the same field order (val, left, right),
-        # __dict__ iteration is deterministic and matches the canonical to_dict.
-        assert _json.dumps(to_dict(n)) == t["output"], (t, _json.dumps(to_dict(n)))
+        expected = _json.dumps(to_dict(n), sort_keys=True)
+        assert expected == t["output"], (t, expected)
 
 
 def test_stringify_class_oracle():
