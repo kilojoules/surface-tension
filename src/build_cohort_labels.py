@@ -124,6 +124,8 @@ def build_lcb_medium_records() -> list[dict]:
             "contamination": "post-cutoff-clean",
             "problem_class": None,
             "honest_ceiling_rung": _ceiling(tier),
+            "irreducibility_confidence": "high" if tier == "irreducible" else "n/a",
+            "eligible_for_quadrant": True,
             "audit_notes": notes,
             "audited_by": AUDITED_BY,
             "audited_at": AUDITED_AT,
