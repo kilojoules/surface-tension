@@ -1,0 +1,2 @@
+problem_id,benchmark,entry_point,constraint,condition,sample_idx,model,elapsed_s,gen_error,code_extracted,code_chars,parses,has_entry,compliant,test_passed,test_timed_out,test_error,prompt_chars,raw_chars
+lcb/abc356_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-stripped-r32-final,353.47,,1,2444,1,1,1,1,0,,2499,9577
