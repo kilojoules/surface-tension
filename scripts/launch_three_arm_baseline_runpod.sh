@@ -1,5 +1,5 @@
 #!/bin/bash
-# Three-arm baseline study (base + vanilla SFT + R-SFT B1++) on clean-17 with
+# Three-arm baseline study (vanilla SFT + base + R-SFT B1++) on clean-17 with
 # raw prose saved. Implements the brief's pre-launch gate:
 #   "confirm the _save_source patch writes *__raw.txt with full preamble+code+
 #    post-code on a single live sample, on each of the three adapters, BEFORE
@@ -8,6 +8,20 @@
 # further $/walltime spent on a broken pipeline). Tarjan is the project-standard
 # recursion check; rescoring with src/strict_ladder.py happens locally after
 # sync-back.
+#
+# Owner adjustments applied (turn N+1):
+#   - Arm order is vanilla-SFT FIRST (the only arm we have no version of
+#     anywhere; if the pod dies, capture the genuinely-missing data first).
+#     Base then R-SFT after.
+#   - Per-arm checkpoint files (arm_<arm>_done) written after each completes
+#     and synced back so a mid-arm death loses one arm's partial samples, not
+#     the whole run.
+#   - R-SFT Phase 1 gate TIGHTENED: requires non-trivial prose BEFORE the code
+#     fence on the verification sample. Bare-code + fence is NOT acceptable for
+#     R-SFT; if regenerated R-SFT emits no preamble, stop at minute 30 with the
+#     finding rather than at hour 13 with a 15-hour run.
+#   - Posture: any incomplete arm is run-invalidating — the post-sync analysis
+#     refuses to derive a §D verdict on a 2-arm subset. Relaunch the missing arm.
 set -e
 LOCAL=/Users/julianquick/portfolio_copy/surface_tension
 INSTANCE_FILE="$LOCAL/runpod_three_arm.env"
@@ -78,9 +92,10 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=30 "root@$HOST
          verify_arm() {
            local arm=\$1
            local adapter=\$2
+           local strict=\${3:-loose}        # \"strict\" requires real preamble prose
            local extra=\"\"
            [ -n \"\$adapter\" ] && extra=\"--adapter \$adapter\"
-           echo \"========== verify \$arm (one-sample raw-write check) ==========\"
+           echo \"========== verify \$arm (one-sample raw-write check; gate=\$strict) ==========\"
            LOAD_STRIP_WRAPPERS=1 QUANT_BIT=4 python -u sweep_local.py \
              --problems ../data/verify_one_problem.jsonl \
              --csv ../results/raw/verify_\${arm}.csv \
@@ -89,20 +104,30 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=30 "root@$HOST
              --n-samples 1 --max-new-tokens \$MAX_NEW_TOKENS --temperature 0.7 --constraints \
              2>&1 | tee /workspace/verify_\${arm}.log
            python -c \"
-import glob, sys
-src = \\\"../results/raw/sources_verify_\${arm}\\\"
+import glob
+arm = \\\"\${arm}\\\"
+strict = \\\"\$strict\\\" == \\\"strict\\\"
+src = f\\\"../results/raw/sources_verify_{arm}\\\"
 raw_files = sorted(glob.glob(src + \\\"/*__raw.txt\\\"))
 py_files  = sorted(glob.glob(src + \\\"/*.py\\\"))
-assert raw_files, f\\\"FAIL[\${arm}]: no *__raw.txt in {src}\\\"
-assert py_files,  f\\\"FAIL[\${arm}]: no *.py in {src}\\\"
+assert raw_files, f\\\"FAIL[{arm}]: no *__raw.txt in {src}\\\"
+assert py_files,  f\\\"FAIL[{arm}]: no *.py in {src}\\\"
 raw = open(raw_files[0]).read()
 py  = open(py_files[0]).read()
-has_codeblock = \\\"\`\`\`python\\\" in raw or \\\"\`\`\`\\\" in raw
-has_prose_before_block = raw.find(\\\"\`\`\`\\\") > 80
-print(f\\\"VERIFY[\${arm}]: raw_chars={len(raw)} py_chars={len(py)} has_codeblock={has_codeblock} has_prose_before_block={has_prose_before_block}\\\")
-print(f\\\"VERIFY[\${arm}] head: {raw[:200]!r}\\\")
-assert len(raw) > 200, f\\\"FAIL[\${arm}]: raw too short ({len(raw)} chars)\\\"
-print(f\\\"VERIFY[\${arm}] PASS\\\")
+fence_at = raw.find('\`\`\`')
+preamble = raw[:fence_at] if fence_at >= 0 else raw
+preamble_alpha = sum(1 for c in preamble if c.isalpha())
+print(f\\\"VERIFY[{arm}] raw_chars={len(raw)} py_chars={len(py)} fence_at={fence_at} preamble_alpha={preamble_alpha} strict={strict}\\\")
+print(f\\\"VERIFY[{arm}] head: {raw[:200]!r}\\\")
+assert len(raw) > 200, f\\\"FAIL[{arm}]: raw too short ({len(raw)} chars)\\\"
+if strict:
+    # R-SFT must emit real prose BEFORE the code fence. Bare-code+fence is
+    # NOT acceptable — it would moot the same-surface cross-arm comparison
+    # before we spend the 15-hour run.
+    assert fence_at >= 200, f\\\"FAIL[{arm}]: code fence at char {fence_at} — no real preamble surface\\\"
+    assert preamble_alpha >= 100, f\\\"FAIL[{arm}]: preamble has only {preamble_alpha} alpha chars — not real prose\\\"
+    print(f\\\"VERIFY[{arm}] strict-gate PASSED (preamble {fence_at} chars, {preamble_alpha} alpha)\\\")
+print(f\\\"VERIFY[{arm}] PASS\\\")
 \"
          }
 
@@ -121,18 +146,28 @@ print(f\\\"VERIFY[\${arm}] PASS\\\")
              2>&1 | tee /workspace/eval_\${arm}_clean17.log
            python -u recheck_eval.py ../results/raw/eval_\${arm}_clean17.csv 2>&1 | tee /workspace/recheck_\${arm}_clean17.txt
            cp ../results/raw/eval_\${arm}_clean17.csv /workspace/ 2>/dev/null || true
+           # Per-arm checkpoint — sync-back uses these to know which arms
+           # actually completed. ANY missing checkpoint => incomplete run;
+           # relaunch the missing arm, do not analyze a 2-arm subset.
+           touch /workspace/arm_\${arm}_done
+           echo \"=== checkpoint: arm_\${arm}_done ===\"
          }
 
          # Phase 1: verify each adapter ONE-SAMPLE before any full run.
          # Abort the entire pipeline if any verification fails.
-         verify_arm base       \"\"
-         verify_arm vanillaSFT \"\$VANILLA_SFT\"
-         verify_arm rsft       \"\$R_SFT\"
+         # Order: vanilla-SFT FIRST (only arm with no version on disk anywhere),
+         #        then base, then R-SFT.
+         # R-SFT uses the STRICT gate (requires real preamble prose; bare-code
+         # passes loose but is the failure mode we explicitly need to catch).
+         verify_arm vanillaSFT \"\$VANILLA_SFT\" loose
+         verify_arm base       \"\"             loose
+         verify_arm rsft       \"\$R_SFT\"      strict
          echo \"=== ALL VERIFICATIONS PASSED — proceeding to full runs ===\"
+         touch /workspace/verifications_done
 
-         # Phase 2: full eval per arm
-         full_arm base       \"\"
+         # Phase 2: full eval per arm, vanilla-SFT first (per Owner adjustment).
          full_arm vanillaSFT \"\$VANILLA_SFT\"
+         full_arm base       \"\"
          full_arm rsft       \"\$R_SFT\"
 
          touch /workspace/all_done
