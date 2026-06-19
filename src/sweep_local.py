@@ -24,6 +24,7 @@ from evaluator import evaluate, evaluate_stdin
 from loaders import load_problems_jsonl
 from model_utils import generate_text, load_model
 from raw_response_save import save_raw
+from activation_capture import capture_residuals, save_activation
 
 
 CSV_FIELDS = [
@@ -131,6 +132,20 @@ def evaluate_one(problem: Dict[str, Any], constraint: str, sample_idx: int,
     row.raw_chars = len(raw)
     save_raw(source_dir, row, raw)   # persist raw on EVERY sample; survives the
                                      # success branch where _save_source only saves `code`
+
+    # Residual-stream capture at the prose-end token (last prose token
+    # before the first code fence). One extra forward pass per sample.
+    # Skipped if CAPTURE_ACTIVATIONS env var is unset/false to keep the
+    # default path unchanged.
+    if os.environ.get("CAPTURE_ACTIVATIONS", "").lower() in ("1", "true", "yes"):
+        try:
+            act = capture_residuals(model, tokenizer, prompt, raw)
+            if act is not None:
+                save_activation(source_dir, row, act)
+        except Exception as e:
+            # Activation capture is non-critical — log and proceed.
+            print(f"  [activation_capture] skipped on {row.problem_id} s{row.sample_idx}: "
+                  f"{type(e).__name__}: {e}", flush=True)
 
     code = extract_code(raw)
     if not code:
