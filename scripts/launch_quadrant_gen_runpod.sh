@@ -31,17 +31,18 @@ MODEL_TAG="${1:-}"
 if [[ -z "$MODEL_TAG" ]]; then
     echo "usage: $0 <base|R-SFT>" >&2; exit 2
 fi
+# `base` runs the raw model; any other tag is an adapter arm (R-SFT, DPO-r1,
+# DPO-r2, …) and requires ADAPTER_PATH. The tag flows into the row `model`
+# field and the pod/env-file names (non-alnum → underscore).
 case "$MODEL_TAG" in
     base) ADAPTER_PATH="${ADAPTER_PATH:-}";;
-    R-SFT)
+    *)
         if [[ -z "${ADAPTER_PATH:-}" ]]; then
-            echo "FAIL: ADAPTER_PATH env var required for --model R-SFT" >&2
-            echo "  e.g. ADAPTER_PATH=username/st-rsft-r32-final $0 R-SFT" >&2
+            echo "FAIL: ADAPTER_PATH env var required for --model $MODEL_TAG" >&2
+            echo "  e.g. ADAPTER_PATH=username/st-<arm>-r32-final $0 $MODEL_TAG" >&2
             exit 2
         fi
         ;;
-    *)  echo "FAIL: unknown model tag '$MODEL_TAG' (expected base|R-SFT)" >&2
-        exit 2;;
 esac
 
 LOCAL=/Users/julianquick/portfolio_copy/surface_tension
@@ -142,17 +143,23 @@ echo "--- installing deps + GPU sanity ---"
 # torch 2.7.0 introduces float8_e8m0fnu, which transformers ≥ 5.x references
 # on module import (via integrations.finegrained_fp8). Earlier torch versions
 # fail to import gemma4 modeling at all. torchvision 0.22.0 matches torch 2.7.
-# Empirically learned across four failed launches; see git log for the journey.
+# torchaudio 2.7.0 MUST be pinned to the same trio: transformers ≥ 5.13 imports
+# torchaudio on the modeling import path (loss_rnnt/ParakeetForRNNTLoss), and
+# the image's stale torchaudio (built for the base torch 2.4) fails the ABI
+# check against torch 2.7 with "undefined symbol: ..._ZNK5torch8autograd4Node
+# 4nameEv", crashing the gemma4 import. Pinning all three keeps the ABI aligned.
+# Empirically learned across five failed launches; see git log for the journey.
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "apt-get update -qq >/dev/null 2>&1 || true
      apt-get install -y -qq rsync >/dev/null 2>&1 || true
-     pip install -q --upgrade 'torch==2.7.0' 'torchvision==0.22.0' 2>&1 | tail -3
+     pip install -q --upgrade 'torch==2.7.0' 'torchvision==0.22.0' 'torchaudio==2.7.0' 2>&1 | tail -3
      pip install -q --upgrade transformers peft bitsandbytes accelerate datasets 2>&1 | tail -3
      pip uninstall hf-xet -y 2>&1 | tail -1 || true
      set -e
      python3 -c 'import torch; assert torch.__version__.startswith(\"2.7\"), (\"FATAL torch=\"+torch.__version__)'
      python3 -c 'import torch; assert hasattr(torch, \"float8_e8m0fnu\"), \"FATAL torch missing float8_e8m0fnu — latest transformers fp8 path will fail\"'
      python3 -c 'import torchvision; print(\"torchvision\", torchvision.__version__)'
+     python3 -c 'import torchaudio; print(\"torchaudio\", torchaudio.__version__)'
      python3 -c 'import torch,time; x=torch.randn(8192,8192,device=\"cuda\"); torch.cuda.synchronize(); t=time.time(); [torch.mm(x,x) for _ in range(50)]; torch.cuda.synchronize(); dt=time.time()-t; print(f\"GPU matmul-50x: {dt:.2f}s\"); assert dt<3.5, f\"slow GPU: {dt:.2f}s (>3.5s threshold — host likely contended)\"'
      python3 -c 'import transformers; print(\"transformers\", transformers.__version__)'
      python3 -c 'from transformers import AutoTokenizer, AutoModelForCausalLM; print(\"transformers imports OK\")'
@@ -208,9 +215,14 @@ if [[ "${SMOKE_APPROVED:-}" == "1" ]]; then
 fi
 
 echo "--- launching pipeline ---"
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+# `ssh -n` (local stdin=/dev/null) + `setsid` + remote `</dev/null` fully
+# detach the runner into its own session, so this ssh RETURNS immediately
+# instead of hanging for the whole ~18h run (a long-lived backgrounded remote
+# process otherwise holds the channel open — which stalled the SMOKE_APPROVED
+# handoff and left no watchdog running). Explicit `exit 0` closes the session.
+ssh -n -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "cd /workspace/st && \
-     nohup env HUGGING_FACE_HUB_TOKEN=\$(cat /root/.hf_token) SMOKE_APPROVED=${SMOKE_APPROVED:-} \
+     setsid env HUGGING_FACE_HUB_TOKEN=\$(cat /root/.hf_token) SMOKE_APPROVED=${SMOKE_APPROVED:-} \
        bash -uo pipefail -c '
          echo \"========== quadrant gen $MODEL_TAG ==========\"
          python -u scripts/quadrant_pod_runner.py \
@@ -229,8 +241,16 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
              2>&1 | tee /workspace/quadrant_gen_$MODEL_TAG.log
          touch /workspace/all_done
          echo \"=== ALL DONE ===\"
-       ' > /workspace/pipeline.log 2>&1 &
-     echo \"runner launched, pid=\$!\""
+       ' </dev/null > /workspace/pipeline.log 2>&1 &
+     echo \"runner launched, pid=\$!\"; exit 0" &
+# Background the ssh itself: even with setsid on the pod, RunPod's ssh proxy
+# keeps this client connection open for the run's lifetime. Backgrounding +
+# disown means the launcher does NOT wait on it — it proceeds to the watchdog
+# handoff — and the orphaned ssh client is harmless (the runner is setsid-
+# detached on the pod; when the watchdog later destroys the pod the ssh dies).
+disown 2>/dev/null || true
+sleep 8   # let the ssh connect and dispatch the remote setsid launch
+echo "--- pipeline-launch dispatched (ssh backgrounded); runner detached on pod ---"
 
 # -----------------------------------------------------------------------------
 # Two paths from here:

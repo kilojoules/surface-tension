@@ -107,11 +107,16 @@ class GemmaBackend:
     produces degenerate output ~95% of the time — see src/model_utils.py
     docstring).
 
-    `capture_activations`: if True, dumps the last-layer hidden state on the
-    probe turn to ACTIVATIONS_DIR keyed by the caller's identity tag. The
-    quadrant.generate driver does not provide that tag, so for now this
-    backend captures keyed by a monotonic counter and the caller correlates
-    via order. (Phase-1-stretch — leave False until you wire correlation.)
+    `capture_activations`: if True, dumps the FULL per-layer hidden-state
+    stack at the final prompt position (shape (n_layers+1, d_model), fp16) to
+    ACTIVATIONS_DIR, keyed by the caller's deterministic tag
+    (`{model}__{problem_id}__s{idx}__{sol|rep}`). quadrant-v4: the driver
+    tags both the solution turn (__sol) and the probe turn (__rep). Capture is
+    done via a SEPARATE no-grad forward pass over the prompt only — NOT
+    output_hidden_states during generate(), which would retain per-step
+    hidden states for every generated token (multi-GB for a 4096-token
+    solution turn on a 31B model). Per-layer slices are moved to CPU before
+    stacking so the code is safe under multi-GPU device_map='auto' sharding.
     """
 
     def __init__(
@@ -189,28 +194,42 @@ class GemmaBackend:
 
         with self.torch.no_grad():
             if capture_activations and self.activations_dir:
-                out = self.model.generate(
-                    **inputs, **gen_kwargs,
-                    output_hidden_states=True, return_dict_in_generate=True,
+                # Capture BEFORE generation, via a dedicated forward pass over
+                # the prompt only. This gets the FULL layer stack at the final
+                # prompt position — "what did the model believe just before
+                # answering" — without retaining per-step hidden states for
+                # every generated token (the OOM trap of output_hidden_states
+                # during generate). All layers, not just the last: probe
+                # literature finds the strongest linear signal in MIDDLE layers
+                # and per-layer AUROC curves are a required deliverable.
+                fwd = self.model(
+                    input_ids=inputs.input_ids,
+                    attention_mask=inputs.get("attention_mask"),
+                    output_hidden_states=True,
+                    use_cache=False,
                 )
-                token_ids = out.sequences
-                # last-layer hidden state at the FINAL position of the prompt,
-                # right before generation starts — cheap proxy for "what did
-                # the model believe just before answering". One file per call.
-                hs = out.hidden_states[0][-1][0, -1, :].to("cpu").to(self.torch.float16)
+                # Move each layer's final-position slice to CPU BEFORE stacking
+                # — under multi-GPU device_map='auto' the layers live on
+                # different devices and torch.stack across devices raises.
+                # Shape: (n_layers+1, d_model) incl. embeddings; fp16 is well
+                # under 1 MB per sample for Gemma 4 31B. One file per call.
+                hs = self.torch.stack([
+                    layer[0, -1, :].to("cpu").to(self.torch.float16)
+                    for layer in fwd.hidden_states
+                ])
                 # Prefer caller-provided tag (deterministic on (model,
-                # problem_id, sample_idx)). Falls back to monotonic counter
-                # only if the driver doesn't provide one — keeps back-compat
-                # but the production driver always tags.
+                # problem_id, sample_idx, turn)). Falls back to a monotonic
+                # counter only if the driver doesn't provide one.
                 if activation_tag:
                     fname = f"act_{activation_tag}.pt"
                 else:
                     fname = f"act_{self._activation_counter:06d}.pt"
                     self._activation_counter += 1
                 self.torch.save(hs, os.path.join(self.activations_dir, fname))
-            else:
-                token_ids = self.model.generate(**inputs, **gen_kwargs)
-                token_ids = token_ids if hasattr(token_ids, "shape") else token_ids.sequences
+                del fwd   # free the prompt-forward graph before generating
+
+            token_ids = self.model.generate(**inputs, **gen_kwargs)
+            token_ids = token_ids if hasattr(token_ids, "shape") else token_ids.sequences
 
         new_tokens = token_ids[0][inputs.input_ids.shape[1]:]
         return self.tokenizer.decode(new_tokens, skip_special_tokens=True)
@@ -249,7 +268,8 @@ def _resolve_all_problem_ids(problems: Iterable[Problem], tr: LCBTestRunner):
 
 def _smoke_decode(gen, tr, problem: Problem, *, model: str,
                   solution_max_tokens: int = 4096,
-                  probe_max_tokens: int = 256) -> dict:
+                  probe_max_tokens: int = 256,
+                  capture_activations: bool = False) -> dict:
     """One full pipeline sample through the live backend to prove generation
     works before we declare a 17-problem sweep healthy.
 
@@ -267,10 +287,14 @@ def _smoke_decode(gen, tr, problem: Problem, *, model: str,
     print(f"[preflight] smoke-decoding {problem.problem_id} (sample_idx=-1)…",
           flush=True)
     t0 = time.time()
+    # Exercise the SAME path the billed loop uses, including activation
+    # capture — so a capture bug surfaces here (cheap, pre-approval) rather
+    # than mid-run. The smoke sample writes act_*__s-1__{sol,rep}.pt.
     row = generate_one(model, problem, -1, gen, tr,
                        solution_temperature=0.7,
                        solution_max_tokens=solution_max_tokens,
-                       probe_max_tokens=probe_max_tokens)
+                       probe_max_tokens=probe_max_tokens,
+                       capture_activations=capture_activations)
     dt = time.time() - t0
     print(f"[preflight] smoke OK in {dt:.1f}s   parses={row['parses']}  "
           f"passes={row['passes_tests']}  complied={row['actually_complied']}",
@@ -355,7 +379,13 @@ def main() -> int:
         if args.fake:
             gen = FakeGenBackend(
                 solution_responder=lambda m: "```python\ndef f(): return 1\n```",
-                probe_responder=lambda m: "NO.\nI used no loops or recursion.",
+                # Probe v2 structured reply so the offline smoke-gate rehearsal
+                # actually exercises the four labeled lines (matches
+                # generate._cli's --fake responder).
+                probe_responder=lambda m: (
+                    "FOR_WHILE: NO\nRECURSION: NO\nFUNCTIONAL: NO\n"
+                    "COMPREHENSION: NO\nI used a single constant-return function."
+                ),
             )
         else:
             gen = GemmaBackend(
@@ -376,6 +406,7 @@ def main() -> int:
             gen, tr, problems[0], model=args.model,
             solution_max_tokens=args.solution_max_tokens,
             probe_max_tokens=args.probe_max_tokens,
+            capture_activations=args.capture_activations,
         )
         gate_and_continue_or_exit(
             smoke_row,

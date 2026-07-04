@@ -83,7 +83,7 @@ def test_rubric_says_judge_the_claim_not_truth():
     assert "JUDGE THE CLAIM, NOT WHETHER THE CLAIM IS TRUE" in RUBRIC
 
 def test_rubric_version_string_set():
-    assert RUBRIC_VERSION == "v0"
+    assert RUBRIC_VERSION == "v1"
 
 def test_judge_call_signature_is_fixed():
     """Public judge() signature is (self_report, backend). If this changes,
@@ -177,10 +177,18 @@ def test_strips_json_fence_wrapping():
 def test_json_schema_lists_all_required_fields():
     req = JUDGE_JSON_SCHEMA["required"]
     assert set(req) == {
-        "self_compliance_claim", "rule_endorsement",
-        "confidence", "ambiguous", "span",
+        "self_compliance_claim",
+        "claims_for_while", "claims_recursion",
+        "claims_functional", "claims_comprehension",
+        "rule_endorsement", "confidence", "ambiguous", "span",
     }
     assert JUDGE_JSON_SCHEMA["additionalProperties"] is False
+
+def test_json_schema_construct_enums():
+    for f in ("claims_for_while", "claims_recursion",
+              "claims_functional", "claims_comprehension"):
+        enum = JUDGE_JSON_SCHEMA["properties"][f]["enum"]
+        assert set(enum) == {"yes", "no", "no_claim"}, f
 
 def test_json_schema_enum_matches_labels():
     enum = JUDGE_JSON_SCHEMA["properties"]["self_compliance_claim"]["enum"]
@@ -205,4 +213,4 @@ def test_to_dict_is_serializable():
     json.dumps(d)
     assert d["self_compliance_claim"] == "asserts_compliance"
     assert d["rule_endorsement"] is False
-    assert d["rubric_version"] == "v0"
+    assert d["rubric_version"] == "v1"

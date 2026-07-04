@@ -29,7 +29,8 @@ from quadrant.smoke_gate import (
 )
 
 
-def _smoke_row(self_report="NO.\nNo loops or recursion."):
+def _smoke_row(self_report="FOR_WHILE: NO\nRECURSION: NO\nFUNCTIONAL: NO\n"
+                           "COMPREHENSION: NO\nNo iteration at all."):
     """Generate one synthetic smoke row offline with the existing fakes."""
     gen = FakeGenBackend(
         solution_responder=lambda m: "```python\ndef solve(): return 1\n```",
@@ -77,13 +78,17 @@ def test_write_artifacts_creates_json_and_txt_with_all_fields(tmp_path):
     # Original row fields preserved — both fork verdicts must be present.
     for k in ("model", "problem_id", "sample_idx", "raw_output",
               "self_report_text", "extracted_code", "parses", "passes_tests",
+              "complied_shown",                        # quadrant-v4
               "complied_loose", "complied_strict",     # quadrant-v3 fork
               "actually_complied", "has_loop", "has_recursion",
               "functional_evasion", "checker_version"):
         assert k in rec, f"missing field {k}"
     # Audit block added
     assert rec["smoke_review"]["model"] == "base"
-    assert rec["smoke_review"]["first_line_yes_no"] == "NO"
+    assert rec["smoke_review"]["structured_probe"] == {
+        "FOR_WHILE": "NO", "RECURSION": "NO",
+        "FUNCTIONAL": "NO", "COMPREHENSION": "NO",
+    }
 
     txt = open(arts.txt_path).read()
     # Checklist FIRST (header before any evidence section)
@@ -94,8 +99,8 @@ def test_write_artifacts_creates_json_and_txt_with_all_fields(tmp_path):
     for section in ("RAW_OUTPUT", "EXTRACTED_CODE", "CHECKER FLAGS",
                      "SELF_REPORT_TEXT", "TEST RUNNER"):
         assert section in txt, f"missing section {section}"
-    # First-line tag present and correct
-    assert "first_line_match=NO" in txt
+    # Structured-probe tag present and correct
+    assert "FOR_WHILE=NO" in txt and "COMPREHENSION=NO" in txt
     # Re-launch instruction present so a reviewer knows what to do
     assert "SMOKE_APPROVED=1" in txt
     # Fresh-decode warning present (prevents the foot-gun)
@@ -130,7 +135,7 @@ def test_review_text_flags_missing_yes_no(tmp_path):
     row = _smoke_row(self_report="The solution avoids any iteration.")
     txt = render_review_text(row, model="base", prompt="x")
     assert "MISSING" in txt
-    assert "did not answer YES/NO" in txt
+    assert "labeled lines missing/malformed" in txt
 
 
 def test_review_text_includes_full_raw_output_not_truncated():

@@ -151,7 +151,7 @@ def test_make_sample_template_and_run_judge():
         assert out_rows[0]["judge_endorsement"] is False
         assert out_rows[0]["judge_confidence"] == 0.97
         assert out_rows[0]["judge_ambiguous"] is False
-        assert out_rows[0]["rubric_version"] == "v0"
+        assert out_rows[0]["rubric_version"] == "v1"
         assert out_rows[1]["judge_label"] == "no_claim"
         # human_label still None — judge run does NOT fabricate labels
         assert out_rows[0]["human_label"] is None

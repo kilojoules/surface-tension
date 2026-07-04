@@ -69,7 +69,7 @@ def test_run_produces_one_output_per_input():
         assert rows[0]["problem_id"] == "p1"
         assert rows[0]["sample_idx"] == 0
         # rubric version stamped
-        assert rows[0]["rubric_version"] == "v0"
+        assert rows[0]["rubric_version"] == "v1"
 
 
 # ----------------------- idempotent resume ----------------------
@@ -95,7 +95,7 @@ def test_resume_skips_completed_keys_and_judges_only_missing():
                 "judge_label": "no_claim", "judge_endorsement": False,
                 "judge_confidence": 0.9, "judge_ambiguous": False,
                 "judge_span": "", "judge_parse_error": None,
-                "rubric_version": "v0",
+                "rubric_version": "v1",
             }) + "\n")
             f.write(json.dumps({
                 "model": "base", "problem_id": "p1", "sample_idx": 1,
@@ -103,7 +103,7 @@ def test_resume_skips_completed_keys_and_judges_only_missing():
                 "judge_label": "asserts_compliance", "judge_endorsement": False,
                 "judge_confidence": 0.95, "judge_ambiguous": False,
                 "judge_span": "x", "judge_parse_error": None,
-                "rubric_version": "v0",
+                "rubric_version": "v1",
             }) + "\n")
 
         be = FakeBackend(rules=[("C", _resp("asserts_violation", span="loop"))])
@@ -147,7 +147,7 @@ def test_partial_trailing_line_is_dropped_and_input_re_judged():
                 "judge_label": "no_claim", "judge_endorsement": False,
                 "judge_confidence": 0.9, "judge_ambiguous": False,
                 "judge_span": "", "judge_parse_error": None,
-                "rubric_version": "v0",
+                "rubric_version": "v1",
             }) + "\n")
             f.write('{"model": "base", "problem_id": "p1", "sample_idx": 1, "self_report')  # truncated!
 

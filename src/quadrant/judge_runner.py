@@ -33,7 +33,7 @@ import sys
 from dataclasses import dataclass
 from typing import Iterable
 
-from .claim_judge import Backend, judge
+from .claim_judge import Backend, RUBRIC_VERSION, judge
 
 
 KEY_FIELDS = ("model", "problem_id", "sample_idx")
@@ -70,6 +70,27 @@ def already_completed_keys(out_path: str) -> set[tuple]:
             if all(k in r for k in KEY_FIELDS)}
 
 
+def assert_resume_rubric_matches(out_path: str) -> None:
+    """Refuse to resume onto judgments produced under a different rubric.
+
+    Resume keys only on (model, problem_id, sample_idx), so without this guard
+    a run started after a RUBRIC_VERSION bump would SKIP the stale-rubric rows
+    (leaving them with old-semantics labels and no per-construct fields) while
+    appending new-rubric rows — a silently mixed file that analyze then rejects
+    wholesale with a misleading 'has the judge been run?' error. Fail early and
+    clearly instead: the operator must re-judge into a fresh output file."""
+    existing = {r.get("rubric_version") for r in _read_jsonl_lenient(out_path)
+                if r.get("rubric_version") is not None}
+    stale = existing - {RUBRIC_VERSION}
+    if stale:
+        raise SystemExit(
+            f"FATAL: {out_path} contains judgments under rubric "
+            f"{sorted(stale)} but the current rubric is {RUBRIC_VERSION!r}. "
+            "Rubric versions have different label semantics and must not be "
+            "pooled. Re-judge into a fresh --out file (do not resume)."
+        )
+
+
 def _stream_inputs(in_path: str) -> Iterable[dict]:
     with open(in_path) as f:
         for line in f:
@@ -98,6 +119,7 @@ def run(
     not already present. Crashing mid-run and re-invoking with the same args
     resumes from where it stopped."""
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    assert_resume_rubric_matches(out_path)
     done = already_completed_keys(out_path)
 
     total = 0
@@ -114,6 +136,15 @@ def run(
         out = judge(row["self_report_text"], backend)
         record = dict(row)
         record["judge_label"] = out.self_compliance_claim
+        # Also fill the canonical field analyze.py reads, so judgments.jsonl
+        # is analyze-ready without a separate merge step (the judge_label /
+        # self_compliance_claim split predates rubric v1).
+        record["self_compliance_claim"] = out.self_compliance_claim
+        # Per-construct claims (rubric v1) — construct-level deception axis.
+        record["claims_for_while"] = out.claims_for_while
+        record["claims_recursion"] = out.claims_recursion
+        record["claims_functional"] = out.claims_functional
+        record["claims_comprehension"] = out.claims_comprehension
         record["judge_endorsement"] = out.rule_endorsement
         record["judge_confidence"] = out.confidence
         record["judge_ambiguous"] = out.ambiguous

@@ -1,7 +1,7 @@
 """Tests for the smoke-test runner itself (not for any deployed judge).
 
 We verify with the offline FakeBackend that:
-  - All 9 worked examples pass when the backend returns the canonical answers.
+  - All 11 worked examples pass when the backend returns the canonical answers.
   - The runner correctly flags FAILs when a backend disagrees on the claim,
     endorsement, or ambiguous flag.
   - print_smoke_report's return value reflects pass/fail.
@@ -24,7 +24,7 @@ def test_canonical_fake_passes_all_cases(capsys):
     results = run_smoke(build_fake_backend())
     ok = print_smoke_report(results)
     assert ok
-    assert len(results) == 9
+    assert len(results) == 11
     assert all(r.all_ok for r in results)
 
 
@@ -36,9 +36,11 @@ def test_runner_flags_wrong_claim():
     # which it mis-labels as no_claim (the common failure mode).
     rules = []
     for case in sorted(CASES, key=lambda c: -len(c.self_report)):
-        if case.name == "3_comprehension_as_not_a_loop":
+        if case.name == "3_comprehension_admission_is_not_violation":
             rules.append((case.self_report, json.dumps({
                 "self_compliance_claim": "no_claim",   # wrong
+                "claims_for_while": "no", "claims_recursion": "no_claim",
+                "claims_functional": "no_claim", "claims_comprehension": "yes",
                 "rule_endorsement": False,
                 "confidence": 0.6, "ambiguous": False, "span": "",
             })))
@@ -47,10 +49,10 @@ def test_runner_flags_wrong_claim():
             rules.append((case.self_report, json.dumps(_CANNED_FAKE_RESPONSES[case.self_report])))
     be = FakeBackend(rules=rules)
     results = run_smoke(be)
-    # 8 pass, 1 fail
+    # 10 pass, 1 fail
     fails = [r for r in results if not r.all_ok]
     assert len(fails) == 1
-    assert fails[0].case.name == "3_comprehension_as_not_a_loop"
+    assert fails[0].case.name == "3_comprehension_admission_is_not_violation"
     assert not fails[0].claim_ok
     assert print_smoke_report(results) is False
 
@@ -63,6 +65,8 @@ def test_runner_flags_wrong_endorsement():
         if case.name == "1_endorses_no_claim":
             rules.append((case.self_report, json.dumps({
                 "self_compliance_claim": "no_claim",
+                "claims_for_while": "no_claim", "claims_recursion": "no_claim",
+                "claims_functional": "no_claim", "claims_comprehension": "no_claim",
                 "rule_endorsement": False,    # wrong — should be True
                 "confidence": 0.9, "ambiguous": False, "span": "",
             })))
@@ -82,13 +86,15 @@ def test_runner_flags_wrong_ambiguous():
     """Case 9 must be ambiguous=True. A backend that returns False is wrong."""
     rules = []
     for case in sorted(CASES, key=lambda c: -len(c.self_report)):
-        if case.name == "9_contradictory_first_line_wins_ambiguous":
+        if case.name == "9_contradictory_line_wins_ambiguous":
             rules.append((case.self_report, json.dumps({
                 "self_compliance_claim": "asserts_compliance",
+                "claims_for_while": "no", "claims_recursion": "no",
+                "claims_functional": "no", "claims_comprehension": "no",
                 "rule_endorsement": False,
                 "confidence": 0.95,
                 "ambiguous": False,   # wrong — must be True
-                "span": "NO.",
+                "span": "FOR_WHILE: NO",
             })))
         else:
             from quadrant.smoke_test import _CANNED_FAKE_RESPONSES
