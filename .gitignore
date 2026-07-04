@@ -41,3 +41,4 @@ paper/*.synctex.gz
 
 # Editor backup files
 *.bak
+paper/data/cohort/problems_eval.jsonl
