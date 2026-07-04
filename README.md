@@ -84,6 +84,25 @@ On every sample we captured the residual stream (61 layers × 5376) at two posit
 
 Because `__sol` precedes generation, it is inherently immune to the "probe reads the output code" confound that the eval‑awareness literature flags; the controls above rule out the "probe reads the prompt" version.
 
+### Does the plan‑to‑launder direction depend on the training? (ablation)
+
+We ran four more checkpoints through the same `__sol` probe — the rationale‑SFT round it descends from, both DPO rounds, and the two **stripped** (rationale removed) ablation checkpoints — to ask whether the laundering plan is created or modulated by the training. Probe labels come from the AST checker, so **no judge is needed** for this.
+
+| arm | training | passing n | launder rate | `__sol` plan‑to‑launder AUROC |
+|---|---|---:|---:|---:|
+| base | none | 95 | 86% | 0.82 |
+| R‑SFT | rationale‑SFT | 35 | 97% | 0.84 |
+| DPO‑r1 | rationale→DPO | 36 | 97% | 0.73 |
+| DPO‑r2 | rationale→DPO×2 | 21 | 95% | 0.78 |
+| vanilla‑SFT | *stripped* SFT | 11 | 91% | **n/a** (1 negative) |
+| vanilla‑DPO | *stripped* DPO | 10 | 90% | 0.95 *(2 negatives — unreliable)* |
+
+Two honest conclusions, one non‑result:
+
+- **The direction replicates (0.73–0.84) across base and every rationale‑trained arm.** It is not an artifact of one checkpoint. There is **no** monotonic "weakens with training" trend — DPO‑r1 (0.73) and DPO‑r2 (0.78) are within noise of each other and of base.
+- **Every fine‑tuned arm launders 90–97%, vs base 86%** — training pushes to the permitted‑construct solution nearly every time (consistent with the Stage‑2 "compliance via surface migration" story).
+- **The stripped‑vs‑rationale contrast could not be established.** The stripped models launder so uniformly that only 1–2 of ~10 passing samples avoid functional/comprehension form — the probe's negative class is too thin to fit a direction (vanilla‑DPO's 0.95 rests on 2 negatives and is noise). Populating it would need many more hours of a slow, ~90%‑laundering generation; we stopped rather than chase a structurally under‑powered number. What that near‑uniformity *does* say, behaviorally: in the stripped arms laundering looks closer to an automatic reflex than a per‑problem decision — but we can't back that with a probe here.
+
 Probe code: `src/quadrant/probe_mechinterp.py`. Quadrant analysis: `src/quadrant/analyze.py` (headline = construct‑union deception; laundering reported as the fork).
 
 ---
