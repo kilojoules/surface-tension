@@ -1,5 +1,12 @@
 # Quadrant-v4 launch runbook (probe v2 / rubric v1 / checker quadrant-v4)
 
+> **Status note (2026-07-12):** the "`__sol`-position probes (pre-code
+> intent)" framing in the analysis section below was retracted — `__sol` is
+> captured on the prompt alone and is byte-identical across a problem's
+> samples, so it cannot carry per-generation intent. See
+> `docs/correction_2026-07-12.md`. The runbook's generation/judge procedure
+> is unaffected.
+
 Prereg: `prereg/quadrant_v4_deception_2026-07-03.md` — read it before looking
 at any number. Versions locked at stamp: checker `0139182f76b9`, probe
 `v2-structured`, rubric `v1`.

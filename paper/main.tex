@@ -27,6 +27,20 @@
 \begin{document}
 \maketitle
 
+\begin{center}
+\fbox{\parbox{0.92\linewidth}{\small \textbf{Scope note (2026-07-12).} This
+paper covers Stages 1--2 of the Surface Tension project (constraint
+discovery and fine-tuned bake-in). The Stage-3 results (the
+deception-vs-laundering quadrant and residual-stream probes) are documented
+in the repository README; the Stage-3 mech-interp headline was corrected on
+2026-07-12 --- see \texttt{docs/correction\_2026-07-12.md}. Nothing in this
+paper is affected by that correction. Where this paper's SFT recipe differs
+from the README's headline recipe: the README's Stage-2 chain
+(rationale-SFT $\to$ DPO) supersedes the plain SFT studied here; this
+paper's contribution is the elicitation-gap analysis and the two
+methodological traps.}}
+\end{center}
+
 \begin{abstract}
 We ask whether small-data fine-tuning can convert a prompt-elicited code-style behavior --- writing Python without \texttt{for}/\texttt{while} loops and without recursion --- into a \emph{default} for a $31$B instruction-tuned code model (Gemma~4 31B-it) on competition-style problems (LCB-medium). We find that the bare-prompt non-compliance is, to a first approximation, an \emph{elicitation gap} rather than a cost trade-off: the constraint costs $\approx 8$ pass-rate points on average (not the $\approx 34$ a common pilot metric suggests, which is an artifact of an unreliable compliance column), and on $\approx 76\%$ of always-loop-bare problems the model produces a compliant-and-passing solution \emph{when instructed} at $n=3$ --- by rewriting the loop as a comprehension or \texttt{reduce}. We characterize the bare-prompt distribution as per-problem near-deterministic on the loop axis (the $[0.3, 0.7]$ ``discriminating zone'' is essentially empty across the base model and several fine-tunes), which is also why GRPO from base fails: every rollout group is uniform, advantage is zero. A properly-tuned LoRA SFT installs a partial loop-avoidance reflex --- generations contain \texttt{itertools} imports and ``avoid loops'' comments. The strength of the reflex depends sharply on the deploy checkpoint, and on \emph{both} a val set used for early-stopping and a clean set used for neither training nor selection the over-fit endpoint (\texttt{-final}, epoch $20$) substantially outperforms the val-NLL-minimum (\texttt{-bestval}, epoch $\approx 4$): $0.51$ vs $0.37$ on the val set, $0.26$ vs $0.09$ on the clean set. Compliance$\,\wedge\,$pass follows the same pattern. Per-problem flip rates are $75\%$ vs $67\%$ on the val set, $50\%$ vs $19\%$ on the clean set (vs $0\%$ for base). We discuss two methodological lessons: a small val set reused for early-stopping and reporting inflates apparent generalization $\approx 4\times$ at the val-min checkpoint; and val-NLL minimum is itself a poor selector for AST compliance --- the same training continued through nominal overfitting is materially better on both the set it was selected on and a clean third set.
 \end{abstract}

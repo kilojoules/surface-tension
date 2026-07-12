@@ -1,0 +1,137 @@
+{
+  "arms": {
+    "DPO-r1": {
+      "arm": "DPO-r1",
+      "position": "rep",
+      "probes": {
+        "functional_evasion": {
+          "n": 90,
+          "n_pos": 75,
+          "n_problems": 8,
+          "oracle_problem_baserate_auroc": 0.8173333333333334,
+          "published_config": {
+            "grouped_cv_max_auroc": 0.8808888888888889,
+            "plain_cv_max_auroc": 0.8897777777777778
+          }
+        },
+        "laundered": {
+          "n": 36,
+          "n_pos": 35,
+          "n_problems": 7,
+          "note": "fewer than 2 samples in a class - probe not fit"
+        }
+      }
+    },
+    "DPO-r2": {
+      "arm": "DPO-r2",
+      "position": "rep",
+      "probes": {
+        "functional_evasion": {
+          "n": 53,
+          "n_pos": 45,
+          "n_problems": 5,
+          "oracle_problem_baserate_auroc": 0.825,
+          "published_config": {
+            "grouped_cv_max_auroc": 0.9583333333333334,
+            "plain_cv_max_auroc": 0.9416666666666667
+          }
+        },
+        "laundered": {
+          "n": 21,
+          "n_pos": 20,
+          "n_problems": 3,
+          "note": "fewer than 2 samples in a class - probe not fit"
+        }
+      }
+    },
+    "R-SFT": {
+      "arm": "R-SFT",
+      "position": "rep",
+      "probes": {
+        "functional_evasion": {
+          "n": 83,
+          "n_pos": 66,
+          "n_problems": 7,
+          "oracle_problem_baserate_auroc": 0.8988413547237076,
+          "published_config": {
+            "grouped_cv_max_auroc": 0.9251336898395722,
+            "plain_cv_max_auroc": 0.9393939393939394
+          }
+        },
+        "laundered": {
+          "n": 35,
+          "n_pos": 34,
+          "n_problems": 5,
+          "note": "fewer than 2 samples in a class - probe not fit"
+        }
+      }
+    },
+    "base": {
+      "arm": "base",
+      "position": "rep",
+      "probes": {
+        "functional_evasion": {
+          "n": 188,
+          "n_pos": 146,
+          "n_problems": 16,
+          "oracle_problem_baserate_auroc": 0.9220482713633399,
+          "published_config": {
+            "grouped_cv_max_auroc": 0.8140900195694716,
+            "plain_cv_max_auroc": 0.8139269406392694
+          }
+        },
+        "laundered": {
+          "n": 95,
+          "n_pos": 82,
+          "n_problems": 11,
+          "oracle_problem_baserate_auroc": 0.9287054409005628,
+          "published_config": {
+            "grouped_cv_max_auroc": 0.8452157598499062,
+            "plain_cv_max_auroc": 0.8714821763602252
+          }
+        }
+      }
+    },
+    "vanilla-DPO": {
+      "arm": "vanilla-DPO",
+      "position": "rep",
+      "probes": {
+        "functional_evasion": {
+          "n": 18,
+          "n_pos": 16,
+          "n_problems": 2,
+          "note": "grouped CV undefined: every problem-held-out train fold is single-class (2 problems)",
+          "oracle_problem_baserate_auroc": 0.875,
+          "published_config": {
+            "grouped_cv_max_auroc": null,
+            "plain_cv_max_auroc": 1.0
+          }
+        },
+        "laundered": {
+          "n": 10,
+          "n_pos": 9,
+          "n_problems": 1,
+          "note": "fewer than 2 samples in a class - probe not fit"
+        }
+      }
+    },
+    "vanilla-SFT": {
+      "arm": "vanilla-SFT",
+      "position": "rep",
+      "probes": {
+        "functional_evasion": {
+          "n": 21,
+          "n_pos": 20,
+          "n_problems": 2,
+          "note": "fewer than 2 samples in a class - probe not fit"
+        },
+        "laundered": {
+          "n": 11,
+          "n_pos": 10,
+          "n_problems": 1,
+          "note": "fewer than 2 samples in a class - probe not fit"
+        }
+      }
+    }
+  }
+}

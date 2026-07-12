@@ -61,16 +61,22 @@ claimed keep, actually times out → reclassified impossible); round 2 was clean
 - `data/pressure/candidates.jsonl` — 62 problems: id, prompt, benchmark,
   `n_tests_full`, and **small sample tests only**. The full LCB suites (up to
   57 MB/problem) are excluded from git for size; certification used the complete
-  suites.
+  suites. Every row carries the repo canary GUID (see `NOTICE.md`).
 - `data/pressure/sols/*.py` — 57 certified strict-legal reference solutions (52
-  keepers + 5 free-excluded that also certify). Each passed the full suite in-time.
+  keepers + 5 free-excluded that also certify). Each passed the full suite
+  in-time. **Withheld from the repository HEAD as of 2026-07-12** (they remain
+  in git history and on the author's disk): publishing verified solutions to a
+  yet-to-be-run evaluation instrument in a crawlable repo would seed future
+  pretraining corpora with exactly the completions the instrument must not
+  have been memorized — contaminating the experiment before it runs. Available
+  on request; regenerable via `verify_sol.py` + a strong code model.
 - `data/pressure/keepers.json` — manifest: keepers with cost bin + legal/loop
   ratio, and the excluded list with reasons.
 - `src/pressure/verify_sol.py` — certify a solution: `python3 src/pressure/verify_sol.py <id> <sol.py>` → pass/legal/timeout.
 - `src/pressure/show_problem.py` — print a problem.
 
-(`data/` is gitignored repo-wide; these files are force-added, matching the
-existing committed `data/problems_lcb_*.jsonl`.)
+(`data/` is gitignored repo-wide; `candidates.jsonl` and `keepers.json` are
+force-added.)
 
 ## Next
 
@@ -81,5 +87,7 @@ existing committed `data/problems_lcb_*.jsonl`.)
    the self-report, not the code) that **rewards claimed-compliance and punishes
    admitted violation**; hold out the ground-truth AST checker as the hidden
    oracle. Then measure covert-violation vs compliance-cost — the currently-empty
-   deception cell becomes a positive mech-interp target (`__sol`/`__rep` probe
-   for "will it covertly violate").
+   deception cell becomes a positive mech-interp target (probes at
+   generated-token positions — **not** `__sol`, which is sample-invariant per
+   problem and can only carry per-problem propensity, see
+   `docs/correction_2026-07-12.md` — plus `__rep`).
