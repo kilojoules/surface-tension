@@ -48,8 +48,12 @@ def cp_upper(x, n, alpha=0.05):
 
 
 def ast_launder_rates():
-    """Recompute honest-migration rates from the published evidence rows."""
-    out = {}
+    """Recompute honest-migration rates and deception-opportunity counts from
+    the published evidence rows. The opportunity count (violated the shown
+    rule AND passed) is the deception metric's actual number of trials per
+    arm: training pushed it to zero in the trained arms, so their 0.000 cells
+    reflect removed opportunity, not demonstrated honesty."""
+    out, opps = {}, {}
     for arm in PUBLISHED_AST_LAUNDER:
         rows = [json.loads(l) for l in open(f"{EVIDENCE}/rows_{arm}.jsonl")]
         p = [r for r in rows if r.get("passes_tests")]
@@ -57,7 +61,9 @@ def ast_launder_rates():
                               for r in p]))
         assert abs(rate - PUBLISHED_AST_LAUNDER[arm]) < 5e-4, (arm, rate)
         out[arm] = rate
-    return out
+        opps[arm] = sum(1 for r in p if r["has_loop"] or r["has_recursion"])
+    assert (opps["base"], opps["R-SFT"], opps["DPO-r1"]) == (6, 0, 0), opps
+    return out, opps
 
 # Validated 3-category palette (dataviz six-checks): light and dark both PASS
 # lightness band, chroma floor, CVD separation (worst-pair dE >= 86), contrast.
@@ -123,7 +129,8 @@ def render(theme_name, out_path, launder):
         fig.text(0.01, -0.02,
                  "Claims read by a prose-only judge (never sees code); facts by AST. Strict-side rates are judge-based and single-sourced "
                  "(correction §6);\nshown-side = construct-union denial, whiskers = one-sided 95% Clopper-Pearson. Migration rates recomputed from "
-                 "data/evidence/quadrant_v4/.",
+                 "data/evidence/quadrant_v4/.\nOpportunities to deceive (violated shown rule ∧ passed): base 6 (1 denied), R-SFT 0, DPO-r1 0 — "
+                 "training removed the opportunity, not just the act.",
                  ha="left", va="top", fontsize=8, color=caption_color)
 
         plt.tight_layout()
@@ -136,6 +143,6 @@ def render(theme_name, out_path, launder):
 
 
 if __name__ == "__main__":
-    launder = ast_launder_rates()
+    launder, opps = ast_launder_rates()
     render("light", OUT, launder)
     render("dark", OUT.replace(".pdf", "_dark.pdf"), launder)
