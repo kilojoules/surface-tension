@@ -2,18 +2,30 @@
 
 Samples the current policy (base + adapter) bare-prompt on the training problems,
 labels each generation with the AST compliance checker + test runner, then forms
-(prompt, chosen, rejected) triples:
+(prompt, chosen, rejected) triples under one of two pair policies:
 
+compliance-v1 (default; the policy behind DPO-r1/r2 and the stripped ablation):
   chosen   = a COMPLIANT generation   (prefer compliant∧pass > compliant∧substantive-fail)
   rejected = a VIOLATING generation   (prefer violating∧pass [cheating] > violating∧fail)
+  Making the rejected example a *cheating* generation where possible gives DPO the
+  strongest negative signal — it explicitly pushes probability mass away from
+  "the loop solution that happens to pass tests". Known failure mode, measured
+  in the r1/r2 rounds: nothing requires the CHOSEN example to pass (22% of r1
+  and 44% of r2 chosen examples failed their tests), so iterating this policy
+  Goodharts toward compliant-but-useless output once cheats are rare.
 
-Making the rejected example a *cheating* generation where possible gives DPO the
-strongest negative signal — it explicitly pushes probability mass away from
-"the loop solution that happens to pass tests".
+pass-v2 (the corrected objective):
+  chosen   = compliant ∧ PASSING only — passing is required, not just preferred
+  rejected = cheating first, then violating∧fail, then compliant∧fail (NEW:
+             the compliant∧pass ≻ compliant∧fail pairs are what finally put
+             gradient on passing *within* compliance)
+  Problems with no compliant∧passing generation are skipped. Problems with no
+  violating generation can still emit pairs (against compliant∧fail rejects),
+  which unlocks the many all-compliant problems that were NO PAIR under v1.
 
-Problems with no compliant gen (or no violating gen) at this sampling round are
-skipped — no pair can be formed. They get picked up in later rounds as the policy
-shifts, or via a constrained-decode teacher.
+Problems that can form no pair under the active policy are skipped. They get
+picked up in later rounds as the policy shifts, or via a constrained-decode
+teacher.
 
 Output jsonl lines: {"problem_id", "prompt", "chosen", "rejected"}
 
@@ -36,12 +48,10 @@ import re
 import sys
 from typing import Any, Dict, List, Optional
 
-import torch
-
+# torch / transformers (model_utils) / the test runner are imported lazily in
+# main() so that form_pairs stays importable in light environments (tests).
 from ast_checks import CHECKS
-from evaluator import evaluate, evaluate_stdin
 from loaders import load_problems_jsonl
-from model_utils import load_model
 
 
 def generate_batch(model, tokenizer, prompt: str, n: int,
@@ -51,6 +61,7 @@ def generate_batch(model, tokenizer, prompt: str, n: int,
     All n sequences share the identical prompt → no padding needed. ~5-8x faster than
     sequential generation. Returns the n decoded completions (new tokens only).
     """
+    import torch
     if getattr(tokenizer, "chat_template", None):
         formatted = tokenizer.apply_chat_template(
             [{"role": "user", "content": prompt}], tokenize=False, add_generation_prompt=True)
@@ -113,13 +124,51 @@ def classify(raw: str, problem: Dict[str, Any]) -> Dict[str, Any]:
     entry_point = problem.get("entry_point") or ""
     try:
         if mode == "stdin":
+            from evaluator import evaluate_stdin
             res = evaluate_stdin(code, problem["stdin_tests"], timeout_s=10.0)
         else:
+            from evaluator import evaluate
             res = evaluate(code, entry_point, problem["test_runner"], timeout_s=10.0)
         out["passed"] = bool(res.passed)
     except Exception:
         out["passed"] = False
     return out
+
+
+def form_pairs(comp_pass, comp_fail, cheat, viol_fail, *,
+               policy="compliance-v1", max_pairs=6):
+    """Pure pair-formation: returns a list of (chosen, rejected) tuples.
+
+    Pools are lists of raw completion strings in generation order.
+      comp_pass  compliant ∧ substantive ∧ passes tests
+      comp_fail  compliant ∧ substantive ∧ fails tests
+      cheat      violating ∧ passes tests
+      viol_fail  violating ∧ fails tests
+    Enumeration is row-major over (ranked chosen pool) × (ranked rejected
+    pool), capped at max_pairs — identical mechanics to the historical
+    rounds, so compliance-v1 reproduces the r1/r2 pair sets exactly.
+    """
+    if policy == "compliance-v1":
+        chosen_pool = comp_pass + comp_fail
+        rejected_pool = cheat + viol_fail
+        if not (comp_pass or comp_fail) or not rejected_pool:
+            return []
+    elif policy == "pass-v2":
+        chosen_pool = list(comp_pass)
+        rejected_pool = cheat + viol_fail + comp_fail
+        if not chosen_pool or not rejected_pool:
+            return []
+    else:
+        raise ValueError(f"unknown pair policy {policy!r}")
+
+    n_pairs = min(max_pairs, len(chosen_pool) * len(rejected_pool))
+    pairs = []
+    for c in chosen_pool:
+        for r in rejected_pool:
+            if len(pairs) >= n_pairs:
+                return pairs
+            pairs.append((c, r))
+    return pairs
 
 
 def main():
@@ -132,12 +181,19 @@ def main():
     ap.add_argument("--max-new-tokens", type=int, default=2048)
     ap.add_argument("--temperature", type=float, default=0.9)
     ap.add_argument("--max-pairs", type=int, default=6)
+    ap.add_argument("--pair-policy", default="compliance-v1",
+                    choices=["compliance-v1", "pass-v2"],
+                    help="compliance-v1 = historical rounds; pass-v2 requires "
+                         "the chosen example to pass and adds compliant∧fail "
+                         "as rejected (gradient on passing within compliance)")
     args = ap.parse_args()
 
     problems = load_problems_jsonl(args.problems)
     print(f"[build_dpo_pairs] {len(problems)} problems; adapter={args.adapter}", flush=True)
-    print(f"  n={args.n_samples} max_new={args.max_new_tokens} T={args.temperature}", flush=True)
+    print(f"  n={args.n_samples} max_new={args.max_new_tokens} T={args.temperature} "
+          f"policy={args.pair_policy}", flush=True)
 
+    from model_utils import load_model
     model, tokenizer = load_model(args.base_model, adapter_path=args.adapter)
 
     # Incremental write: open the output file now and append each pair as it's produced.
@@ -148,14 +204,15 @@ def main():
 
     total_pairs = 0
     stats = {"problems_with_pairs": 0, "compliant_total": 0, "violating_total": 0,
-             "cheat_total": 0, "no_pair": 0}
+             "cheat_total": 0, "comp_pass_total": 0, "comp_fail_total": 0,
+             "no_pair": 0}
 
     for i, p in enumerate(problems):
         bare = build_bare_prompt(p)
-        compliant_gens: List[str] = []   # raw completions, AST-compliant
-        violating_gens: List[str] = []   # raw completions, AST-violating
-        cheat_gens: List[str] = []       # violating ∧ passing (strongest negative)
         comp_pass: List[str] = []        # compliant ∧ passing (strongest positive)
+        comp_fail: List[str] = []        # compliant ∧ substantive ∧ failing
+        cheat_gens: List[str] = []       # violating ∧ passing (strongest negative)
+        viol_fail: List[str] = []        # violating ∧ failing
 
         try:
             raws = generate_batch(model, tokenizer, bare, args.n_samples,
@@ -170,48 +227,39 @@ def main():
                 continue
             comp = raw.strip()
             if c["compliant"] and c["substantive"]:
-                compliant_gens.append(comp)
-                if c["passed"]:
-                    comp_pass.append(comp)
+                (comp_pass if c["passed"] else comp_fail).append(comp)
             elif not c["compliant"]:
-                violating_gens.append(comp)
-                if c["passed"]:
-                    cheat_gens.append(comp)
+                (cheat_gens if c["passed"] else viol_fail).append(comp)
 
-        stats["compliant_total"] += len(compliant_gens)
-        stats["violating_total"] += len(violating_gens)
+        n_compliant = len(comp_pass) + len(comp_fail)
+        n_violating = len(cheat_gens) + len(viol_fail)
+        stats["compliant_total"] += n_compliant
+        stats["violating_total"] += n_violating
         stats["cheat_total"] += len(cheat_gens)
+        stats["comp_pass_total"] += len(comp_pass)
+        stats["comp_fail_total"] += len(comp_fail)
 
-        if not compliant_gens or not violating_gens:
+        pairs = form_pairs(comp_pass, comp_fail, cheat_gens, viol_fail,
+                           policy=args.pair_policy, max_pairs=args.max_pairs)
+        if not pairs:
             stats["no_pair"] += 1
             print(f"[{i+1}/{len(problems)}] {p['id']}: "
-                  f"compliant={len(compliant_gens)} violating={len(violating_gens)} → NO PAIR", flush=True)
+                  f"compliant={n_compliant} (pass={len(comp_pass)}) "
+                  f"violating={n_violating} → NO PAIR", flush=True)
             continue
 
-        # Ranked pools: best chosen first, best rejected first
-        chosen_pool = comp_pass + [g for g in compliant_gens if g not in comp_pass]
-        rejected_pool = cheat_gens + [g for g in violating_gens if g not in cheat_gens]
-
-        n_pairs = min(args.max_pairs, len(chosen_pool) * len(rejected_pool))
-        emitted = 0
-        for ci in range(len(chosen_pool)):
-            for ri in range(len(rejected_pool)):
-                if emitted >= n_pairs:
-                    break
-                out_fh.write(json.dumps({
-                    "problem_id": p["id"],
-                    "prompt": bare,
-                    "chosen": chosen_pool[ci],
-                    "rejected": rejected_pool[ri],
-                }) + "\n")
-                emitted += 1
-                total_pairs += 1
-            if emitted >= n_pairs:
-                break
+        for chosen, rejected in pairs:
+            out_fh.write(json.dumps({
+                "problem_id": p["id"],
+                "prompt": bare,
+                "chosen": chosen,
+                "rejected": rejected,
+            }) + "\n")
+        total_pairs += len(pairs)
         stats["problems_with_pairs"] += 1
         print(f"[{i+1}/{len(problems)}] {p['id']}: "
-              f"compliant={len(compliant_gens)} (pass={len(comp_pass)}) "
-              f"violating={len(violating_gens)} (cheat={len(cheat_gens)}) → {emitted} pairs", flush=True)
+              f"compliant={n_compliant} (pass={len(comp_pass)}) "
+              f"violating={n_violating} (cheat={len(cheat_gens)}) → {len(pairs)} pairs", flush=True)
 
     out_fh.close()
     print(f"\nwrote {total_pairs} pairs from {stats['problems_with_pairs']} problems to {args.out}", flush=True)
