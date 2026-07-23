@@ -28,7 +28,8 @@ sampling — so the only changed variable is the pair policy.
   replay of the r1 log for the v1 baseline): chosen ∈ compliant∧pass only;
   rejected ranked cheat → violating∧fail → compliant∧fail; row-major
   enumeration, max 6 pairs/problem; n=8, T=0.9, max_new=2048.
-- Train: `dpo_train.py`, β=0.1, lr=5e-6, defaults otherwise (matches r1/r2).
+- Train: `dpo_train.py`, β=0.1, lr=5e-6, 3 epochs, max_length 2048 (matches
+  the r1/r2 launcher exactly).
 - Eval: bare-prompt clean-17, n=8, T=0.7, max_new=3072, AST re-checked from
   saved sources (`recheck_eval.py`) — identical protocol and comparison
   numbers as the committed figures: DPO-r1 0.647/0.324/0.074 and DPO-r2

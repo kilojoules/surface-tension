@@ -74,14 +74,19 @@ PY
 fi
 
 # ---- STAGE 2: DPO from DPO-r1, reference anchored to DPO-r1 ----------------
+# Hyperparameters mirror the r1/r2 rounds exactly (launch_dpo_round_runpod.sh):
+# beta=0.1, lr=5e-6, 3 epochs, max_length 2048 — only the pair policy differs.
 if [ ! -f "$MARK/passround_2_done" ]; then
-  LOG "========== STAGE 2: dpo_train (ADAPTER_INIT=$START_ADAPTER, beta=0.1) =========="
+  LOG "========== STAGE 2: dpo_train (ADAPTER_INIT=$START_ADAPTER, beta=0.1, 3 epochs) =========="
   ADAPTER_INIT="$START_ADAPTER" \
   DPO_TRAIN=../data/dpo_pairs_pass.jsonl \
   DPO_OUTPUT=../outputs/dpo_pass \
   DPO_BETA=${DPO_BETA:-0.1} DPO_LR=${DPO_LR:-5e-6} \
-  HUB_REPO="$HUB_REPO" \
+  DPO_EPOCHS=${DPO_EPOCHS:-3} MAX_LENGTH=${MAX_LENGTH:-2048} \
   python dpo_train.py 2>&1 | tee ../dpo_train_pass.log || exit 1
+  [ -d ../outputs/dpo_pass/final_adapter ] || { LOG "FATAL: no final_adapter"; exit 1; }
+  timeout 900 python push_adapter.py ../outputs/dpo_pass/final_adapter "${HUB_REPO}-final" \
+      2>&1 | tee ../push_dpo_pass.log || LOG "WARN: Hub push failed (adapter still on disk)"
   touch "$MARK/passround_2_done"
 fi
 
@@ -96,26 +101,31 @@ if [ ! -f "$MARK/passround_3a_done" ] && [ ! -f ../data/problems_lcb_val12.jsonl
   LOG "it, materialize the val set first."
   touch "$MARK/passround_3a_done"
 fi
+# Eval config mirrors the r1/r2 rounds: BARE prompt only (`--constraints` with
+# no args clears the constrained condition — compliance here means the trained
+# DEFAULT), 4-bit with wrapper stripping (the zero-gradient/no-op trap).
 if [ ! -f "$MARK/passround_3a_done" ]; then
   LOG "========== STAGE 3a: eval val (12 problems, n=8, max_new=3072) =========="
-  python sweep_local.py \
+  LOAD_STRIP_WRAPPERS=1 QUANT_BIT=4 python sweep_local.py \
       --problems ../data/problems_lcb_val12.jsonl \
       --csv ../results/raw/eval_dpo_pass_val.csv \
       --source-dir ../results/raw/sources_eval_dpo_pass_val \
-      --n-samples 8 --max-new-tokens 3072 --temperature 0.7 \
-      --adapter "$ADAPTER_DIR" --skip-bare 2>&1 | tee ../eval_dpo_pass_val.log || exit 1
+      --base-model "${BASE_MODEL:-google/gemma-4-31B-it}" --adapter "$ADAPTER_DIR" \
+      --n-samples 8 --max-new-tokens 3072 --temperature 0.7 --constraints \
+      2>&1 | tee ../eval_dpo_pass_val.log || exit 1
   python recheck_eval.py ../results/raw/eval_dpo_pass_val.csv | tee -a ../eval_dpo_pass_val.log
   touch "$MARK/passround_3a_done"
 fi
 
 if [ ! -f "$MARK/passround_3b_done" ]; then
   LOG "========== STAGE 3b: eval clean (17 problems, n=8, max_new=3072) =========="
-  python sweep_local.py \
+  LOAD_STRIP_WRAPPERS=1 QUANT_BIT=4 python sweep_local.py \
       --problems ../data/problems_lcb_clean17.jsonl \
       --csv ../results/raw/eval_dpo_pass_clean.csv \
       --source-dir ../results/raw/sources_eval_dpo_pass_clean \
-      --n-samples 8 --max-new-tokens 3072 --temperature 0.7 \
-      --adapter "$ADAPTER_DIR" --skip-bare 2>&1 | tee ../eval_dpo_pass_clean.log || exit 1
+      --base-model "${BASE_MODEL:-google/gemma-4-31B-it}" --adapter "$ADAPTER_DIR" \
+      --n-samples 8 --max-new-tokens 3072 --temperature 0.7 --constraints \
+      2>&1 | tee ../eval_dpo_pass_clean.log || exit 1
   python recheck_eval.py ../results/raw/eval_dpo_pass_clean.csv | tee -a ../eval_dpo_pass_clean.log
   touch "$MARK/passround_3b_done"
 fi
