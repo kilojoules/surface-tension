@@ -134,3 +134,5 @@ LOG "ALL DONE. Compare against DPO-r1 (0.65 / 0.32 / 0.07) and DPO-r2"
 LOG "(0.52 / 0.30 / 0.01) on compliance / cmp-and-pass / cheating, clean-17."
 LOG "Keep the pod until every output above has synced off it."
 touch "$MARK/passround_all_done"
+# watchdog.sh auto-destroys (after a final sync) on this sentinel:
+sleep 300 && touch "$MARK/all_done"
