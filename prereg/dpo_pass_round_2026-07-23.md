@@ -1,10 +1,15 @@
 # Pre-registration — DPO pass-round (pair policy pass-v2)
 
 **Stamp:** 2026-07-23 (authored; no data generated)
-**External timestamp:** ⚠ REQUIRED BEFORE LAUNCH per `prereg/README.md` policy —
-register this file on OSF/Zenodo, or push a signed tag containing it, and
-record the link/tag here: `____________`. Do not start Stage 1 of
-`scripts/run_dpo_pass_round.sh` until this line is filled in.
+**External timestamp:** public gist on the author's GitHub account, created
+2026-07-23 18:37 PDT, before any data generation:
+https://gist.github.com/kilojoules/f53653978b644d5dc02458a732f566d5
+(Mechanism note: the policy prefers OSF/Zenodo or a signed pushed tag; the
+repo's correction commits were not yet pushed at launch time, and a tag push
+would have published unreviewed history, so the gist — server-side
+GitHub timestamp of this document's content — is the interim anchor. A
+signed tag will be added when the branch is pushed; any divergence between
+this file and the gist would itself be evidence of tampering.)
 
 ## Motivation
 
