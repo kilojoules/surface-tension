@@ -62,7 +62,7 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "apt-get update -qq >/dev/null 2>&1 || true
      apt-get install -y -qq rsync >/dev/null 2>&1 || true
      pip install -q --upgrade 'torch==2.5.1' 2>&1 | tail -3
-     pip install -q --upgrade transformers peft bitsandbytes accelerate datasets pandas 2>&1 | tail -3
+     pip install -q --upgrade transformers peft bitsandbytes accelerate 'datasets<4.0' pandas 2>&1 | tail -3
      pip uninstall hf-xet -y 2>&1 | tail -1 || true
      python3 -c 'import torch; assert torch.__version__.startswith(\"2.5\"), (\"FATAL torch=\"+torch.__version__+\" expected 2.5.x; deps install failed\")' && python3 -c 'import transformers, peft, bitsandbytes, datasets'"
 
