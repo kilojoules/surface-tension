@@ -6,6 +6,11 @@
 # in them remain tracked.
 /data/*
 !/data/evidence/
+# /data/sft_scaling/ + its two source corpora are tracked for the same reason:
+# the token-scaling prereg's matched-budget sets must ship with the claim.
+!/data/sft_scaling/
+!/data/sft_rationale_train.jsonl
+!/data/sft_rationale_stripped_train.jsonl
 paper/data/
 paper/figs/data/
 
