@@ -36,15 +36,23 @@ HUB_PREFIX=${HUB_PREFIX:-kilojoules/surface-tension-scaling}
 
 cd src
 for NAME in $ARMS; do
-  TRAIN_SET=../data/sft_scaling/${NAME}.jsonl
+  # Optional rank suffix: "<dataset>_r<K>" trains dataset <dataset> at LoRA
+  # rank K (alpha = 2*rank, the r=32/alpha=64 ratio of the original recipe).
+  # No suffix -> rank 32, dataset = NAME (the original grid).
+  case "$NAME" in
+    *_r[0-9]*) RANK=${NAME##*_r}; DSET=${NAME%_r"$RANK"};;
+    *)         RANK=32;           DSET=$NAME;;
+  esac
+  ALPHA=$((RANK * 2))
+  TRAIN_SET=../data/sft_scaling/${DSET}.jsonl
   [ -f "$TRAIN_SET" ] || { LOG "FATAL: $TRAIN_SET missing"; exit 1; }
   OUT=../outputs/scaling_${NAME}
 
   if [ ! -f "$MARK/scal_${NAME}_train_done" ]; then
-    LOG "========== TRAIN $NAME (original R-SFT recipe, 20 epochs) =========="
+    LOG "========== TRAIN $NAME (original R-SFT recipe, 20 epochs, r=$RANK a=$ALPHA) =========="
     BASE_MODEL="$BASE_MODEL" \
     SFT_TRAIN="$TRAIN_SET" SFT_OUTPUT="$OUT" \
-    LORA_RANK=32 LORA_ALPHA=64 LORA_DROPOUT=0.0 \
+    LORA_RANK=$RANK LORA_ALPHA=$ALPHA LORA_DROPOUT=0.0 \
     SFT_LR=1e-4 SFT_EPOCHS=20 LR_SCHEDULE=linear \
     MAX_LENGTH=2048 MAX_PROMPT_LENGTH=768 \
     EVAL_EVERY=0 EVAL_N=0 VAL_EVERY=0 VAL_N=0 LOG_EVERY=5 \

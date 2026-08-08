@@ -14,9 +14,14 @@
 # MAX_HOURS=44 (2x best case) → $66/pod worst case.
 set -e
 LOCAL=/Users/julianquick/portfolio_copy/surface_tension
-LEVEL="${LEVEL:?set LEVEL=b37|b75|b149}"
-case "$LEVEL" in b37|b75|b149) ;; *) echo "bad LEVEL=$LEVEL"; exit 1;; esac
-ARMS="rationale_${LEVEL} stripped_${LEVEL}"
+LEVEL="${LEVEL:?set LEVEL=b37|b75|b149|r8|r128}"
+case "$LEVEL" in
+  b37|b75|b149) ARMS="rationale_${LEVEL} stripped_${LEVEL}"; DSET_LEVEL=$LEVEL;;
+  # rank-sweep pods: both arms at the top budget, non-default LoRA rank
+  # (prereg/rank_sweep_2026-08-08.md; run_sft_scaling.sh parses the _rK suffix)
+  r8|r128)      ARMS="rationale_b149_${LEVEL} stripped_b149_${LEVEL}"; DSET_LEVEL=b149;;
+  *) echo "bad LEVEL=$LEVEL"; exit 1;;
+esac
 INSTANCE_FILE="$LOCAL/vast_scaling_${LEVEL}.env"
 GPU="${GPU:-NVIDIA A100-SXM4-80GB}"
 CLOUD="${CLOUD:-SECURE}"
@@ -24,6 +29,7 @@ HUB_PREFIX="${HUB_PREFIX:-kilojoules/surface-tension-scaling}"
 
 # ---- gate 1: prereg must be externally timestamped before data generation --
 PREREG="$LOCAL/prereg/sft_scaling_2026-08-06.md"
+case "$LEVEL" in r8|r128) PREREG="$LOCAL/prereg/rank_sweep_2026-08-08.md";; esac
 if grep -q '`____________`' "$PREREG"; then
     echo "REFUSING TO LAUNCH: $PREREG still has the external-timestamp"
     echo "placeholder. Register it (public gist / OSF / signed pushed tag) and"
@@ -32,7 +38,7 @@ if grep -q '`____________`' "$PREREG"; then
 fi
 
 # ---- gate 2: training sets must exist and match the committed manifest -----
-python3 - "$LEVEL" <<'PY' || exit 1
+python3 - "$DSET_LEVEL" <<'PY' || exit 1
 import hashlib, json, sys
 lvl = sys.argv[1]
 root = "/Users/julianquick/portfolio_copy/surface_tension/data/sft_scaling"
