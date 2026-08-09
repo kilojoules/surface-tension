@@ -120,3 +120,26 @@ Plus, frozen in this directory and covered by the same anchor:
 `battery_prompts.json`, `h6_markers.json`, `judge_rubrics.md`,
 `sign_keys.md`, `factual_controls.json`, `upstream/UPSTREAM.txt`
 (pinned upstream commits).
+
+## Amendment 2 (2026-08-09, PRE-DATA: before any pod launch or measurement)
+
+**A2.1 POWER_TABLE constant corrected.** The first anchored table used
+band = (z0.95 + z0.80)·SE = 2.4865·SE, which yields 60% power at true
+delta 0, not the stated 80% (TOST at delta 0 requires both CI bounds
+inside the band: beta/2 per side, z0.90 = 1.2816, so band = 2.9265·SE).
+Corrected table frozen; worked consequence: sd=0.35, n=100 now gives
+band 10.24 > 10 -> demotes (the wrong constant would have kept it at
+8.70). Only POWER_TABLE.json and MANIFEST.json changed; every item file
+sha is unchanged from Amendment-1 anchor.
+
+**A2.2 Golden gate added to stage 0.** The pilot now hard-fails unless
+(a) median forced-choice option mass >= 0.30 and (b) base factual-control
+argmax accuracy >= 0.80 — a broken tokenizer/prefill path dies in the
+pilot, not after the panel hours.
+
+**A2.3 Judge pin completed.** judge_rubrics.md pins the exact API model
+id (`claude-sonnet-5`), with every response's `model` field logged.
+
+**Anchor (this amendment + corrected table + updated rubrics):**
+https://gist.github.com/kilojoules/ba7ce714bc1d69adca33596f50ae9047
+(anchors the pre-URL amended addendum + POWER_TABLE.json + judge_rubrics.md.)

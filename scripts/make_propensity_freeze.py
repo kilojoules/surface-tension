@@ -225,15 +225,19 @@ def main():
     # The pilot supplies the per-axis paired-delta SD; the rule reads this
     # table at (achieved n_effective, measured SD) — nearest SD row, no
     # interpolation heroics.
-    z = 1.6449 + 0.8416
+    # TOST power at true delta 0: equivalence iff |dhat| < band - z95*SE, so
+    # power = 2*Phi(band/SE - z95) - 1; 80% needs Phi(x)=0.90 -> x = z90.
+    # band = (z95 + z90)*SE = 2.9265*SE. (Amendment 2 correction: the first
+    # anchored table used z80=0.8416 -> 2.4865, which is 60% power, not 80%.)
+    z = 1.6449 + 1.2816
     table = {f"sd={sd:.2f}": {str(n): round(z * sd / (n ** 0.5) * 100, 2)
                               for n in (100, 150, 200, 300, 400, 500, 650, 800, 1000, 1300)}
              for sd in (0.15, 0.20, 0.25, 0.30, 0.35, 0.40)}
     with open(os.path.join(OUT, "POWER_TABLE.json"), "w") as f:
         json.dump({"rule": "paired TOST alpha=0.05, 80% power at true delta 0; "
-                           "band_points = 2.4865*sd/sqrt(n_eff)*100; use the "
+                           "band_points = 2.9265*sd/sqrt(n_eff)*100; use the "
                            "nearest measured-SD row; band > 10 -> axis demotes "
-                           "to exploratory (ADDENDUM F3)",
+                           "to exploratory (ADDENDUM F3, Amendment 2)",
                    "band_points": table}, f, indent=2, sort_keys=True)
     manifest["outputs"]["POWER_TABLE.json"] = sha(os.path.join(OUT, "POWER_TABLE.json"))
     print("power table -> POWER_TABLE.json")

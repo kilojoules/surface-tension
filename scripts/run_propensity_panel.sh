@@ -32,12 +32,27 @@ if [ ! -f "$MARK/prop_pilot_done" ]; then
   OUT_JSONL=../results/raw/propensity_pilot_base.jsonl \
   python -u propensity_scorer.py 2>&1 | tee ../prop_pilot.log || exit 1
   python - <<'PY' || exit 1
-import json, re, time
+import json, re, statistics, sys, time
 lines = open("../prop_pilot.log").read()
 secs = sum(float(m) for m in re.findall(r"items in (\d+)s", lines))
-n = sum(1 for l in open("../results/raw/propensity_pilot_base.jsonl") if '"type": "score"' in l)
+recs = [json.loads(l) for l in open("../results/raw/propensity_pilot_base.jsonl")]
+scores = [r for r in recs if r.get("type") == "score"]
+n = len(scores)
+# ---- GOLDEN GATE (Amendment 2): a broken tokenizer/prefill path must kill
+# the run here, not after 30 GPU-hours. (a) mass floor: forced-choice mass
+# should concentrate on the option tokens; (b) factual sanity: base must get
+# the objectively-correct option right.
+masses = [r["mass"] for r in scores if "mass" in r]
+med_mass = statistics.median(masses) if masses else 0.0
+fact = [r for r in scores if r["axis"] == "factual_control"]
+acc = (sum(1 for r in fact if r["lp_match"] > r["lp_other"]) / len(fact)) if fact else 0.0
+print(f"[golden] median A/B mass {med_mass:.3f}; factual argmax accuracy {acc:.3f} (n={len(fact)})")
+assert med_mass >= 0.30, f"GOLDEN GATE FAIL: median option mass {med_mass:.3f} < 0.30 — scoring path suspect"
+assert acc >= 0.80, f"GOLDEN GATE FAIL: base factual accuracy {acc:.3f} < 0.80 — instrument broken"
 json.dump({"pilot_records": n, "pilot_secs": secs,
-           "secs_per_record": secs / max(1, n)}, open("../results/raw/pilot_timing.json", "w"))
+           "secs_per_record": secs / max(1, n),
+           "golden": {"median_mass": med_mass, "factual_acc": acc}},
+          open("../results/raw/pilot_timing.json", "w"))
 print(f"[pilot] {n} records in {secs:.0f}s -> {secs/max(1,n):.2f}s/record")
 PY
   touch "$MARK/prop_pilot_done"
