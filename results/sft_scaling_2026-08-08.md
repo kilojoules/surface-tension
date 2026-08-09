@@ -85,10 +85,12 @@ Ops note: stripped-arm evals ran ~40–70% slower per task (longer
 generations toward the 3072 cap) — a behavioral difference in its own
 right, disclosed here since it shows up as wall-clock, not in any metric.
 
-## Follow-up in flight
+## Follow-up: rank sweep (completed 2026-08-09)
 
-LoRA-rank sweep (r ∈ {8, 128}, both arms at the 149k budget;
-`prereg/rank_sweep_2026-08-08.md`, separately gist-anchored). First
-completed cell: rationale_b149_r128 compliance 0.324 (−3.6 pts vs r=32,
-within the ±10 rank-invariance band). Remaining three cells land
-2026-08-08/09 and will be reported in `results/rank_sweep_*.md`.
+`results/rank_sweep_2026-08-09.md`: the rationale arm is rank-invariant
+(0.316/0.360/0.324 at r=8/32/128) and the gap holds at r=8 (+12.5), but the
+matched-token gap **compresses to +8.9 at r=128** (stripped rises to
+0.235), failing that prereg's ≥10-pt bar. The headline above therefore
+carries the qualifier **"at r ≤ 32"** — the recipe this project actually
+uses — and the load-bearing-prose reading is rank-dependent at high
+adapter capacity.
