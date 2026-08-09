@@ -18,14 +18,14 @@ a dead-pod recovery (below).
 |---:|---:|---:|---:|---:|---:|---|
 | 8 | 0.316 | 0.191 | **+12.5** | 0.199 | 0.096 | 0.221 / 0.272 |
 | 32 | 0.360 | 0.176 | **+18.4** | 0.213 | 0.044 | 0.162 / 0.213 |
-| 128 | 0.324 | 0.235 | **+8.9** | 0.147 | 0.110 | 0.169 / 0.221 |
+| 128 | 0.324 | 0.235 | **+8.8** | 0.147 | 0.110 | 0.169 / 0.221 |
 
 Binomial SE at these rates ≈ ±3.3–3.7 pts per cell (n=136).
 
 ## Prereg accounting
 
 1. **(Primary) Arm gap ≥ 10 pts at both new ranks: FAILED.** Held at r=8
-   (+12.5) but not at r=128 (+8.9, 1.1 pts under the pre-committed bar).
+   (+12.5) but not at r=128 (+8.8, 1.1 pts under the pre-committed bar).
    Per the decision rule, the load-bearing-prose claim is qualified as
    rank-dependent. Context the rule requires reporting alongside: the gap
    remains positive at every rank, and the r=128 shortfall is within one
