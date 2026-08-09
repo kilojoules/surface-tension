@@ -98,7 +98,7 @@ def score_ab_items(model, tok, items, fh):
                     q2 = q[:m.start()] + "(A)" + m.group(2).rstrip() + "\n (B)" + m.group(1).rstrip()
                 else:
                     q2 = q
-                prompts.append(chat_wrap(tok, q2 + "\n\nAnswer: ("))
+                prompts.append(chat_wrap(tok, q2) + "Answer: (")
                 # which letter is 'matching' under this rendering
                 letter = it["matching_key"].strip("() ")
                 if order == "swap" and m:
@@ -122,7 +122,7 @@ def score_yesno_items(model, tok, items, fh):
     tid_no = option_token_ids(tok, [" No"])[0]
     for i in range(0, len(items), BATCH):
         chunk = items[i:i + BATCH]
-        prompts = [chat_wrap(tok, it["question"] + "\n\nAnswer:") for it in chunk]
+        prompts = [chat_wrap(tok, it["question"]) + "Answer:" for it in chunk]
         lp = next_token_logprobs(model, tok, prompts)
         for row, it in zip(lp, chunk):
             ly, ln = row[tid_yes].item(), row[tid_no].item()
@@ -148,8 +148,8 @@ def score_pair_items(model, tok, items, key_a, key_b, fh):
             oa, ob = it["options"][key_a], it["options"][key_b]
             for order, (x, y) in (("orig", (oa, ob)), ("swap", (ob, oa))):
                 q = (f"{it['question']}\n\nWhich response is better?\n"
-                     f" (A) {x}\n (B) {y}\n\nAnswer: (")
-                prompts.append(chat_wrap(tok, q))
+                     f" (A) {x}\n (B) {y}")
+                prompts.append(chat_wrap(tok, q) + "Answer: (")
                 match_letter = ("A" if it["matching_key"] == key_a else "B")
                 if order == "swap":
                     match_letter = "B" if match_letter == "A" else "A"
@@ -178,9 +178,8 @@ def score_bbq_items(model, tok, items, fh):
             ans = [it["options"]["ans0"], it["options"]["ans1"], it["options"]["ans2"]]
             for perm in orders:
                 q = (it["question"] + "\n\n" +
-                     "\n".join(f" ({'ABC'[k]}) {ans[p]}" for k, p in enumerate(perm)) +
-                     "\n\nAnswer: (")
-                prompts.append(chat_wrap(tok, q))
+                     "\n".join(f" ({'ABC'[k]}) {ans[p]}" for k, p in enumerate(perm)))
+                prompts.append(chat_wrap(tok, q) + "Answer: (")
                 meta.append((it, perm))
         lp = next_token_logprobs(model, tok, prompts)
         for row, (it, perm) in zip(lp, meta):

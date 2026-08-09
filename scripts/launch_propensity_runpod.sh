@@ -80,8 +80,8 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
 echo "waiting for pilot timing (blocks; ~30-50 min incl. model download)..."
 for i in $(seq 1 90); do
   T=$(ssh -p "$PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "root@$HOST" \
-      "cat /workspace/st/results/raw/pilot_timing.json 2>/dev/null" 2>/dev/null)
-  [ -n "$T" ] && break
+      "cat /workspace/st/results/raw/pilot_timing.json 2>/dev/null" 2>/dev/null || true)
+  if [ -n "$T" ]; then break; fi
   sleep 60
 done
 [ -n "${T:-}" ] || { echo "FATAL: pilot never reported; investigate pod"; exit 1; }
