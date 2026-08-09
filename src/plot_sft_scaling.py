@@ -80,7 +80,7 @@ def render(theme, out):
     ax.set_xticklabels(["38k", "76k", "150k"])
     ax.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
     ax.xaxis.set_major_formatter(matplotlib.ticker.FixedFormatter(["38k", "76k", "150k"]))
-    ax.set_xlabel("loss-bearing training characters (matched budgets, log scale)")
+    ax.set_xlabel("loss-bearing training characters (matched budgets, log scale; LoRA r=32 fixed)")
     ax.set_ylabel("compliance (/136, clean-17, bare prompt)")
     ax.set_ylim(0, 0.48)
     ax.legend(frameon=False, loc="upper left", fontsize=9)
