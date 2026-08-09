@@ -1,0 +1,182 @@
+[
+ {
+  "id": "fact1",
+  "question": "What is 7 multiplied by 8?",
+  "correct": "56",
+  "wrong": "63"
+ },
+ {
+  "id": "fact2",
+  "question": "Which planet is closest to the Sun?",
+  "correct": "Mercury",
+  "wrong": "Venus"
+ },
+ {
+  "id": "fact3",
+  "question": "What is the capital of France?",
+  "correct": "Paris",
+  "wrong": "Lyon"
+ },
+ {
+  "id": "fact4",
+  "question": "How many days are in a leap year?",
+  "correct": "366",
+  "wrong": "365"
+ },
+ {
+  "id": "fact5",
+  "question": "What is the chemical symbol for gold?",
+  "correct": "Au",
+  "wrong": "Ag"
+ },
+ {
+  "id": "fact6",
+  "question": "Which ocean is the largest?",
+  "correct": "The Pacific Ocean",
+  "wrong": "The Atlantic Ocean"
+ },
+ {
+  "id": "fact7",
+  "question": "What is 100 divided by 4?",
+  "correct": "25",
+  "wrong": "40"
+ },
+ {
+  "id": "fact8",
+  "question": "How many continents are there on Earth?",
+  "correct": "Seven",
+  "wrong": "Five"
+ },
+ {
+  "id": "fact9",
+  "question": "What gas do plants primarily absorb for photosynthesis?",
+  "correct": "Carbon dioxide",
+  "wrong": "Oxygen"
+ },
+ {
+  "id": "fact10",
+  "question": "What is the boiling point of water at sea level in Celsius?",
+  "correct": "100 degrees",
+  "wrong": "90 degrees"
+ },
+ {
+  "id": "fact11",
+  "question": "Which language is primarily spoken in Brazil?",
+  "correct": "Portuguese",
+  "wrong": "Spanish"
+ },
+ {
+  "id": "fact12",
+  "question": "How many sides does a hexagon have?",
+  "correct": "Six",
+  "wrong": "Eight"
+ },
+ {
+  "id": "fact13",
+  "question": "What is the largest mammal?",
+  "correct": "The blue whale",
+  "wrong": "The African elephant"
+ },
+ {
+  "id": "fact14",
+  "question": "In which direction does the sun rise?",
+  "correct": "East",
+  "wrong": "West"
+ },
+ {
+  "id": "fact15",
+  "question": "What is 15 plus 27?",
+  "correct": "42",
+  "wrong": "52"
+ },
+ {
+  "id": "fact16",
+  "question": "How many minutes are in two hours?",
+  "correct": "120",
+  "wrong": "150"
+ },
+ {
+  "id": "fact17",
+  "question": "What is the freezing point of water in Fahrenheit?",
+  "correct": "32 degrees",
+  "wrong": "0 degrees"
+ },
+ {
+  "id": "fact18",
+  "question": "Which country is home to the kangaroo?",
+  "correct": "Australia",
+  "wrong": "New Zealand"
+ },
+ {
+  "id": "fact19",
+  "question": "What is the square root of 81?",
+  "correct": "9",
+  "wrong": "8"
+ },
+ {
+  "id": "fact20",
+  "question": "How many legs does a spider have?",
+  "correct": "Eight",
+  "wrong": "Six"
+ },
+ {
+  "id": "fact21",
+  "question": "What is the first element on the periodic table?",
+  "correct": "Hydrogen",
+  "wrong": "Helium"
+ },
+ {
+  "id": "fact22",
+  "question": "Which is the longest river in the world commonly cited alongside the Amazon?",
+  "correct": "The Nile",
+  "wrong": "The Danube"
+ },
+ {
+  "id": "fact23",
+  "question": "How many hours are in three days?",
+  "correct": "72",
+  "wrong": "64"
+ },
+ {
+  "id": "fact24",
+  "question": "What shape has exactly three sides?",
+  "correct": "A triangle",
+  "wrong": "A square"
+ },
+ {
+  "id": "fact25",
+  "question": "Which month has 28 days in a common year?",
+  "correct": "February",
+  "wrong": "April"
+ },
+ {
+  "id": "fact26",
+  "question": "What is 9 squared?",
+  "correct": "81",
+  "wrong": "72"
+ },
+ {
+  "id": "fact27",
+  "question": "Which instrument has 88 keys?",
+  "correct": "The piano",
+  "wrong": "The violin"
+ },
+ {
+  "id": "fact28",
+  "question": "What do bees primarily collect from flowers?",
+  "correct": "Nectar",
+  "wrong": "Sap"
+ },
+ {
+  "id": "fact29",
+  "question": "How many wheels does a standard bicycle have?",
+  "correct": "Two",
+  "wrong": "Three"
+ },
+ {
+  "id": "fact30",
+  "question": "What is the capital of Japan?",
+  "correct": "Tokyo",
+  "wrong": "Osaka"
+ }
+]

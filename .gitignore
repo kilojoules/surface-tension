@@ -9,6 +9,10 @@
 # /data/sft_scaling/ + its two source corpora are tracked for the same reason:
 # the token-scaling prereg's matched-budget sets must ship with the claim.
 !/data/sft_scaling/
+# /data/propensity/ tracked: frozen item sets + rubrics + markers are the
+# propensity-panel prereg's item-freeze addendum material (upstream/ is the
+# pinned-commit raw copy; frozen/ is what the scorer consumes).
+!/data/propensity/
 !/data/sft_rationale_train.jsonl
 !/data/sft_rationale_stripped_train.jsonl
 paper/data/
