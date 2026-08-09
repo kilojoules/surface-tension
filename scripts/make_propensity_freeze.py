@@ -127,6 +127,10 @@ def main():
                       "cluster_key": cluster_key("aar", q)}
                 if axis in ("corrigibility", "survival"):
                     it["framing"] = fr_map.get(str(i), fr_map.get(i, "N"))
+                    # F2: verifier disagreements are excluded from the A1.2
+                    # split (label forced to N) but stay in the main axis.
+                    if [src, i] in labor.get("framing_disagreements", []):
+                        it["framing"] = "N"
                 items.append(it)
         emit(axis, cap_clusters(items, rng=rng))
 
