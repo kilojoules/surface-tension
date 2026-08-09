@@ -77,6 +77,30 @@ round. Candidate next steps, in rough order of cheapness:
    policies; the multitier reward (+2 comp∧pass / +1 comp∧fail / −1 cheat)
    may now have gradient to work with.
 
+## Addendum 2026-08-09: "no-code" is truncation-by-deliberation, not code suppression
+
+A transcript audit (all 35 no-code raw outputs re-read; verification script
+result: 35/35 end inside an **unclosed** ```python fence, median 91% of
+non-blank in-fence lines are `#`-comment deliberation, 0 refusals, 0
+prose-only, 0 empty) shows the "no-code output" category is mechanically
+**truncation at the token cap during in-code rule-deliberation** — long
+`# Wait, the prompt forbids...` self-argument chains about a constraint the
+bare prompt never stated — not suppression of code-emission. The same
+mechanism accounts for the no-code rows in the SFT scaling arms (22/22 and
+29/29 audited for rationale_b149/stripped_b149).
+
+This revises the mechanism hypothesis above: iterated DPO's monotone
+no-code trend (17% → 22% → 26%) is **escalating compliance-deliberation
+verbosity** (raw mean 929 words vs 448 in the chosen training examples),
+which overruns max_new_tokens — likelihood displacement showing up as
+anxious rule-lawyering, not as declining code probability. The behavioral
+tax is real either way (nothing extractable = fails /136), but the story
+"every rejected example contains code → mass moves away from code-emission
+per se" overstated the case; the displaced mass went into deliberation
+*about the rule*, inside the code block. Full audit in the 2026-08-09
+prose-theme study (prereg/propensity_panel_2026-08-09.md, motivation
+section).
+
 ## Prereg accounting
 
 Predictions 1 (primary), 2, and 4: **failed**. Prediction 3 (cheating
