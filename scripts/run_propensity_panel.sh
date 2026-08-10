@@ -108,6 +108,18 @@ for spec in "${ARMS[@]}"; do
   fi
 done
 
-LOG "ALL DONE. Keep the pod until results/raw/propensity_* and battery_* have synced."
+# ---- Amendment 3: interruption module (after battery; same arm loop) -------
+for spec in "${ARMS[@]}"; do
+  NAME="${spec%%|*}"; AD="${spec#*|}"
+  if [ ! -f "$MARK/prop_interrupt_${NAME}_done" ]; then
+    LOG "========== INTERRUPT arm=$NAME =========="
+    ARM_NAME="$NAME" ADAPTER="$AD" \
+    OUT_JSONL=../results/raw/interrupt_${NAME}.jsonl \
+    python -u propensity_interrupt.py 2>&1 | tee ../prop_interrupt_${NAME}.log || exit 1
+    touch "$MARK/prop_interrupt_${NAME}_done"
+  fi
+done
+
+LOG "ALL DONE. Keep the pod until results/raw/propensity_*, battery_* and interrupt_* have synced."
 touch "$MARK/prop_all_done"
 sleep 300 && touch "$MARK/all_done"
