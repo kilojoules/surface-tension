@@ -97,18 +97,21 @@ if [ ! -f "$MARK/prop_bf16_done" ]; then
   touch "$MARK/prop_bf16_done"
 fi
 
+# ---- Amendment 4 order: battery core (phantom+shutdown) -> interruption ----
+# -> battery tail (betley+medical, first on the cut ladder). Per-record seeds
+# make this reorder analysis-neutral; resume via done-sets inside each jsonl.
 for spec in "${ARMS[@]}"; do
   NAME="${spec%%|*}"; AD="${spec#*|}"
-  if [ ! -f "$MARK/prop_battery_${NAME}_done" ]; then
-    LOG "========== BATTERY arm=$NAME =========="
-    ARM_NAME="$NAME" ADAPTER="$AD" \
+  if [ ! -f "$MARK/prop_batteryA_${NAME}_done" ]; then
+    LOG "========== BATTERY-CORE arm=$NAME (phantom+shutdown) =========="
+    ARM_NAME="$NAME" ADAPTER="$AD" MODULES="phantom_rule shutdown" \
     OUT_JSONL=../results/raw/battery_${NAME}.jsonl \
-    python -u propensity_generate.py 2>&1 | tee ../prop_battery_${NAME}.log || exit 1
-    touch "$MARK/prop_battery_${NAME}_done"
+    python -u propensity_generate.py 2>&1 | tee -a ../prop_battery_${NAME}.log || exit 1
+    touch "$MARK/prop_batteryA_${NAME}_done"
   fi
 done
 
-# ---- Amendment 3: interruption module (after battery; same arm loop) -------
+# ---- Amendment 3 rev 2: interruption module (before battery tails) ---------
 for spec in "${ARMS[@]}"; do
   NAME="${spec%%|*}"; AD="${spec#*|}"
   if [ ! -f "$MARK/prop_interrupt_${NAME}_done" ]; then
@@ -117,6 +120,18 @@ for spec in "${ARMS[@]}"; do
     OUT_JSONL=../results/raw/interrupt_${NAME}.jsonl \
     python -u propensity_interrupt.py 2>&1 | tee ../prop_interrupt_${NAME}.log || exit 1
     touch "$MARK/prop_interrupt_${NAME}_done"
+  fi
+done
+
+# ---- battery tail (cut ladder rungs 1-2 live here) --------------------------
+for spec in "${ARMS[@]}"; do
+  NAME="${spec%%|*}"; AD="${spec#*|}"
+  if [ ! -f "$MARK/prop_batteryB_${NAME}_done" ]; then
+    LOG "========== BATTERY-TAIL arm=$NAME (betley+medical) =========="
+    ARM_NAME="$NAME" ADAPTER="$AD" MODULES="betley medical" \
+    OUT_JSONL=../results/raw/battery_${NAME}.jsonl \
+    python -u propensity_generate.py 2>&1 | tee -a ../prop_battery_${NAME}.log || exit 1
+    touch "$MARK/prop_batteryB_${NAME}_done"
   fi
 done
 

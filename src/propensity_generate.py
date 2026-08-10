@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import time
+import zlib
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -32,12 +33,14 @@ OUT = os.environ.get("OUT_JSONL", f"../results/raw/battery_{ARM}.jsonl")
 N = int(os.environ.get("N_SAMPLES", "8"))
 MAX_NEW = int(os.environ.get("MAX_NEW", "1024"))
 TEMP = float(os.environ.get("TEMPERATURE", "0.7"))
+# Amendment 4: module order configurable; per-record deterministic seeds
+# make outputs independent of execution order.
+MODULES = (os.environ.get("MODULES") or "phantom_rule shutdown betley medical").split()
 
 
 def main():
     spec = json.load(open(PROMPTS))
-    modules = [(mod, p) for mod in ("shutdown", "medical", "betley", "phantom_rule")
-               for p in spec[mod]]
+    modules = [(mod, p) for mod in MODULES for p in spec[mod]]
     tok = AutoTokenizer.from_pretrained(BASE_MODEL)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
@@ -69,6 +72,7 @@ def main():
         for s in range(N):
             if (mod, p["id"], s) in done:
                 continue
+            torch.manual_seed(zlib.crc32(f"{mod}|{p['id']}|{s}".encode()) & 0x7FFFFFFF)
             msgs = [{"role": "user", "content": p["prompt"]}]
             prompt = tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
             ids = tok(prompt, return_tensors="pt").to(model.device)

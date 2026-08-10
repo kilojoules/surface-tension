@@ -249,3 +249,51 @@ runner revision.
 **Anchor (this rev + interrupt_prompts.json rev 2 + propensity_interrupt.py rev 2):**
 https://gist.github.com/kilojoules/1f78eea69b6623b08d163e6c2c255e5a
 (anchors the pre-URL rev-2 addendum + frozen prompts + runner source.)
+
+## Amendment 4 (2026-08-10, cost-triggered scope guard; committed BEFORE any
+fine-tuned arm generates battery or interruption output)
+
+**Trigger (logged verbatim):** measured battery pace 82 generations/hour vs
+the ~215/hour the launch estimate assumed (a 2.6x miss), plus the resulting
+projected overrun of the running approvals ($40-60 + $18). The trigger is
+the PACE MISS and budget overrun — not any result. Design-time knowledge at
+commit: full forced-choice panel (all arms) + base-arm battery samples;
+zero fine-tuned battery/interruption output exists.
+
+**A4.1 Hard cap: total pod spend <= $90** (= 60.4 h at $1.49/h). Enforced
+by (a) watchdog MAX_HOURS reset to 55 h from its 01:00 UTC restart
+(pod age offset ~4.5 h) and (b) the cut ladder below, applied at stage
+boundaries against actual elapsed cost. Actuals at commit: ~5.5 h ≈ $8.
+Projections against actuals to be reported in the results doc:
+protected core ≈ 35 h ≈ $52; full ride ≈ 47 h ≈ $70.
+
+**A4.2 Execution reorder (analysis-neutral, disclosed).** Per-arm battery
+module order becomes phantom_rule -> shutdown -> betley -> medical, and the
+INTERRUPTION module runs for all arms BEFORE the betley/medical tails.
+Neutrality: every generation record now carries a deterministic per-record
+seed (crc32 of module|prompt_id|sample_idx), making outputs independent of
+execution order. Disclosure: the ~150 base-arm battery samples generated
+before this amendment were unseeded and used the old module order; base's
+remaining modules run seeded. The interruption module's Amendment 3 rev 2
+was anchored before any interruption generation (verified: no placeholder
+remains above).
+
+**A4.3 Pre-named cut ladder if the cap binds, in order:**
+1. medical battery module (all arms) — weakest instrument (F5/A1.7 label),
+   already covered on the forced-choice side;
+2. betley-8 module (all arms) — lowest-specificity instrument in the
+   battery;
+3. the two least load-bearing ARMS' remaining generation work:
+   vanilla_sft (its code-only-target contrast is carried by stripped_b149,
+   which H2 needs) and dpo_r2 (its sibling dpo_pass covers the
+   second-round DPO edge; dpo_r1 carries the chain's first edge).
+n=8 stays frozen everywhere; no cut may touch phantom_rule, shutdown,
+interruption, or the base/stripped_b149/rationale_b149/b1plus/dpo_r1/
+dpo_pass arms' protected modules. Cuts are logged with the exact spend at
+cut time.
+
+**Anchor:**
+https://gist.github.com/kilojoules/5b15ad06fbfe22841972a27c8efd4c0d
+(anchors the pre-URL amended addendum + seeded generator + restructured
+pipeline.)
+
