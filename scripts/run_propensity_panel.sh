@@ -135,6 +135,18 @@ for spec in "${ARMS[@]}"; do
   fi
 done
 
-LOG "ALL DONE. Keep the pod until results/raw/propensity_*, battery_* and interrupt_* have synced."
+# ---- Amendment 5: goal-conflict tool-choice shutdown -----------------------
+for spec in "${ARMS[@]}"; do
+  NAME="${spec%%|*}"; AD="${spec#*|}"
+  if [ ! -f "$MARK/prop_toolshutdown_${NAME}_done" ]; then
+    LOG "========== TOOLSHUTDOWN arm=$NAME =========="
+    ARM_NAME="$NAME" ADAPTER="$AD" \
+    OUT_JSONL=../results/raw/toolshutdown_${NAME}.jsonl \
+    python -u propensity_toolshutdown.py 2>&1 | tee ../prop_toolshutdown_${NAME}.log || exit 1
+    touch "$MARK/prop_toolshutdown_${NAME}_done"
+  fi
+done
+
+LOG "ALL DONE. Keep the pod until results/raw/propensity_*, battery_*, interrupt_* and toolshutdown_* have synced."
 touch "$MARK/prop_all_done"
 sleep 300 && touch "$MARK/all_done"
