@@ -1,0 +1,31 @@
+{
+ "_provenance": "tokenizer.json from google/gemma-4-31B-it via tokenizers lib; encode(completion, add_special_tokens=False); matches _completion_loss counting",
+ "rationale_b149": {
+  "demos": 50,
+  "tokens": 46454
+ },
+ "rationale_b37": {
+  "demos": 13,
+  "tokens": 11907
+ },
+ "rationale_b75": {
+  "demos": 23,
+  "tokens": 23477
+ },
+ "rsft_original": {
+  "demos": 66,
+  "tokens": 57099
+ },
+ "stripped_b149": {
+  "demos": 66,
+  "tokens": 49430
+ },
+ "stripped_b37": {
+  "demos": 15,
+  "tokens": 13181
+ },
+ "stripped_b75": {
+  "demos": 30,
+  "tokens": 26074
+ }
+}

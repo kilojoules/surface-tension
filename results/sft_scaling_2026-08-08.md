@@ -81,6 +81,15 @@ solving the problem*, not just raising a compliance flag.
 no-code mass here looks like a property of the base+small-SFT regime, not
 of the target type.
 
+Token-count addendum (2026-08-12): measured loss-bearing tokens
+(Gemma tokenizer, completion-only, add_special_tokens=False;
+data/sft_scaling/token_counts.json): rationale 11,907/23,477/46,454 vs
+stripped 13,181/26,074/49,430; original R-SFT 57,099. At matched
+characters the rationale arm received 6–10% FEWER tokens (prose packs
+more chars per token) — the char-match was conservative against the
+rationale arm, so the matched-budget gaps hold a fortiori at the token
+level. The figure's x-axis now uses these measured counts.
+
 Ops note: stripped-arm evals ran ~40–70% slower per task (longer
 generations toward the 3072 cap) — a behavioral difference in its own
 right, disclosed here since it shows up as wall-clock, not in any metric.
