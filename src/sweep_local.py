@@ -104,7 +104,7 @@ def _existing_keys(csv_path: str) -> set:
 def evaluate_one(problem: Dict[str, Any], constraint: str, sample_idx: int,
                  source_dir: str, model, tokenizer, model_name: str,
                  max_new_tokens: int, temperature: float,
-                 prefill: str = "") -> Row:
+                 prefill: str = "", prompt_suffix: str = "") -> Row:
     is_constrained = constraint != "none"
     actual_constraint = constraint if is_constrained else None
     condition = "constrained" if is_constrained else "unconstrained"
@@ -118,6 +118,8 @@ def evaluate_one(problem: Dict[str, Any], constraint: str, sample_idx: int,
     )
 
     prompt = build_prompt(problem, actual_constraint)
+    if prompt_suffix:
+        prompt = f"{prompt}\n{prompt_suffix}"
     row.prompt_chars = len(prompt)
 
     t0 = time.time()
@@ -218,6 +220,7 @@ def main():
     ap.add_argument("--max-new-tokens", type=int, default=int(os.environ.get("MAX_NEW_TOKENS", "1536")))
     ap.add_argument("--temperature", type=float, default=0.7)
     ap.add_argument("--prefill", default="", help="assistant-turn prefix; re-attached to output before extraction")
+    ap.add_argument("--prompt-suffix", default="", help="appended to the built prompt (instruction-hardening cells)")
     ap.add_argument("--skip-bare", action="store_true",
                     help="skip the unconstrained bare-prompt pass; sweep only constrained conditions.")
     args = ap.parse_args()
@@ -267,7 +270,7 @@ def main():
             row = evaluate_one(problem, constraint, sample_idx, source_dir,
                                model, tokenizer, model_label,
                                args.max_new_tokens, args.temperature,
-                               prefill=args.prefill)
+                               prefill=args.prefill, prompt_suffix=args.prompt_suffix)
             writer.writerow({k: getattr(row, k) for k in CSV_FIELDS})
             completed += 1
             if completed % 10 == 0:
