@@ -94,7 +94,8 @@ def unload_model(*objs):
 
 
 def generate_text(model, tokenizer, prompt: str, max_new_tokens: int = 1024,
-                  temperature: float = 0.7, top_p: float = 0.95) -> str:
+                  temperature: float = 0.7, top_p: float = 0.95,
+                  prefill: str = "") -> str:
     """Single-prompt completion via transformers.generate. Returns just the new text.
 
     Wraps the prompt in the tokenizer's chat template (with `add_generation_prompt=True`)
@@ -110,6 +111,10 @@ def generate_text(model, tokenizer, prompt: str, max_new_tokens: int = 1024,
         )
     else:
         formatted = prompt  # base/non-instruct models: pass through
+    if prefill:
+        # assistant-turn continuation: the model's response starts with `prefill`
+        # (the returned text is generation-only; callers re-attach the prefill)
+        formatted += prefill
 
     inputs = tokenizer(formatted, return_tensors="pt", truncation=True, max_length=4096).to(model.device)
     with torch.no_grad():
