@@ -1,0 +1,124 @@
+"""Two figures from the step-0 kill test (results/step0_kill_test_2026-08-13.md).
+Measured cells only; /136 for natural (historical), /51 for prefilled.
+
+Fig 1 (suppression slope): compliance natural -> prefilled per arm — vanilla
+flat (0.154 -> 0.137), R-SFT collapses (0.346 -> 0.039, through the vanilla
+floor to base territory); R-SFT pass rate rises 0.41 -> 0.744 (right panel).
+
+Fig 2 (substitution decomposition): each arm's NATURAL compliance split into
+weight-borne (the prefilled cell: what survives with the rationale channel
+blocked) + token-channel share (natural − prefilled, arithmetic on measured
+cells, labeled as such). Shows R-SFT's weight-borne share (0.039) is BELOW
+vanilla's (0.137): rationale training re-routed rule expression into the
+emitted-token channel.
+
+Counts: vanilla natural 21/136, prefilled 7/51; R-SFT natural 47/136,
+prefilled 2/51; base 2/136. R-SFT pass: natural ~56/136=0.41, prefilled
+38/51=0.744 (recheck pass_rate x n_gens).
+
+Output: paper/figs/step0_{suppression,substitution}{,_dark}.{pdf,png}
+"""
+import os
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.makedirs(f"{ROOT}/paper/figs", exist_ok=True)
+
+VAN = dict(nat=0.154, pre=0.137)
+RSFT = dict(nat=0.346, pre=0.039)
+BASE = 0.015
+RSFT_PASS = dict(nat=0.41, pre=0.744)
+
+PAL = {
+    "light": dict(van="#e07b39", rsft="#2e7d32", ref="#666666", ink="#222222"),
+    "dark":  dict(van="#e8944f", rsft="#4e9d53", ref="#a0a0a0", ink="#dddddd"),
+}
+
+
+def fig_suppression(theme, out):
+    p = PAL[theme]
+    plt.style.use("default" if theme == "light" else "dark_background")
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(7.6, 4.0),
+                                  gridspec_kw={"width_ratios": [2, 1]})
+    for arm, d, c in (("vanilla SFT", VAN, p["van"]), ("R-SFT", RSFT, p["rsft"])):
+        ax.plot([0, 1], [d["nat"], d["pre"]], color=c, marker="o", ms=7, lw=2.2)
+        ax.annotate(f'{d["nat"]:.2f}', (0, d["nat"]), xytext=(-8, 0),
+                    textcoords="offset points", ha="right", va="center",
+                    fontsize=9, color=p["ink"])
+        ax.annotate(f'{d["pre"]:.2f}  {arm}', (1, d["pre"]), xytext=(8, 0),
+                    textcoords="offset points", ha="left", va="center",
+                    fontsize=9, color=c)
+    ax.axhline(BASE, color=p["ref"], lw=1, ls=":")
+    ax.annotate("base 0.015", (0.02, BASE), xycoords=("axes fraction", "data"),
+                fontsize=8, color=p["ref"], va="bottom")
+    ax.set_xlim(-0.35, 1.75)
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(["natural\n(/136)", "rationale suppressed\nprefill ```python (/51)"], fontsize=9)
+    ax.set_ylabel("compliance (clean-17, bare prompt)")
+    ax.set_ylim(0, 0.42)
+    ax.set_title("Suppressing the rationale", fontsize=11)
+    ax.spines[["top", "right"]].set_visible(False)
+
+    ax2.plot([0, 1], [RSFT_PASS["nat"], RSFT_PASS["pre"]], color=p["rsft"],
+             marker="o", ms=7, lw=2.2)
+    for xv, v in ((0, RSFT_PASS["nat"]), (1, RSFT_PASS["pre"])):
+        ax2.annotate(f"{v:.2f}", (xv, v), xytext=(0, 8), textcoords="offset points",
+                     ha="center", fontsize=9, color=p["ink"])
+    ax2.set_xlim(-0.4, 1.4)
+    ax2.set_xticks([0, 1])
+    ax2.set_xticklabels(["natural", "suppressed"], fontsize=9)
+    ax2.set_ylabel("R-SFT pass rate (of code-emitting)")
+    ax2.set_ylim(0, 0.85)
+    ax2.set_title("…and the model\nsolves more", fontsize=10)
+    ax2.spines[["top", "right"]].set_visible(False)
+    fig.tight_layout()
+    for ext in ("pdf", "png"):
+        fig.savefig(f"{out}.{ext}", dpi=200)
+    plt.close(fig)
+    print(f"wrote {out}")
+
+
+def fig_substitution(theme, out):
+    p = PAL[theme]
+    plt.style.use("default" if theme == "light" else "dark_background")
+    fig, ax = plt.subplots(figsize=(6.0, 4.2))
+    arms = [("vanilla SFT", VAN, p["van"]), ("R-SFT", RSFT, p["rsft"])]
+    for i, (label, d, c) in enumerate(arms):
+        weight = d["pre"]
+        token = max(0.0, d["nat"] - d["pre"])
+        ax.bar(i, weight, 0.55, color=c, edgecolor="none",
+               label="weight-borne (survives suppression)" if i == 0 else None)
+        ax.bar(i, token, 0.55, bottom=weight, color=c, alpha=0.35,
+               hatch="//", edgecolor=p["ink"], linewidth=0.4,
+               label="token-channel (natural − suppressed)" if i == 0 else None)
+        ax.annotate(f"{weight:.2f}", (i, weight / 2), ha="center", va="center",
+                    fontsize=10, color="white" if theme == "light" else "#111111",
+                    fontweight="bold")
+        ax.annotate(f"+{token:.2f}", (i, weight + token / 2), ha="center",
+                    va="center", fontsize=10, color=p["ink"])
+        ax.annotate(f"natural {d['nat']:.2f}", (i, d["nat"]),
+                    xytext=(0, 6), textcoords="offset points", ha="center",
+                    fontsize=8.5, color=p["ink"])
+    ax.axhline(BASE, color=p["ref"], lw=1, ls=":")
+    ax.annotate("base 0.015", (0.99, BASE), xycoords=("axes fraction", "data"),
+                ha="right", va="bottom", fontsize=8, color=p["ref"])
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels([a[0] for a in arms], fontsize=10)
+    ax.set_ylabel("compliance (clean-17, bare prompt)")
+    ax.set_ylim(0, 0.42)
+    ax.set_title("Where the rule lives: weights vs emitted tokens", fontsize=11)
+    ax.legend(frameon=False, loc="upper left", fontsize=8.5)
+    ax.spines[["top", "right"]].set_visible(False)
+    fig.tight_layout()
+    for ext in ("pdf", "png"):
+        fig.savefig(f"{out}.{ext}", dpi=200)
+    plt.close(fig)
+    print(f"wrote {out}")
+
+
+for theme in ("light", "dark"):
+    sfx = "" if theme == "light" else "_dark"
+    fig_suppression(theme, f"{ROOT}/paper/figs/step0_suppression{sfx}")
+    fig_substitution(theme, f"{ROOT}/paper/figs/step0_substitution{sfx}")
