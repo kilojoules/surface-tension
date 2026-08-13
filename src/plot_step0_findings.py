@@ -39,6 +39,7 @@ PAL = {
 
 def fig_suppression(theme, out):
     p = PAL[theme]
+    p_ink = p["ink"]
     plt.style.use("default" if theme == "light" else "dark_background")
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(7.6, 4.0),
                                   gridspec_kw={"width_ratios": [2, 1]})
@@ -58,7 +59,7 @@ def fig_suppression(theme, out):
     ax.set_xticklabels(["natural\n(/136)", "rationale suppressed\nprefill ```python (/51)"], fontsize=9)
     ax.set_ylabel("compliance (clean-17, bare prompt)")
     ax.set_ylim(0, 0.42)
-    ax.set_title("Suppressing the rationale", fontsize=11)
+    ax.set_title("Suppression removes the rule…", fontsize=11)
     ax.spines[["top", "right"]].set_visible(False)
 
     ax2.plot([0, 1], [RSFT_PASS["nat"], RSFT_PASS["pre"]], color=p["rsft"],
@@ -71,7 +72,10 @@ def fig_suppression(theme, out):
     ax2.set_xticklabels(["natural", "suppressed"], fontsize=9)
     ax2.set_ylabel("R-SFT pass rate (of code-emitting)")
     ax2.set_ylim(0, 0.85)
-    ax2.set_title("…and the model\nsolves more", fontsize=10)
+    ax2.set_title("…not the capability", fontsize=11)
+    ax2.annotate("rule gone → reverts to ordinary\n(loopy) code → solves more;\nloop-free solutions are harder",
+                 (0.5, 0.08), xycoords="axes fraction", ha="center",
+                 fontsize=7.5, color=p_ink, alpha=0.8)
     ax2.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     for ext in ("pdf", "png"):
