@@ -56,3 +56,33 @@ into vanilla — which now carry a sharpened question: is the compliance
 boost carried by the rationale's *content* or by rationale-*shaped*
 context at all? Pre-verbalization probes (step 2) demote to a cheap
 confirmatory null.
+
+## Addendum: hardened-instruction cell (step-0d, 2026-08-13, +$8.70 incl. one
+pod lost to an orphaned-sentinel race — ops note below)
+
+Cell: R-SFT × prompt suffix "Do NOT write any explanation or text before
+the code; your response must begin immediately with ```python", n=3,
+clean-17, otherwise identical recipe.
+
+| condition | rationale emitted | compliance |
+|---|---:|---:|
+| natural (prompt already says "return only Python source") | 100% | 0.346 |
+| hardened instruction (explicit DO-NOT + must-begin-with) | **51/51 = 100%** | **0.373** |
+| mechanical prefill (```python forced) | 0% | 0.039 |
+
+**Reading: the rationale emission is itself involuntary.** Instruction
+pressure — even explicit, capitalized, position-specific — cannot suppress
+it (0/51 obedience, median 468 prose chars emitted in direct defiance);
+only mechanical prefill can, and doing so removes the rule. Combined with
+the suppression result, the picture sharpens: **what R-SFT internalized is
+the habit of saying the incantation, not the rule the incantation
+describes.** The rule rides in the emitted tokens; the emission itself is
+weight-entrenched. No within-cell mediation contrast exists (zero
+obedience), but the cross-cell dose relationship is now three points:
+rationale present 100% → compliance 0.35–0.37; rationale 0% → 0.039.
+
+Ops note: the first step-0c pod crashed pre-upload (silenced rsync
+install failure), and its orphaned `sleep 300 && touch all_done` subshell
+re-created the destroy sentinel AFTER manual cleanup, costing the rebuilt
+pod. Fix now standard: clear sentinel *processes*, not just files, and
+gate runner launch on verified file counts.
