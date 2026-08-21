@@ -15,6 +15,7 @@
 !/data/propensity/
 !/data/sft_rationale_train.jsonl
 !/data/sft_rationale_stripped_train.jsonl
+!/data/sft_train.jsonl
 paper/data/
 paper/figs/data/
 

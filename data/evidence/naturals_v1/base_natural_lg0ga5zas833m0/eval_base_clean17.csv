@@ -1,0 +1,111 @@
+problem_id,benchmark,entry_point,constraint,condition,sample_idx,model,elapsed_s,gen_error,code_extracted,code_chars,parses,has_entry,compliant,test_passed,test_timed_out,test_error,prompt_chars,raw_chars
+lcb/abc356_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,59.91,,1,1780,1,1,1,1,0,,2499,1795
+lcb/abc356_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,63.95,,1,1848,1,1,1,1,0,,2499,1863
+lcb/abc356_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,56.13,,1,1751,1,1,1,1,0,,2499,1766
+lcb/abc356_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,57.14,,1,1723,1,1,1,1,0,,2499,1738
+lcb/abc356_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,53.38,,1,1644,1,1,1,1,0,,2499,1659
+lcb/abc356_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,55.92,,1,1739,1,1,1,1,0,,2499,1754
+lcb/abc356_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,64.41,,1,1905,1,1,1,1,0,,2499,1920
+lcb/abc356_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,59.29,,1,1705,1,1,1,1,0,,2499,1720
+lcb/abc359_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,232.03,,1,4709,1,1,1,0,0,wrong_output on test 2: got '2685353962924933' want '1794977862420151',2172,4724
+lcb/abc359_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,354.02,no_code_block_found,0,0,0,0,0,0,0,,2172,6810
+lcb/abc359_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,351.59,no_code_block_found,0,0,0,0,0,0,0,,2172,7014
+lcb/abc359_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,254.92,,1,5656,1,1,1,0,0,wrong_output on test 7: got '3865081076768754' want '3865081076768755',2172,5671
+lcb/abc359_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,206.12,,1,4437,1,1,1,0,0,wrong_output on test 7: got '3865081076768754' want '3865081076768755',2172,4452
+lcb/abc359_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,252.61,,1,5432,1,1,1,0,0,wrong_output on test 0: got '6' want '5',2172,5446
+lcb/abc359_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,349.21,no_code_block_found,0,0,0,0,0,0,0,,2172,7114
+lcb/abc359_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,351.23,no_code_block_found,0,0,0,0,0,0,0,,2172,6792
+lcb/abc362_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,57.79,,1,1501,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,1515
+lcb/abc362_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,49.63,,1,1200,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,1214
+lcb/abc362_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,49.97,,1,1354,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,1369
+lcb/abc362_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,55.27,,1,1391,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,1405
+lcb/abc362_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,50.67,,1,1179,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,1194
+lcb/abc362_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,52.5,,1,1276,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,1291
+lcb/abc362_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,47.77,,1,1229,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,1244
+lcb/abc362_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,52.94,,1,1371,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,1385
+lcb/abc363_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,36.17,,1,1156,1,1,1,1,0,,1690,1171
+lcb/abc363_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,42.33,,1,1368,1,1,1,1,0,,1690,1383
+lcb/abc363_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,46.37,,1,1441,1,1,1,1,0,,1690,1456
+lcb/abc363_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,47.17,,1,1495,1,1,1,1,0,,1690,1509
+lcb/abc363_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,42.48,,1,1313,1,1,1,1,0,,1690,1328
+lcb/abc363_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,44.2,,1,1395,1,1,1,1,0,,1690,1410
+lcb/abc363_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,40.58,,1,1287,1,1,1,1,0,,1690,1302
+lcb/abc363_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,43.44,,1,1447,1,1,1,1,0,,1690,1462
+lcb/abc367_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,198.71,,1,4051,1,1,1,1,0,,2549,4066
+lcb/abc367_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,242.84,,1,4851,1,1,1,1,0,,2549,4865
+lcb/abc367_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,174.54,,1,3536,1,1,1,1,0,,2549,3550
+lcb/abc367_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,255.93,,1,5310,1,1,1,1,0,,2549,5324
+lcb/abc367_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,174.69,,1,3772,1,1,1,1,0,,2549,3786
+lcb/abc367_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,278.86,,1,5652,1,1,1,1,0,,2549,5666
+lcb/abc367_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,353.87,no_code_block_found,0,0,0,0,0,0,0,,2549,6872
+lcb/abc367_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,205.85,,1,4366,1,1,1,1,0,,2549,4380
+lcb/abc370_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,69.93,,1,2008,1,1,1,1,0,,2468,2023
+lcb/abc370_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,81.4,,1,2422,1,1,1,1,0,,2468,2437
+lcb/abc370_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,72.16,,1,2136,1,1,1,1,0,,2468,2151
+lcb/abc370_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,71.99,,1,2134,1,1,1,1,0,,2468,2149
+lcb/abc370_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,65.65,,1,1996,1,1,1,1,0,,2468,2011
+lcb/abc370_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,70.76,,1,2082,1,1,1,1,0,,2468,2097
+lcb/abc370_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,62.26,,1,1788,1,1,1,1,0,,2468,1803
+lcb/abc370_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,69.01,,1,2055,1,1,1,1,0,,2468,2070
+lcb/abc370_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,194.82,,1,5017,1,1,1,1,0,,2861,5031
+lcb/abc370_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,353.47,no_code_block_found,0,0,0,0,0,0,0,,2861,8597
+lcb/abc370_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,309.76,too_long,1,7538,1,1,0,0,0,,2861,7553
+lcb/abc370_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,176.52,,1,4487,1,1,1,0,0,runtime_err on test 0: IndexError: list index out of range,2861,4501
+lcb/abc370_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,353.06,no_code_block_found,0,0,0,0,0,0,0,,2861,8989
+lcb/abc370_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,236.51,,1,6208,1,1,1,1,0,,2861,6222
+lcb/abc370_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,353.03,no_code_block_found,0,0,0,0,0,0,0,,2861,9202
+lcb/abc370_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,254.82,,1,6314,1,1,1,0,0,wrong_output on test 0: got '1' want '2',2861,6329
+lcb/abc371_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,90.88,,1,2318,1,1,1,1,0,,3641,2333
+lcb/abc371_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,96.16,,1,2360,1,1,1,1,0,,3641,2374
+lcb/abc371_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,98.29,,1,2328,1,1,1,1,0,,3641,2343
+lcb/abc371_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,90.54,,1,2162,1,1,1,1,0,,3641,2177
+lcb/abc371_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,105.51,,1,2506,1,1,1,1,0,,3641,2521
+lcb/abc371_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,90.08,,1,2183,1,1,1,1,0,,3641,2198
+lcb/abc371_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,101.24,,1,2538,1,1,1,1,0,,3641,2553
+lcb/abc371_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,108.7,,1,2521,1,1,1,1,0,,3641,2536
+lcb/abc372_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,212.65,,1,4825,1,1,1,1,0,,1493,4840
+lcb/abc372_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,322.74,,1,7649,1,1,1,1,0,,1493,7663
+lcb/abc372_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,363.36,no_code_block_found,0,0,0,0,0,0,0,,1493,8034
+lcb/abc372_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,214.8,,1,5289,1,1,1,1,0,,1493,5304
+lcb/abc372_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,281.29,,1,7529,1,1,1,1,0,,1493,7544
+lcb/abc372_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,125.61,,1,3172,1,1,1,0,0,wrong_output on test 0: got '2 2 1 1 0' want '3 2 2 1 0',1493,3187
+lcb/abc372_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,135.8,,1,3383,1,1,1,1,0,,1493,3397
+lcb/abc372_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,362.63,no_code_block_found,0,0,0,0,0,0,0,,1493,8623
+lcb/abc374_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,176.92,,1,4197,1,1,1,0,0,wrong_output on test 0: got '6.44317475868633771086' want '6.44317475868633722080',3428,4212
+lcb/abc374_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,83.63,,1,2429,1,1,1,0,0,wrong_output on test 0: got '6.44317475868633771086' want '6.44317475868633722080',3428,2444
+lcb/abc374_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,145.08,,1,3629,1,1,1,0,0,wrong_output on test 0: got '6.44317475868633771086' want '6.44317475868633722080',3428,3644
+lcb/abc374_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,107.13,,1,3053,1,1,1,0,0,wrong_output on test 0: got '6.44317475868633771086' want '6.44317475868633722080',3428,3068
+lcb/abc374_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,115.45,,1,3428,1,1,1,0,0,wrong_output on test 0: got '6.44317475868633771086' want '6.44317475868633722080',3428,3443
+lcb/abc374_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,291.88,,1,6958,1,1,1,0,0,wrong_output on test 0: got '6.44317475868633771086' want '6.44317475868633722080',3428,6973
+lcb/abc374_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,83.94,,1,2364,1,1,1,0,0,wrong_output on test 0: got '6.44317475868633771086' want '6.44317475868633722080',3428,2379
+lcb/abc374_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,169.02,,1,3856,1,1,1,0,0,wrong_output on test 0: got '6.94317475868633771086' want '6.44317475868633722080',3428,3871
+lcb/abc376_b,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,146.29,,1,4243,1,1,1,1,0,,3382,4257
+lcb/abc376_b,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,80.05,,1,2117,1,1,1,1,0,,3382,2132
+lcb/abc376_b,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,88.32,,1,2551,1,1,1,1,0,,3382,2566
+lcb/abc376_b,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,176.38,,1,5383,1,1,1,1,0,,3382,5397
+lcb/abc376_b,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,98.29,,1,3020,1,1,1,1,0,,3382,3035
+lcb/abc376_b,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,124.56,,1,3511,1,1,1,1,0,,3382,3526
+lcb/abc376_b,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,115.59,,1,3459,1,1,1,1,0,,3382,3474
+lcb/abc376_b,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,118.38,,1,3441,1,1,1,1,0,,3382,3456
+lcb/abc379_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,71.83,,1,2054,1,1,1,1,0,,2332,2069
+lcb/abc379_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,113.45,,1,3350,1,1,1,1,0,,2332,3364
+lcb/abc379_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,84.2,,1,5020,1,1,1,1,0,,2332,5035
+lcb/abc379_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,33.18,,1,1927,1,1,1,1,0,,2332,1941
+lcb/abc379_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,100.28,,1,6140,1,1,1,1,0,,2332,6154
+lcb/abc379_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,41.87,,1,2381,1,1,1,1,0,,2332,2396
+lcb/abc379_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,45.67,,1,2600,1,1,1,1,0,,2332,2614
+lcb/abc379_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,44.59,,1,2561,1,1,1,1,0,,2332,2575
+lcb/abc385_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,57.08,,1,3787,1,1,1,1,0,,1414,3802
+lcb/abc385_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,35.42,,1,2365,1,1,1,1,0,,1414,2380
+lcb/abc385_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,153.61,too_long,1,9646,1,1,0,0,0,,1414,9661
+lcb/abc385_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,52.82,,1,3704,1,1,1,1,0,,1414,3719
+lcb/abc385_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,94.84,,1,5875,1,1,1,1,0,,1414,5889
+lcb/abc385_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,52.23,,1,3577,1,1,1,1,0,,1414,3591
+lcb/abc385_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it,46.67,,1,3354,1,1,1,1,0,,1414,3369
+lcb/abc385_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it,82.05,,1,4629,1,1,1,0,0,wrong_output on test 0: got '5' want '3',1414,4643
+lcb/abc386_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it,35.62,,1,1997,1,1,1,1,0,,1889,2011
+lcb/abc386_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it,38.4,,1,2079,1,1,1,1,0,,1889,2094
+lcb/abc386_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it,33.57,,1,1785,1,1,1,1,0,,1889,1800
+lcb/abc386_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it,41.62,,1,2306,1,1,1,1,0,,1889,2320
+lcb/abc386_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it,36.85,,1,1935,1,1,1,1,0,,1889,1950
+lcb/abc386_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it,35.13,,1,1892,1,1,1,1,0,,1889,1907
