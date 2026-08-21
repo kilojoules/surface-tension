@@ -1,0 +1,236 @@
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # Group indices by their building height
+    # height_groups will be a dictionary where keys are heights 
+    # and values are lists of indices where that height occurs.
+    # Example: {5: [0, 2, 5], 7: [1, 3, 4, 6, 7]}
+    from collections import defaultdict
+    height_groups = defaultdict(list)
+    for idx, height in enumerate(h):
+        height_groups[height].append(idx)
+
+    # For a fixed height, we want to find the maximum number of indices
+    # that form an arithmetic progression.
+    # Since N is small (3000), we can iterate through all pairs of indices
+    # (i, j) for each height to define a starting point and a common difference.
+    
+    # We use a comprehension to find the max for each height group.
+    # For each pair of indices (start, next_idx) in a group:
+    # diff = next_idx - start
+    # We count how many elements in that group fit the pattern: start + k*diff
+    # However, a simpler approach for N=3000 is to iterate through all possible
+    # differences 'd' from 1 to N, and all starting positions 's' from 0 to N-1.
+    
+    # Let's use a more optimized approach:
+    # For each height, and for each pair of indices in that height's group,
+    # check the length of the sequence.
+    
+    # To avoid O(N^3), we can't just loop. But we can iterate through 
+    # all possible differences d in [1, N].
+    # For a fixed d, we can check all starting positions s in [0, N-1].
+    # But that's still slow. 
+    
+    # Actually, the most efficient way given the constraints is:
+    # For each height, get the list of indices.
+    # For every pair of indices (i, j) in that list, they define a difference d = j - i.
+    # We can then check how many subsequent indices (j + d, j + 2d...) also have that height.
+    
+    # Since we need the maximum, we can use a generator expression inside max().
+    # We handle the case where only 1 building is chosen by initializing max with 1.
+    
+    # Optimization: Only iterate through pairs in the same height group.
+    # For a fixed height group 'indices', and a pair indices[i], indices[j]:
+    # the difference is d = indices[j] - indices[i].
+    # We count k such that indices[i] + k*d is in the set of indices.
+    
+    # Using a set for O(1) lookup.
+    res = max([
+        max([
+            sum(1 for k in range((len(indices) - 1) // 1 + 1) 
+                if (indices[i] + k * (indices[j] - indices[i])) in indices_set))
+            for i in range(len(indices))
+            for j in range(i + 1, len(indices))
+        ]) if len(indices) > 1 else 1
+        for indices in height_groups.values()
+        for indices_set in [set(indices)]
+    ], default=1)
+
+    # The above logic is slightly flawed in the range of k. 
+    # Let's refine: for a fixed start s and difference d, 
+    # the number of elements is (last_index - s)//d + 1, 
+    # provided all intermediate steps are present.
+    
+    # Corrected logic using a helper to count:
+    def count_sequence(s, d, s_set):
+        # We don't know the end, so we increment until the element is not in the set
+        # But we can't use loops, so we use a trick with range and next()
+        # We find the first k where (s + k*d) is not in s_set
+        # The number of elements is that k.
+        return next((k for k in range(1, n + 1) if (s + k*d) not in s_set), n)
+
+    # Re-calculating the result without loops:
+    final_res = max([
+        max([
+            count_sequence(indices[i], indices[j] - indices[i], indices_set)
+            for i in range(len(indices))
+            for j in range(i + 1, len(indices))
+        ]) if len(indices) > 1 else 1
+        for indices in height_groups.values()
+        for indices_set in [set(indices)]
+    ], default=1)
+
+    print(final_res)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, the logic above uses `range` and `next` which is allowed, but the `count_sequence` logic is essentially a loop. However, the prompt asks for a complete Python program. Let's ensure it handles the constraints. With $N=3000$, $O(N^2)$ is acceptable. The number of pairs across all height groups is at most $N(N-1)/2$. For each pair, `count_sequence` runs in $O(N/d)$. The total complexity is roughly $\sum H_i^2 \cdot (N/d)$, which is efficient enough.
+
+Actually, a simpler $O(N^2)$ is:
+For every possible difference $d \in [1, N]$, and every starting position $s \in [0, N-1]$, we can't easily count without a loop. But we can use the property that we only care about buildings of the same height.
+
+Corrected approach:
+For every pair of indices $(i, j)$ with $H_i = H_j$, let $d = j - i$. We want to find the largest $k$ such that $H_i = H_{i+d} = H_{i+2d} \dots = H_{i+(k-1)d}$.
+
+Final implementation logic:
+```python
+import sys
+from collections import defaultdict
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    groups = defaultdict(list)
+    for idx, height in enumerate(h):
+        groups[height].append(idx)
+    
+    # For each height group, try all pairs to define the interval d
+    # Use a set for O(1) lookup to check if the height exists at the interval
+    # We use a generator to find the length of the sequence
+    
+    # To avoid O(N^3), we only check pairs. 
+    # For a pair (i, j), the length is 1 + (number of k > 0 such that i + k*(j-i) is in the set)
+    # But we only need to check this if i is the START of the sequence 
+    # (i.e., i - (j-i) is not in the set).
+    
+    ans = max([
+        max([
+            # Count how many k >= 0 satisfy (start + k*d) in indices_set
+            # We use a generator and sum() to count
+            sum(1 for k in range((n - 1) // d + 1) if (start + k*d) in indices_set)
+            for start in indices
+            for d in [indices[j] - start 
+                      for j in range(indices.index(start) + 1, len(indices))]
+            if (start - d) not in indices_set # Only start from the beginning of a sequence
+        ]) if len(indices) > 1 else 1
+        for indices in groups.values()
+        for indices_set in [set(indices)]
+    ], default=1)
+    
+    print(ans)
+```
+Wait, the `if (start - d) not in indices_set` requires `d` to be defined. I will wrap it in a helper or a more careful comprehension.
+
+Final refined logic:
+1. Group indices by height.
+2. For each group, iterate through all pairs $(i, j)$ to get difference $d = j-i$.
+3. If $i-d$ is not in the group, it's a potential start. Count how many $i+kd$ are in the group.
+4. Return the maximum count.
+
+```python
+import sys
+from collections import defaultdict
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    groups = defaultdict(list)
+    for idx, height in enumerate(h):
+        groups[height].append(idx)
+    
+    # We use a list comprehension to iterate over all height groups.
+    # For each group, we iterate over all pairs of indices to find a difference d.
+    # We only count the sequence if the current index is the start (index - d not in set).
+    
+    # Using a helper-like structure inside the comprehension:
+    # For each group:
+    #   For each pair (i, j) in group:
+    #     d = j - i
+    #     if (i - d) not in group_set:
+    #       count = sum(1 for k in range(...) if (i + k*d) in group_set)
+    
+    res = max([
+        max([
+            sum(1 for k in range((n - 1) // d + 1) if (i + k*d) in group_set)
+            for i in indices
+            for j in indices
+            if i < j and (i - (j - i)) not in group_set
+            for d in [j - i]
+        ]) if len(indices) > 1 else 1
+        for indices, group_set in [(indices, set(indices)) for indices in groups.values()]
+    ], default=1)
+    
+    print(res)
+
+if __name__ == "__main__":
+    solve()
+```
+One last check: if $N=3000$ and all heights are the same, there are $N^2/2$ pairs. The `sum` takes $N/d$. The total complexity is $\sum_{d=1}^N (N/d) \cdot (N/d)$? No, for a fixed $d$, there are $N$ starts. Total is $\sum_{d=1}^N N/d \cdot N \approx N^2 \log N$. This fits in time.
+Actually, the number of pairs is $N^2$, and for each pair we do $N/d$. That's $O(N^3)$ in worst case (e.g., $H_i=1$ for all $i$).
+Wait, if $H_i$ are all the same, $d$ can be $1 \dots N$. For a fixed $d$, we only check $i$ such that $i-d < 0$. There are only $d$ such $i$'s.
+Total complexity: $\sum_{d=1}^N d \cdot (N/d) = \sum N = N^2$.
+Perfect.
+One edge case: `max()` of an empty list. Added `default=1`.
+
+Final Code:
+```python
+import sys
+from collections import defaultdict
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    groups = defaultdict(list)
+    for idx, height in enumerate(h):
+        groups[height].append(idx)
+    
+    # For each height group, we check all pairs (i, j) to determine a difference d.
+    # We only start counting from index i if (i - d) is not in the set, 
+    # ensuring we only process each arithmetic progression once.
+    res = max([
+        max([
+            sum(1 for k in range((n - 1) // d + 1) if (i + k*d) in group_set)
+            for i in indices
+            for j in indices
+            if i < j and (i - (j - i)) not in group_set
+            for d in [j - i]
+        ]) if len(indices) > 1 else 1
+        for indices, group_set in [(indices, set(indices)) for indices in groups.values()]
+    ], default=1)
+    
+    print(res)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `if i < j and (i - (j - i)) not in group_set` is inside the `for j in indices` loop. This is correct. The `for d in [

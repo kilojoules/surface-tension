@@ -1,0 +1,67 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions as a list of (H, T) tuples
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Helper to calculate distance between a and b on a ring of size N
+    # when node 'block' is impassable.
+    # Since we can only move one hand, the other hand acts as a wall.
+    # There are only two directions on a ring. One might be blocked.
+    def get_dist(start, end, block, n):
+        # Clockwise distance
+        # (end - start) % n
+        # Check if block is in the path [start, end] clockwise
+        # The block is in the path if (block - start) % n < (end - start) % n
+        cw_dist = (end - start) % n
+        cw_blocked = (block - start) % n < cw_dist
+        
+        # Counter-clockwise distance
+        # (start - end) % n
+        ccw_dist = (start - end) % n
+        ccw_blocked = (block - end) % n < ccw_dist
+        
+        # It is guaranteed that the instruction is achievable.
+        # We return the distance of the non-blocked path.
+        # If both are open (not possible here since block is one node), 
+        # we'd take the min. But one hand always blocks one direction.
+        if cw_blocked:
+            return ccw_dist
+        if ccw_blocked:
+            return cw_dist
+        return min(cw_dist, ccw_dist)
+
+    # State: (current_l, current_r, total_dist)
+    # Initial state: L=1, R=2, dist=0
+    def transition(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            # Move L to t, R is block
+            d = get_dist(l, t, r, N)
+            return (t, r, total + d)
+        else:
+            # Move R to t, L is block
+            d = get_dist(r, t, l, N)
+            return (l, t, total + d)
+
+    # Use reduce to simulate the process across all instructions
+    final_state = reduce(transition, instructions, (1, 2, 0))
+    
+    # The result is the accumulated distance
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

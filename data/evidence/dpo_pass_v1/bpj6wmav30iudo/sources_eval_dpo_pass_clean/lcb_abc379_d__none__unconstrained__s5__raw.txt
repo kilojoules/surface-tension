@@ -1,0 +1,61 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. While not necessarily "cleaner" for all developers, it encourages the use of immutable-style transformations and higher-order functions, leveraging Python's powerful list comprehensions and `functools.reduce` to handle state transitions. For this problem, I will use `functools.reduce` to simulate the processing of the query stream and a sorted list (maintained via `bisect`) to efficiently track and remove plant heights.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    # State consists of:
+    # 1. plants: A sorted list of 'birth_times' (relative to current_time)
+    # 2. current_time: The total T accumulated from type 2 queries
+    # 3. results: A list to store the counts for type 3 queries
+    
+    # A plant planted at total_time 't' has height (current_time - t)
+    # Height >= H  =>  current_time - t >= H  =>  t <= current_time - H
+    
+    def process_query(state, query_str):
+        plants, current_time, results = state
+        parts = list(map(int, query_str.split()))
+        q_type = parts[0]
+        
+        if q_type == 1:
+            # Plant height 0 means its birth_time is the current_time
+            # We maintain the plants list sorted by birth_time
+            # Since current_time only increases, we just append
+            return (plants + [current_time], current_time, results)
+        
+        elif q_type == 2:
+            # Increase global time
+            return (plants, current_time + parts[1], results)
+        
+        elif q_type == 3:
+            # Harvest plants where birth_time <= current_time - H
+            H = parts[1]
+            threshold = current_time - H
+            # Find index of first plant with birth_time > threshold
+            idx = bisect_left(plants, threshold + 1)
+            # Plants from 0 to idx-1 are harvested
+            harvested_count = idx
+            # Remaining plants are from idx onwards
+            return (plants[idx:], current_time, results + [harvested_count])
+        
+        return state
+
+    # Using reduce to iterate through queries without a for/while loop
+    final_state = reduce(process_query, queries, ([], 0, []))
+    
+    # Output results using join and map to avoid for loop
+    sys.stdout.write("\n".join(map(str, final_state[2])) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```

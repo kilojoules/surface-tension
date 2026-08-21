@@ -1,0 +1,53 @@
+import sys
+
+def solve():
+    # Read input and handle potential whitespace
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem states K=1 for this sub-problem.
+    # We need to check if edit distance between S and T is <= 1.
+    
+    # Find the first index where S and T differ
+    # We use a generator expression with next() to find the first mismatch
+    # range(min(len(s), len(t))) creates the indices to check
+    mismatch_idx = next((i for i in range(min(len(s), len(t))) if s[i] != t[i]), None)
+
+    # Case 1: Strings are identical up to the length of the shorter string
+    if mismatch_idx is None:
+        # They are identical or one is a prefix of the other
+        # Possible if length difference is <= K
+        if abs(len(s) - len(t)) <= k:
+            print("Yes")
+        else:
+            print("No")
+        return
+
+    # Case 2: A mismatch was found at mismatch_idx
+    # We check the three possible single-edit operations:
+    # 1. Replace: S[i+1:] == T[i+1:]
+    # 2. Delete from S: S[i+1:] == T[i:]
+    # 3. Insert into S (Delete from T): S[i:] == T[i+1:]
+    
+    i = mismatch_idx
+    
+    # Using a list of booleans to check all three conditions
+    # and any() to see if at least one is true.
+    checks = [
+        s[i+1:] == t[i+1:], # Replace
+        s[i+1:] == t[i:],   # Delete from S
+        s[i:] == t[i+1:]    # Insert into S
+    ]
+    
+    if any(checks):
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

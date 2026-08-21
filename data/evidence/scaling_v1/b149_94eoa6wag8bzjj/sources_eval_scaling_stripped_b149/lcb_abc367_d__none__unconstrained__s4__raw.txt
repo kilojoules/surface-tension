@@ -1,0 +1,132 @@
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read N and M
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # Calculate prefix sums modulo M
+    # P[i] is the distance from rest area 1 to rest area i+1
+    # P[0] = 0, P[1] = A_1 % M, P[2] = (A_1 + A_2) % M, ...
+    # The distance from s to t (s < t) is (P[t-1] - P[s-1]) % M
+    # The distance from s to t (s > t) is (Total_Sum - P[s-1] + P[t-1]) % M
+    
+    P = list(accumulate(A, lambda x, y: (x + y) % M, initial=0))
+    # P has N+1 elements. P[0] is start, P[N] is total sum % M.
+    # We only need P[0]...P[N-1] for the starting positions.
+    P_reduced = P[:N]
+    total_sum_mod = P[N]
+    
+    # Count occurrences of each remainder
+    counts = Counter(P_reduced)
+    
+    # For a pair (s, t) with s < t:
+    # Distance is (P[t-1] - P[s-1]) % M == 0  => P[t-1] == P[s-1] (mod M)
+    # Number of pairs is sum(count * (count - 1) // 2)
+    ans_s_lt_t = sum(c * (c - 1) // 2 for c in counts.values())
+    
+    # For a pair (s, t) with s > t:
+    # Distance is (total_sum_mod - P[s-1] + P[t-1]) % M == 0
+    # => P[s-1] - P[t-1] == total_sum_mod (mod M)
+    # => P[s-1] - total_sum_mod == P[t-1] (mod M)
+    
+    # We need to count pairs (s, t) such that P[t-1] == (P[s-1] - total_sum_mod) % M
+    # This is sum(counts[r] * counts[(r - total_sum_mod) % M])
+    # However, we must exclude cases where s == t (though the problem says s != t)
+    # and we must handle the case where total_sum_mod == 0 carefully.
+    
+    # Using a generator expression to sum the products
+    ans_s_gt_t = sum(
+        counts[r] * counts[(r - total_sum_mod) % M] 
+        for r in counts
+    )
+    
+    # If total_sum_mod == 0, the condition P[s-1] == P[t-1] is met.
+    # The above loop counts all pairs (s, t) including s == t.
+    # Since s > t, we only want pairs where s != t.
+    # If total_sum_mod == 0, ans_s_gt_t currently includes sum(counts[r]^2).
+    # We need to subtract the cases where s == t.
+    if total_sum_mod == 0:
+        ans_s_gt_t -= N
+        
+    # The logic for s > t is: for every s, how many t < s satisfy the condition?
+    # The symmetry of the problem allows us to use the Counter.
+    # If total_sum_mod == 0, the condition is P[s-1] == P[t-1].
+    # There are sum(c*(c-1)) such pairs in total across both s < t and s > t.
+    # If total_sum_mod != 0, the condition P[s-1] - P[t-1] == total_sum_mod
+    # is distinct from P[t-1] - P[s-1] == total_sum_mod.
+    
+    # Correct approach for s > t:
+    # We want pairs (s, t) such that 1 <= t < s <= N 
+    # and (total_sum_mod - P[s-1] + P[t-1]) % M == 0
+    # This is equivalent to P[t-1] == (P[s-1] - total_sum_mod) % M
+    
+    # Let's redefine:
+    # For each remainder r, there are counts[r] indices.
+    # For a fixed s, the number of t < s is not directly available from Counter.
+    # But the total number of pairs (s, t) with s != t satisfying the condition is:
+    # If total_sum_mod == 0: 
+    #    Condition is P[s-1] == P[t-1]. Total pairs = sum(c * (c-1))
+    # If total_sum_mod != 0:
+    #    Condition is P[t-1] == (P[s-1] - total_sum_mod) % M.
+    #    Total pairs = sum(counts[r] * counts[(r - total_sum_mod) % M])
+    
+    # Let's use the total logic:
+    final_ans = 0
+    if total_sum_mod == 0:
+        final_ans = sum(c * (c - 1) for c in counts.values())
+    else:
+        # For every s, we need t such that P[t-1] = (P[s-1] - total_sum_mod) % M
+        # This is simply the sum of counts[r] * counts[(r - total_sum_mod) % M]
+        final_ans = sum(counts[r] * counts[(r - total_sum_mod) % M] for r in counts)
+        
+    print(final_ans)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a logic error in the `total_sum_mod == 0` case. If `total_sum_mod == 0`, then the condition for $s < t$ is $P_{t-1} = P_{s-1}$ and the condition for $s > t$ is also $P_{t-1} = P_{s-1}$. Thus, the total number of pairs is simply $\sum c(c-1)$. If `total_sum_mod != 0`, the conditions are mutually exclusive. The number of pairs $(s, t)$ is the number of pairs $(s, t)$ such that $s < t$ and $P_{t-1} = P_{s-1}$ PLUS the number of pairs $(s, t)$ such that $s > t$ and $P_{t-1} = (P_{s-1} - \text{total}) \pmod M$.
+
+Corrected logic:
+1. Pairs $(s, t)$ with $s < t$: $P_{t-1} \equiv P_{s-1} \pmod M$. Count: $\sum \frac{c(c-1)}{2}$.
+2. Pairs $(s, t)$ with $s > t$: $P_{t-1} \equiv P_{s-1} - \text{total} \pmod M$. Count: $\sum_{r} \text{count}(r) \times \text{count}((r - \text{total}) \pmod M)$, but we must handle the $s=t$ case if $\text{total} \equiv 0$. Actually, if $s > t$, then $s$ and $t$ are distinct, so we just need to count pairs of indices $(i, j)$ with $i > j$ such that $P_j \equiv P_i - \text{total} \pmod M$.
+
+If $\text{total} \equiv 0 \pmod M$, the condition for $s > t$ is $P_j \equiv P_i \pmod M$. The number of such pairs is $\sum \frac{c(c-1)}{2}$.
+If $\text{total} \not\equiv 0 \pmod M$, the number of pairs $(s, t)$ with $s > t$ is $\sum_{i=1}^{N-1} \text{count of } j < i \text{ such that } P_j \equiv P_i - \text{total} \pmod M$. This is equivalent to $\sum_{r} \text{count}(r) \times \text{count}((r - \text{total}) \pmod M)$ divided by... no, that's not right.
+
+Let's use the property:
+Total pairs = (Pairs $s < t$ where $P_{t-1} = P_{s-1}$) + (Pairs $s > t$ where $P_{t-1} = P_{s-1} - \text{total}$).
+If $\text{total} = 0$, this is $\sum \frac{c(c-1)}{2} + \sum \frac{c(c-1)}{2} = \sum c(c-1)$.
+If $\text{total} \neq 0$, the second term is $\sum_{r} \text{count}(r) \times \text{count}((r - \text{total}) \pmod M)$? No, that counts all pairs $(s, t)$ without the $s > t$ restriction.
+Actually, if $\text{total} \neq 0$, then $P_{t-1} = P_{s-1}$ and $P_{t-1} = P_{s-1} - \text{total}$ cannot both be true.
+The number of pairs $(s, t)$ with $s \neq t$ such that the distance is a multiple of $M$ is:
+$\sum_{s=1}^N (\text{count of } t \neq s \text{ such that dist}(s, t) \equiv 0 \pmod M)$.
+For a fixed $s$, $t$ is a multiple of $M$ if:
+1. $t > s$ and $P_{t-1} \equiv P_{s-1} \pmod M$.
+2. $t < s$ and $P_{t-1} \equiv P_{s-1} - \text{total} \pmod M$.
+
+Total = $\sum_{r=0}^{M-1} \text{count}(r) \times (\text{count}(r) - 1) // 2$  (for $t > s$)
+$+ \sum_{r=0}^{M-1} \text{count}(r) \times \text{count}((r - \text{total}) \pmod M)$ (for $t < s$, but this counts all $t$, not just $t < s$).
+
+Wait, the simplest way:
+The distance from $s$ to $t$ is a multiple of $M$ if:
+- If $s < t$: $P_{t-1} - P_{s-1} \equiv 0 \pmod M \implies P_{t-1} \equiv P_{s-1} \pmod M$.
+- If $s > t$: $P_{N} - P_{s-1} + P_{t-1} \equiv 0 \pmod M \implies P_{t-1} \equiv P_{s-1} - P_{N} \pmod M$.
+
+Let $C(r)$ be the number of $i \in \{0, \dots, N-1\}$ such that $P_i \equiv r \pmod M$.
+Number of pairs $(s, t)$ with $s < t$ is $\sum_{r=0}^{M-1} \frac{C(r)(C(r)-1)}{2}$.
+Number of pairs $(s, t)$ with $s > t$ is $\sum_{s=1}^N (\text{count of } t < s \text{ such that } P_{t-1} \equiv P_{s-1} - P_N \pmod M)$.
+This second term is $\sum_{r=0}^{M-1} C(r) \times C((r - P_N) \pmod M)$, but we must subtract cases where $t \ge s$.
+Actually, the most robust way is:
+Total = $\sum_{r=0}^{M-1} \frac{C(r)(C(r)-1)}{2} + \sum_{r=0}^{M-1} C(r) \times C((r - P_N) \pmod M) - (\text{cases where } s > t \text{ is not met})$.
+That's confusing. Let's use:
+Total = $\sum_{r=0}^{M-1} \frac{C(r)(C(r)-1)}{2} + \sum_{s=1}^N (\text{count of } t < s \text{ such that } P_{t-1} \equiv P_{s-1} - P_N \pmod M)$.
+The second term is $\sum_{r=0}^{M-1} \text{count}(r) \times \text

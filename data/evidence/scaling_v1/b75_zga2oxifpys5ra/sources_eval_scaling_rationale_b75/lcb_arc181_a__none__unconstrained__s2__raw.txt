@@ -1,0 +1,117 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. While idiomatic Python often uses `for` loops for readability, utilizing high-order functions and comprehensions can lead to more concise, declarative code that describes *what* to calculate rather than *how* to step through it. For this problem, I will use `sys.stdin.read().split()` to handle input in bulk and list comprehensions combined with `min`/`max` and `all` to evaluate the permutation state and calculate the required operations.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use an iterator to consume tokens one by one
+    it = iter(input_data)
+    T_str = next(it, None)
+    if T_str is None:
+        return
+    T = int(T_str)
+    
+    # Process each test case
+    # We use a generator expression inside join to avoid a for-loop block
+    # For each case, we need to determine if 0, 1, or 2 operations are needed.
+    # 0 ops: Already sorted.
+    # 1 op: There exists k such that sorting [1, k-1] and [k+1, N] sorts the whole array.
+    #       This happens if there is some k where the set of elements in P[0:k-1] 
+    #       is {1, ..., k-1} AND the set of elements in P[k:N] is {k+1, ..., N}.
+    #       Actually, the condition for 1 op is simpler: 
+    #       There exists k such that P[k-1] == k and 
+    #       max(P[0...k-2]) < k and min(P[k...N-1]) > k.
+    #       Wait, the operation sorts the ranges. If we pick k, P[k-1] remains 
+    #       unchanged, and the others are sorted. For the result to be (1...N),
+    #       we MUST have P[k-1] == k, and the elements in the prefix must be 
+    #       {1...k-1} and suffix must be {k+1...N}.
+    
+    def get_answer(N, P):
+        # Check if already sorted
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        # Check if 1 operation is sufficient
+        # We need a k (1-indexed) such that P[k-1] == k,
+        # and max(P[0...k-2]) < k (which implies they are 1...k-1)
+        # and min(P[k...N-1]) > k (which implies they are k+1...N).
+        
+        # Precompute prefix max and suffix min
+        # Since we can't use loops, we use a trick with a custom function or 
+        # list comprehensions. However, prefix/suffix arrays usually require loops.
+        # But we can use a helper logic: 
+        # k is a valid split if P[k-1] == k AND 
+        # (all elements to the left are < k) AND (all elements to the right are > k).
+        # This is equivalent to: max(P[0...k-2]) < k and min(P[k...N-1]) > k.
+        
+        # To avoid loops for prefix/suffix, we can't use accumulate/reduce easily 
+        # without importing functools. Let's use a list comprehension that 
+        # checks the condition for all k.
+        # But O(N^2) is too slow. We need O(N).
+        # We can use a list comprehension to build the prefix max and suffix min
+        # by leveraging the fact that we can pass a mutable list to a function.
+        
+        # Actually, the constraint says "no for/while loops". 
+        # We can use map(), filter(), and list comprehensions.
+        # To get prefix maxes without a loop:
+        # We can't use itertools.accumulate? The prompt says "no for/while".
+        # It doesn't forbid imports.
+        from itertools import accumulate
+        
+        pref_max = list(accumulate(P, max))
+        suff_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # k is 1-indexed. Index in P is k-1.
+        # For k=1: P[0]==1 and suff_min[1] > 1
+        # For k=N: P[N-1]==N and pref_max[N-2] < N
+        # For 1 < k < N: P[k-1]==k and pref_max[k-2] < k and suff_min[k] > k
+        
+        # We check if any k satisfies this.
+        # Using a generator expression inside 'any()'
+        possible_1 = any(
+            (P[i] == i + 1 and (i == 0 or pref_max[i-1] < i + 1) and (i == N-1 or suff_min[i+1] > i + 1))
+            for i in range(N)
+        )
+        
+        return 1 if possible_1 else 2
+
+    # Use map to apply the logic to all test cases
+    # We group the flat list into chunks of (N, P1, P2...)
+    def group_cases(it, T):
+        # This is a recursive-like structure using a generator
+        # But we can't use recursion. We can use a list comprehension 
+        # if we know the structure.
+        # Since we can't use loops, we can't easily slice the iterator.
+        # Let's read all and use a list comprehension with indices.
+        pass
+
+    # Revised approach to handle the T cases without a for loop:
+    # We read all remaining data into a list.
+    all_data = input_data[1:]
+    
+    # Since we need to process T cases and N varies, we can't use a simple slice.
+    # However, we can use a helper function with a list comprehension 
+    # that maintains a state via a mutable object (like a list) to track the current index.
+    
+    state = {'idx': 0}
+    def get_case():
+        N = int(all_data[state['idx']])
+        P = [int(x) for x in all_data[state['idx']+1 : state['idx']+1+N]]
+        state['idx'] += N + 1
+        return N, P
+
+    # To avoid the for loop to call get_case T times, we can use map()
+    # But get_case depends on the mutable state.
+    # We can use a list comprehension to call it T times.
+    results = [get_answer(*get_case()) for _ in range(T)]
+    
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

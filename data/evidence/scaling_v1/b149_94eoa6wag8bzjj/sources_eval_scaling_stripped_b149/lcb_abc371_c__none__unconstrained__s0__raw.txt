@@ -1,0 +1,227 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    # Graph G edges
+    MG = int(input_data[ptr])
+    ptr += 1
+    G_edges_list = []
+    for _ in range(MG):
+        u = int(input_data[ptr])
+        v = int(input_data[ptr+1])
+        G_edges_list.append((u, v))
+        ptr += 2
+        
+    # Graph H edges
+    MH = int(input_data[ptr])
+    ptr += 1
+    H_edges_list = []
+    for _ in range(MH):
+        u = int(input_data[ptr])
+        v = int(input_data[ptr+1])
+        H_edges_list.append((u, v))
+        ptr += 2
+        
+    # Cost matrix A
+    # A is given as A_{1,2}, A_{1,3}... A_{1,N}, A_{2,3}...
+    # We store it in a dictionary for easy access: (i, j) where i < j
+    A_values = input_data[ptr:]
+    
+    # To map the flat A_values list to (i, j) pairs:
+    # There are N*(N-1)//2 pairs.
+    # We can generate the pairs in the order they are provided in the input.
+    pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = {pairs[k]: int(A_values[k]) for k in range(len(pairs))}
+
+    # Adjacency matrices for G and H (using 0-indexing internally)
+    # adj_G[i][j] == 1 if edge exists
+    adj_G = [[0]*N for _ in range(N)]
+    for u, v in G_edges_list:
+        adj_G[u-1][v-1] = adj_G[v-1][u-1] = 1
+        
+    adj_H = [[0]*N for _ in range(N)]
+    for u, v in H_edges_list:
+        adj_H[u-1][v-1] = adj_H[v-1][u-1] = 1
+
+    # We need to find a permutation P of (0, ..., N-1) that minimizes:
+    # Sum_{i < j} cost(i, j) if (G has edge i,j != H has edge P[i], P[j])
+    # Note: The cost A_{i,j} is associated with the vertices of H.
+    # If we map vertex i of G to vertex P[i] of H, the cost to flip edge 
+    # (P[i], P[j]) in H to match G is A_{min(P[i], P[j]), max(P[i], P[j])}.
+    
+    # Pre-calculate all possible pairs (i, j) for the summation
+    all_pairs = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    
+    # The cost function for a permutation P:
+    # For every pair (i, j) in G, we check if its existence matches (P[i], P[j]) in H.
+    # If they differ, we pay the cost of flipping edge (P[i], P[j]) in H.
+    
+    # To avoid loops, we use a generator expression inside min()
+    # P is a permutation of 0...N-1
+    # The cost is A_{P[i]+1, P[j]+1} if adj_G[i][j] != adj_H[P[i]][P[j]]
+    
+    ans = min(
+        sum(
+            cost_map[(min(p[i], p[j]) + 1, max(p[i], p[j]) + 1)]
+            for i, j in all_pairs
+            if adj_G[i][j] != adj_H[p[i]][p[j]]
+        )
+        for p in permutations(range(N))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I noticed a small error in my logic regarding the cost mapping.**
+The problem says: "Choose a pair of integers $(i, j)$... Pay $A_{i,j}$ yen". This means the cost is tied to the **indices of the vertices in H**, regardless of how they are mapped to G. 
+
+If we decide that vertex $i$ of $G$ corresponds to vertex $P_i$ of $H$, then for every pair $i < j$, the edge $(i, j)$ in $G$ must match the edge $(P_i, P_j)$ in $H$. If they don't match, we must perform an operation on the pair $(P_i, P_j)$ in $H$, which costs $A_{P_i, P_j}$.
+
+My code does: `cost_map[(min(p[i], p[j]) + 1, max(p[i], p[j]) + 1)]`. This correctly identifies the cost associated with the vertices in $H$ being toggled.
+
+Final check on constraints: $N \le 8$. $8! = 40,320$. For each permutation, we check $8 \times 7 / 2 = 28$ pairs. Total operations $\approx 1.1$ million. This will easily pass within time limits in Python.
+**Wait, the prompt says "Return only Python source inside a single code block". I must provide the final code without the conversational "Wait" parts.**
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    MG = int(input_data[ptr])
+    ptr += 1
+    G_edges = [ (int(input_data[ptr + 2*i]), int(input_data[ptr + 2*i + 1])) for i in range(MG) ]
+    ptr += 2 * MG
+    
+    MH = int(input_data[ptr])
+    ptr += 1
+    H_edges = [ (int(input_data[ptr + 2*i]), int(input_data[ptr + 2*i + 1])) for i in range(MH) ]
+    ptr += 2 * MH
+    
+    A_values = input_data[ptr:]
+    pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = {pairs[k]: int(A_values[k]) for k in range(len(pairs))}
+
+    adj_G = [[0]*N for _ in range(N)]
+    for u, v in G_edges:
+        adj_G[u-1][v-1] = adj_G[v-1][u-1] = 1
+        
+    adj_H = [[0]*N for _ in range(N)]
+    for u, v in H_edges:
+        adj_H[u-1][v-1] = adj_H[v-1][u-1] = 1
+
+    all_pairs = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    
+    # We seek a permutation P of vertices of H such that G is isomorphic to H'.
+    # Let P[i] be the vertex in H that corresponds to vertex i in G.
+    # The cost to make H isomorphic to G under P is the sum of A_{P[i], P[j]} 
+    # for all i < j where edge(i, j) in G != edge(P[i], P[j]) in H.
+    
+    ans = min(
+        sum(
+            cost_map[(min(p[i], p[j]) + 1, max(p[i], p[j]) + 1)]
+            for i, j in all_pairs
+            if adj_G[i][j] != adj_H[p[i]][p[j]]
+        )
+        for p in permutations(range(N))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block". I will provide the final cleaned version.
+**Wait, I just realized I used a list comprehension inside the `G_edges` and `H_edges` definitions that might be slightly off if I'm not careful with the `ptr`. Let me refine it to be perfectly safe.**
+
+Final logic check:
+1. Read $N$.
+2. Read $M_G$, then $M_G$ pairs.
+3. Read $M_H$, then $M_H$ pairs.
+4. Read the remaining values into $A$.
+5. Try all $N!$ permutations.
+6. For each permutation, calculate the cost of edges that differ.
+7. Output the minimum.
+
+One detail: the problem says $A_{i,j}$ is given for $1 \le i < j \le N$. The input format shows them listed as $A_{1,2}, A_{1,3} \dots A_{1,N}, A_{2,3} \dots A_{N-1,N}$. This is exactly the order generated by `(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)`.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Use split() to get all tokens from stdin
+    tokens = sys.stdin.read().split()
+    if not tokens:
+        return
+    
+    # Use a generator/iterator to consume tokens one by one
+    it = iter(tokens)
+    
+    N = int(next(it))
+    
+    MG = int(next(it))
+    # Build adjacency matrix for G
+    adj_G = [[0]*N for _ in range(N)]
+    for _ in range(MG):
+        u, v = int(next(it)), int(next(it))
+        adj_G[u-1][v-1] = adj_G[v-1][u-1] = 1
+        
+    MH = int(next(it))
+    # Build adjacency matrix for H
+    adj_H = [[0]*N for _ in range(N)]
+    for _ in range(MH):
+        u, v = int(next(it)), int(next(it))
+        adj_H[u-1][v-1] = adj_H[v-1][u-1] = 1
+        
+    # The remaining tokens are the costs A_{i,j}
+    # There are N*(N-1)//2 such costs
+    A_vals = [int(x) for x in it]
+    
+    # Map A_{i,j} to a dictionary where keys are (i, j) with i < j
+    # The order of A_{i,j} in input is i=1(j=2..N), i=2(j=3..N)...
+    cost_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = {cost_pairs[k]: A_vals[k] for k in range(len(cost_pairs))}
+    
+    # Pre-calculate pairs for the summation to avoid loops
+    all_pairs = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    
+    # Try all permutations P of vertices {0, ..., N-1}
+    # P[i] is the vertex in H that corresponds to vertex i in G
+    ans = min(
+        sum(
+            cost_map[(min(p[i], p[j]) + 1, max(p[i], p[j]) + 1)]
+            for i, j in all_pairs
+            if adj_G[i][j] != adj_H[p[i]][p[j]]
+        )
+        for p in permutations(range(N))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+This looks solid. Final output will be just the code block.
+**Wait, one last check.** The problem says $A_{i,j}$ is the cost to flip the edge between vertices $i$ and $j$ in $H$. If we map $G$'s vertex $i$ to $H$'s vertex $P_i$, then the edge $(i, j)$ in $G$ corresponds

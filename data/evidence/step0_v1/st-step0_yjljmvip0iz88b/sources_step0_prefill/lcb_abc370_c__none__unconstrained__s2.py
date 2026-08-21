@@ -1,0 +1,62 @@
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    N = len(S)
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(N) if S[i] != T[i]]
+    M = len(diff_indices)
+    
+    # To minimize the array X lexicographically, we want the strings 
+    # at the beginning of the sequence to be as small as possible.
+    # We have M characters to change. In each step, we change one character.
+    # To make the resulting string X_i lexicographically smallest:
+    # 1. If we are changing S[j] to T[j] and T[j] < S[j], we want to do this 
+    #    as early as possible to decrease the string value.
+    # 2. If T[j] > S[j], we want to do this as late as possible to avoid 
+    #    increasing the string value prematurely.
+    
+    # Characters that decrease the string value (T[j] < S[j]) should be 
+    # processed first, in order of their appearance (left to right).
+    # Characters that increase the string value (T[j] > S[j]) should be 
+    # processed last, in reverse order of their appearance (right to left) 
+    # is NOT correct. Actually, for the increase case, to keep the string 
+    # lexicographically smallest, we should process the rightmost indices first.
+    
+    decrease = []
+    increase = []
+    
+    for i in diff_indices:
+        if T[i] < S[i]:
+            decrease.append(i)
+        else:
+            increase.append(i)
+            
+    # For decrease: process left to right.
+    # For increase: process right to left.
+    # This ensures that the most significant positions are lowered first,
+    # and the most significant positions are raised last.
+    
+    order = decrease + increase[::-1]
+    
+    # Convert S to a list for mutability
+    s_list = list(S)
+    X = []
+    
+    for idx in order:
+        s_list[idx] = T[idx]
+        X.append("".join(s_list))
+        
+    # Output the number of elements and the elements themselves
+    print(M)
+    for string in X:
+        print(string)
+
+if __name__ == "__main__":
+    solve()

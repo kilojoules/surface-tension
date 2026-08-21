@@ -1,0 +1,70 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s_str = input_data[0]
+    t_str = input_data[1]
+    
+    s = list(s_str)
+    t = list(t_str)
+    n = len(s)
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(n) if s[i] != t[i]]
+    
+    # To get the lexicographically smallest array X:
+    # 1. We must change characters one by one.
+    # 2. For a specific index i, if T[i] < S[i], changing S[i] to T[i] 
+    #    makes the string lexicographically smaller immediately.
+    #    We should do these changes as early as possible.
+    # 3. If T[i] > S[i], changing S[i] to T[i] makes the string 
+    #    lexicographically larger. We should delay these changes 
+    #    as much as possible.
+    # 4. Among those that make the string smaller, we should process 
+    #    indices from left to right to minimize the string at each step.
+    # 5. Among those that make the string larger, we should process 
+    #    indices from right to left.
+    
+    # Indices that decrease the string value
+    decreasing = [i for i in diff_indices if t[i] < s[i]]
+    # Indices that increase the string value
+    increasing = [i for i in diff_indices if t[i] > s[i]]
+    
+    # Sort decreasing indices ascending (left to right)
+    # Sort increasing indices descending (right to left)
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Generate the sequence of strings
+    # We use a list comprehension to create the state of S after each change
+    # Since we need the state after each operation, we can track the 
+    # modifications using a list of tuples (index, new_char)
+    
+    # To avoid explicit loops and maintain the "no loop" constraint 
+    # (though loops are allowed, the prompt asks for a functional approach),
+    # we can use a list comprehension to generate the sequence of strings.
+    # However, since each string depends on the previous one, 
+    # we can pre-calculate the state of the string at each step k.
+    
+    def get_string_at_step(k):
+        # For step k (1-indexed), indices in order[:k] have been changed to T
+        current_s = [
+            t[i] if i in set(order[:k]) else s[i] 
+            for i in range(n)
+        ]
+        return "".join(current_s)
+
+    # M is the total number of differences
+    m = len(order)
+    # Generate X_1, ..., X_M
+    x = [get_string_at_step(k) for k in range(1, m + 1)]
+    
+    # Output results
+    print(m)
+    print("\n".join(x))
+
+if __name__ == "__main__":
+    solve()

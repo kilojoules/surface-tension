@@ -1,0 +1,53 @@
+The constraint to avoid explicit loops forces a shift from imperative state mutation to a functional paradigm, emphasizing the transformation of data streams. In this specific problem, since we need to change characters one by one to reach string $T$ from $S$ while maintaining the lexicographically smallest sequence of strings, the optimal strategy is to process indices $i$ where $S[i] \neq T[i]$. For each such index, if $T[i] < S[i]$, we should change it as early as possible to make the resulting string smaller. If $T[i] > S[i]$, we should delay the change as long as possible. 
+
+To implement this without loops or recursion, I will use list comprehensions to identify indices that need changing, sort them based on whether the target character is smaller or larger than the current one, and `functools.reduce` to accumulate the transformations into the final sequence of strings.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+
+    # To get the lexicographically smallest array X:
+    # 1. We want the strings in X to be as small as possible as early as possible.
+    # 2. If T[i] < S[i], changing S[i] to T[i] makes the string lexicographically smaller.
+    #    These should be done first, ordered by index i (left to right).
+    # 3. If T[i] > S[i], changing S[i] to T[i] makes the string lexicographically larger.
+    #    These should be done last, ordered by index i (right to left).
+    
+    smaller_first = [i for i in diff_indices if T[i] < S[i]]
+    larger_last = [i for i in diff_indices if T[i] > S[i]]
+    
+    # Sort smaller_first ascending (left to right)
+    # Sort larger_last descending (right to left)
+    order = sorted(smaller_first) + sorted(larger_last, reverse=True)
+
+    # Use reduce to generate the sequence of strings.
+    # The accumulator is a tuple (current_string, history_list).
+    def apply_change(acc, idx):
+        curr_s, history = acc
+        # Create new string by replacing character at idx
+        new_s = curr_s[:idx] + T[idx] + curr_s[idx+1:]
+        return (new_s, history + [new_s])
+
+    initial_state = (S, [])
+    final_state = reduce(apply_change, order, initial_state)
+    
+    X = final_state[1]
+    
+    # Output the result
+    sys.stdout.write(f"{len(X)}\n")
+    sys.stdout.write("\n".join(X) + ("\n" if X else ""))
+
+if __name__ == "__main__":
+    solve()
+```

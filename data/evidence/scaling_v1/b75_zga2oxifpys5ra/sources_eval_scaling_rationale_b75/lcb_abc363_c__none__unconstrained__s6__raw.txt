@@ -1,0 +1,38 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative programming to a functional style. While not necessarily "cleaner" for all developers, it encourages the use of high-level abstractions and declarative data processing, leveraging Python's powerful built-in iterators. To solve this problem, I will use `itertools.permutations` to generate all possible arrangements of the string, a generator expression combined with `all()` to check the palindrome condition for every substring of length $K$, and a `set` comprehension to handle duplicate permutations of the input string. Finally, `len()` will count the valid permutations.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line, and S from the second line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+
+    # Generate all unique permutations of the string S
+    # We use a set to ensure we only count distinct strings
+    all_perms = set(permutations(s))
+
+    # A function to check if a string (tuple of chars) contains a palindrome of length K
+    # We use a generator expression inside 'any' to check all possible substrings of length K
+    # A substring is a palindrome if it equals its reverse
+    is_invalid = lambda p: any(
+        p[i : i + k] == p[i : i + k][::-1]
+        for i in range(n - k + 1)
+    )
+
+    # Filter the permutations to keep only those that do NOT contain a palindrome of length K
+    # We use a list comprehension (or generator) and len() to count them
+    # The constraint forbids for/while loops and recursion, so we use functional constructs
+    result = len([p for p in all_perms if not is_invalid(p)])
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

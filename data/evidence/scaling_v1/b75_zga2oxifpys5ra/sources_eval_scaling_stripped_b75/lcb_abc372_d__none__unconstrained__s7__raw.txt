@@ -1,0 +1,193 @@
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # The condition "no building taller than Building j between i and j"
+    # means that for a fixed i, we are looking for the number of indices j > i
+    # such that H[j] > max(H[i+1]...H[j-1]).
+    # This is equivalent to counting elements in the sequence H[i+1...N-1]
+    # that are strictly greater than all preceding elements in that subsequence.
+    # However, the condition is actually simpler: j satisfies the condition if
+    # H[j] is a "right-side" visible building from i.
+    # Specifically, j satisfies the condition if for all k such that i < k < j, H[k] < H[j].
+    
+    # Let's use a monotonic stack approach. 
+    # For a fixed i, the buildings j that satisfy the condition are those that 
+    # would remain in a monotonic increasing stack if we processed H[i+1...N-1].
+    # But we need this for all i.
+    
+    # Correct observation:
+    # For a fixed i, the indices j > i that satisfy the condition are:
+    # 1. j = i + 1
+    # 2. The index of the first building to the right of i+1 that is taller than H[i+1]
+    # 3. The index of the first building to the right of that one that is taller than it, and so on.
+    # Wait, that's not correct. The condition is: no building between i and j is taller than H[j].
+    # This means H[j] > max(H[i+1], ..., H[j-1]).
+    # This is exactly the definition of "left-to-right maxima" of the suffix starting at i+1.
+    
+    # Let f(i) be the number of j > i such that H[j] > max(H[i+1]...H[j-1]).
+    # Let next_greater[k] be the index of the first building to the right of k taller than H[k].
+    # The indices j are: (i+1), next_greater[i+1], next_greater[next_greater[i+1]], ...
+    # The number of such indices is the distance to the end of the chain.
+    
+    # 1. Find next_greater array using a stack
+    # next_greater[k] = N if no such building exists
+    next_greater = [N] * N
+    stack = []
+    for idx in range(N):
+        while stack and H[stack[-1]] < H[idx]:
+            next_greater[stack.pop()] = idx
+        stack.append(idx)
+        
+    # 2. Use dynamic programming to count the chain length
+    # dp[k] = 1 + dp[next_greater[k]]
+    # We process from N-1 down to 0.
+    dp = [0] * (N + 1)
+    # Using a loop to avoid recursion depth issues for DP
+    for k in range(N - 1, -1, -1):
+        nxt = next_greater[k]
+        dp[k] = 1 + (dp[nxt] if nxt < N else 0)
+        
+    # For each i, the answer is dp[i+1] (if i+1 < N)
+    results = [dp[i+1] if i+1 < N else 0 for i in range(N)]
+    print(*(results))
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a logic error in my manual trace. Let's re-verify.
+Condition: "No building taller than Building $j$ between Buildings $i$ and $j$."
+For $i=1, j=4$: Buildings between are 2 and 3. If $H_2 < H_4$ and $H_3 < H_4$, then $j=4$ is valid.
+This means $H_j > \max(H_{i+1}, \dots, H_{j-1})$.
+This is exactly the definition of the sequence of left-to-right maxima of the subarray $H[i+1 \dots N]$.
+The first element $H_{i+1}$ is always a maximum. The next is the first element to the right of $i+1$ that is strictly taller than $H_{i+1}$, and so on.
+My `next_greater` and `dp` logic implements exactly this.
+
+Example 1: `2 1 4 3 5`
+$i=1 (H=2)$: Subarray `1 4 3 5`. Maxima: `1` (idx 2), `4` (idx 3), `5` (idx 5). Count = 3.
+$i=2 (H=1)$: Subarray `4 3 5`. Maxima: `4` (idx 3), `5` (idx 5). Count = 2.
+$i=3 (H=4)$: Subarray `3 5`. Maxima: `3` (idx 4), `5` (idx 5). Count = 2.
+$i=4 (H=3)$: Subarray `5`. Maxima: `5` (idx 5). Count = 1.
+$i=5 (H=5)$: Subarray empty. Count = 0.
+Output: `3 2 2 1 0`. Matches sample.
+The logic is correct.
+Final check on constraints: $N=2 \times 10^5$, $O(N)$ time and space is required. The stack and DP approach is $O(N)$.
+The `sys.stdin.read().split()` handles large inputs efficiently.
+The `print(*results)` handles the space-separated output.
+The `if __name__ == "__main__":` block is standard.
+The `dp` array is size $N+1$ to avoid index out of bounds for `next_greater[k] = N`.
+The `range(N-1, -1, -1)` ensures we compute `dp[nxt]` before `dp[k]`.
+The logic is solid.
+One final detail: the prompt asks for the complete program in a single block.
+
+```python
+import sys
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # next_greater[k] is the index of the first building to the right of k taller than H[k]
+    next_greater = [N] * N
+    stack = []
+    for idx in range(N):
+        while stack and H[stack[-1]] < H[idx]:
+            next_greater[stack.pop()] = idx
+        stack.append(idx)
+        
+    # dp[k] is the number of left-to-right maxima in the suffix starting at index k
+    # The maxima are: index k, next_greater[k], next_greater[next_greater[k]], ...
+    dp = [0] * (N + 1)
+    for k in range(N - 1, -1, -1):
+        nxt = next_greater[k]
+        dp[k] = 1 + (dp[nxt] if nxt < N else 0)
+        
+    # For each i (1-indexed), we look at the suffix starting at index i (0-indexed)
+    # The buildings are i+1, i+2... N. In 0-indexing, that's indices i, i+1... N-1.
+    # So for building i (0-indexed), we need the count for the suffix starting at i+1.
+    results = [dp[i+1] if i+1 < N else 0 for i in range(N)]
+    sys.stdout.write(" ".join(map(str, results)) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used `sys.stdout.write` instead of `print` to be safer with large outputs, and `join` for the same reason. This is more robust.
+Final check on the logic:
+For $i=1$, we check $j \in \{2, \dots, N\}$.
+The condition is: no building between $i$ and $j$ is taller than building $j$.
+Buildings between $i$ and $j$ are $i+1, \dots, j-1$.
+So $H_j > \max(H_{i+1}, \dots, H_{j-1})$.
+This is exactly what the "next greater" chain starting from $i+1$ counts.
+Example: $H = [2, 1, 4, 3, 5]$
+$i=0 (H_1=2)$: suffix is $H[1 \dots 4] = [1, 4, 3, 5]$.
+Maxima: $H_1=1$ (idx 1), $H_2=4$ (idx 2), $H_4=5$ (idx 4).
+Indices $j$ (1-based): $2, 3, 5$. Count = 3.
+My code: `dp[1]` where $H[1]=1$. `next_greater[1]=2` ($H[2]=4$), `next_greater[2]=4` ($H[4]=5$), `next_greater[4]=5`.
+`dp[4]=1`, `dp[2]=1+1=2`, `dp[1]=1+2=3`. Correct.
+The 0-indexing vs 1-indexing is handled by `dp[i+1]`.
+The time complexity is $O(N)$ because each index is pushed and popped from the stack at most once, and the DP is a single linear pass.
+Space complexity is $O(N)$ to store the heights, the `next_greater` array, and the `dp` array.
+This fits within the constraints.
+Final code structure is clean.
+One last check: $H_i \neq H_j$ is given, so we don't need to worry about $\geq$ vs $>$.
+The constraints say $1 \leq H_i \leq N$, and $N \leq 2 \times 10^5$.
+Python's `sys.stdin.read().split()` is efficient for this size.
+The use of `sys.stdout.write` with `join` is the fastest way to output a list.
+The logic is complete.
+Final code block:
+```python
+import sys
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # next_greater[k] is the index of the first building to the right of k taller than H[k]
+    next_greater = [N] * N
+    stack = []
+    for idx in range(N):
+        while stack and H[stack[-1]] < H[idx]:
+            next_greater[stack.pop()] = idx
+        stack.append(idx)
+        
+    # dp[k] is the number of left-to-right maxima in the suffix starting at index k
+    # The maxima are: index k, next_greater[k], next_greater[next_greater[k]], ...
+    dp = [0] * (N + 1)
+    for k in range(N - 1, -1, -1):
+        nxt = next_greater[k]
+        dp[k] = 1 + (dp[nxt] if nxt < N else 0)
+        
+    # For each i (0-indexed), we need the count of maxima in the suffix starting at i+1
+    results = [dp[i+1] if i+1 < N else 0 for i in range(N)]
+    sys.stdout.write(" ".join(map(str, results)) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+This looks perfect.
+One final check on the "no building taller than Building j between Buildings i and j" condition.
+If $j = i+1$, there are no buildings between, so the condition is vacuously true.
+If $j = i+2$, building $i+1$ must not be taller than building $j$. So $H_{i+1} < H_j$.
+If $j = i+3$, buildings $i+1$ and $i+2$ must not be taller than building $j$. So $\max(H_{i+1}, H_{i+2}) < H_j$.
+This is exactly the definition of left-to-right maxima of the sequence $H_{i+1}, H_{i+2}, \dots, H_N$.
+The first element $H_{i+1}$

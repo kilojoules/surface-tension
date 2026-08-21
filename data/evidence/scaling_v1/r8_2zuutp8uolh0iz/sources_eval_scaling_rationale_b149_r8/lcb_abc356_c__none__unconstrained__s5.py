@@ -1,0 +1,56 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # N: number of keys, M: number of tests, K: threshold to open
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+
+    # Parse the tests into a list of tuples: (set_of_keys, result)
+    # We use a helper function to slice the input_data list based on C_i
+    def parse_tests(data, index, count):
+        if count == 0:
+            return []
+        
+        # C_i is the first element of the current segment
+        c_i = int(data[index])
+        # The keys are the next c_i elements
+        keys = set(map(int, data[index + 1 : index + 1 + c_i]))
+        # The result (o/x) is the element after the keys
+        result = data[index + 1 + c_i]
+        
+        # Recursively parse the remaining tests
+        return [(keys, result)] + parse_tests(data, index + 2 + c_i, count - 1)
+
+    tests = parse_tests(input_data, 3, M)
+
+    # We iterate through all 2^N possible combinations of real/dummy keys.
+    # A bitmask 'i' represents the state: j-th bit is 1 if key (j+1) is real.
+    # We use a list comprehension to filter masks that satisfy all test conditions.
+    
+    # Condition for a mask:
+    # For each test (keys, res):
+    #   count_real = number of keys in 'keys' whose corresponding bit in mask is 1
+    #   if res == 'o', count_real must be >= K
+    #   if res == 'x', count_real must be < K
+    
+    valid_combinations = [
+        mask for mask in range(1 << N)
+        if all(
+            (sum(1 for key in test_keys if (mask & (1 << (key - 1)))) >= K) 
+            if res == 'o' else 
+            (sum(1 for key in test_keys if (mask & (1 << (key - 1)))) < K)
+            for (test_keys, res) in tests
+        )
+    ]
+
+    # The answer is the number of valid masks
+    print(len(valid_combinations))
+
+if __name__ == "__main__":
+    solve()

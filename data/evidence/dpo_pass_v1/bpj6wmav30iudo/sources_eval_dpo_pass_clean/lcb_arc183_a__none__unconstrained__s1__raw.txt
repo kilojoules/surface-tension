@@ -1,0 +1,190 @@
+The constraint to avoid explicit loops and recursion forces a shift toward a functional programming paradigm, emphasizing immutable data transformations and declarative logic over imperative state changes. In Python, this encourages the use of `itertools` for sequence generation and `functools.reduce` for accumulating state (like the remaining counts of each number) across a sequence. For this specific problem, I will use `functools.reduce` to simulate the construction of the lexicographical sequence and list comprehensions to handle the logic of selecting the $i$-th element based on the target index.
+
+```python
+import sys
+from functools import reduce
+from math import comb
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N, K = map(int, input_data)
+
+    # The total number of good sequences S is (NK)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # S = total_permutations
+    # target = (total_permutations + 1) // 2
+    
+    # To calculate total permutations:
+    # S = comb(NK, K) * comb((N-1)K, K) * ... * comb(K, K)
+    # However, we can calculate the target index directly.
+    
+    # Precompute total S
+    # Using reduce to calculate the multinomial coefficient
+    total_s = reduce(lambda acc, i: acc * comb((N * K) - (i * K), K), range(N), 1)
+    target = (total_s + 1) // 2
+
+    # We need to determine the sequence element by element.
+    # Let 'counts' be the number of times each digit 1..N is still available.
+    # For each position, we try digits v = 1..N.
+    # The number of ways to complete the sequence if we pick v is:
+    # (RemainingLength - 1)! / (Product of factorials of remaining counts)
+    
+    # Since we cannot use loops, we use reduce over the range of the total length (N*K).
+    # The state passed through reduce will be (current_target, current_counts)
+    # where current_counts is a tuple of length N.
+    
+    initial_counts = tuple([K] * N)
+    
+    def get_ways(counts):
+        # Multinomial coefficient: (sum(counts))! / product(counts!)
+        # Which is comb(sum, c1) * comb(sum-c1, c2) ...
+        total_rem = sum(counts)
+        return reduce(lambda acc, c: acc * comb(total_rem - (0 if not counts else 0), c), counts, 1) 
+        # Note: the above is a bit tricky without loops. 
+        # Let's use a helper that calculates ways based on the current state.
+
+    # Correct way to calculate ways to arrange remaining elements:
+    # ways = (sum(counts))! / (c1! * c2! ... * cN!)
+    # We can use a helper function defined inside solve.
+    
+    def calc_ways(counts):
+        # Using reduce to calculate the multinomial coefficient of the counts tuple
+        return reduce(lambda acc, i: acc * comb(sum(counts) - i, counts[i]) if i < len(counts)-1 else acc, range(len(counts)), 1)
+    
+    # Wait, the logic for calc_ways needs to be precise.
+    # Multinomial(n1, n2, ..., nk) = comb(n1+n2+...+nk, n1) * comb(n2+...+nk, n2) ...
+    # Let's redefine it using a list comprehension and reduce.
+    
+    def ways_to_fill(counts):
+        # sum(counts) is the total slots remaining.
+        # we pick slots for the first element, then second, etc.
+        # the formula is: product_{i=0}^{N-1} comb(sum(counts[i:]), counts[i])
+        # Since we can't use loops, we use a list comprehension to get the suffixes.
+        return reduce(lambda a, b: a * b, [comb(sum(counts[i:]), counts[i]) for i in range(N)], 1)
+
+    # Now we use reduce to build the sequence.
+    # state: (target_index, counts_tuple, result_list)
+    # target_index is 1-based.
+    
+    final_state = reduce(
+        lambda state, pos: (
+            # We need to find the smallest v such that target <= ways_with_v
+            # Since we can't loop, we use a list comprehension to find the 
+            # cumulative ways for each possible value v (1 to N).
+            # Let's calculate the ways for each v in [1, N]
+            # If we pick v, the remaining ways are ways_to_fill(counts_after_v)
+            
+            # To avoid loops, we use a generator/list to find which v to pick.
+            # We can use 'next' with a filter to find the first v that satisfies the condition.
+            # But we need to update the target index for the next position.
+            
+            # Let's pre-calculate the ways for each v.
+            # v_ways = [ways_to_fill(counts_after_v) for v in 1..N if counts[v-1] > 0]
+            
+            # This is complex. Let's simplify:
+            # For the current position, we check v = 1, 2, ..., N.
+            # If counts[v-1] > 0:
+            #    w = ways_to_fill(counts with counts[v-1] decremented)
+            #    if target <= w:
+            #        return (target, counts_with_v_decremented, result + [v])
+            #    else:
+            #        target -= w
+            
+            # Since we can't loop, we can use a recursive-like structure with 
+            # a helper function and 'next'.
+            
+            # We'll use a helper function that determines the value v.
+            (lambda target, counts: (
+                # Find v such that sum(ways for 1..v-1) < target <= sum(ways for 1..v)
+                # We can use a list of (v, ways) for v in 1..N
+                # then use next() to find the one.
+                (lambda options: (
+                    # options is a list of (v, ways)
+                    # we need to find the v where target falls.
+                    # Since we can't loop, we use a custom reduce or a 
+                    # clever slice to find the v.
+                    # Actually, we can use a list comprehension to calculate 
+                    # the cumulative sums of ways.
+                    (lambda cum_ways: (
+                        # find the first index i where cum_ways[i] >= target
+                        # the value is options[i][0]
+                        # the new target is target - (cum_ways[i-1] if i > 0 else 0)
+                        (lambda i: (
+                            options[i][0], 
+                            tuple(counts[j] - 1 if j == options[i][0]-1 else counts[j] for j in range(N)),
+                            target - (cum_ways[i-1] if i > 0 else 0)
+                        ))(
+                            # index of the first element in cum_ways >= target
+                            # we use a list comprehension and index()
+                            [j for j, cw in enumerate(cum_ways) if cw >= target][0]
+                        )
+                    ))([sum(ways[:i+1]) for i in range(len(options))])
+                ))([
+                    (v, ways_to_fill(tuple(counts[j] - 1 if j == v-1 else counts[j] for j in range(N))))
+                    for v in range(1, N + 1) if counts[v-1] > 0
+                ])
+            ))(state[0], state[1])
+        ),
+        range(N * K),
+        (target, initial_counts, [])
+    )
+
+    # The reduce above returns (final_target, final_counts, result_list)
+    # But wait, the lambda structure is nested. Let's refine the reduce.
+    # Because of the constraints, I will use a helper function for the logic 
+    # and call it inside reduce.
+    
+    # Redefining the logic to fit the "no loop" constraint perfectly:
+    # We use a list comprehension to generate the sequence by iterating 
+    # through the positions and updating the state.
+    # Since we need the state to update, we MUST use reduce.
+    
+    # Let',s re-implement the logic clearly.
+    pass
+
+# To strictly follow "no for/while", we use reduce and list comprehensions.
+# The logic: 
+# state = (target, counts, result)
+# For each position:
+#   1. Generate list of (v, ways) for v in 1..N if counts[v-1] > 0
+#   2. Generate cumulative sums of ways
+#   3. Find index i where cum_sum[i] >= target
+#   4. Update target = target - cum_sum[i-1], update counts, append v to result.
+
+def final_solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N, K = map(int, input_data)
+    
+    total_s = reduce(lambda acc, i: acc * comb((N * K) - (i * K), K), range(N), 1)
+    target = (total_s + 1) // 2
+    
+    def ways_to_fill(counts):
+        return reduce(lambda a, b: a * b, [comb(sum(counts[i:]), counts[i]) for i in range(len(counts))], 1)
+
+    # The reducer function
+    def reducer(state, pos):
+        target, counts, result = state
+        # Only consider v where counts[v-1] > 0
+        options = [(v, ways_to_fill(tuple(counts[j] - 1 if j == v-1 else counts[j] for j in range(N)))) 
+                   for v in range(1, N + 1) if counts[v-1] > 0]
+        cum_ways = [sum(w for v, w in options[:i+1]) for i in range(len(options))]
+        
+        # Find the index of the first cum_way >= target
+        idx = [i for i, cw in enumerate(cum_ways) if cw >= target][0]
+        v_chosen, _ = options[idx]
+        
+        new_target = target - (cum_ways[idx-1] if idx > 0 else 0)
+        new_counts = tuple(counts[j] - 1 if j == v_chosen-1 else counts[j] for j in range(N))
+        
+        return (new_target, new_counts, result + [v_chosen])
+
+    final_result = reduce(reducer, range(N * K), (target, tuple([K]*N), []))
+    print(*(final_result[2]))
+
+if __name__ == "__main__":
+    final_solve()
+```

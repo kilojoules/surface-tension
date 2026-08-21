@@ -1,0 +1,234 @@
+```python
+import sys
+from itertools import permutations
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    # M_G and edges of G
+    M_G = int(input_data[ptr])
+    ptr += 1
+    edges_G = []
+    for _ in range(M_G):
+        u = int(input_data[ptr])
+        v = int(input_data[ptr+1])
+        edges_G.append(tuple(sorted((u, v))))
+        ptr += 2
+        
+    # M_H and edges of H
+    M_H = int(input_data[ptr])
+    ptr += 1
+    edges_H = []
+    for _ in range(M_H):
+        u = int(input_data[ptr])
+        v = int(input_data[ptr+1])
+        edges_H.append(tuple(sorted((u, v))))
+        ptr += 2
+        
+    # A_{i,j} costs
+    # The costs are provided for 1 <= i < j <= N
+    # We store them in a dictionary keyed by (i, j)
+    costs_list = input_data[ptr:]
+    
+    # To map the flat list of costs to (i, j) pairs, we generate the pairs in order
+    # i from 1 to N-1, j from i+1 to N
+    cost_pairs = [(i, j) for i in range(1, N) for j in range(i + 1, N)]
+    cost_map = dict(zip(cost_pairs, map(int, costs_list)))
+
+    # Helper to check if an edge exists in a set of edges
+    # We use sets for O(1) lookup
+    set_G = set(edges_G)
+    set_H = set(edges_H)
+
+    # The core logic: for a given permutation P, calculate the cost to make H isomorphic to G.
+    # An edge (i, j) in G must correspond to an edge (P[i-1], P[j-1]) in H.
+    # If the edge exists in G but not in H, we pay to add it to H.
+    # If the edge exists in H but not in G, we pay to remove it from H.
+    # Note: the cost is based on the vertices in H, so we use sorted(P[i-1], P[j-1]).
+    
+    def calculate_cost(P):
+        # We iterate over all possible edges (i, j) with 1 <= i < j <= N
+        # and check if the isomorphism condition is violated.
+        return sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N)
+            for j in range(i + 1, N)
+            if ((i, j) in set_G) != (tuple(sorted((P[i-1], P[j-1]))) in set_H)
+        )
+
+    # We need to find the minimum cost across all permutations of (1, ..., N)
+    # Since N <= 8, N! is at most 40,320, which fits within time limits.
+    all_permutations = permutations(range(1, N + 1))
+    
+    # Use map to apply calculate_cost to all permutations and min to find the result
+    # We use a generator expression inside min()
+    result = min(calculate_cost(P) for P in all_permutations)
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I noticed a small bug in my `calculate_cost` logic.** 
+The condition `(i, j) in set_G` assumes the edges in `set_G` are always stored as `(smaller, larger)`. I used `tuple(sorted((u, v)))` when building `set_G`, so `(i, j)` where `i < j` is correct. 
+However, the cost is paid based on the vertices in **H**. If the edge `(P[i-1], P[j-1])` needs to be toggled, we pay `A_{min(P[i-1], P[j-1]), max(P[i-1], P[j-1])}`.
+
+Let's refine the `calculate_cost` slightly to ensure it's robust:
+```python
+def calculate_cost(P):
+    return sum(
+        cost_map[tuple(sorted((P[i-1], P[j-1])))]
+        for i in range(1, N)
+        for j in range(i + 1, N)
+        if ((i, j) in set_G) != (tuple(sorted((P[i-1], P[j-1]))) in set_H)
+    )
+```
+This looks correct. The `(i, j)` in `set_G` works because `i < j` and we sorted the input edges. The `tuple(sorted((P[i-1], P[j-1])))` handles the lookup in `set_H` and `cost_map` correctly.
+
+Final check on constraints: $N=8$, $N! = 40,320$. Inside the loop, we have $N(N-1)/2 = 28$ iterations. Total operations $\approx 1.1$ million. This will easily pass within 1 second in Python.
+The `reduce` import was unused, I will remove it.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    M_G = int(input_data[ptr])
+    ptr += 1
+    set_G = {tuple(sorted((int(input_data[ptr + 2*i]), int(input_data[ptr + 2*i + 1])))) 
+             for i in range(M_G)}
+    ptr += 2 * M_G
+        
+    M_H = int(input_data[ptr])
+    ptr += 1
+    set_H = {tuple(sorted((int(input_data[ptr + 2*i]), int(input_data[ptr + 2*i + 1])))) 
+             for i in range(M_H)}
+    ptr += 2 * M_H
+        
+    costs_list = input_data[ptr:]
+    cost_pairs = [(i, j) for i in range(1, N) for j in range(i + 1, N)]
+    cost_map = dict(zip(cost_pairs, map(int, costs_list)))
+
+    def calculate_cost(P):
+        return sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N)
+            for j in range(i + 1, N)
+            if ((i, j) in set_G) != (tuple(sorted((P[i-1], P[j-1]))) in set_H)
+        )
+
+    print(min(calculate_cost(P) for P in permutations(range(1, N + 1))))
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the prompt asks for the code inside a single block. I will provide the cleaned version.
+One final detail: the `set_G` construction `(i, j) in set_G` requires that the edges in `set_G` are always `(smaller, larger)`. Since I used `sorted()`, this is guaranteed.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a generator/iterator to consume input without a pointer
+    it = iter(input_data)
+    N = int(next(it))
+    
+    M_G = int(next(it))
+    # Store G edges as sorted tuples in a set for O(1) lookup
+    # We read M_G pairs of vertices
+    edges_G_raw = [next(it) for _ in range(2 * M_G)]
+    set_G = {tuple(sorted((int(edges_G_raw[2*i]), int(edges_G_raw[2*i+1])))) 
+             for i in range(M_G)}
+    
+    M_H = int(next(it))
+    # Store H edges as sorted tuples in a set for O(1) lookup
+    edges_H_raw = [next(it) for _ in range(2 * M_H)]
+    set_H = {tuple(sorted((int(edges_H_raw[2*i]), int(edges_H_raw[2*i+1])))) 
+             for i in range(M_H)}
+    
+    # Remaining input are the costs A_{i,j}
+    costs_list = list(map(int, it))
+    cost_pairs = [(i, j) for i in range(1, N) for j in range(i + 1, N)]
+    cost_map = dict(zip(cost_pairs, costs_list))
+
+    # Function to calculate cost for a specific permutation P
+    # P maps vertex i in G to vertex P[i-1] in H
+    def calculate_cost(P):
+        return sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N)
+            for j in range(i + 1, N)
+            if ((i, j) in set_G) != (tuple(sorted((P[i-1], P[j-1]))) in set_H)
+        )
+
+    # Evaluate all N! permutations and find the minimum cost
+    print(min(calculate_cost(P) for P in permutations(range(1, N + 1))))
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `set_G` logic `(i, j) in set_G` only works if the vertices in G are treated as the "fixed" positions and we check if the edge exists between index $i$ and $j$. The problem says $G$ has edges $(u_i, v_i)$. The isomorphism is a permutation $P$ such that edge $(i, j)$ exists in $G$ iff $(P_i, P_j)$ exists in $H$. My code does exactly this.
+
+Final check on Sample 1:
+G: (1,2), (2,3), (3,4), (4,5)
+H: (1,2), (1,3), (1,4), (1,5)
+If $P = (1, 2, 3, 4, 5)$, we check edges (1,2), (1,3)...
+(1,2): G yes, H yes -> cost 0
+(1,3): G no, H yes -> cost A_{1,3}
+... and so on.
+The logic is sound.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    it = iter(input_data)
+    N = int(next(it))
+    
+    M_G = int(next(it))
+    # G edges: we ensure they are stored as (min, max)
+    # We use a list comprehension to extract pairs then a set comprehension to sort them
+    raw_G = [next(it) for _ in range(2 * M_G)]
+    set_G = {tuple(sorted((int(raw_G[2*i]), int(raw_G[2*i+1])))) for i in range(M_G)}
+    
+    M_H = int(next(it))
+    # H edges: we ensure they are stored as (min, max)
+    raw_H = [next(it) for _ in range(2 * M_H)]
+    set_H = {tuple(sorted((int(raw_H[2*i]), int(raw_H[2*i+1])))) for i in range(M_H)}
+    
+    # Costs A_{i,j} for 1 <= i < j <= N
+    costs_list = list(map(int, it))
+    cost_pairs = [(i, j) for i in range(1, N) for j in range(i + 1, N)]
+    cost_map = dict(zip(cost_pairs, costs_list))
+
+    # For a permutation P, the cost is the sum of A_{P_i, P_j} 
+    # for all pairs (i, j) where the edge existence differs between G and H.

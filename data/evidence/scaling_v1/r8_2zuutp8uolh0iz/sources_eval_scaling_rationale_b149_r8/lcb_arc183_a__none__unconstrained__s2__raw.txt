@@ -1,0 +1,211 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. While not necessarily "cleaner" for complex combinatorial logic, it encourages the use of higher-order functions and immutable-style transformations. To solve this, I will use `functools.reduce` to simulate the iterative process of determining each element of the sequence, and `math.comb` to calculate the number of permutations of multisets.
+
+```python
+import sys
+from functools import reduce
+from math import comb
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N, K = map(int, input_data)
+
+    # The total number of good sequences S is (N*K)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Let target = (S + 1) // 2.
+    
+    # To avoid calculating S explicitly (which is huge), we can determine 
+    # the sequence element by element.
+    # For the first position, we try candidates v = 1, 2, ..., N.
+    # The number of sequences starting with v is (NK-1)! / (K-1)! * (K!)^{N-1}
+    # which simplifies to S * K / (NK).
+    
+    # We maintain a state: (current_counts, target_index)
+    # current_counts: list of remaining counts for each number 1...N
+    # target_index: the 1-based index of the sequence we are looking for.
+
+    def get_multiset_coeff(counts):
+        # Total permutations of multiset: (sum(counts))! / product(counts[i]!)
+        # However, we only need to compare this against target_index.
+        # Since we need to calculate this many times, we use a formula 
+        # relative to the total remaining.
+        total = sum(counts)
+        if total == 0:
+            return 1
+        
+        # We can't easily compute the full factorial every time without loops,
+        # but we can use math.comb.
+        # Ways = comb(total, counts[0]) * comb(total-counts[0], counts[1]) * ...
+        return reduce(lambda acc, c: acc * comb(total - (sum(counts[:counts.index(c)]) if counts.index(c)>0 else 0), c), 
+                      range(len(counts)), 1)
+    
+    # The above get_multiset_coeff is slow and uses index(). 
+    # Let's redefine it using a more efficient reduce.
+    def count_permutations(counts):
+        total = sum(counts)
+        # Using the property: Ways = total! / (c1! * c2! ... cn!)
+        # We can compute this by iteratively multiplying combinations.
+        def step(state, c):
+            rem_total, ways = state
+            return (rem_total - c, ways * comb(rem_total, c))
+        
+        return step( (total, 1), 0)[1] # This is wrong logic.
+        
+    # Corrected count_permutations using reduce:
+    def count_perms(counts):
+        # ways = comb(n, k1) * comb(n-k1, k2) * ...
+        # We use a helper to track the remaining total.
+        def folder(acc, c):
+            current_total, current_ways = acc
+            return (current_total - c, current_ways * comb(current_total, c))
+        return folder(reduce(folder, counts, (sum(counts), 1)))[1]
+
+    # To find the target index:
+    # S = count_perms([K]*N)
+    # target = (S + 1) // 2
+    
+    # Instead of calculating S, we can observe that the "middle" sequence
+    # is related to the symmetry of the lexicographical order.
+    # The reverse of a sequence (replacing v with N-v+1 and reversing the string)
+    # maps the i-th sequence to the (S-i+1)-th sequence.
+    # However, the problem asks for the floor((S+1)/2)-th.
+    # This is exactly the middle. If S is odd, it's the exact middle.
+    # If S is even, it's the last one of the first half.
+    
+    # Because we need to avoid loops, we use reduce to determine the sequence.
+    # State: (remaining_counts, target_rank)
+    
+    # Initial S calculation
+    S = count_perms([K] * N)
+    target_rank = (S + 1) // 2
+    
+    def determine_next_char(state, _):
+        counts, rank = state
+        
+        # We need to find the smallest v such that 
+        # sum_{i=1}^{v-1} (perms with i at current pos) < rank <= sum_{i=1}^{v} (perms with i at current pos)
+        
+        def get_ways_with_val(v_idx):
+            # If we pick value v_idx+1, remaining counts are counts with counts[v_idx]-1
+            # The number of ways is count_perms(counts_after_picking_v)
+            # But we can't mutate counts. We create a new list.
+            new_counts = [counts[i] - (1 if i == v_idx else 0) for i in range(N)]
+            return count_perms(new_counts)
+
+        # Use reduce to find the value v and the updated rank
+        # We iterate through possible values 0 to N-1
+        def find_v(acc, v_idx):
+            current_rank, chosen_v = acc
+            if chosen_v is not None:
+                return acc
+            ways = get_ways_with_val(v_idx)
+            if current_rank <= ways:
+                return (current_rank, v_idx)
+            else:
+                return (current_rank - ways, None)
+        
+        # The reduce will return (final_rank, chosen_v)
+        # But we need to handle the "not yet found" state.
+        # We use a more clever reduce to find the first v that satisfies the condition.
+        
+        # To find v, we can use a list comprehension to get ways for all v,
+        # then find the index.
+        ways_list = [get_ways_with_val(v) for v in range(N) if counts[v] > 0]
+        # This is tricky because we only care about v where counts[v] > 0.
+        # Let's map available values.
+        available_v = [v for v in range(N) if counts[v] > 0]
+        ways_for_available = [get_ways_with_val(v) for v in available_v]
+        
+        # Find the index in available_v
+        # We can use a generator or reduce to find the first index where prefix sum >= rank
+        def find_idx(acc, item):
+            curr_rank, idx = acc
+            w = item[0]
+            if curr_rank <= w:
+                return (curr_rank, idx)
+            return (curr_rank - w, idx + 1)
+            
+        final_rank, v_idx_in_avail = reduce(find_idx, [ (ways_for_available[i], i) for i in range(len(available_v))], (rank, 0))
+        # Wait, the logic in find_idx is slightly wrong because it keeps incrementing idx.
+        # Let's fix:
+        def find_idx_fixed(acc, item):
+            curr_rank, found_idx = acc
+            w, i = item
+            if found_idx is not None: return acc
+            if curr_rank <= w: return (curr_rank, i)
+            return (curr_rank - w, None)
+            
+        # Actually, the simplest way to find the index without a loop is:
+        # Use a list of cumulative sums.
+        
+        # Since we can't use loops, we use a helper to get the chosen v:
+        # We'll use a different approach for the state transition.
+        pass
+
+    # Let's rewrite the main logic using reduce and a helper function.
+    def solve_recursive_style(N, K, target_rank):
+        def step(state, _):
+            counts, rank = state
+            # 1. Identify available numbers
+            avail = [i for i in range(N) if counts[i] > 0]
+            # 2. Calculate ways for each available number
+            # ways(v) = count_perms(counts - e_v)
+            ways = [count_perms([counts[i] - (1 if i == v else 0) for i in range(N)]) for v in avail]
+            
+            # 3. Find which v the rank falls into
+            # We need the smallest j such that sum(ways[0...j]) >= rank
+            # We can use a list of cumulative sums
+            # Using a trick with list comprehension to get prefix sums:
+            # Since we can't use loops, we can't easily get prefix sums.
+            # But we can use a reduce to find the index.
+            def find_v_and_rank(acc, item):
+                r, idx = acc
+                w, i = item
+                if r <= w: return (r, i)
+                return (r - w, idx + 1)
+            
+            # We use a custom reduce to find the v and the new rank
+            # The state for this inner reduce: (current_rank, current_v_index)
+            # We need to find the first v where rank <= ways[v]
+            # Because we can't break, we'll process all and keep the first match.
+            def search(acc, item):
+                r, found_v, i = acc
+                w, v = item
+                if found_v is not None: return acc
+                if r <= w: return (r, v, i)
+                return (r - w, None, i + 1)
+            
+            res = reduce(search, zip(ways, avail), (rank, None, 0))
+            new_rank, chosen_v, _ = res
+            
+            new_counts = [counts[i] - (1 if i == chosen_v else 0) for i in range(N)]
+            return (new_counts, new_rank, chosen_v)
+
+        # We need to run this NK times.
+        # The state is (counts, rank, sequence)
+        def final_reduce(state, _):
+            counts, rank, seq = state
+            # Use the logic from step()
+            avail = [i for i in range(N) if counts[i] > 0]
+            ways = [count_perms([counts[j] - (1 if j == v else 0) for j in range(N)]) for v in avail]
+            
+            def search(acc, item):
+                r, found_v = acc
+                w, v = item
+                if found_v is not None: return acc
+                if r <= w: return (r, v)
+                return (r - w, None)
+            
+            new_rank, chosen_v = reduce(search, zip(ways, avail), (rank, None))
+            new_counts = [counts[i] - (1 if i == chosen_v else 0) for i in range(N)]
+            return (new_counts, new_rank, seq + [chosen_v + 1])
+
+        final_state = reduce(final_reduce, range(N * K), ([K] * N, target_rank, []))
+        return final_state[2]
+
+    print(*(solve_recursive_style(N, K, target_rank)))
+
+solve()
+```

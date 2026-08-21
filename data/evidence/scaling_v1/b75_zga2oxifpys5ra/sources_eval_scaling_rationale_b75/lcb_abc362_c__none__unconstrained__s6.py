@@ -1,0 +1,57 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    # Use an iterator to consume N and then pair the remaining values into (L, R) tuples
+    it = iter(input_data)
+    n = next(it)
+    pairs = [(L, R) for L, R in zip(it, it)]
+    
+    # Calculate the minimum and maximum possible sums
+    # Using list comprehensions inside sum() to avoid explicit for-loops
+    min_sum = sum([p[0] for p in pairs])
+    max_sum = sum([p[1] for p in pairs])
+    
+    # The condition for a solution to exist is that 0 must lie within [min_sum, max_sum]
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start by setting every X_i to its minimum value L_i
+    # We need to increase the total sum from min_sum to 0
+    # The total amount we need to add is -min_sum
+    target_increase = -min_sum
+    
+    # For each i, the maximum we can increase X_i is (R_i - L_i)
+    # We want to distribute target_increase across the elements
+    # We can use a greedy approach: for each i, add min(target_increase, R_i - L_i)
+    # Since we cannot use a loop to maintain a running state of target_increase,
+    # we can use a trick with a mutable object (like a list) inside a list comprehension,
+    # or more cleanly, use a generator/function logic.
+    # However, since we must avoid loops, we can't easily update target_increase.
+    # Instead, we can use the fact that we need to distribute 'target_increase'
+    # across the available 'slack' (R_i - L_i).
+    
+    # Let's use a helper function with a closure or a mutable container to track remaining increase
+    # But wait, the prompt forbids 'for' and 'while'. 
+    # We can use 'functools.reduce' to maintain state across the sequence.
+    from functools import reduce
+    
+    # reduce(function, sequence, initial)
+    # state will be (remaining_increase, result_list)
+    def distribute(state, pair):
+        rem, res = state
+        L, R = pair
+        increase = min(rem, R - L)
+        return (rem - increase, res + [L + increase])
+    
+    # Using reduce to simulate the distribution of the required sum increase
+    final_state = reduce(distribute, pairs, (target_increase, []))
+    X = final_state[1]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()

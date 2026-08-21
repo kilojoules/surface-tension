@@ -1,0 +1,119 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to group the input into queries. 
+    # Since queries have different lengths, we process the flat list.
+    # However, the constraint forbids loops, so we use a recursive-like 
+    # structure via reduce to manage the state.
+    
+    # State: (current_total_growth, plants_birth_offsets, results)
+    # plants_birth_offsets: A sorted list of (-total_growth) at the time of planting.
+    # A plant is harvested if: current_total_growth + birth_offset >= H
+    # Which is: birth_offset >= H - current_total_growth
+    
+    def process_queries(state, query_idx):
+        total_growth, plants, results = state
+        
+        # Determine query type
+        q_type = input_data[query_idx]
+        
+        if q_type == '1':
+            # Plant a new plant. Its height is 0, so its offset is -total_growth.
+            # We use bisect to keep the plants list sorted.
+            # But wait, we can't use a loop to find the index, 
+            # but we can use insort or just append and sort? 
+            # No, sorting every time is O(N log N). 
+            # Actually, since total_growth is non-decreasing, 
+            # -total_growth is non-increasing. 
+            # The plants list will be naturally sorted if we store them 
+            # and handle the harvest with bisect.
+            
+            # To keep it sorted for bisect_left, we store offsets.
+            # Since -total_growth decreases, we can't just append.
+            # But we can store them and use bisect.insort.
+            import bisect
+            bisect.insort(plants, -total_growth)
+            return (total_growth, plants, results)
+        
+        elif q_type == '2':
+            # Wait T days.
+            T = int(input_data[query_idx + 1])
+            return (total_growth + T, plants, results)
+        
+        elif q_type == '3':
+            # Harvest plants with height >= H.
+            H = int(input_data[query_idx + 1])
+            # Condition: offset >= H - total_growth
+            threshold = H - total_growth
+            idx = bisect_left(plants, threshold)
+            
+            # Number of plants harvested is the slice from idx to the end.
+            harvested_count = len(plants) - idx
+            
+            # Remove harvested plants.
+            # We can't use a loop, so we use slice assignment.
+            # Note: plants[:] = plants[:idx] modifies the list in place.
+            plants[:] = plants[:idx]
+            
+            results.append(str(harvested_count))
+            return (total_growth, plants, results)
+
+    # Because the queries have different lengths (1, 2, or 2), 
+    # we cannot use a simple range(Q) in reduce if we want to skip indices.
+    # Instead, we process the input stream by maintaining a pointer.
+    
+    def reducer(state, _):
+        # state: (current_total_growth, plants, results, current_idx)
+        total_growth, plants, results, idx = state
+        
+        q_type = input_data[idx]
+        if q_type == '1':
+            import bisect
+            bisect.insort(plants, -total_growth)
+            return (total_growth, plants, results, idx + 1)
+        elif q_type == '2':
+            T = int(input_data[idx + 1])
+            return (total_growth + T, plants, results, idx + 1) # Wait, the logic here is wrong.
+            # The query '2 T' takes 2 slots.
+            
+    # Let's redefine the reducer to handle the variable length of queries.
+    def final_reducer(state, _):
+        total_growth, plants, results, idx = state
+        q_type = input_data[idx]
+        
+        if q_type == '1':
+            import bisect
+            bisect.insort(plants, -total_growth)
+            return (total_growth, plants, results, idx + 1)
+        elif q_type == '2':
+            T = int(input_data[idx + 1])
+            return (total_growth + T, plants, results, idx + 2)
+        else: # q_type == '3'
+            H = int(input_data[idx + 1])
+            threshold = H - total_growth
+            idx_harvest = bisect_left(plants, threshold)
+            count = len(plants) - idx_harvest
+            plants[:] = plants[:idx_harvest]
+            results.append(str(count))
+            return (total_growth, plants, results, idx + 2)
+
+    # Initialize state: (total_growth, plants_list, results_list, current_input_idx)
+    initial_state = (0, [], [], 1)
+    
+    # Use range(Q) to drive the reduction, although the idx is handled internally.
+    final_state = reduce(final_reducer, range(Q), initial_state)
+    
+    # Output all results joined by newline.
+    sys.stdout.write('\n'.join(final_state[2]) + '\n')
+
+if __name__ == "__main__":
+    solve()

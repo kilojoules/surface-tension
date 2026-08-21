@@ -1,0 +1,287 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We use a pointer-based approach to process the queries
+    # since we cannot use loops. We use a generator or map.
+    # However, the core logic requires maintaining a state:
+    # 1. Current total height increase (offset)
+    # 2. A sorted list of 'birth offsets' (the value of total height 
+    #    at the moment the plant was planted).
+    # A plant is harvested if: (Current Total Height) - (Birth Offset) >= H
+    # Which is: Birth Offset <= (Current Total Height) - H
+    
+    # Since we cannot use loops, we use a custom class to maintain state
+    # and a list comprehension to drive the queries.
+    
+    class State:
+        def __init__(self):
+            self.total_height = 0
+            self.birth_offsets = []
+            self.results = []
+
+        def process(self, query):
+            q_type = query[0]
+            if q_type == '1':
+                # Plant height 0 means its birth offset is the current total_height
+                self.birth_offsets.append(self.total_height)
+                # Keep the birth_offsets sorted for binary search
+                # Since we only append and total_height is non-decreasing, 
+                # it remains sorted naturally.
+                return None
+            elif q_type == '2':
+                self.total_height += int(query[1])
+                return None
+            elif q_type == '3':
+                H = int(query[1])
+                # Target: birth_offset <= total_height - H
+                threshold = self.total_height - H
+                # Find number of plants with birth_offset <= threshold
+                # bisect_right finds the insertion point to maintain order
+                import bisect
+                idx = bisect.bisect_right(self.birth_offsets, threshold)
+                count = idx
+                # Remove the harvested plants (the first 'idx' elements)
+                self.birth_offsets = self.birth_offsets[idx:]
+                return count
+
+    # Parse queries into lists of strings
+    # We need to group the input into queries based on the type
+    def group_queries(data):
+        it = iter(data[1:])
+        def get_next():
+            try:
+                t = next(it)
+                if t == '1':
+                    return ('1',)
+                else:
+                    return (t, next(it))
+            except StopIteration:
+                return None
+        
+        # Use a list comprehension to consume the iterator
+        # We use a helper to handle the variable length of queries
+        return [get_next() for _ in range(Q)]
+
+    # Because the group_queries logic above is slightly flawed for 
+    # variable lengths in a comprehension, let's use a more robust 
+    # approach to parse the flat list into queries.
+    
+    def parse_flat(data):
+        # We use a generator to yield queries
+        def gen(d):
+            i = 1
+            while i < len(d):
+                t = d[i]
+                if t == '1':
+                    yield ('1',)
+                    i += 1
+                else:
+                    yield (t, d[i+1])
+                    i += 2
+        return gen(data)
+
+    state = State()
+    # Use a list comprehension to process all queries and filter out None
+    # The parse_flat generator is consumed by the comprehension
+    final_results = [state.process(q) for q in parse_flat(input_data)]
+    
+    # Print only the non-None results
+    sys.stdout.write('\n'.join(map(str, [r for r in final_results if r is not None])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I used a `while` loop inside `parse_flat`. The instructions forbid loops. Let me rewrite the parsing and processing logic using recursion or functional tools.
+
+```python
+import sys
+from bisect import bisect_right
+
+# Increase recursion depth for deep query chains
+sys.setrecursionlimit(300000)
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a mutable object to track state across recursive calls
+    class State:
+        def __init__(self):
+            self.total_height = 0
+            self.birth_offsets = []
+            self.results = []
+
+    state = State()
+
+    def process_queries(data, idx):
+        if idx >= len(data):
+            return
+        
+        q_type = data[idx]
+        if q_type == '1':
+            state.birth_offsets.append(state.total_height)
+            process_queries(data, idx + 1)
+        elif q_type == '2':
+            state.total_height += int(data[idx + 1])
+            process_queries(data, idx + 2)
+        elif q_type == '3':
+            H = int(data[idx + 1])
+            threshold = state.total_height - H
+            idx_harvest = bisect_right(state.birth_offsets, threshold)
+            state.results.append(idx_harvest)
+            state.birth_offsets = state.birth_offsets[idx_harvest:]
+            process_queries(data, idx + 2)
+
+    process_queries(input_data, 1)
+    sys.stdout.write('\n'.join(map(str, state.results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the most reliable way to avoid loops and recursion limits in Python for $2 \times 10^5$ queries is to use a `reduce` function from `functools`.
+
+```python
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # We need to group the flat input into queries first.
+    # Since we can't use loops, we can use a recursive-like 
+    # structure to group them or a clever reduce.
+    
+    def group_queries(data):
+        # This function converts ['1', '2', '15', '1', '3', '10'] 
+        # into [('1',), ('2', '15'), ('1',), ('3', '10')]
+        def step(acc, val):
+            # acc is (current_queries_list, current_query_buffer)
+            queries, buf = acc
+            if not buf:
+                # Start a new query
+                if val == '1':
+                    return (queries + [('1',)], [])
+                else:
+                    return (queries, [val])
+            else:
+                # Complete the pending query (Type 2 or 3)
+                return (queries + [(buf[0], val)], [])
+        
+        # Use reduce to group the input starting from index 1
+        result = reduce(step, data[1:], ([], []))
+        return result[0]
+
+    def process_logic(acc, query):
+        # acc is (total_height, birth_offsets, results_list)
+        total_height, birth_offsets, results = acc
+        q_type = query[0]
+        
+        if q_type == '1':
+            return (total_height, birth_offsets + [total_height], results)
+        elif q_type == '2':
+            return (total_height + int(query[1]), birth_offsets, results)
+        else: # q_type == '3'
+            H = int(query[1])
+            threshold = total_height - H
+            idx_harvest = bisect_right(birth_offsets, threshold)
+            return (total_height, birth_offsets[idx_harvest:], results + [idx_harvest])
+
+    queries = group_queries(input_data)
+    final_state = reduce(process_logic, queries, (0, [], []))
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+One final detail: `birth_offsets + [total_height]` and `birth_offsets[idx_harvest:]` create new lists, which is $O(N)$ per operation, leading to $O(N^2)$ overall. To keep it $O(N \log N)$, I must use a `collections.deque` or similar, but slicing/adding still creates copies. However, since I cannot use loops, and the constraints are $2 \times 10^5$, I must use a data structure that supports efficient deletion from the left. A `deque` doesn't support `bisect`. The only way to achieve $O(N \log N)$ without loops is to use a `SortedList` from `sortedcontainers` (not standard) or manage indices. Given the constraints and the "no loop" rule, the `reduce` with list slicing is the most "functional" approach, though the slicing is the bottleneck. But wait, `birth_offsets[idx_harvest:]` is the only way to "remove" without a loop. 
+
+Actually, the most efficient way to handle the "removal" of the first $K$ elements in a functional style without $O(N)$ copying is to keep the list and an integer `offset_idx`.
+
+```python
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    def group_queries(data):
+        def step(acc, val):
+            queries, buf = acc
+            if not buf:
+                return ((queries + [('1',)], []),) if val == '1' else ((queries, [val]),)
+            return ((queries + [(buf[0], val)], []),)
+        # Adjusted to fit the reduce pattern
+        res = reduce(lambda acc, val: 
+                     (acc[0] + [('1',)], []) if (not acc[1] and val == '1') else 
+                     (acc[0], [val]) if (not acc[1]) else 
+                     (acc[0] + [(acc[1][0], val)], []), 
+                     ([], []), data[1:])
+        return res[0]
+
+    # To avoid O(N) slicing, we track the start index of the valid plants
+    def process_logic(acc, query):
+        total_height, birth_offsets, results, start_idx = acc
+        q_type = query[0]
+        if q_type == '1':
+            return (total_height, birth_offsets + [total_height], results, start_idx)
+        elif q_type == '2':
+            return (total_height + int(query[1]), birth_offsets, results, start_idx)
+        else:
+            H = int(query[1])
+            # We need to search in birth_offsets[start_idx:]
+            # bisect_right works on the whole list; we adjust the threshold
+            # But the values in birth_offsets are absolute. 
+            # We find the insertion point in the whole list.
+            threshold = total_height - H
+            # Find first index i where birth_offsets[i] > threshold
+            idx_harvest = bisect_right(birth_offsets, threshold)
+            # The number of harvested plants is the difference between 
+            # the harvest index and the current start_idx
+            count = max(0, idx_harvest - start_idx)
+            return (total_height, birth_offsets, results + [count], max(start_idx, idx_harvest))
+
+    queries = group_queries(input_data)
+    final_state = reduce(process_logic, queries, (0, [], [], 0))
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+The `group_queries` logic was slightly messy. Let's refine it into a single clean `reduce` and use the `start_idx` logic.
+
+```python
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    # Group flat input into queries: (type, value)
+    # Using a list as a buffer in the accumulator
+    def group_step(acc, val):
+        queries, buf = acc
+        if not buf:
+            return (queries + [('1',)], []) if val == '1' else (queries, [val])
+        return (queries + [(buf[0], val)], [])
+
+    queries = reduce(group_step, input_data[1:], ([], []))[0]
+
+    # Process queries: (total_height, birth_offsets, results, start_idx)
+    def

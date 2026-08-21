@@ -1,0 +1,85 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To get the lexicographically smallest array X:
+    # 1. We must change characters one by one.
+    # 2. For a specific index i, if T[i] < S[i], changing S[i] to T[i] 
+    #    makes the string lexicographically smaller immediately.
+    #    These should be handled first, from left to right.
+    # 3. If T[i] > S[i], changing S[i] to T[i] makes the string 
+    #    lexicographically larger. These should be handled last, 
+    #    from right to left, to keep the prefix as small as possible for as long as possible.
+    
+    # Indices where the target character is smaller than the current (Priority 1)
+    decreasing = [i for i in diff_indices if T[i] < S[i]]
+    # Indices where the target character is larger than the current (Priority 2)
+    increasing = [i for i in diff_indices if T[i] > S[i]]
+    
+    # Sort decreasing indices ascending (left to right)
+    # Sort increasing indices descending (right to left)
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Generate the sequence of strings
+    # We use a list of characters for S to allow mutation
+    s_list = list(S)
+    X = []
+    for idx in order:
+        s_list[idx] = T[idx]
+        X.append("".join(s_list))
+    
+    # Output the number of operations and the strings in X
+    print(len(X))
+    for string in X:
+        print(string)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Explanation of the logic:**
+1. **Minimum Elements:** The minimum number of elements $M$ is simply the number of positions where $S[i] \neq T[i]$.
+2. **Lexicographical Smallest Array:** To make the array $X$ lexicographically smallest, we want the earliest strings in the array to be as small as possible.
+   - If $T[i] < S[i]$, changing $S[i]$ to $T[i]$ decreases the string's value. We should do this as early as possible. Among multiple such indices, we process them from left to right because a change at index 0 has a greater impact on lexicographical order than a change at index 1.
+   - If $T[i] > S[i]$, changing $S[i]$ to $T[i]$ increases the string's value. We want to delay this as much as possible. Among multiple such indices, we process them from right to left so that the "increase" happens at the latest possible position in the string first, keeping the prefix smaller for longer.
+3. **Complexity:** The time complexity is $O(N^2)$ where $N$ is the length of the string (due to string joining in a loop), which is well within limits for $N=100$.
+4. **Sample 1 Check:** `adbe` $\to$ `bcbc`. Diff at 0 ($a \to b$, inc), 1 ($d \to c$, dec), 2 ($b \to b$, same), 3 ($e \to c$, dec).
+   - Decreasing: index 1, 3. Increasing: index 0.
+   - Order: 1, 3, 0.
+   - $X_1$: `acbe`, $X_2$: `acbc`, $X_3$: `bcbc`. Matches sample output.
+5. **Sample 3 Check:** `afwgebrw` $\to$ `oarbrenq`.
+   - Dec: index 1 ($f \to a$), 2 ($w \to r$), 4 ($e \to r$ NO), 7 ($w \to q$).
+   - Inc: index 0 ($a \to o$), 4 ($e \to r$), 6 ($r \to n$ NO - wait, $r \to n$ is dec).
+   - Correct Dec: $f \to a$ (1), $w \to r$ (2), $r \to n$ (6), $w \to q$ (7).
+   - Correct Inc: $a \to o$ (0), $e \to r$ (4).
+   - Order: 1, 2, 6, 7, 4, 0. (Wait, the sample output suggests a different order, let's re-evaluate).
+   - Sample 3 output: `aawgebrw` (idx 1), `aargebrw` (idx 2), `aarbebrw` (idx 3? no, $g \to b$ is idx 3), `aarbebnw` (idx 5? $b \to n$ is inc), `aarbebnq` (idx 7), `aarbeenq` (idx 4? no), `aarbrenq` (idx 4), `oarbrenq` (idx 0).
+   - My logic: Dec indices (sorted asc) $\to$ Inc indices (sorted desc).
+   - For Sample 3: 
+     - $S$: `afwgebrw`, $T$: `oarbrenq`
+     - Indices: 0:a$\to$o(I), 1:f$\to$a(D), 2:w$\to$r(D), 3:g$\to$b(D), 4:e$\to$r(I), 5:b$\to$e(I), 6:r$\to$n(D), 7:w$\to$q(D).
+     - Dec: [1, 2, 3, 6, 7]. Inc: [0, 4, 5].
+     - Order: 1, 2, 3, 6, 7, 5, 4, 0.
+     - This matches the sample output's logic of processing all decreases left-to-right, then all increases right-to-left.
+6. **Final Order:** `sorted(decreasing) + sorted(increasing, reverse=True)`.
+7. **Wait, Sample 3 Output Analysis:**
+   - `aawgebrw` (idx 1: f $\to$ a)
+   - `aargebrw` (idx 2: w $\to$ r)
+   - `aarbebrw` (idx 3: g $\to$ b)
+   - `aarbebnw` (idx 5: b $\to$ n? No, T[5] is 'e'. S[5] is 'b'. $b \to e$ is Inc. Wait, Sample 3 T is `oarbrenq`. T[5] is 'e'. S[5] is 'b'. That's an increase.)
+   - Let's re-read Sample 3: S=`afwgebrw`, T=`oarbrenq`.
+   - Indices: 0(a-o:I), 1(f-a:D), 2(w-r:D), 3(g-b:D), 4(e-r:I), 5(b-e:I), 6(r-n:D), 7(w-q:D).
+   - Dec: 1, 2, 3, 6, 7. Inc: 0, 4, 5.
+   - Order: 1, 2, 3, 6, 7, 5, 4, 0.
+   - Result: `aawgebrw`, `aargebrw`, `aarbebrw`, `aarbebnw`... wait, the sample output says `aarbebnw`. That means index 6 (r $\to$ n) was changed. Then `aarbebnq` (index 7: w $\to$ q). Then `aarbeenq` (index 5: b $\to$ e). Then `aarbrenq` (index 4: e $\to$ r). Then `oarbrenq` (index 0: a $\to$ o).
+   - This confirms: Dec indices ASC, then Inc indices DESC.

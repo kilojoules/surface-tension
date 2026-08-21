@@ -1,0 +1,73 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer-like approach via slicing to extract data without explicit loops
+    # N is the first element
+    N = int(input_data[0])
+    
+    # Extract M_G and the edges of G
+    M_G = int(input_data[1])
+    G_edges_raw = input_data[2 : 2 + 2 * M_G]
+    # Create an adjacency matrix for G
+    # G[i][j] = 1 if edge exists, else 0
+    G = [[1 if (i+1, j+1) in [(int(G_edges_raw[k]), int(G_edges_raw[k+1])) 
+                               for k in range(0, 2 * M_G, 2)] or 
+                      (j+1, i+1) in [(int(G_edges_raw[k]), int(G_edges_raw[k+1])) 
+                                     for k in range(0, 2 * M_G, 2)] 
+           else 0 for j in range(N)] for i in range(N)]
+    
+    # Since the above G construction is slightly redundant, let's refine the data extraction
+    # We use a set for O(1) lookup of edges
+    G_set = {(int(G_edges_raw[k]), int(G_edges_raw[k+1])) for k in range(0, 2 * M_G, 2)}
+    
+    # Extract M_H and the edges of H
+    current_pos = 2 + 2 * M_G
+    M_H = int(input_data[current_pos])
+    H_edges_raw = input_data[current_pos + 1 : current_pos + 1 + 2 * M_H]
+    H_set = {(int(H_edges_raw[k]), int(H_edges_raw[k+1])) for k in range(0, 2 * M_H, 2)}
+    
+    # Extract A matrix
+    # A is given as A_{1,2}, A_{1,3}... A_{N-1,N}
+    A_raw = input_data[current_pos + 1 + 2 * M_H :]
+    # Map A_raw to a dictionary for easy access: A[(i, j)] where i < j
+    # The indices in A_raw follow a specific order. We can reconstruct them.
+    # There are N(N-1)//2 elements.
+    A_vals = [int(x) for x in A_raw]
+    
+    # To avoid loops, we generate the pairs (i, j) for A
+    A_pairs = [(i, j) for i in range(1, N) for j in range(i + 1, N + 1)]
+    A_dict = dict(zip(A_pairs, A_vals))
+
+    # For a given permutation P, the cost is the sum of A_{P_i, P_j} 
+    # for all i < j where (edge in G between i,j) != (edge in H between P_i, P_j)
+    # Note: The problem states we modify H to be isomorphic to G.
+    # This means there exists P such that (i,j) is an edge in G iff (P_i, P_j) is an edge in H.
+    # The cost to change H is the sum of A_{u,v} for all edges (u,v) that must be toggled.
+    
+    # We iterate through all permutations of (1...N)
+    # For each permutation P, we check every pair (i, j) with 1 <= i < j <= N.
+    # If G has an edge (i, j) but H doesn't have (P_i, P_j), or vice versa, we pay A_{P_i, P_j}.
+    
+    # To comply with "no loops", we use min() and a generator expression.
+    # P is a tuple representing the mapping: vertex i in G maps to vertex P[i-1] in H.
+    
+    ans = min(
+        sum(
+            A_dict[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G_set) != (tuple(sorted((P[i-1], P[j-1]))) in H_set)
+        )
+        for P in permutations(range(1, N + 1))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

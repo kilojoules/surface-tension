@@ -1,0 +1,221 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a generator to consume input sequentially
+    gen = input_data
+    
+    try:
+        N = next(gen)
+    except StopIteration:
+        return
+
+    # Read edges of G
+    M_G = next(gen)
+    edges_G = [tuple(sorted((next(gen), next(gen)))) for _ in range(M_G)]
+    
+    # Read edges of H
+    M_H = next(gen)
+    edges_H = [tuple(sorted((next(gen), next(gen)))) for _ in range(M_H)]
+    
+    # Read costs A_{i,j}
+    # There are N*(N-1)//2 costs provided in the input
+    # We map them to a dictionary where keys are sorted tuples (i, j)
+    # The input order is A_{1,2}, A_{1,3}... A_{1,N}, A_{2,3}... A_{2,N}, etc.
+    costs_list = list(gen)
+    
+    # Construct the cost mapping based on the specified input order
+    # We generate the keys in the exact order they appear in the input
+    cost_keys = [
+        (i, j) 
+        for i in range(1, N + 1) 
+        for j in range(i + 1, N + 1)
+    ]
+    cost_map = dict(zip(cost_keys, costs_list))
+
+    # Helper to check if an edge exists in a set of edges
+    # We use sets for O(1) lookup
+    set_G = set(edges_G)
+    set_H = set(edges_H)
+
+    # We need to find a permutation P of (1...N) that minimizes the cost.
+    # The cost for a permutation P is the sum of A_{P_i, P_j} for all pairs (i, j)
+    # where the edge status in G (i, j) differs from the edge status in H (P_i, P_j).
+    
+    # Generate all possible permutations of vertices 1...N
+    all_perms = permutations(range(1, N + 1))
+    
+    # For each permutation, calculate the total cost
+    # We iterate through all possible edges (i, j) in G
+    # and check if the corresponding edge (P_i, P_j) in H matches.
+    
+    # To avoid loops inside the comprehension, we pre-generate all possible edges in G
+    all_possible_edges = [
+        (i, j) 
+        for i in range(1, N + 1) 
+        for j in range(i + 1, N + 1)
+    ]
+
+    # The cost function for a single permutation P:
+    # For every pair (i, j), if (edge in G) != (edge in H after permutation), add cost.
+    # Note: P is a tuple where P[i-1] is the image of vertex i.
+    
+    def calculate_cost(P):
+        # P is 0-indexed, so vertex i is at P[i-1]
+        # For every pair of vertices i, j in G:
+        # The corresponding vertices in H are P[i-1] and P[j-1].
+        # We need to sort the pair (P[i-1], P[j-1]) to look it up in the cost map.
+        
+        # We use a generator expression inside sum()
+        return sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i, j in all_possible_edges
+            if ( (i, j) in set_G ) != ( tuple(sorted((P[i-1], P[j-1]))) in set_H )
+        )
+
+    # Find the minimum cost across all permutations
+    ans = min(calculate_cost(P) for P in all_perms)
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I noticed a small logic error in the `calculate_cost` function.** 
+The condition `( (i, j) in set_G ) != ( tuple(sorted((P[i-1], P[j-1]))) in set_H )` is correct. However, the `cost_map` lookup must use the vertices in $H$ (the images $P_i, P_j$), because the problem says we pay $A_{i,j}$ to flip the edge between vertices $i$ and $j$ in $H$.
+
+Let's refine the `calculate_cost` to be perfectly clear:
+If we map vertex $i \to P_i$ and vertex $j \to P_j$, the edge $(i, j)$ in $G$ corresponds to the edge $(P_i, P_j)$ in $H$. If one exists and the other doesn't, we must flip the edge $(P_i, P_j)$ in $H$, costing $A_{P_i, P_j}$.
+
+Corrected logic:
+```python
+def calculate_cost(P):
+    # P is a permutation of (1...N)
+    # For every pair 1 <= i < j <= N:
+    # Edge in G is (i, j). Corresponding edge in H is (P[i-1], P[j-1]).
+    # If G has edge and H doesn't, or vice versa, pay A_{min(P[i-1], P[j-1]), max(P[i-1], P[j-1])}
+    return sum(
+        cost_map[tuple(sorted((P[i-1], P[j-1])))]
+        for i, j in all_possible_edges
+        if ((i, j) in set_G) != (tuple(sorted((P[i-1], P[j-1]))) in set_H)
+    )
+```
+This matches the provided code. The complexity is $O(N! \cdot N^2)$, which for $N=8$ is $40320 \cdot 28 \approx 1.1 \cdot 10^6$, well within time limits.
+Final check on Sample 1: $G$ is a path 1-2-3-4-5. $H$ is a star 1-2, 1-3, 1-4, 1-5.
+If we map $G(1,2,3,4,5) \to H(2,1,3,5,4)$, the edges of $G$ are $(1,2), (2,3), (3,4), (4,5)$.
+The corresponding edges in $H$ are $(2,1), (1,3), (3,5), (5,4)$.
+Edges in $H$ are $(1,2), (1,3), (1,4), (1,5)$.
+Matching: $(2,1)$ yes, $(1,3)$ yes, $(3,5)$ no, $(5,4)$ no.
+Edges in $H$ not in $G$: $(1,4), (1,5)$.
+Total flips: $(3,5), (5,4), (1,4), (1,5)$.
+Costs: $A_{3,5} + A_{4,5} + A_{1,4} + A_{1,5} = 5 + 6 + 1 + 1 = 13$.
+The sample says 9 is possible. The permutation would be different. The logic holds.
+Final code is wrapped in the block.
+**Wait, the prompt asks for ONLY the python code inside the block.**
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    gen = input_data
+    
+    try:
+        N = next(gen)
+    except StopIteration:
+        return
+
+    # Read edges of G
+    M_G = next(gen)
+    edges_G = {tuple(sorted((next(gen), next(gen)))) for _ in range(M_G)}
+    
+    # Read edges of H
+    M_H = next(gen)
+    edges_H = {tuple(sorted((next(gen), next(gen)))) for _ in range(M_H)}
+    
+    # Read costs A_{i,j}
+    costs_list = list(gen)
+    cost_keys = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(cost_keys, costs_list))
+
+    # All possible edges in a graph of size N
+    all_possible_edges = cost_keys
+
+    # Function to calculate cost for a specific permutation P
+    # P maps vertex i (1-indexed) to P[i-1]
+    def calculate_cost(P):
+        return sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i, j in all_possible_edges
+            if ((i, j) in edges_G) != (tuple(sorted((P[i-1], P[j-1]))) in edges_H)
+        )
+
+    # Try all permutations of (1...N) and find the minimum cost
+    ans = min(calculate_cost(P) for P in permutations(range(1, N + 1)))
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait, the prompt says "Return only Python source inside a single ```python code block."**
+I will provide the code now.
+**Wait, I must ensure the code is completely self-contained.**
+The logic:
+1. Read $N$.
+2. Read $M_G$ and the edges of $G$. Store as a set of sorted tuples.
+3. Read $M_H$ and the edges of $H$. Store as a set of sorted tuples.
+4. Read the $N(N-1)/2$ costs. Map them to sorted tuples $(i, j)$.
+5. Use `itertools.permutations` to generate all $N!$ bijections $P: V_G \to V_H$.
+6. For each $P$, the cost is $\sum_{i<j} A_{P_i, P_j}$ where $\mathbb{1}_{(i,j) \in E_G} \neq \mathbb{1}_{(P_i, P_j) \in E_H}$.
+7. Output the minimum.
+
+Final check on constraints: $N=8$ is small. $8! = 40320$. $40320 \times 28 \approx 1.1 \times 10^6$ operations. This is well within the 1-2 second limit for Python.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    gen = input_data
+    
+    try:
+        N = next(gen)
+    except StopIteration:
+        return
+
+    # Read edges of G and store as a set of sorted tuples for O(1) lookup
+    M_G = next(gen)
+    edges_G = {tuple(sorted((next(gen), next(gen)))) for _ in range(M_G)}
+    
+    # Read edges of H and store as a set of sorted tuples for O(1) lookup
+    M_H = next(gen)
+    edges_H = {tuple(sorted((next(gen), next(gen)))) for _ in range(M_H)}
+    
+    # Read costs A_{i,j} in the specified order: (1,2), (1,3)...(1,N), (2,3)...(N-1,N)
+    costs_list = list(gen)
+    cost_keys = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(cost_keys, costs_list))
+
+    # We evaluate all possible permutations P of vertices {1...N}
+    # For a permutation P, the cost is the sum of A_{P_i, P_j} for all pairs i < j
+    # where the existence of an edge in G differs from the existence of an edge in H.
+    
+    # To optimize, we pre-calculate the edge existence in G for all pairs
+    # since the permutation only affects the H side.
+    # However, with N=8, a direct approach is sufficient.
+    
+    def calculate_cost(P):
+        # P is a tuple representing the mapping from G-vertices to H-vertices
+        # We iterate through all pairs (i, j) with 1 <= i < j <= N
+        return sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i, j in cost_keys
+            if ((i, j)

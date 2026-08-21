@@ -1,0 +1,211 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to process test cases without loops
+    # We need to group the flat input list into (N, P) pairs
+    # Since N varies, we can't use a simple chunk size.
+    # However, we can use a custom function with accumulate to track the current index.
+    
+    def get_cases(data):
+        # state: (current_index, list_of_cases)
+        def step(state, _):
+            idx, cases = state
+            if idx >= len(data):
+                return state
+            n = int(data[idx])
+            p = list(map(int, data[idx+1 : idx+1+n]))
+            return (idx + 1 + n, cases + [(n, p)])
+        
+        # We run accumulate T times to extract T cases
+        final_state = list(accumulate([None] * T, step, initial=(1, [])))[-1]
+        return final_state[1]
+
+    cases = get_cases(input_data)
+
+    def calculate_min_ops(case):
+        n, p = case
+        # The goal is to find if there exists a k such that:
+        # 1. All elements in P[0...k-2] are <= k-1 (after sorting, they become 1...k-1)
+        # 2. All elements in P[k...n-1] are >= k+1 (after sorting, they become k+1...n)
+        # This is equivalent to:
+        # max(P[0...k-2]) <= k-1 AND min(P[k...n-1]) >= k+1
+        # Note: k is 1-indexed in the problem, so P[k-1] is the pivot.
+        
+        # Precompute prefix maximums and suffix minimums
+        # prefix_max[i] = max(P[0...i])
+        prefix_max = list(accumulate(p, max))
+        # suffix_min[i] = min(P[i...n-1])
+        suffix_min = list(accumulate(p[::-1], min))[::-1]
+        
+        # Check if already sorted
+        if p == sorted(p):
+            return 0
+        
+        # Check if 1 operation is enough:
+        # For a given k (1 <= k <= n):
+        # If k=1: check suffix_min[1] >= 2
+        # If k=n: check prefix_max[n-2] <= n-1
+        # If 1 < k < n: check prefix_max[k-2] <= k-1 and suffix_min[k] >= k+1
+        
+        # We use a list comprehension to check all k and 'any()' to see if one works.
+        # Using a helper to avoid index errors for k=1 and k=n.
+        def check(k):
+            # k is 1-indexed
+            cond1 = (k == 1) or (prefix_max[k-2] <= k-1)
+            cond2 = (k == n) or (suffix_min[k] >= k+1)
+            return cond1 and cond2
+
+        # If any k works, answer is 1, otherwise 2.
+        # (It is proven that max 2 operations are always sufficient for N >= 3)
+        return 1 if any(map(check, range(1, n + 1))) else 2
+
+    # Map the solve function over all cases and print
+    results = map(calculate_min_ops, cases)
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I noticed a small logic error in the `get_cases` function regarding the `accumulate` usage.** Let me refine the input reading to be more robust and ensure the logic for $k$ is perfectly aligned with the 0-indexing of the list.
+
+Corrected logic for $k$:
+- For $k=1$: Sort $P[1 \dots N-1]$. Result is sorted if $P[0]$ is already $1$ or if the remaining elements are $2 \dots N$. Actually, the operation says: sort $1 \dots k-1$ and $k+1 \dots N$.
+- If $k=1$: Sort $P[2 \dots N]$. $P$ becomes $(P_1, \text{sorted}(P_2 \dots P_N))$. This is $(1 \dots N)$ iff $P_1=1$.
+- If $k=N$: Sort $P[1 \dots N-1]$. $P$ becomes $(\text{sorted}(P_1 \dots P_{N-1}), P_N)$. This is $(1 \dots N)$ iff $P_N=N$.
+- If $1 < k < N$: Sort $P[1 \dots k-1]$ and $P[k+1 \dots N]$. This is $(1 \dots N)$ iff $\max(P_1 \dots P_{k-1}) \le k-1$ and $\min(P_{k+1} \dots P_N) \ge k+1$. (Since $P$ is a permutation, this implies $P_k$ must be $k$).
+
+Revised implementation:
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    T = int(input_data[0])
+    
+    # Use a generator to parse the flat list into cases
+    def parse_cases(data):
+        it = iter(data[1:])
+        for _ in range(T):
+            n = int(next(it))
+            p = [int(next(it)) for _ in range(n)]
+            yield n, p
+
+    def get_ans(case):
+        n, p = case
+        if p == list(range(1, n + 1)): return 0
+        
+        # prefix_max[i] is max of p[0...i]
+        prefix_max = list(accumulate(p, max))
+        # suffix_min[i] is min of p[i...n-1]
+        suffix_min = list(accumulate(p[::-1], min))[::-1]
+        
+        # k is the 1-based index of the pivot
+        # For k=1: need suffix_min[1] >= 2 and p[0] == 1 (Wait, the rule is:
+        # sort 1st to (k-1)th, and (k+1)th to Nth.
+        # If k=1, we sort indices 2 to N. P becomes (P1, sorted(P2...PN)).
+        # This is (1...N) iff P1 == 1.
+        # If k=N, we sort indices 1 to N-1. P becomes (sorted(P1...PN-1), PN).
+        # This is (1...N) iff PN == N.
+        # If 1 < k < N, we need max(P1...Pk-1) <= k-1 AND min(Pk+1...PN) >= k+1.
+        
+        # Check k=1
+        if p[0] == 1: return 1
+        # Check k=N
+        if p[n-1] == n: return 1
+        # Check 1 < k < N
+        # k in 1-based is index i = k-1 in 0-based.
+        # We need prefix_max[i-1] <= i and suffix_min[i+1] >= i+2
+        # for i in range(1, n-1)
+        if any(prefix_max[i-1] <= i and suffix_min[i+1] >= i+2 
+               for i in range(1, n-1)):
+            return 1
+            
+        return 2
+
+    results = [get_ans(case) for case in parse_cases(input_data)]
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the $k=1$ case: "If $k \ge 2$, sort $1 \dots k-1$. If $k \le N-1$, sort $k+1 \dots N$."
+If $k=1$: $k \ge 2$ is false. $k \le N-1$ is true. So we sort $P_2 \dots P_N$.
+The result is $(P_1, \text{sorted}(P_2 \dots P_N))$. This is $(1, 2, \dots, N)$ iff $P_1=1$.
+If $k=N$: $k \ge 2$ is true. $k \le N-1$ is false. So we sort $P_1 \dots P_{N-1}$.
+The result is $(\text{sorted}(P_1 \dots P_{N-1}), P_N)$. This is $(1, 2, \dots, N)$ iff $P_N=N$.
+If $1 < k < N$: Sort both. Result is $(1 \dots k-1, P_k, k+1 \dots N)$.
+This is $(1 \dots N)$ iff $\max(P_1 \dots P_{k-1}) \le k-1$ and $\min(P_{k+1} \dots P_N) \ge k+1$.
+(This automatically forces $P_k = k$).
+
+Final check on constraints: $N \ge 3$. The logic holds.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    T = int(input_data[0])
+    def parse_cases(data):
+        it = iter(data[1:])
+        for _ in range(T):
+            n = int(next(it))
+            p = [int(next(it)) for _ in range(n)]
+            yield n, p
+    def get_ans(case):
+        n, p = case
+        if p == list(range(1, n + 1)): return 0
+        prefix_max = list(accumulate(p, max))
+        suffix_min = list(accumulate(p[::-1], min))[::-1]
+        if p[0] == 1 or p[n-1] == n: return 1
+        if any(prefix_max[i-1] <= i and suffix_min[i+1] >= i+2 for i in range(1, n-1)):
+            return 1
+        return 2
+    sys.stdout.write('\n'.join(map(str, [get_ans(c) for c in parse_cases(input_data)])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the $k=1$ case: if $P=(1, 3, 2)$, $k=1$ sorts $P_2, P_3 \to (1, 2, 3)$. Correct.
+If $P=(2, 1, 3)$, $k=3$ sorts $P_1, P_2 \to (1, 2, 3)$. Correct.
+If $P=(3, 2, 1, 7, 5, 6, 4)$, $N=7$.
+$k=1: P_1=3 \neq 1$ (False)
+$k=7: P_7=4 \neq 7$ (False)
+$k=2: \max(P_1)=3 \le 1$ (False)
+$k=3: \max(P_1, P_2)=3 \le 2$ (False)
+$k=4: \max(P_1, P_2, P_3)=3 \le 3$ AND $\min(P_5, P_6, P_7)=\min(5, 6, 4)=4 \ge 5$ (False)
+$k=5: \max(P_1 \dots P_4)=7 \le 4$ (False)
+$k=6: \max(P_1 \dots P_5)=7 \le 5$ (False)
+All false, so answer is 2. Matches sample.
+One final detail: `p == list(range(1, n+1))` is $O(N)$. Total complexity $O(\sum N)$. This is efficient.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input and split into a list of strings
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Number of test cases
+    T = int(input_data[0])
+    
+    # Generator to parse the flat input list into (N, P) tuples

@@ -1,0 +1,210 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Pair L_i and R_i using slicing
+    L = list(map(int, input_data[1::2]))
+    R = list(map(int, input_data[2::2]))
+
+    # The range of possible sums is [sum(L), sum(R)]
+    # We need 0 to be within this range.
+    sum_L = sum(L)
+    sum_R = sum(R)
+
+    if sum_L > 0 or sum_R < 0:
+        print("No")
+        return
+
+    # We need to find X_i such that sum(X_i) = 0 and L_i <= X_i <= R_i.
+    # Let X_i = L_i + delta_i, where 0 <= delta_i <= (R_i - L_i).
+    # We need sum(L_i + delta_i) = 0  =>  sum(delta_i) = -sum(L_i).
+    # Let target = -sum(L). Since sum_L <= 0, target >= 0.
+    # Also target <= sum(R) - sum(L) = sum(R - L), so it's reachable.
+    
+    target = -sum_L
+    diffs = [r - l for l, r in zip(L, R)]
+    
+    # Use accumulate to find how much of the target is covered by each interval.
+    # acc[i] is the sum of diffs up to index i.
+    acc = list(accumulate(diffs))
+    
+    # For each i, the amount we can add to L_i is:
+    # The portion of the target that falls within the range [acc[i-1], acc[i]].
+    # We use a list comprehension to calculate delta_i for all i.
+    # We handle the first element separately by treating acc[-1] as 0.
+    
+    # To avoid loops, we create a shifted version of acc for the lower bounds.
+    acc_prev = [0] + acc[:-1]
+    
+    # delta_i = max(0, min(diffs[i], target - acc_prev[i]))
+    # However, a simpler way: 
+    # The total amount added is the intersection of [0, target] and [acc_prev, acc].
+    # delta_i = max(0, min(acc[i], target) - acc_prev[i])
+    # But since we know target <= sum(diffs), we can just use:
+    # delta_i = max(0, min(acc[i], target) - acc_prev[i])
+    
+    deltas = [max(0, min(acc[i], target) - acc_prev[i]) for i in range(N)]
+    
+    # Final X_i = L_i + delta_i
+    X = [L[i] + deltas[i] for i in range(N)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I noticed a small error in my `deltas` logic.** If `acc_prev[i]` is already greater than `target`, the `min(acc[i], target) - acc_prev[i]` will be negative. The `max(0, ...)` handles it, but the logic is slightly off. 
+
+Correct logic for `delta_i`:
+We want to fill the `target` using the available `diffs`.
+For the $i$-th interval, the amount we can take is:
+$\text{available} = \text{diffs}[i]$
+$\text{remaining} = \text{target} - \sum_{j=0}^{i-1} \text{diffs}[j]$
+$\text{delta}_i = \max(0, \min(\text{available}, \text{remaining}))$
+
+Let's refine the list comprehension:
+`deltas = [max(0, min(diffs[i], target - acc_prev[i])) for i in range(N)]`
+
+Since I cannot edit the code block after submitting, I will ensure the logic is robust. Actually, the `max(0, min(acc[i], target) - acc_prev[i])` is mathematically equivalent to `max(0, min(diffs[i], target - acc_prev[i]))` because `acc[i] - acc_prev[i] = diffs[i]`.
+
+Example: `target = 5`, `acc_prev = 0`, `acc = 3`. 
+`min(3, 5) - 0 = 3`. Correct.
+Example: `target = 5`, `acc_prev = 3`, `acc = 6`.
+`min(6, 5) - 3 = 2`. Correct.
+Example: `target = 5`, `acc_prev = 6`, `acc = 9`.
+`min(9, 5) - 6 = -1` $\rightarrow$ `max(0, -1) = 0`. Correct.
+
+The logic is sound.
+Final check on constraints: $N=2 \times 10^5$, $O(N)$ time and space. Python's `sum`, `map`, `accumulate`, and list comprehensions are efficient.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Pair L_i and R_i using slicing
+    L = list(map(int, input_data[1::2]))
+    R = list(map(int, input_data[2::2]))
+
+    # The range of possible sums is [sum(L), sum(R)]
+    sum_L = sum(L)
+    sum_R = sum(R)
+
+    if sum_L > 0 or sum_R < 0:
+        print("No")
+        return
+
+    # We need sum(X_i) = 0, where X_i = L_i + delta_i and 0 <= delta_i <= R_i - L_i
+    # sum(L_i) + sum(delta_i) = 0  =>  sum(delta_i) = -sum(L)
+    target = -sum_L
+    diffs = [r - l for l, r in zip(L, R)]
+    
+    # Use accumulate to find the prefix sums of the available ranges (diffs)
+    acc = list(accumulate(diffs))
+    acc_prev = [0] + acc[:-1]
+    
+    # For each i, delta_i is the portion of the target that falls within [acc_prev[i], acc[i]]
+    # delta_i = max(0, min(acc[i], target) - acc_prev[i])
+    X = [L[i] + max(0, min(acc[i], target) - acc_prev[i]) for i in range(N)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the code inside a single block. I will provide the final version.
+(Self-correction: The logic `max(0, min(acc[i], target) - acc_prev[i])` is only correct if `acc_prev[i]` is not already greater than `target`. If `acc_prev[i] > target`, then `min(acc[i], target)` is `target`, and `target - acc_prev[i]` is negative. The `max(0, ...)` handles this. If `acc_prev[i] < target < acc[i]`, then `target - acc_prev[i]` is the correct delta. If `acc[i] < target`, then `acc[i] - acc_prev[i]` (which is `diffs[i]`) is the correct delta. All cases are covered.)
+Final check on `Slicing`: `input_data[1::2]` gets indices 1, 3, 5... (L values), `input_data[2::2]` gets 2, 4, 6... (R values). Correct.
+
+One last detail: `sys.setrecursionlimit` is not needed as there is no recursion. `sys.stdin.read().split()` is fine for $4 \times 10^5$ elements.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Pair L_i and R_i using slicing
+    L = list(map(int, input_data[1::2]))
+    R = list(map(int, input_data[2::2]))
+
+    # The range of possible sums is [sum(L), sum(R)]
+    sum_L = sum(L)
+    sum_R = sum(R)
+
+    if sum_L > 0 or sum_R < 0:
+        print("No")
+        return
+
+    # We need sum(X_i) = 0, where X_i = L_i + delta_i and 0 <= delta_i <= R_i - L_i
+    # sum(L_i) + sum(delta_i) = 0  =>  sum(delta_i) = -sum(L)
+    target = -sum_L
+    diffs = [r - l for l, r in zip(L, R)]
+    
+    # Use accumulate to find the prefix sums of the available ranges (diffs)
+    acc = list(accumulate(diffs))
+    acc_prev = [0] + acc[:-1]
+    
+    # For each i, delta_i is the portion of the target that falls within [acc_prev[i], acc[i]]
+    # delta_i = max(0, min(acc[i], target) - acc_prev[i])
+    # However, if acc_prev[i] > target, the result is negative, so we use max(0, ...)
+    # If acc_prev[i] < target, we take the minimum of the remaining target and the diff.
+    # The expression min(acc[i], target) - acc_prev[i] handles both.
+    X = [L[i] + max(0, min(acc[i], target) - acc_prev[i]) for i in range(N)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, I can't use `min(acc[i], target) - acc_prev[i]` if `acc_prev[i]` is already larger than `target` because it would be `target - acc_prev[i]` which is negative. The `max(0, ...)` fixes it. But wait, if `acc_prev[i]` is $10$ and `target` is $5$, then `min(acc[i], 5) - 10` is $5 - 10 = -5$. `max(0, -5)` is $0$. This is correct. If `acc_prev[i]` is $3$ and `target` is $5$ and `acc[i]` is $4$, then `min(4, 5) - 3 = 1`. Correct. If `acc_prev[i]` is $3$ and `target` is $5$ and `acc[i]` is $7$, then `min(7, 5) - 3 = 2`. Correct.
+
+Final code structure:
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N = int(input_data[0])
+    L = list(map(int, input_data[1::2]))
+    R = list(map(int, input_data[2::2]))
+    sum_L, sum_R = sum(L), sum(R)
+    if sum_L > 0 or sum_R < 0:
+        print("No")
+        return
+    target = -sum_L
+    diffs = [r - l for l, r in zip(L, R)]
+    acc = list(accumulate(diffs))
+    acc_prev = [0] + acc[:-1]
+    X = [L[i] + max(0, min(acc[i], target) - acc_prev[i]) for i in range(N)]
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()
+```
+This looks solid. The `if not input_data: return` is a safety check. The `sum_L` and `sum_R` check covers the "No" case. The `X` calculation

@@ -1,0 +1,54 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To get the lexicographically smallest array X:
+    # 1. We must change characters one by one.
+    # 2. We should prioritize changing indices that make the resulting string 
+    #    lexicographically smaller first.
+    #    - If T[i] < S[i], changing S[i] to T[i] makes the string smaller.
+    #      These should be done as early as possible, from left to right.
+    #    - If T[i] > S[i], changing S[i] to T[i] makes the string larger.
+    #      These should be done as late as possible, from right to left.
+    
+    decreasing = [i for i in diff_indices if T[i] < S[i]]
+    increasing = [i for i in diff_indices if T[i] > S[i]]
+    
+    # Sort decreasing indices ascending (left to right)
+    # Sort increasing indices descending (right to left)
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Generate the sequence of strings
+    # We use a list of characters for S since strings are immutable
+    s_list = list(S)
+    X = []
+    for idx in order:
+        s_list[idx] = T[idx]
+        X.append("".join(s_list))
+    
+    # Output the number of elements and the elements themselves
+    print(len(X))
+    for s in X:
+        print(s)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Explanation of the logic:**
+1. **Minimum Elements:** The minimum number of operations to make $S$ equal to $T$ is exactly the number of positions where $S[i] \neq T[i]$.
+2. **Lexicographical Smallest Array:** To make the array $X$ lexicographically smallest, we want the earliest strings in the array to be as "small" as possible.
+   - If changing $S[i]$ to $T[i]$ results in a character that is alphabetically smaller than the current character ($T[i] < S[i]$), we want to do this as soon as possible. Among multiple such indices, changing the leftmost one first results in a lexicographically smaller string.
+   - If changing $S[i]$ to $T[i]$ results in a character that is alphabetically larger ($T[i] > S[i]$), we want to delay this change as long as possible to keep the strings smaller for longer. Among multiple such indices, changing the rightmost one first is preferable because it affects a less significant position in the string's lexicographical value.
+3. **Implementation:** We filter the indices into two groups (decreasing and increasing), sort them according to the logic above, and iteratively update the string.
+4. **Complexity:** Time complexity is $O(N^2)$ due to string joining in a loop, where $N$ is the length of the string (max 100), which is well within limits.

@@ -1,0 +1,47 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read N and the list of heights
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # We need to check every possible starting building 'i' 
+    # and every possible interval 'd'.
+    # i ranges from 0 to N-1
+    # d ranges from 1 to N-1
+    
+    # For a fixed start i and interval d, the sequence of indices is:
+    # i, i+d, i+2d, ... such that index < N.
+    # The condition is that H[i] == H[i+d] == H[i+2d] ...
+    
+    # We use a list comprehension to evaluate the count for every (i, d) pair.
+    # To satisfy the "same height" condition, we count how many elements 
+    # in the arithmetic progression match the height of the first element H[i].
+    
+    # Since we need the maximum, we wrap this in max().
+    # We include 1 as a default because choosing one building always satisfies the condition.
+    
+    # result = max(
+    #    count of k where H[i + k*d] == H[i] for k >= 0 and i + k*d < N
+    # )
+    
+    # Using itertools.product to replace nested loops:
+    # i: starting index (0 to N-1)
+    # d: interval (1 to N-1)
+    
+    ans = max([
+        1
+    ] + [
+        sum(1 for k in range((n - i - 1) // d + 1) if h[i + k * d] == h[i])
+        for i, d in product(range(n), range(1, n))
+    ])
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

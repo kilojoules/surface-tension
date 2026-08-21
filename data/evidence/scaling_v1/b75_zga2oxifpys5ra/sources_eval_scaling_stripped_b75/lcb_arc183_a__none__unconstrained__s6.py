@@ -1,0 +1,157 @@
+import sys
+from math import factorial
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences is S = (N*K)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # This is essentially the "middle" sequence.
+    # A key property of lexicographical order for permutations of a multiset
+    # is that the sequence and its "complement" (replacing x with N-x+1)
+    # are symmetric around the middle.
+    # Specifically, if a sequence is A, its complement is A'.
+    # If A is the i-th sequence, A' is the (S - i + 1)-th sequence.
+    # The middle sequence is the one where A is "just smaller" than or equal to A'.
+    # This means at the first index i where A_i != A'_i, we must have A_i < A'_i.
+    # However, the problem asks for the floor((S+1)/2)-th.
+    # For S=6, floor(7/2)=3. For S=1, floor(2/2)=1.
+    # The sequence we are looking for is the largest sequence A such that 
+    # A is lexicographically smaller than or equal to its complement A'.
+    # Wait, that's not quite right. Let's use the property:
+    # The middle sequence is the one that, when compared to its complement,
+    # is the smaller of the two, but is the largest such sequence.
+    # Actually, the simplest way to find the floor((S+1)/2)-th sequence
+    # is to realize that the sequence is the one that is "half-way".
+    # For a multiset, the sequence A is the floor((S+1)/2)-th if 
+    # we try to build it greedily: at each position, we pick the smallest 
+    # available number such that the number of sequences starting with 
+    # the current prefix is at least the target rank.
+    
+    # But S is too large to compute. Let's use the symmetry:
+    # The complement of a sequence (s1, ..., snk) is (n-s1+1, ..., n-snk+1).
+    # The target is the "middle" sequence.
+    # A sequence A is the floor((S+1)/2)-th if it is the largest sequence 
+    # such that A <= complement(A).
+    # To maximize A while keeping A <= complement(A), we want the first 
+    # index i where A_i != complement(A)_i to have A_i < complement(A)_i,
+    # and for all j < i, A_j = complement(A)_j.
+    # But A_j = complement(A)_j means A_j = n - A_j + 1, so 2*A_j = n + 1.
+    # This can only happen if n is odd and A_j = (n+1)/2.
+    
+    # Correct logic for the middle sequence of a symmetric distribution:
+    # We want the largest sequence A such that A < complement(A), 
+    # or A = complement(A) if S is odd.
+    # To make A as large as possible:
+    # 1. For as many leading positions as possible, we want A_i to be as large 
+    #    as possible such that we can still satisfy A < complement(A).
+    # 2. The constraint A < complement(A) is determined by the first index i 
+    #    where A_i != complement(A)_i. We need A_i < complement(A)_i.
+    # 3. To maximize A, we want this first difference to occur as late as possible.
+    # 4. For all j < i, we must have A_j = complement(A)_j, which means 
+    #    A_j = (n+1)/2. This is only possible if n is odd and we have 
+    #    enough copies of (n+1)/2.
+    # 5. Once we hit the first index i where A_i != complement(A)_i, 
+    #    we want A_i to be the largest possible value that is still 
+    #    strictly less than complement(A)_i.
+    # 6. After that index i, we want the remaining sequence to be as 
+    #    lexicographically large as possible (since the A < complement(A) 
+    #    condition is already satisfied).
+    
+    # Let's refine:
+    # The middle sequence is the one that is "just below" the point of symmetry.
+    # The symmetry is A <-> A' where A'_i = n + 1 - A_i.
+    # We want the largest A such that A < A' (if S is even) or A = A' (if S is odd).
+    # If n is even, A_i can never equal A'_i. So A < A' always.
+    # If n is odd, A_i = A'_i when A_i = (n+1)//2.
+    
+    # To maximize A subject to A < A':
+    # We want A_i to be as large as possible for all i.
+    # But we must ensure that at the first index i where A_i != A'_i, A_i < A'_i.
+    # To push this index i as far back as possible, we need A_j = A'_j for j < i.
+    # This requires A_j = (n+1)//2.
+    # We have K copies of (n+1)//2. So the first difference must occur at index i <= K + 1.
+    # Actually, the first difference must occur at some index i. 
+    # For all j < i, A_j = (n+1)//2.
+    # At index i, we need A_i < A'_i. To maximize A, we want A_i to be as 
+    # large as possible such that A_i < n + 1 - A_i, which means 2*A_i < n + 1.
+    # So A_i = (n // 2).
+    # After index i, we just fill the remaining slots with the remaining 
+    # numbers in descending order to make the sequence as large as possible.
+    
+    # Special case: If n=1, the only sequence is (1,)*k.
+    if n == 1:
+        print(*(1 for _ in range(k)))
+        return
+
+    # The "middle" sequence is the largest A such that A < A' (or A=A').
+    # 1. Fill A_j = (n+1)//2 for as many j as possible, but we must leave 
+    #    room to eventually have A_i < A'_i.
+    #    Wait, if we use all K copies of (n+1)//2, we can't have A_i < A'_i 
+    #    unless some other A_j != A'_j.
+    #    The first index i where A_i != A'_i determines the comparison.
+    #    To maximize A, we want i to be as large as possible.
+    #    The maximum possible i is K + 1 (if n is odd) or 1 (if n is even).
+    #    If n is odd, we can have A_1...A_K = (n+1)//2. Then A_{K+1} must be < A'_{K+1}.
+    #    If n is even, A_1 cannot be A'_1, so A_1 must be < A'_1.
+    
+    # Let's trace Sample 1: N=2, K=2. S=6. Target: 3rd.
+    # A < A': (1,1,2,2), (1,2,1,2), (1,2,2,1).
+    # Largest is (1,2,2,1).
+    # My logic: n=2 (even). i=1. A_1 < A'_1 => A_1 < 2+1-A_1 => 2*A_1 < 3 => A_1 = 1.
+    # Remaining: {1, 2, 2}. Descending: 2, 2, 1.
+    # Result: 1, 2, 2, 1. Correct.
+    
+    # Sample 3: N=6, K=1. S=720. Target: 360th.
+    # n=6 (even). i=1. A_1 < 7-A_1 => 2*A_1 < 7 => A_1 = 3.
+    # Remaining: {1, 2, 4, 5, 6}. Descending: 6, 5, 4, 2, 1.
+    # Result: 3, 6, 5, 4, 2, 1. Correct.
+    
+    # Sample 4: N=3, K=3. S=1680/6=280. Target: 140th.
+    # n=3 (odd). (n+1)//2 = 2.
+    # We can have A_1=2, A_2=2, A_3=2. Then A_4 must be < A'_4.
+    # Remaining: {1,1,1, 3,3,3}.
+    # A_4 < 4 - A_4 => 2*A_4 < 4 => A_4 = 1.
+    # Remaining: {1,1, 3,3,3}. Descending: 3, 3, 3, 1, 1.
+    # Result: 2, 2, 2, 1, 3, 3, 3, 1, 1. Correct.
+
+    # General Algorithm:
+    # 1. If n is even:
+    #    First element is n // 2.
+    #    Remaining elements are (1...n) each K times, minus one (n // 2), sorted descending.
+    # 2. If n is odd:
+    #    First K elements are (n + 1) // 2.
+    #    Next element is (n // 2).
+    #    Remaining elements are (1...n) each K times, minus K*((n+1)//2) and one (n // 2), sorted descending.
+
+    if n % 2 == 0:
+        first = n // 2
+        # Remaining: 1..n each K times, then remove one 'first'
+        # To get descending: range(n, 0, -1), each K times, then remove one 'first'
+        # But we can't just remove; we need to maintain the count.
+        res = [first]
+        # Use a list to track counts
+        counts = {i: k for i in range(1, n + 1)}
+        counts[first] -= 1
+        # Fill the rest descending
+        for val in range(n, 0, -1):
+            res.extend([val] * counts[val])
+        print(*(res))
+    else:
+        mid = (n + 1) // 2
+        first_val = n // 2
+        res = [mid] * k + [first_val]
+        counts = {i: k for i in range(1, n + 1)}
+        counts[mid] -= k
+        counts[first_val] -= 1
+        for val in range(n, 0, -1):
+            res.extend([val] * counts[val])
+        print(*(res))
+
+if __name__ == "__main__":
+    solve()

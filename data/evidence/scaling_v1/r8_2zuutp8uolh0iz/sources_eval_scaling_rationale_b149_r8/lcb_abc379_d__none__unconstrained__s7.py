@@ -1,0 +1,193 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries one by one. 
+    # Since we cannot use loops, we use reduce to maintain state.
+    # State: (current_global_height, sorted_list_of_birth_heights, results_list)
+    # A plant planted at global height G has a relative height of -G.
+    # Its actual height at global height G_now is G_now + (-G).
+    # Condition: G_now - G >= H  =>  G <= G_now - H.
+    
+    # To handle the queries, we group the input into a list of query tuples.
+    # We use a helper function to parse the flat list into queries.
+    def parse_queries(data):
+        # Using a recursive-like approach via a generator or list comprehension 
+        # is tricky without loops. However, we can use a custom iterator.
+        it = iter(data[1:])
+        def get_queries():
+            try:
+                while True:
+                    q_type = next(it)
+                    if q_type == '1':
+                        yield (1, 0)
+                    elif q_type == '2':
+                        yield (2, int(next(it)))
+                    else:
+                        yield (3, int(next(it)))
+            except StopIteration:
+                pass
+        return list(get_queries())
+
+    # Since the prompt forbids 'for' or 'while' loops, 
+    # the generator inside parse_queries is technically a loop.
+    # Let's redefine parsing using a more functional approach.
+    # We can use a recursive-style processing with reduce by 
+    # pre-processing the input into a structured format.
+    
+    # Corrected approach: Use a state-based reducer.
+    # Because we can't use loops to parse, we'll use a trick with 
+    # a list and an index tracker if necessary, but the most 
+    # reliable way to avoid loops entirely is to process the 
+    # raw stream using a reducer that manages the pointer.
+
+    def reducer(state, _):
+        # state: (current_idx, global_height, plants_sorted, results)
+        idx, g_height, plants, results = state
+        q_type = input_data[idx]
+        
+        if q_type == '1':
+            # Plant height 0 means its birth_height is -g_height
+            # We maintain plants_sorted as a sorted list of birth_heights
+            # Since we add plants one by one, and g_height is non-decreasing,
+            # birth_heights (-g_height) are added in non-increasing order.
+            # To keep it sorted, we can use bisect.insort or just append and 
+            # realize that new plants always have the smallest birth_height.
+            # Actually, since g_height increases, -g_height decreases.
+            # So we can just append and the list remains sorted if we 
+            # store them and sort at the end? No, we need to remove them.
+            # Let's use a sorted list.
+            import bisect
+            bisect.insort(plants, -g_height)
+            return (idx + 1, g_height, plants, results)
+        
+        elif q_type == '2':
+            t_val = int(input_data[idx + 1])
+            return (idx + 1 + 1, g_height + t_val, plants, results)
+        
+        else: # q_type == '3'
+            h_val = int(input_data[idx + 1])
+            # Condition: g_height + birth_height >= h_val 
+            # => birth_height >= h_val - g_height
+            threshold = h_val - g_height
+            idx_split = bisect_left(plants, threshold)
+            # Plants from idx_split to end are harvested
+            harvested_count = len(plants) - idx_split
+            # Remove harvested plants
+            new_plants = plants[:idx_split]
+            results.append(str(harvested_count))
+            return (idx + 2, g_height, new_plants, results)
+
+    # We use range(Q) just to drive the reduce, but the logic 
+    # is handled by the index in the state. 
+    # Wait, range(Q) in reduce is fine, but the reducer needs to 
+    # know how many queries were actually processed.
+    # Since queries have different lengths, we can't use range(Q).
+    # Instead, we use a while-like recursion via a helper.
+    
+    def run_queries(idx, g_height, plants, results):
+        if idx >= len(input_data):
+            return results
+        
+        q_type = input_data[idx]
+        if q_type == '1':
+            import bisect
+            bisect.insort(plants, -g_height)
+            return run_queries(idx + 1, g_height, plants, results)
+        elif q_type == '2':
+            return run_queries(idx + 2, g_height + int(input_data[idx+1]), plants, results)
+        else:
+            h_val = int(input_data[idx+1])
+            threshold = h_val - g_height
+            idx_split = bisect_left(plants, threshold)
+            results.append(str(len(plants) - idx_split))
+            return run_queries(idx + 2, g_height, plants[:idx_split], results)
+
+    # Python's recursion limit is low, and we have 2*10^5 queries.
+    # We must use reduce. To use reduce, we need a sequence of length Q.
+    # But the index jumps. We can use a dummy sequence and 
+    # a mutable state object to bypass the index problem.
+
+    class State:
+        def __init__(self):
+            self.idx = 1
+            self.g_height = 0
+            self.plants = []
+            self.results = []
+
+    def step(state, _):
+        import bisect
+        q_type = input_data[state.idx]
+        if q_type == '1':
+            bisect.insort(state.plants, -state.g_height)
+            state.idx += 1
+        elif q_type == '2':
+            state.g_height += int(input_data[state.idx + 1])
+            state.idx += 2
+        else:
+            h_val = int(input_data[state.idx + 1])
+            threshold = h_val - state.g_height
+            idx_split = bisect_left(state.plants, threshold)
+            state.results.append(str(len(state.plants) - idx_split))
+            state.plants = state.plants[:idx_split]
+            state.idx += 2
+        return state
+
+    # Use a list of indices to drive the reduce, though we don't use the index.
+    # Since we don't know the exact number of iterations (because of idx jumps),
+    # we can use a range(len(input_data)) and a check inside.
+    
+    final_state = reduce(step, range(len(input_data)), State())
+    # The reduce will run more times than needed, so we add a guard in step.
+    # Let's refine step to handle the end of input.
+
+def solve_final():
+    import sys
+    from bisect import bisect_left, insort
+    from functools import reduce
+
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    class State:
+        def __init__(self):
+            self.idx = 1
+            self.g_height = 0
+            self.plants = []
+            self.results = []
+
+    def step(state, _):
+        if state.idx >= len(input_data):
+            return state
+        
+        q_type = input_data[state.idx]
+        if q_type == '1':
+            insort(state.plants, -state.g_height)
+            state.idx += 1
+        elif q_type == '2':
+            state.g_height += int(input_data[state.idx + 1])
+            state.idx += 2
+        else:
+            h_val = int(input_data[state.idx + 1])
+            threshold = h_val - state.g_height
+            idx_split = bisect_left(state.plants, threshold)
+            state.results.append(str(len(state.plants) - idx_split))
+            state.plants = state.plants[:idx_split]
+            state.idx += 2
+        return state
+
+    # Drive the reducer with a range large enough to cover all queries
+    final_state = reduce(step, range(len(input_data)), State())
+    sys.stdout.write('\n'.join(final_state.results) + '\n')
+
+if __name__ == "__main__":
+    solve_final()

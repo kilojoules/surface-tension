@@ -1,0 +1,80 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s_str = input_data[0]
+    t_str = input_data[1]
+    
+    s = list(s_str)
+    t = list(t_str)
+    n = len(s)
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(n) if s[i] != t[i]]
+    
+    # To get the lexicographically smallest sequence of strings:
+    # 1. We must change characters one by one.
+    # 2. For a specific index i, if T[i] < S[i], changing S[i] to T[i] 
+    #    makes the string lexicographically smaller immediately.
+    #    Therefore, we should process indices where T[i] < S[i] first,
+    #    and process them from left to right (smallest index first).
+    # 3. For indices where T[i] > S[i], changing S[i] to T[i] 
+    #    makes the string lexicographically larger. To keep the sequence
+    #    lexicographically smallest, we should process these last,
+    #    and process them from right to left (largest index first).
+    
+    # Indices where T[i] < S[i], sorted ascending
+    first_batch = sorted([i for i in diff_indices if t[i] < s[i]])
+    # Indices where T[i] > S[i], sorted descending
+    second_batch = sorted([i for i in diff_indices if t[i] > s[i]], reverse=True)
+    
+    # The sequence of indices to change
+    change_order = first_batch + second_batch
+    
+    # Generate the sequence of strings
+    # We use a list comprehension to create the strings by updating the 
+    # state of the list 's' for each index in change_order.
+    # Since we need the state after each change, we can track the changes.
+    
+    # To avoid mutating s in a way that comprehension can't track, 
+    # we use a helper function or a loop.
+    
+    results = []
+    current_s = list(s_str)
+    for idx in change_order:
+        current_s[idx] = t[idx]
+        results.append("".join(current_s))
+        
+    # Output the number of operations
+    print(len(results))
+    # Output each string in the sequence
+    for res in results:
+        print(res)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Explanation of the logic:**
+1. **Minimum Elements:** The minimum number of elements $M$ is simply the number of positions where $S[i] \neq T[i]$, as we must change each differing character at least once.
+2. **Lexicographical Smallest Array:** 
+   - If we change $S[i]$ to $T[i]$ and $T[i] < S[i]$, the resulting string becomes lexicographically smaller than the current one. To keep the array smallest, we want these "decreases" to happen as early as possible and at the leftmost positions first.
+   - If $T[i] > S[i]$, the resulting string becomes lexicographically larger. To delay this "increase" as much as possible, we handle these indices last. Among those, changing the rightmost index first ensures the resulting string is the smallest possible "larger" string.
+3. **Complexity:** The time complexity is $O(N^2)$ due to string joining in a loop, where $N$ is the length of the string (max 100), which is well within limits.
+
+4. **Implementation:** The code reads the input, identifies the indices to change, sorts them according to the logic above, and prints the resulting sequence.
+
+5. **Sample 1 Check:** `adbe` $\to$ `bcbc`. Diffs: index 0 (a $\to$ b, increase), index 1 (d $\to$ c, decrease), index 3 (e $\to$ c, decrease). 
+   - Decreases: index 1, 3. Sorted: $[1, 3]$.
+   - Increases: index 0. Sorted reverse: $[0]$.
+   - Order: $[1, 3, 0]$.
+   - Strings: `acbe` $\to$ `acbc` $\to$ `bcbc`. Matches sample output.
+6. **Sample 3 Check:** Follows the same logic, prioritizing characters that "drop" in value from left to right, then characters that "rise" in value from right to left.
+
+7. **Sample 2 Check:** $S=T$, so `diff_indices` is empty, $M=0$. Matches sample output.
+8. **Constraints:** $N \le 100$ is small, so this approach is efficient.
+9. **Final Polish:** The code uses `sys.stdin.read().split()` to handle potential trailing newlines or spaces in input.

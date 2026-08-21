@@ -1,0 +1,123 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm, emphasizing the transformation of data streams. In this specific problem, we need to determine if the permutation is already sorted (0 operations), if there exists a $k$ such that sorting the prefix and suffix around $P_k$ results in the identity permutation (1 operation), or if it requires 2 operations. A 1-operation solution exists if there is some $k$ such that all elements $\{P_1, \dots, P_{k-1}\}$ are less than $P_k$ and all elements $\{P_{k+1}, \dots, P_N\}$ are greater than $P_k$, and $P_k = k$. This simplifies to checking if there is an index $k$ where $\max(P_1 \dots P_{k-1}) < P_k < \min(P_{k+1} \dots P_N)$.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to process test cases without a for/while loop
+    # We use a helper function to chunk the flat list into (N, P) pairs
+    def get_cases(data, start_idx):
+        if start_idx >= len(data):
+            return
+        N = int(data[start_idx])
+        P = list(map(int, data[start_idx + 1 : start_idx + 1 + N]))
+        yield N, P
+        yield from get_cases(data, start_idx + 1 + N)
+
+    # Since recursion is forbidden, we cannot use the generator above for iteration.
+    # However, we can use map() and list comprehensions to process the data.
+    # To handle the variable length of P, we first identify the boundaries of each case.
+    
+    def process_all():
+        # We use a list comprehension to iterate through the input
+        # But since N varies, we must handle the pointer manually.
+        # Wait, the constraint says no loops/recursion. 
+        # We can use a trick with a list and a custom function passed to map.
+        
+        # Let's redefine: we need to process T cases.
+        # We can use a state-carrying object or a closure with a mutable list to track the index.
+        state = {'ptr': 1}
+        
+        def handle_case(_):
+            N = int(input_data[state['ptr']])
+            P = list(map(int, input_data[state['ptr'] + 1 : state['ptr'] + 1 + N]))
+            state['ptr'] += 1 + N
+            
+            # Check if already sorted
+            # sorted(P) == P is 0
+            if P == sorted(P):
+                return 0
+            
+            # Check if 1 operation is enough:
+            # Exists k such that max(P[:k-1]) < P[k-1] < min(P[k:])
+            # We use prefix max and suffix min arrays.
+            # Using list comprehensions to simulate map/reduce for prefix/suffix.
+            
+            # Prefix Max
+            # We can't use loops, so we use a trick with scan (not in std lib)
+            # Or we use the fact that we can use functools.reduce to build the list.
+            from functools import reduce
+            
+            pref_max = reduce(lambda acc, x: acc + [max(acc[-1], x)], P, [0])
+            # pref_max[i] is max of P[0...i-1]. The reduce starts with [0], 
+            # so pref_max[1] is P[0], pref_max[2] is max(P[0], P[1]), etc.
+            # Actually:
+            pref_max = reduce(lambda acc, x: acc + [max(acc[-1], x)], P, [0])
+            # P: [3, 2, 1, 7, 5, 6, 4]
+            # pref_max: [0, 3, 3, 3, 7, 7, 7, 7]
+            
+            # Suffix Min
+            # We reverse P, do prefix min, then reverse back.
+            suff_min = reduce(lambda acc, x: acc + [min(acc[-1], x)], P[::-1], [N + 1])[::-1]
+            # suff_min: [1, 1, 1, 4, 4, 4, 4, N+1]
+            
+            # We need to check if there exists i (0 to N-1) such that:
+            # pref_max[i] < P[i] < suff_min[i+1]
+            # We use a list comprehension to check this condition for all i.
+            # Note: pref_max[i] is max of elements before index i.
+            # suff_min[i+1] is min of elements after index i.
+            
+            # Correcting the reduce logic for prefix/suffix:
+            # pref_max[i] = max(P[0...i-1]), suff_min[i] = min(P[i+1...N-1])
+            # For i=0: pref_max=0, suff_min=min(P[1...])
+            # For i=N-1: pref_max=max(P[0...N-2]), suff_min=N+1
+            
+            # Let's use a simpler approach for pref/suff using a list and a helper.
+            # Since we can't use loops, we use map() with a mutable list.
+            
+            p_max = [0] * N
+            s_min = [0] * N
+            
+            # Using map to simulate a loop for prefix max
+            # We use a list to maintain state across map calls
+            m = [0]
+            list(map(lambda x: m.append(max(m[-1], x)), P))
+            # m is now [0, P0, max(P0, P1), ...]
+            
+            m = [N + 1]
+            list(map(lambda x: m.append(min(m[-1], x)), P[::-1]))
+            # m is now [N+1, PN-1, min(PN-1, PN-2), ...]
+            s_min_vals = m[::-1]
+            
+            # The prefix maxes are m_pref = m_prefix_list
+            # Let's just use the reduce results properly.
+            # pref_max: [0, P0, max(P0,P1), ...] -> length N+1
+            # suff_min: [min(P1..), min(P2..), ..., N+1] -> length N+1
+            
+            # Re-calculating cleanly:
+            p_max = reduce(lambda acc, x: acc + [max(acc[-1], x)], P, [0])
+            s_min = reduce(lambda acc, x: acc + [min(acc[-1], x)], P[::-1], [N + 1])[::-1]
+            
+            # Check if any i in 0..N-1 satisfies p_max[i] < P[i] < s_min[i+1]
+            # We use any() with a generator expression.
+            if any(p_max[i] < P[i] < s_min[i+1] for i in range(N)):
+                return 1
+            return 2
+
+        # Use map to apply handle_case T times
+        results = map(handle_case, range(T))
+        return "\n".join(map(str, results))
+
+    sys.stdout.write(process_all() + "\n")
+
+if __name__ == "__main__":
+    solve()
+```

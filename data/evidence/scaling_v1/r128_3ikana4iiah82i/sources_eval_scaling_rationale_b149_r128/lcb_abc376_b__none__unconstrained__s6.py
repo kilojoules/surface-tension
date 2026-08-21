@@ -1,0 +1,127 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions are pairs of (H_i, T_i)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+    
+    # Initial state: left hand at 1, right hand at 2
+    initial_state = (1, 2, 0) # (left, right, total_dist)
+    
+    def get_dist(start, end, obstacle, n):
+        # The ring is 1-indexed. We need the shortest path from start to end
+        # that does not pass through the obstacle.
+        # There are two directions: clockwise and counter-clockwise.
+        
+        # Direction 1: start -> start+1 -> ... -> end
+        # We check if the obstacle is in the path.
+        # A path from s to e (inclusive) contains x if:
+        # If s <= e: s <= x <= e
+        # If s > e: x >= s or x <= e
+        
+        def is_blocked(s, e, x):
+            if s <= e:
+                return s <= x <= e
+            else:
+                return x >= s or x <= e
+        
+        # Distance if moving "forward" (s -> s+1 -> ...)
+        # The distance is (end - start) % n
+        dist_fwd = (end - start) % n
+        # The path is blocked if the obstacle is encountered.
+        # Note: the start and end are allowed, but the obstacle is not.
+        # However, the problem says we can't move to the destination if the other hand is there.
+        # The guarantee says T_i != other_hand, so we only check intermediate steps.
+        
+        # To simplify: there are only two paths on a ring.
+        # Path A: start -> (start+1)%N -> ... -> end
+        # Path B: start -> (start-1)%N -> ... -> end
+        # One of these must be clear because the obstacle is only at one position.
+        
+        # Let's evaluate the "forward" path (increasing index)
+        # The forward path is blocked if the obstacle 'x' is between start and end.
+        # Since we can't step on the obstacle, we check if the obstacle lies on the arc.
+        
+        # We use a helper to check if x is on the arc from s to e moving forward.
+        # The arc is {s, s+1, ..., e} modulo N.
+        # x is on the arc if (x - s) % n <= (e - s) % n.
+        # But the obstacle is only a problem if it's NOT the start or end.
+        # Actually, the problem says we can't move to the destination if the other hand is there.
+        # It is guaranteed T_i != other_hand. So we just need to check if the 
+        # obstacle is anywhere else on the path.
+        
+        # If we move forward, the distance is d = (end - start) % n.
+        # The obstacle x is on this path if (x - start) % n < d.
+        # Wait, the obstacle could be at the start. But the hand is already there.
+        # The rule is: "move to an adjacent part... only if the other hand is not on the destination".
+        # So if we move start -> p1 -> p2 -> end, none of p1, p2, end can be the obstacle.
+        
+        # Forward path: start -> (start % n + 1) -> ... -> end
+        # The distance is d_fwd = (end - start) % n.
+        # The obstacle x is on the forward path if (x - start) % n < d_fwd.
+        # Note: (x - start) % n == 0 means x == start, which is allowed.
+        # So it's blocked if 0 < (x - start) % n < d_fwd.
+        
+        # However, the most reliable way to check if a path is blocked on a ring 
+        # is to see if the obstacle is "between" the two points.
+        # On a ring of size N, there are only two paths.
+        # Path 1: distance (end - start) % N
+        # Path 2: distance (start - end) % N
+        # The obstacle x blocks Path 1 if (x - start) % N < (end - start) % N
+        # AND x != start.
+        # Actually, the simplest logic:
+        # The obstacle x divides the ring into a path of length (x - start) % N 
+        # and a path of length (start - x) % N.
+        # The only available path is the one that doesn't cross x.
+        # The distance from start to end without crossing x is:
+        # If we move from start to end, and the obstacle is at x:
+        # The available path is the one that goes "away" from x.
+        # The distance is (end - start) % N if the obstacle is not on that arc.
+        # The obstacle x is on the arc (start, end) if (x - start) % N < (end - start) % N.
+        # But the obstacle is the other hand.
+        
+        # Let's use the property: the obstacle x is at some position.
+        # The available path is the one that doesn't contain x.
+        # Distance clockwise: (end - start) % n
+        # Distance counter-clockwise: (start - end) % n
+        # The obstacle x is on the clockwise path if (x - start) % n < (end - start) % n
+        # (excluding the start point itself).
+        # Since we are guaranteed the destination is not the obstacle,
+        # we just check if (x - start) % n is between 1 and (end - start) % n - 1.
+        
+        d_fwd = (end - start) % n
+        # Obstacle x blocks forward if 0 < (x - start) % n < d_fwd
+        if 0 < (x - start) % n < d_fwd:
+            return (start - end) % n
+        else:
+            return d_fwd
+
+    def process_instruction(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            # Move left hand to t, right hand r is obstacle
+            dist = get_dist(l, t, r, N)
+            return (t, r, total + dist)
+        else:
+            # Move right hand to t, left hand l is obstacle
+            dist = get_dist(r, t, l, N)
+            return (l, t, total + dist)
+
+    # Use reduce to iterate through instructions and accumulate distance
+    final_state = reduce(process_instruction, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

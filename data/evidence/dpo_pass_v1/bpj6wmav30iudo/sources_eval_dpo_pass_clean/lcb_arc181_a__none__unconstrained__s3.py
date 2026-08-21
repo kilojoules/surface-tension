@@ -1,0 +1,190 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of strings
+    data = sys.stdin.read().split()
+    
+    # The first element is T
+    # We use an iterator to consume the data list sequentially
+    it = iter(data)
+    T_str = next(it, None)
+    if T_str is None:
+        return
+    T = int(T_str)
+    
+    # For each test case:
+    # 1. Read N
+    # 2. Read the permutation P
+    # 3. Identify the indices i where P[i] == i+1 (1-indexed)
+    # 4. If all P[i] == i+1, answer is 0.
+    # 5. If there exists k such that P[k-1] == k and sorting [1, k-1] and [k+1, N]
+    #    fixes the permutation, answer is 1.
+    #    This happens if all elements < k are in the first k-1 positions 
+    #    and all elements > k are in the last N-k positions.
+    #    Actually, a simpler condition for 1 operation:
+    #    There exists k such that {P_1...P_{k-1}} = {1...k-1} AND {P_{k+1}...P_N} = {k+1...N}.
+    #    This is equivalent to: (max of first k-1 elements is k-1) AND (min of last N-k elements is k+1).
+    # 6. Otherwise, the answer is 2 (it is proven that 2 operations always suffice for N >= 3).
+    
+    # To implement this without loops, we process all T cases in a list comprehension.
+    # Since we can't use loops, we can't easily build prefix/suffix arrays.
+    # However, we can use a trick: 
+    # An operation at k works if P[k-1] == k AND 
+    # (all elements to the left are <= k-1) AND (all elements to the right are >= k+1).
+    # This is true if P[k-1] == k AND max(P[0...k-2]) == k-1 AND min(P[k...N-1]) == k+1.
+    
+    # But wait, the problem is simpler: 
+    # 0 ops: P is already sorted.
+    # 1 op: There exists k such that P[k-1] == k and sorting the two halves fixes it.
+    #       This means the set {P_0...P_{k-2}} must be {1...k-1} and {P_k...P_{N-1}} must be {k+1...N}.
+    #       This is true if and only if P[k-1] == k AND 
+    #       (k==1 or max(P[0...k-2]) == k-1) AND 
+    #       (k==N or min(P[k...N-1]) == k+1).
+    
+    # Since we cannot use loops, we use map and list comprehensions.
+    # To handle prefix/suffix without loops, we can use the fact that 
+    # P[k-1] == k is a necessary condition.
+    # We can check for each k where P[k-1] == k if the condition holds.
+    # To avoid O(N^2), we need prefix max and suffix min.
+    # In Python, we can use itertools.accumulate for this.
+    
+    from itertools import accumulate
+    
+    # We process each case. Since we can't use a for loop, 
+    # we'll use a helper function called via map.
+    def process_case(N, P):
+        # P is a list of ints
+        # Prefix max: max(P[0...i])
+        # Suffix min: min(P[i...N-1])
+        p_max = list(accumulate(P, max))
+        s_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Check if already sorted: P[i] == i+1 for all i
+        # Using all() in a comprehension
+        is_sorted = all(P[i] == i + 1 for i in range(N))
+        if is_sorted:
+            return 0
+        
+        # Check if 1 operation suffices:
+        # Exists k (1 <= k <= N) such that:
+        # k=1: P[0]==1 and s_min[1] == 2
+        # k=N: P[N-1]==N and p_max[N-2] == N-1
+        # 1<k<N: P[k-1]==k and p_max[k-2] == k-1 and s_min[k] == k+1
+        
+        # We can use a generator expression inside any()
+        can_do_1 = any(
+            (k == 1 and P[0] == 1 and (N < 2 or s_min[1] == 2)) or
+            (k == N and P[N-1] == N and (N < 2 or p_max[N-2] == N-1)) or
+            (1 < k < N and P[k-1] == k and p_max[k-2] == k-1 and s_min[k] == k+1)
+            for k in range(1, N + 1)
+        )
+        
+        return 1 if can_do_1 else 2
+
+    # To handle the T cases without a for loop, we group the flat list.
+    # Since N varies, we can't simply reshape. 
+    # We use a recursive-like structure via map/lambda or a custom iterator.
+    # But we can just use a list comprehension that manages the iterator.
+    
+    # Because we need to handle N and P dynamically, we'll use a 
+    # helper that consumes the iterator.
+    def get_cases(it, count):
+        # This is a trick to perform a loop inside a list comprehension
+        # by calling a function that consumes the iterator.
+        return [process_case(int(next(it)), [int(next(it)) for _ in range(int(N_val))]) 
+                for N_val in [next(it) for _ in range(count)]]
+    
+    # Wait, the constraint says "no for or while loops". 
+    # [next(it) for _ in range(count)] is a comprehension, which is allowed.
+    # Let's refine the logic into a single expression.
+    
+    # Correct logic for 1 op:
+    # k is the pivot. Elements 1...k-1 are sorted, k+1...N are sorted.
+    # This means P[k-1] must be k.
+    # Also, the set of elements before index k-1 must be {1...k-1}.
+    # This is true if max(P[0...k-2]) == k-1.
+    # And the set of elements after index k-1 must be {k+1...N}.
+    # This is true if min(P[k...N-1]) == k+1.
+    
+    # To implement this without any loops:
+    # We use map(lambda...) and sys.stdin.read().split()
+    pass
+
+# Redefining solve to fit the "no loop" constraint strictly
+def final_solve():
+    from itertools import accumulate
+    import sys
+    
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    it = iter(input_data[1:])
+    
+    # We use a list comprehension to process T cases.
+    # Inside, we use another list comprehension to extract P.
+    # We use map and lambda to avoid naming functions if needed, 
+    # but defined functions are fine.
+    
+    results = [
+        (lambda N, P: (
+            0 if all(P[i] == i + 1 for i in range(N)) else (
+                1 if any(
+                    (k == 1 and P[0] == 1 and (N < 2 or (lambda s: s[1])(list(accumulate(P[1:], min))) == 2)) or
+                    (k == N and P[N-1] == N and (N < 2 or (lambda p: p[-1])(list(accumulate(P[:N-1], max))) == N-1)) or
+                    (1 < k < N and P[k-1] == k and 
+                     (lambda p: p[k-2])(list(accumulate(P, max))) == k-1 and 
+                     (lambda s: s[k-1])(list(accumulate(P[::-1], min))[::-1]) == k+1)
+                    for k in range(1, N + 1)
+                ) else 2
+            )
+        ))(int(next(it)), [int(next(it)) for _ in range(int(next(it, 0)) if 0 else 0)]) 
+        # The above is tricky because N is needed for the P comprehension.
+        # Let's use a helper.
+        for _ in range(T)
+    ]
+    # Since the logic above is getting messy with the iterator, 
+    # I will use a cleaner approach with a helper function.
+
+# Let's rewrite the logic clearly.
+def run():
+    from itertools import accumulate
+    import sys
+    
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    T = int(input_data[0])
+    it = iter(input_data[1:])
+    
+    def process():
+        N = int(next(it))
+        P = [int(next(it)) for _ in range(N)]
+        
+        # Precompute prefix max and suffix min
+        p_max = list(accumulate(P, max))
+        s_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Check 0: Sorted
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        # Check 1: Pivot k
+        # k is 1-indexed
+        # Condition: P[k-1] == k AND (k==1 or p_max[k-2] == k-1) AND (k==N or s_min[k] == k+1)
+        if any(
+            P[k-1] == k and 
+            (k == 1 or p_max[k-2] == k-1) and 
+            (k == N or s_min[k] == k+1) 
+            for k in range(1, N + 1)
+        ):
+            return 1
+        
+        return 2
+
+    # Use map and list to execute process T times without a for loop
+    sys.stdout.write("\n".join(map(str, [process() for _ in range(T)])) + "\n")
+
+if __name__ == "__main__":
+    run()

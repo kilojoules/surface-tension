@@ -1,0 +1,185 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+    
+    # We need a way to iterate through the queries since they have variable lengths.
+    # We will group the input into a list of query tuples.
+    # Since we cannot use loops, we use a helper function with reduce to parse.
+    def parse_queries(acc, i):
+        # acc is (current_index, query_list)
+        idx, q_list = acc
+        if idx >= len(queries):
+            return (idx, q_list)
+        
+        q_type = queries[idx]
+        if q_type == '1':
+            return (idx + 1, q_list + [(1, 0)])
+        elif q_type == '2':
+            return (idx + 2, q_list + [(2, int(queries[idx + 1]))])
+        else:
+            return (idx + 2, q_list + [(3, int(queries[idx + 1]))])
+
+    # However, the above parse_queries is recursive-like and slow with list concatenation.
+    # Let's use a more efficient way to group queries using a generator-like approach
+    # wrapped in a list comprehension, though the variable length makes it tricky.
+    # Actually, the simplest way to handle variable length without a loop is to 
+    # process the flat list using a custom reducer that tracks the index.
+    
+    def process_all(state, query_item):
+        # state: (current_time_offset, sorted_plant_birth_times, results)
+        # query_item: (type, value)
+        t_offset, plants, results = state
+        q_type, val = query_item
+        
+        if q_type == 1:
+            # Plant height is 0. Its "birth time" relative to t_offset is -t_offset.
+            # We maintain a sorted list of birth times.
+            # Since we can't use .append() in a way that avoids mutation, 
+            # but we need efficiency, we use a list and accept mutation inside reduce
+            # or use a data structure. Given the constraints, a sorted list is best.
+            # To keep it "functional", we can't use sort() or append() easily without 
+            # mutation, but the prompt forbids 'for' and 'while'. 
+            # Mutation inside a function called by reduce is allowed.
+            import bisect
+            bisect.insort(plants, -t_offset)
+            return (t_offset, plants, results)
+            
+        elif q_type == 2:
+            # Increase height of all plants by T
+            return (t_offset + val, plants, results)
+            
+        elif q_type == 3:
+            # Harvest plants with height >= H
+            # Height = current_t_offset + birth_time
+            # H <= t_offset + birth_time  =>  birth_time >= H - t_offset
+            import bisect
+            threshold = val - t_offset
+            idx = bisect.bisect_left(plants, threshold)
+            harvested_count = len(plants) - idx
+            # Remove harvested plants
+            del plants[idx:]
+            results.append(str(harvested_count))
+            return (t_offset, plants, results)
+
+    # To handle the variable length of queries without a loop, 
+    # we first group them into a list of tuples.
+    def group_queries(data):
+        # This is the tricky part without loops. 
+        # We can use a recursive-like structure via a generator.
+        def gen(i):
+            if i >= len(data):
+                return
+            t = data[i]
+            if t == '1':
+                yield (1, 0)
+                yield from gen(i + 1)
+            else:
+                yield (int(t), int(data[i+1]))
+                yield from gen(i + 2)
+        # But recursion limit is an issue. Let's use a different approach.
+        # We can use a list comprehension with a helper that manages state.
+        pass
+
+    # Since we cannot use for/while, and recursion is limited, 
+    # we use a trick with map/reduce to parse the flat list.
+    def parse_flat(flat_list):
+        # We use a list to store the queries and a pointer in a list to simulate a mutable integer.
+        ptr = [0]
+        def get_next(_):
+            i = ptr[0]
+            if i >= len(flat_list): return None
+            t = flat_list[i]
+            if t == '1':
+                ptr[0] += 1
+                return (1, 0)
+            else:
+                val = int(flat_list[i+1])
+                ptr[0] += 2
+                return (int(t), val)
+        
+        # Use map to call get_next until it returns None. 
+        # Since we don't know the number of queries, we can use a range.
+        return list(map(get_next, range(len(flat_list))))
+
+    # Correcting the parse_flat to handle the None values and the actual number of queries.
+    # We can just use a generator and wrap it in a list.
+    def query_generator(data):
+        # We are allowed to use 'yield' and 'next', but not 'for' or 'while'.
+        # Wait, 'for' is forbidden. Generators usually use 'for'.
+        # Let's use a recursive-like structure with a trampoline or just use 
+        # the fact that we can use map/reduce.
+        pass
+
+    # Actually, the most reliable way to avoid for/while is to use 
+    # a custom iterator class and map().
+    class QueryIterator:
+        def __init__(self, data):
+            self.data = data
+            self.ptr = 0
+        def __iter__(self):
+            return self
+        def __next__(self):
+            if self.ptr >= len(self.data):
+                raise StopIteration
+            t = self.data[self.ptr]
+            if t == '1':
+                self.ptr += 1
+                return (1, 0)
+            else:
+                val = int(self.data[self.ptr + 1])
+                self.ptr += 2
+                return (int(t), val)
+
+    # Now we can use map() to consume the iterator.
+    # But map() needs a sequence. We can use a list comprehension 
+    # if we use a generator, but that uses 'for'.
+    # Wait, the constraint says "no for/while loops". 
+    # It does NOT forbid list comprehensions or recursion (within limits).
+    # However, list comprehensions are essentially loops. 
+    # Let's use functools.reduce to handle everything.
+
+    # To parse the flat list into queries without for/while:
+    def parse_flat_reduce(acc, item):
+        # acc: (current_idx, query_list)
+        idx, q_list = acc
+        if idx >= len(queries): return acc
+        t = queries[idx]
+        if t == '1':
+            return (idx + 1, q_list + [(1, 0)])
+        else:
+            return (idx + 2, q_list + [(int(t), int(queries[idx+1]))])
+    
+    # The above is O(N^2) due to list concatenation. 
+    # Let's use a mutable list and reduce.
+    def parse_flat_mutable(state, _):
+        # state: (current_idx, query_list)
+        idx, q_list = state
+        if idx >= len(queries):
+            return (idx, q_list)
+        t = queries[idx]
+        if t == '1':
+            q_list.append((1, 0))
+            return (idx + 1, q_list)
+        else:
+            q_list.append((int(t), int(queries[idx+1])))
+            return (idx + 2, q_list)
+
+    # We can run the reducer Q times.
+    final_state = reduce(parse_flat_mutable, range(Q), (0, []))
+    query_list = final_state[1]
+    
+    # Now process the queries.
+    final_proc_state = reduce(process_all, query_list, (0, [], []))
+    print("\n".join(final_proc_state[2]))
+
+if __name__ == "__main__":
+    solve()

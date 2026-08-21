@@ -1,0 +1,82 @@
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # The tiling pattern is defined by the parity of i + j.
+    # When i + j is even, A_{i,j} and A_{i+1,j} are in the same tile.
+    # This means tiles are horizontal 2x1 blocks starting at (i, j) where i+j is even.
+    # Let's transform the coordinates to a system where we can calculate the distance.
+    # A tile can be identified by (i // 2 if (i+j)%2 == 0 else (i-1)//2, j) 
+    # but a simpler approach is to observe the cost of moving.
+    # Moving vertically always crosses a tile boundary unless you stay in the same tile.
+    # Moving horizontally might not cost anything if you stay within the 2x1 block.
+    
+    # The cost to move from (sx, sy) to (tx, ty) in this specific tiling:
+    # Let dx = abs(sx - tx) and dy = abs(sy - ty).
+    # The total cost is related to the Manhattan distance, but horizontal moves
+    # within the same tile are free.
+    # Specifically, the cost is max(dy, (dx + dy + 1) // 2) is not quite right.
+    # The correct logic for this specific tiling pattern:
+    # The cost is the number of tile boundaries crossed.
+    # Vertical movement always costs 1 per unit.
+    # Horizontal movement costs 1 per 2 units, but depends on the parity of the row.
+    # The minimum cost is actually:
+    # cost = max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty) + 1) // 2)
+    # Wait, let's re-evaluate. 
+    # In row j, tiles are {(0,j), (1,j)}, {(2,j), (3,j)} if j is even.
+    # In row j, tiles are {(-1,j), (0,j)}, {(1,j), (2,j)} if j is odd.
+    # This is a coordinate transformation problem.
+    # Let u = x + y and v = x - y.
+    # The distance is max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty)) // 2) 
+    # is for a different problem.
+    
+    # For this specific problem:
+    # The cost is simply:
+    # dx = abs(sx - tx)
+    # dy = abs(sy - ty)
+    # result = max(dy, (dx + dy + 1) // 2) 
+    # Let's check Sample 1: 5 0, 2 5 -> dx=3, dy=5. max(5, (3+5+1)//2) = 5. Correct.
+    # Sample 2: 3 1, 4 1 -> dx=1, dy=0. max(0, (1+0+1)//2) = 1? 
+    # Wait, Sample 2 output is 0. 
+    # In Sample 2: sx=3, sy=1. i+j = 3+1 = 4 (even). 
+    # A_{3,1} and A_{4,1} are in the same tile. 
+    # So moving from 3.5, 1.5 to 4.5, 1.5 is within the same tile. Cost 0.
+    
+    # Correct logic:
+    # The cost is the distance in a graph where nodes are tiles.
+    # Two tiles are adjacent if they share an edge.
+    # This specific tiling is a shifted grid.
+    # The distance is:
+    # dx = abs(sx - tx)
+    # dy = abs(sy - ty)
+    # If we move only vertically, cost is dy.
+    # To move horizontally, we can use the "free" horizontal edges.
+    # The minimum cost is max(dy, (dx + dy + 1) // 2) is for a different grid.
+    # For this grid, the distance is:
+    # ans = max(dy, (dx + dy) // 2) if we can move diagonally? No.
+    # Let's use the property: 
+    # Cost = max(dy, (dx + dy + 1) // 2) is almost right, but Sample 2 fails.
+    # In Sample 2: dx=1, dy=0. (1+0+1)//2 = 1. But ans is 0.
+    # The actual formula is:
+    # ans = max(dy, (dx + dy) // 2) 
+    # Sample 1: max(5, (3+5)//2) = 5.
+    # Sample 2: max(0, (1+0)//2) = 0.
+    # Sample 3: sx=2552608206527595, sy=5411232866732612
+    # tx=771856005518028, ty=7206210729152763
+    # dx = 1775422200975791, dy = 1794977862420151
+    # max(1794977862420151, (1775422200975791 + 1794977862420151)//2)
+    # = max(1794977862420151, 1785200031697971) = 1794977862420151. Correct.
+
+    dx = abs(sx - tx)
+    dy = abs(sy - ty)
+    print(max(dy, (dx + dy) // 2))
+
+if __name__ == "__main__":
+    solve()

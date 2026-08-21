@@ -1,0 +1,236 @@
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and the list of heights
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # The condition "no building taller than Building j between i and j"
+    # means Building j is a "visible" building looking right from i.
+    # A building j is visible from i if H[j] > max(H[i+1...j-1]).
+    # This is equivalent to saying Building j is part of the 
+    # strictly increasing subsequence of heights starting from index i+1.
+    
+    # We process the buildings from right to left.
+    # For a building i, the buildings j that satisfy the condition are:
+    # 1. Building i+1 (always satisfies since there are no buildings between)
+    # 2. Any building j that was visible from i+1 AND is taller than H[i+1].
+    # Actually, the simpler logic: Building j is visible from i if 
+    # H[j] is a new maximum encountered while scanning from i+1 to N.
+    
+    # Let's use a different approach: 
+    # For a fixed i, we want to count j > i such that H[j] > max(H[i+1...j-1]).
+    # This is exactly the number of elements in the "upper envelope" 
+    # of the sequence H[i+1...N].
+    
+    # However, the constraint is N=2*10^5, so O(N^2) is too slow.
+    # We need a way to calculate this efficiently.
+    # Notice: the buildings j that satisfy the condition for i are:
+    # Building i+1, and all buildings j that satisfy the condition for i+1
+    # AND have H[j] > H[i+1].
+    
+    # Let's redefine: f(i) is the set of indices j > i that are visible from i.
+    # f(i) = {i+1} union {j in f(i+1) | H[j] > H[i+1]}
+    # The number of such j is 1 + count(j in f(i+1) where H[j] > H[i+1]).
+    
+    # Since we only need the count, and the heights are distinct:
+    # The buildings in f(i+1) that are taller than H[i+1] are exactly the 
+    # buildings that would be visible if we started from i+1 and ignored 
+    # all buildings shorter than H[i+1].
+    
+    # This looks like a problem that can be solved by a Segment Tree or 
+    # Fenwick tree if we process offline, but the "visibility" is a 
+    # standard problem solvable by a monotonic stack or similar.
+    # Wait, the condition is: H[k] <= H[j] for all i < k < j.
+    # This means Building j is visible from i if it's a prefix maximum 
+    # of the sequence H[i+1...N].
+    
+    # Let's use the property: 
+    # The number of prefix maximums of H[i+1...N] can be found by:
+    # If we have a Segment Tree where each node stores the max height in its range,
+    # we can implement a function `count_visible(node, current_max)`:
+    # 1. If node.max <= current_max: return 0
+    # 2. If node is leaf: return 1
+    # 3. If left_child.max <= current_max: 
+    #       return count_visible(right_child, current_max)
+    #    Else:
+    #       return count_visible(left_child, current_max) + (node.precomputed_right_contribution)
+    
+    # Since I cannot use a class-based Segment Tree easily without recursion limits,
+    # and I must avoid loops, I will use a iterative approach to build the tree
+    # and a helper to query. But wait, the query is still recursive.
+    # Python's recursion limit can be increased.
+    
+    sys_setrecursionlimit = sys.setrecursionlimit(300000)
+    sys_setrecursionlimit()
+
+    # Build Segment Tree
+    tree_size = 1 << (N - 1).bit_length()
+    max_tree = [0] * (2 * tree_size)
+    
+    # Initialize leaves
+    for i in range(N):
+        max_tree[tree_size + i] = H[i]
+    
+    # Build max tree
+    for i in range(tree_size - 1, 0, -1):
+        max_tree[i] = max(max_tree[2 * i], max_tree[2 * i + 1])
+        
+    # We need another tree to store the "contribution" of the right child
+    # given the max of the left child.
+    # right_contrib[i] = count_visible(right_child, max_tree[left_child])
+    # This must be computed bottom-up.
+    
+    def get_visible_count(node, current_max, l, r):
+        if max_tree[node] <= current_max:
+            return 0
+        if l == r:
+            return 1
+        mid = (l + r) // 2
+        if max_tree[2 * node] <= current_max:
+            return get_visible_count(2 * node + 1, current_max, mid + 1, r)
+        else:
+            # Left child contributes some, and right child contributes 
+            # its precomputed value relative to the left child's max.
+            return get_visible_count(2 * node, current_max, l, mid) + \
+                   (right_contrib[node])
+
+    # To avoid loops for right_contrib, we use a list comprehension 
+    # and a way to reference previously computed values.
+    # Since we need it bottom-up, we can use a dictionary or a list 
+    # and a recursive-like structure, but the constraint is NO LOOPS.
+    # We can use a recursive function to build the right_contrib array.
+    
+    right_contrib = [0] * (2 * tree_size)
+    
+    def build_contrib(node, l, r):
+        if l == r:
+            return
+        mid = (l + r) // 2
+        build_contrib(2 * node, l, mid)
+        build_contrib(2 * node + 1, mid + 1, r)
+        right_contrib[node] = get_visible_count(2 * node + 1, max_tree[2 * node], mid + 1, r)
+
+    build_contrib(1, 0, tree_size - 1)
+    
+    # For each i, we want count_visible in range [i+1, N-1]
+    # This is a range query on the segment tree.
+    def query_range(node, l, r, ql, qr, current_max):
+        if ql <= l and r <= qr:
+            res = get_visible_count(node, current_max, l, r)
+            return res, max(current_max, max_tree[node])
+        
+        mid = (l + r) // 2
+        res_l, max_l = (0, current_max)
+        if ql <= mid:
+            res_l, max_l = query_range(2 * node, l, mid, ql, qr, current_max)
+        
+        res_r, max_r = (0, max_l)
+        if qr > mid:
+            res_r, max_r = query_range(2 * node + 1, mid + 1, r, ql, qr, max_l)
+            
+        return res_l + res_r, max_r
+
+    # Using map to iterate i from 0 to N-1
+    results = list(map(lambda i: query_range(1, 0, tree_size - 1, i + 1, N - 1, 0)[0], range(N)))
+    print(*(results))
+
+# Since the prompt forbids loops and requires a single block, 
+# I'll wrap the logic into a function and call it.
+# Note: The build_contrib and query_range are recursive.
+# The 'for' loops used to initialize the tree are technically loops.
+# I will replace them with list comprehensions/map.
+
+def final_solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    sys.setrecursionlimit(300000)
+    tree_size = 1 << (N - 1).bit_length()
+    
+    # Build max_tree using a list and a helper to fill it without loops
+    # We can use a list comprehension to build the levels of the tree
+    # But the simplest way to build a segment tree without loops is 
+    # to use a recursive function.
+    
+    memo_max = {}
+    def get_max(node, l, r):
+        if l == r:
+            val = H[l] if l < N else 0
+            memo_max[node] = val
+            return val
+        mid = (l + r) // 2
+        res = max(get_max(2 * node, l, mid), get_max(2 * node + 1, mid + 1, r))
+        memo_max[node] = res
+        return res
+
+    get_max(1, 0, tree_size - 1)
+    
+    # Now we need right_contrib. We can't use a loop, so we use a dictionary.
+    memo_contrib = {}
+    def get_visible_count(node, current_max, l, r):
+        if memo_max[node] <= current_max:
+            return 0
+        if l == r:
+            return 1
+        mid = (l + r) // 2
+        if memo_max[2 * node] <= current_max:
+            return get_visible_count(2 * node + 1, current_max, mid + 1, r)
+        else:
+            # The right child's contribution is precomputed based on the left child's max
+            return get_visible_count(2 * node, current_max, l, mid) + memo_contrib[node]
+
+    def build_contrib(node, l, r):
+        if l == r: return
+        mid = (l + r) // 2
+        build_contrib(2 * node, l, mid)
+        build_contrib(2 * node + 1, mid + 1, r)
+        memo_contrib[node] = get_visible_count(2 * node + 1, memo_max[2 * node], mid + 1, r)
+
+    build_contrib(1, 0, tree_size - 1)
+    
+    def query_range(node, l, r, ql, qr, current_max):
+        if ql > qr: return 0, current_max
+        if ql <= l and r <= qr:
+            return get_visible_count(node, current_max, l, r), max(current_max, memo_max[node])
+        mid = (l + r) // 2
+        res_l, max_l = query_range(2 * node, l, mid, ql, min(qr, mid), current_max)
+        res_r, max_r = query_range(2 * node + 1, mid + 1, r, max(ql, mid + 1), qr, max_l)
+        return res_l + res_r, max_r
+
+    ans = list(map(lambda i: query_range(1, 0, tree_size - 1, i + 1, N - 1, 0)[0], range(N)))
+    print(*(ans))
+
+# To strictly follow "no loops", I must ensure no 'for' or 'while'.
+# The logic above uses map/lambda/recursion.
+# I will wrap this in the required format.
+```
+```python
+import sys
+
+# Increase recursion depth for deep segment tree traversals
+sys.setrecursionlimit(10**6)
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # Segment tree size
+    tree_size = 1 << (N - 1).bit_length()
+    
+    # We use dictionaries to store tree values to avoid index-based loop initialization
+    # memo_max stores the maximum height in the range of the node
+    # memo_contrib stores the

@@ -1,0 +1,194 @@
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # The condition "no building taller than Building j between i and j"
+    # means that for a fixed i, we are looking for j > i such that
+    # H_j > max(H_{i+1}, ..., H_{j-1}).
+    # This is equivalent to saying that H_j is a new maximum in the 
+    # sequence starting from index i+1.
+    
+    # To solve this efficiently without explicit loops, we can observe:
+    # For a fixed i, the valid j's are the indices where the prefix maximum
+    # of the suffix H[i+1:] increases.
+    
+    # However, a naive O(N^2) approach will TLE. 
+    # The optimal approach uses a monotonic stack to find the "next greater element".
+    # But the constraint forbids while/for loops. 
+    # We can simulate a monotonic stack using a recursive-like structure 
+    # via a custom function passed to a reduction, but Python's 
+    # recursion limit and the "no loop" constraint make it tricky.
+    
+    # Let's reconsider the condition: j satisfies the condition if 
+    # H_j > max(H_{i+1}, ..., H_{j-1}).
+    # This means j is a "left-to-right maximum" of the sequence starting at i+1.
+    
+    # Wait, the constraint to avoid loops forces a shift to functional programming.
+    # For this specific problem, the most efficient way to count these 
+    # without loops is to realize that for a fixed j, it is counted for all i < j
+    # such that max(H_{i+1}, ..., H_{j-1}) < H_j.
+    # This is equivalent to saying i must be greater than or equal to the 
+    # index of the first building to the left of j that is taller than H_j.
+    
+    # Let L[j] be the index of the nearest building to the left of j such that H_{L[j]} > H_j.
+    # If no such building exists, L[j] = 0 (using 1-based indexing).
+    # The number of i < j that satisfy the condition is j - (L[j] + 1) + 1 = j - L[j].
+    # Wait, the condition is: no building between i and j is taller than H_j.
+    # Let k be the index of the first building to the left of j that is taller than H_j.
+    # Any i such that k <= i < j satisfies the condition.
+    # The number of such i is j - k.
+    
+    # To find L[j] without loops, we can use a technique with 
+    # a Segment Tree or Fenwick Tree, but those require loops.
+    # Actually, we can use a Divide and Conquer approach implemented via 
+    # recursion (which is allowed as it is not a loop).
+    
+    def count_valid(left, right):
+        if left == right:
+            return [0]
+        
+        mid = (left + right) // 2
+        left_res = count_valid(left, mid)
+        right_res = count_valid(mid + 1, right)
+        
+        # Count pairs (i, j) where i <= mid < j
+        # j is valid if H_j > max(H_{i+1}, ..., H_{j-1})
+        # This means H_j > max(H_{mid+1}, ..., H_{j-1}) AND H_j > max(H_{i+1}, ..., H_{mid})
+        
+        # For a fixed j in [mid+1, right], let M_j = max(H_{mid+1}, ..., H_{j-1})
+        # j is a candidate if H_j > M_j.
+        # If it is, it's valid for all i in [left, mid] such that max(H_{i+1}, ..., H_{mid}) < H_j.
+        
+        # We can use binary search to find the range of i.
+        # Let S_i = max(H_{i+1}, ..., H_{mid}). S_i is non-increasing as i increases.
+        
+        # To avoid loops, we use list comprehensions and map.
+        return left_res + right_res # This is a placeholder for the D&C logic
+
+    # Given the strict "no loop" constraint and the need for efficiency,
+    # the most reliable way to implement the "Next Greater Element" logic
+    # is using a recursive function to simulate the stack.
+    
+    def get_left_bounds(heights):
+        # Returns a list L where L[j] is the index of the nearest taller building to the left
+        # Using a recursive function to simulate the monotonic stack
+        def recurse(idx, stack, results):
+            if idx == len(heights):
+                return results
+            
+            # Simulate while stack and heights[stack[-1]] < heights[idx]: stack.pop()
+            def pop_stack(s):
+                if not s or heights[s[-1]] > heights[idx]:
+                    return s
+                return pop_stack(s[:-1])
+            
+            new_stack = pop_stack(stack)
+            res = new_stack[-1] if new_stack else -1
+            return recurse(idx + 1, new_stack + [idx], results + [res])
+        
+        # Python's recursion limit is an issue for N=2e5.
+        # However, the prompt forbids loops. The only way to process 2e5 
+        # without loops or deep recursion is using built-ins like 
+        # accumulate, map, filter, and comprehensions.
+        
+        # Let's use the property: j is valid for i if max(H_{i+1}...H_{j-1}) < H_j.
+        # This is true if i >= L[j], where L[j] is the index of the first 
+        # building to the left of j taller than H_j.
+        # The number of such i is j - (L[j] + 1) + 1 = j - L[j].
+        # (Using 0-indexing, if L[j] is the index, the range is L[j]...j-1)
+        # The number of i is j - L[j].
+        
+        # To find L[j] without loops, we can use a Segment Tree implemented 
+        # via a list and recursive functions.
+        pass
+
+    # Since we cannot use loops, we must use recursion for the Segment Tree.
+    # We need to find the rightmost index k < j such that H_k > H_j.
+    
+    tree = [0] * (4 * n)
+    def build(node, start, end):
+        if start == end:
+            tree[node] = h[start]
+            return
+        mid = (start + end) // 2
+        build(2 * node, start, mid)
+        build(2 * node + 1, mid + 1, end)
+        tree[node] = max(tree[2 * node], tree[2 * node + 1])
+
+    def query(node, start, end, L, R, val):
+        # Find the rightmost index k in [L, R] such that H_k > val
+        if start > R or end < L or tree[node] <= val:
+            return -1
+        if start == end:
+            return start
+        mid = (start + end) // 2
+        # Try the right child first to find the rightmost index
+        res = query(2 * node + 1, mid + 1, end, L, R, val)
+        if res == -1:
+            res = query(2 * node, start, mid, L, R, val)
+        return res
+
+    # To avoid the loop for i=1..N, we use map and join.
+    # But we need to build the tree first.
+    # Since we can't use a loop to build the tree, we use the recursive build.
+    # Since we can't use a loop to query, we use map.
+    
+    # Increase recursion depth for deep trees/calls
+    sys.setrecursionlimit(300000)
+    
+    build(1, 0, n - 1)
+    
+    # For each j from 0 to n-1, find L[j] = query(1, 0, n-1, 0, j-1, h[j])
+    # The number of i < j is j - L[j].
+    # Note: the problem asks for each i, the count of j.
+    # This is different. We need to count how many j > i satisfy the condition.
+    # Let's use the L[j] logic:
+    # For a fixed i, we want to count j > i such that L[j] <= i.
+    # This is equivalent to counting j in [i+1, n-1] such that L[j] <= i.
+    
+    # Let's precompute L[j] for all j.
+    l_bounds = list(map(lambda j: query(1, 0, n - 1, 0, j - 1, h[j]), range(n)))
+    
+    # Now we need to count j > i such that L[j] <= i.
+    # This can be solved by observing that for a fixed j, it contributes to 
+    # all i in the range [L[j], j-1].
+    # We can use a difference array (or Fenwick tree) to count this.
+    # But we can't use loops. 
+    # However, we can use a recursive function to process the queries.
+    
+    # Let's use a simpler observation:
+    # The total count for i is (number of j > i such that L[j] <= i).
+    # This is sum_{j=i+1}^{n-1} [L[j] <= i].
+    
+    # We can solve this by sorting the L[j] values and using binary search.
+    # For a fixed i, we want to count j in {i+1, ..., n-1} such that L[j] <= i.
+    # This is (total j > i) - (j > i such that L[j] > i).
+    # Since L[j] is always < j, the condition L[j] > i automatically implies j > i.
+    # So we want: (n - 1 - i) - (count j in {0, ..., n-1} such that L[j] > i).
+    
+    # To count L[j] > i without loops, we sort L and use bisect_right.
+    import bisect
+    sorted_l = sorted(l_bounds)
+    
+    # For each i, the number of j such that L[j] > i is:
+    # n - bisect_right(sorted_l, i)
+    # But we must exclude j <= i. 
+    # Actually, the simplest way:
+    # For a fixed i, the valid j's are those where L[j] <= i < j.
+    # This is equivalent to: (count j such that L[j] <= i) - (count j such that j <= i).
+    # The second term is simply i + 1 (for j=0...i).
+    # The first term can be found using bisect_right on the sorted L array.
+    
+    results = list(map(lambda i: bisect.bisect_right(sorted_l, i) - (i + 1), range(n)))
+    print(*(results))
+
+if __name__ == "__main__":
+    solve()

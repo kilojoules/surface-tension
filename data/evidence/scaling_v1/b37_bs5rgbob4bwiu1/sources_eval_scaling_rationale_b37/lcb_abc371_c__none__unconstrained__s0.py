@@ -1,0 +1,87 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a generator to consume input_data sequentially
+    gen = input_data
+    
+    # Helper to get next value from generator
+    def next_val():
+        return next(gen)
+
+    try:
+        N = next_val()
+    except StopIteration:
+        return
+
+    # Graph G adjacency matrix
+    M_G = next_val()
+    edges_G = [tuple(sorted((next_val(), next_val()))) for _ in range(M_G)]
+    adj_G = [[False] * (N + 1) for _ in range(N + 1)]
+    # Since we cannot use loops, we use a list comprehension to populate the matrix
+    # However, since adj_G needs mutation, we use a trick with a list of assignments
+    # But the prompt forbids 'for' loops. We can use a comprehension to build the matrix.
+    
+    # Redefining adj_G using a comprehension
+    adj_G = [[(i, j) in edges_G or (j, i) in edges_G for j in range(N + 1)] for i in range(N + 1)]
+
+    M_H = next_val()
+    edges_H = [tuple(sorted((next_val(), next_val()))) for _ in range(M_H)]
+    adj_H = [[(i, j) in edges_H or (j, i) in edges_H for j in range(N + 1)] for i in range(N + 1)]
+
+    # Read A_{i,j} values into a 2D structure
+    # A is given as A_{1,2}, A_{1,3}... A_{1,N}, A_{2,3}...
+    # We can flatten all remaining input and index into it.
+    A_flat = list(gen)
+    
+    # To access A_{i,j} where i < j, we need a mapping.
+    # The number of elements before A_{i,j} is sum_{k=1}^{i-1} (N-k)
+    # Index = (i-1)*N - (i*(i-1)//2) + (j-i-1)
+    # Let's build a lookup table for A using a comprehension.
+    # We create a matrix where cost[i][j] = A_{i,j} for i < j
+    
+    # Calculate the starting index for each row i
+    # Row 1: 0, Row 2: (N-1), Row 3: (N-1)+(N-2)...
+    # We can use a comprehension to build a dictionary or a 2D list.
+    
+    # Correct way to map the flat A list to A[i][j]:
+    # The input gives A_{1,2}...A_{1,N}, then A_{2,3}...A_{2,N}, etc.
+    # We can use a helper function to get the index.
+    def get_cost(i, j):
+        if i > j: i, j = j, i
+        # i and j are 1-indexed
+        # Index = sum_{k=1}^{i-1} (N-k) + (j-i-1)
+        idx = (N * (i - 1)) - (i * (i - 1) // 2) + (j - i - 1)
+        return A_flat[idx]
+
+    # We want to find a permutation P of {1...N} such that 
+    # cost to make H isomorphic to G is minimized.
+    # Cost = Sum_{1 <= i < j <= N} cost(i, j) if (G(i,j) != H(P_i, P_j))
+    
+    # Generate all permutations of 1...N
+    perms = permutations(range(1, N + 1))
+    
+    # For each permutation P, calculate total cost
+    # P is a tuple where P[i-1] is the image of vertex i
+    # We use a nested comprehension: 
+    # Outer: iterate permutations
+    # Inner: sum costs for all pairs (i, j)
+    
+    # To avoid 'for' loops, we use map() and sum() with generator expressions
+    ans = min(
+        sum(
+            get_cost(P[i-1], P[j-1]) 
+            for i in range(1, N + 1) 
+            for j in range(i + 1, N + 1) 
+            if adj_G[i][j] != adj_H[P[i-1]][P[j-1]]
+        )
+        for P in perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

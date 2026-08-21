@@ -1,0 +1,213 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional style. While not always "cleaner" for complex state transitions, it encourages the use of high-level abstractions and data transformations. For this specific problem, which requires simulating a process of picking elements one by one based on remaining counts, `functools.reduce` is the ideal tool to maintain the state (the sequence being built and the counts of remaining numbers) across the iterations.
+
+To solve this, we need to find the middle sequence of all permutations of a multiset. The total number of sequences is $S = \frac{(NK)!}{(K!)^N}$. We want the $\lfloor (S+1)/2 \rfloor$-th sequence. We can determine the elements of the sequence one by one. For the current position, we try numbers $v = 1, 2, \dots, N$. If we pick $v$, the number of ways to complete the sequence is $\frac{(RemainingLength - 1)!}{\prod (count_i!)}$, where $count_i$ is the remaining occurrences of number $i$. We subtract these counts from our target rank until the rank falls within the range of a specific value $v$.
+
+Since $S$ can be enormous, we use Python's arbitrary-precision integers. To avoid loops, we use `range` inside `next()` with a generator expression to find the first $v$ that satisfies the rank condition, and `reduce` to iterate through the $NK$ positions.
+
+```python
+import sys
+from math import factorial
+from functools import reduce
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # Total number of good sequences S = (n*k)! / (k!)^n
+    # We want the floor((S + 1) / 2)-th sequence.
+    total_s = factorial(n * k) // (factorial(k)**n)
+    target_rank = (total_s + 1) // 2
+
+    # Helper to calculate number of permutations of a multiset
+    # Ways = (sum(counts))! / product(counts!)
+    def count_permutations(counts):
+        total_rem = sum(counts)
+        denom = reduce(lambda x, y: x * factorial(y), counts, 1)
+        return factorial(total_rem) // denom
+
+    # State for reduce: (current_sequence, remaining_counts, current_rank)
+    # We iterate NK times to determine each element of the sequence.
+    initial_state = ([], [k] * n, target_rank)
+    
+    # Using reduce to simulate the loop over the length of the sequence (N*K)
+    final_state = reduce(
+        lambda state, _: (
+            lambda seq, counts, rank: (
+                # Find the smallest v (1-indexed) such that the sum of permutations
+                # for values < v is less than the rank, and adding permutations
+                # for v covers the rank.
+                (
+                    # We use a generator expression with next() to find the first v
+                    # that satisfies the condition, replacing a for/while loop.
+                    # accumulation logic is handled by a helper list/map inside next.
+                    # However, since we need the sum of previous counts, 
+                    # we pre-calculate the counts for each possible v.
+                    # To keep it strictly functional, we use a list comprehension 
+                    # to calculate the number of ways for each v at this step.
+                    # ways_for_v = count_permutations(counts with v decremented)
+                    
+                    # We find v by iterating 1..N and keeping track of the rank.
+                    # Since we can't use a loop, we use a recursive-like approach 
+                    # via a custom function or a complex reduce. 
+                    # But the prompt allows 'range' and 'next'.
+                    
+                    # Correct logic to find v:
+                    # Iterate v from 0 to n-1. Calculate ways to complete if we pick v.
+                    # If rank > ways, subtract ways from rank and move to v+1.
+                    # Otherwise, v is our number.
+                    
+                    # To implement the "while rank > ways" logic without loops:
+                    # We use a helper function defined inside the lambda to find v.
+                    # Since we can't define named functions inside lambda, 
+                    # we use a list comprehension to simulate the search.
+                    
+                    # This inner logic finds the index v and the updated rank.
+                    # We use a list to store (v, ways) and then a reduce to find the target.
+                    (
+                        # This is a trick to simulate a loop: 
+                        # reduce over the range of possible values N.
+                        reduce(
+                            lambda acc, v: (
+                                acc[0], acc[1], acc[2]
+                            ) if acc[0] != -1 else (
+                                # Calculate ways if we pick value v+1
+                                # counts[v] - 1 is the new count for value v+1
+                                (
+                                    lambda w: (v + 1, rank - w, w) 
+                                    if rank <= w else (-1, rank - w, w)
+                                )(count_permutations([counts[i] - (1 if i == v else 0) for i in range(n)]))
+                                if counts[v] > 0 else (-1, rank, 0)
+                            ),
+                            range(n),
+                            (-1, rank, 0) # (found_v, current_rank, ways)
+                        )
+                    )
+                )
+            )(*state)
+        ),
+        range(n * k),
+        initial_state
+    )
+
+    # The above reduce logic is slightly flawed because it doesn't update the state 
+    # for the next iteration of the outer reduce. Let's refine it.
+    # We need to return (new_seq, new_counts, new_rank).
+
+    def get_next_state(state, _):
+        seq, counts, rank = state
+        
+        # Find v and the updated rank
+        # We use a generator to find the first v that satisfies the rank condition
+        # We need the cumulative sum of permutations.
+        # Since we can't use a loop, we use a helper to find the value.
+        
+        def find_v(current_counts, current_rank):
+            # Use a list comprehension to calculate ways for each v
+            # then find the first v where the prefix sum >= current_rank
+            ways = [
+                count_permutations([current_counts[i] - (1 if i == v else 0) for i in range(n)])
+                if current_counts[v] > 0 else 0
+                for v in range(n)
+            ]
+            
+            # Use reduce to find the specific v and the remaining rank
+            # (current_v, remaining_rank, found)
+            res = reduce(
+                lambda acc, v_idx: (
+                    acc if acc[2] else (
+                        (v_idx + 1, current_rank - ways[v_idx], True) 
+                        if current_rank <= ways[v_idx] else 
+                        (None, current_rank - ways[v_idx], False)
+                    )
+                ),
+                range(n),
+                (None, current_rank, False)
+            )
+            # The reduce above is tricky. Let's use a simpler approach:
+            # We find the index v such that sum(ways[:v]) < rank <= sum(ways[:v+1])
+            
+            # Correct functional way to find v:
+            # 1. Calculate ways for all v
+            # 2. Use a scan (prefix sum) to find the range
+            # 3. Pick the v
+            return res
+
+        # Because the prompt forbids loops, we must use reduce/map/filter/next.
+        # Let's redefine the state transition clearly.
+        pass
+
+# Redefining the solve function to be fully compliant and working.
+def final_solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    n, k = map(int, input_data)
+    
+    def count_perms(counts):
+        return factorial(sum(counts)) // reduce(lambda x, y: x * factorial(y), counts, 1)
+
+    # State: (sequence, counts, rank)
+    # We use reduce to iterate NK times.
+    # Inside, we use a generator with next() to find the first v that satisfies the rank.
+    # To track the rank across the generator, we use a mutable container (list) 
+    # since we cannot use a loop or external variable assignment.
+    
+    res = reduce(
+        lambda state, _: (
+            (
+                lambda v, new_rank: (
+                    state[0] + [v],
+                    [state[1][i] - (1 if i == v-1 else 0) for i in range(n)],
+                    new_rank
+                )
+            )(
+                # This next() call finds the first v where rank <= ways
+                # We use a list [rank] to maintain state across the generator
+                # This is a common Python idiom to simulate a local variable in a lambda
+                (lambda r: next(
+                    (v, r[0] - sum(
+                        [count_perms([state[1][i] - (1 if i == j else 0) for i in range(n)])
+                         for j in range(v-1) if state[1][j] > 0]
+                    ))
+                    for v in range(1, n + 1)
+                    if state[1][v-1] > 0 and r[0] <= sum(
+                        [count_perms([state[1][i] - (1 if i == j else 0) for i in range(n)])
+                         for j in range(v-1) if state[1][j] > 0]
+                    ) + count_perms([state[1][i] - (1 if i == v-1 else 0) for i in range(n)])
+                ))( [state[2]] )
+            )
+        ),
+        range(n * k),
+        ([], [k] * n, (factorial(n * k) // (factorial(k)**n) + 1) // 2)
+    )
+    
+    # The above logic with next() and sum() is slightly inefficient but avoids loops.
+    # However, the rank needs to be updated relative to the sum of previous ways.
+    # Let's use a cleaner approach for the rank:
+    # Rank for the current position is the global rank minus ways of all smaller v.
+    
+    # Corrected final approach:
+    def get_v_and_rank(state):
+        seq, counts, rank = state
+        # Calculate ways for each v from 1 to N
+        ways = [
+            count_perms([counts[i] - (1 if i == v else 0) for i in range(n)])
+            if counts[v] > 0 else 0
+            for v in range(n)
+        ]
+        # Find v such that sum(ways[:v]) < rank <= sum(ways[:v+1])
+        # We use a generator to find the first v that satisfies this.
+        # We can use a list comprehension to get prefix sums.
+        prefix_sums = reduce(lambda a, b: a + [a[-1] + b], ways, [0])
+        v_idx = next(i for i in range(n) if prefix_sums[i+1] >= rank)
+        return (seq + [v_idx + 1], [counts[i] - (1 if i == v_idx else 0) for i in range(n)], rank - prefix_sums[v_idx])
+
+    final_result = reduce(lambda state, _: get_v_and_rank(state), range(n * k), ([], [k] * n, (factorial(n * k) // (factorial(k)**n) + 1) // 2))
+    print(*(final_result[0]))
+
+if __name__ == "__main__":
+    final_solve()
+```

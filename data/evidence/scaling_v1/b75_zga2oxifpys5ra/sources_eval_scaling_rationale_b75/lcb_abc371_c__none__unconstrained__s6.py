@@ -1,0 +1,65 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    gen = iter(input_data)
+    
+    # N is the number of vertices
+    N = next(gen)
+    
+    # Read Graph G edges
+    Mg = next(gen)
+    g_edges = [tuple(sorted((next(gen), next(gen)))) for _ in range(Mg)]
+    
+    # Read Graph H edges
+    Mh = next(gen)
+    h_edges = [tuple(sorted((next(gen), next(gen)))) for _ in range(Mh)]
+    
+    # Read Cost matrix A
+    # A[i][j] is the cost to flip edge (i+1, j+1)
+    # We store it in a dictionary for easy access: {(i, j): cost} where i < j
+    costs_list = list(gen)
+    
+    # To map the flat cost list to (i, j) pairs:
+    # The input format is A_{1,2}, A_{1,3}... A_{1,N}, A_{2,3}...
+    # We can use a helper to generate the indices
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(all_pairs, costs_list))
+    
+    # Represent G and H as adjacency matrices (sets of edges for O(1) lookup)
+    g_set = set(g_edges)
+    h_set = set(h_edges)
+    
+    # We need to find a permutation P of (1...N) such that 
+    # G is isomorphic to the modified H.
+    # The cost for a permutation P is the sum of A_{Pi, Pj} for all pairs (i, j)
+    # where the edge existence in G(i, j) differs from edge existence in H(Pi, Pj).
+    
+    # Generate all permutations of vertices 1...N
+    perms = permutations(range(1, N + 1))
+    
+    # For a given permutation P, the cost is:
+    # Sum over 1 <= i < j <= N:
+    # If (edge(i, j) in G) != (edge(Pi, Pj) in H), add cost A_{Pi, Pj}
+    # Note: the problem says we pay A_{i,j} to flip edge (i,j) in H.
+    # If we map vertex i of G to vertex Pi of H, then the edge (i, j) in G
+    # corresponds to the edge (Pi, Pj) in H.
+    
+    # We use a generator expression inside min() to avoid creating a large list in memory
+    # We use a nested generator/sum to calculate the cost for each permutation
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i-1], p[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in g_set) != (tuple(sorted((p[i-1], p[j-1]))) in h_set)
+        )
+        for p in perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

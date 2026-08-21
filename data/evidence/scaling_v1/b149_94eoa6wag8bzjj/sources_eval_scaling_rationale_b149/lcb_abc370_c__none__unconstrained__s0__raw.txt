@@ -1,0 +1,57 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, emphasizing the transformation of data streams over stateful iteration. In Python, this encourages the use of declarative constructs like list comprehensions and `map()`, which can often be more concise and expressive for sequence transformations. For this problem, I will use list comprehensions to identify the indices where $S$ and $T$ differ and to generate the sequence of intermediate strings by iteratively updating one character at a time.
+
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To get the lexicographically smallest array X, we must change characters
+    # in an order that makes the resulting strings as small as possible.
+    # 1. If T[i] < S[i], we want to change this index as early as possible
+    #    because it decreases the string's lexicographical value.
+    # 2. If T[i] > S[i], we want to change this index as late as possible
+    #    because it increases the string's lexicographical value.
+    # 3. Among indices that decrease the value, we should process them from 
+    #    left to right (index 0 to N-1).
+    # 4. Among indices that increase the value, we should process them from 
+    #    right to left (index N-1 to 0).
+    
+    decrease_indices = sorted([i for i in diff_indices if T[i] < S[i]])
+    increase_indices = sorted([i for i in diff_indices if T[i] > S[i]], reverse=True)
+    
+    # The sequence of indices to change
+    order = decrease_indices + increase_indices
+    
+    # We need to generate the sequence of strings. Since we cannot use loops,
+    # we use a list comprehension combined with a helper logic.
+    # However, since each string depends on the previous one, a standard 
+    # comprehension isn't ideal for state. But we can pre-calculate the 
+    # state of the string at each step k.
+    
+    # For the k-th string in X, characters at indices in order[0...k-1] are T[i],
+    # and others are S[i].
+    
+    def get_string_at_step(k):
+        # k is the number of changes applied
+        changed_indices = set(order[:k])
+        return "".join([T[i] if i in changed_indices else S[i] for i in range(len(S))])
+
+    # Generate the array X
+    X = [get_string_at_step(k) for k in range(1, len(order) + 1)]
+    
+    # Output the result
+    print(len(X))
+    sys.stdout.write("\n".join(X) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```

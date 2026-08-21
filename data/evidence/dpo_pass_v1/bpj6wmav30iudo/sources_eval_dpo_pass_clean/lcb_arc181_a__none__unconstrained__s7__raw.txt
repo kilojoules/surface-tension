@@ -1,0 +1,117 @@
+The constraint to avoid explicit loops forces a shift from imperative state management to a functional paradigm, emphasizing data transformation over sequential modification. In idiomatic Python, this encourages the use of high-level abstractions that describe *what* to compute rather than *how* to step through it, leveraging the efficiency of built-in C-implemented iterators. For this problem, I will use `map` for input processing, list comprehensions for data handling, and `min`/`max` for logic, ensuring the solution remains declarative and concise.
+
+```python
+import sys
+
+def solve():
+    # Use map and split to handle input without explicit loops
+    # The input is read all at once and processed as a stream
+    input_data = sys.stdin.read().split()
+    
+    # T is the first element
+    T = int(input_data[0])
+    
+    # We process the remaining data in chunks of N + 1
+    # Since we cannot use loops, we use a recursive-like approach 
+    # via map and a helper function or a comprehension.
+    # However, since we need to handle T test cases, 
+    # we can calculate the starting index for each case.
+    
+    # To avoid loops, we can't use a for-loop to iterate T.
+    # We can use a list comprehension to process each test case.
+    # We need to track the current position in the input_data list.
+    # Since we can't use a loop, we'll pre-calculate the boundaries.
+    
+    # We use a generator/map to extract N and P for each case.
+    # Because N varies, we can't simply slice by a fixed width.
+    # Instead, we use a recursive-style approach with map/reduce 
+    # or a clever slice if we can determine the indices.
+    
+    # Actually, we can process the input by converting it to an iterator.
+    # Even though we can't use 'for', we can use 'itertools' or 
+    # simply map a function over a range.
+    
+    it = iter(input_data[1:])
+    
+    # Define a function to process a single test case
+    # It reads N, then reads N elements for P.
+    # Since we can't use loops, we use 'next(it)' inside a list comprehension.
+    
+    # To handle the variable N, we can use a recursive-like 
+    # structure via map(lambda...) but Python's recursion limit 
+    # and the "no loop" rule make this tricky.
+    # However, we can use a list comprehension that calls a 
+    # function which consumes the iterator.
+    
+    def process_case():
+        try:
+            N = int(next(it))
+            # Consume N elements from the iterator
+            P = [int(next(it)) for _ in range(N)]
+            
+            # Logic:
+            # The operation with k sorts [1, k-1] and [k+1, N].
+            # This means P[k-1] (the k-th element) remains in place.
+            # If there exists k such that P[k-1] == k, and sorting 
+            # the others results in P[i] == i, then 1 op is enough.
+            # Sorting [1, k-1] and [k+1, N] results in P[i]=i for all i 
+            # IF AND ONLY IF the set {P[0]...P[k-2]} is {1...k-1} 
+            # AND the set {P[k]...P[N-1]} is {k+1...N}.
+            # This is equivalent to: P[k-1] == k AND 
+            # (max(P[0...k-2]) < k) AND (min(P[k...N-1]) > k).
+            
+            # If P is already sorted, 0 ops.
+            # If there exists k such that P[k-1] == k and 
+            # the elements are partitioned correctly, 1 op.
+            # Otherwise, 2 ops (it's proven that 2 is always enough for N >= 3).
+            
+            # To check if 0:
+            # P == sorted(P)
+            # To check if 1:
+            # We need k such that P[k-1] == k and 
+            # max(P[:k-1]) < k and min(P[k:]) > k.
+            # Note: for k=1, P[:0] is empty (max is -inf), P[1:] must be > 1.
+            # For k=N, P[:N-1] must be < N, P[N:] is empty (min is +inf).
+            
+            # We can use prefix max and suffix min to check this in O(N).
+            # Since we can't use loops, we use list comprehensions.
+            
+            # Prefix Max
+            # Since we can't use loops, we can't build prefix max traditionally.
+            # But we can use `itertools.accumulate`.
+            from itertools import accumulate
+            
+            pref_max = list(accumulate(P, max))
+            suff_min = list(accumulate(P[::-1], min))[::-1]
+            
+            # Check if already sorted:
+            # P is sorted if pref_max[i] == i + 1 for all i.
+            is_sorted = all(pref_max[i] == i + 1 for i in range(N))
+            
+            # Check if 1 op is possible:
+            # k is 1-indexed. P[k-1] is the element.
+            # Condition: (k==1 or pref_max[k-2] < k) and 
+            #            (k==N or suff_min[k] > k) and 
+            #            (P[k-1] == k)
+            
+            # We check if any k in 1..N satisfies this.
+            # Using a generator expression inside any():
+            can_do_1 = any(
+                ( (k == 1 or pref_max[k-2] < k) and 
+                  (k == N or suff_min[k] > k) and 
+                  (P[k-1] == k) )
+                for k in range(1, N + 1)
+            )
+            
+            return 0 if is_sorted else (1 if can_do_1 else 2)
+        except StopIteration:
+            return None
+
+    # Use map to apply process_case T times.
+    # Since we can't use a for loop, we use map and list.
+    results = list(map(lambda _: process_case(), range(T)))
+    sys.stdout, _ = sys.stdout.write('\n'.join(map(str, results)) + '\n'), None
+
+if __name__ == "__main__":
+    solve()
+```

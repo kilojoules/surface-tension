@@ -1,0 +1,113 @@
+import sys
+
+def solve():
+    # Read all input at once for efficiency
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # The condition "no building taller than Building j between i and j"
+    # means that for a fixed i, we are looking for indices j > i such that
+    # H_k <= H_j for all i < k < j.
+    # This is equivalent to saying that Building j is a "visible" building 
+    # when looking to the right from Building i, but specifically 
+    # based on the height of the target building j rather than the 
+    # buildings in between.
+    
+    # Actually, the condition "no building taller than Building j between i and j"
+    # means that H_j must be greater than or equal to the maximum height 
+    # of all buildings in the range (i, j).
+    # Let M(i, j) = max(H_{i+1}, ..., H_{j-1}). 
+    # We need H_j >= M(i, j).
+    
+    # This is equivalent to saying that Building j is a "right-to-left" 
+    # maximum in the suffix starting at i+1.
+    # Specifically, for a fixed i, j satisfies the condition if:
+    # H_j > max(H_{i+1}, ..., H_{j-1}).
+    # (Since all H are distinct, H_j cannot equal the max of previous).
+    
+    # Let's re-evaluate:
+    # For a fixed i, the buildings j that satisfy this are:
+    # j = i + 1
+    # j = the first index > i+1 such that H_j > H_{i+1}
+    # j = the first index > previous_j such that H_j > H_{previous_j}
+    # And so on.
+    
+    # This is exactly the sequence of prefix maximums of the array H[i+1:].
+    # The number of such j is the number of times the prefix maximum changes 
+    # in the subarray H[i+1...N].
+    
+    # However, calculating this for every i would be O(N^2). 
+    # We need a more efficient approach.
+    
+    # Let's look at it differently:
+    # Building j is counted for building i if H_j > max(H_{i+1}, ..., H_{j-1}).
+    # This means Building j is the first building to the right of some index k 
+    # (where i <= k < j) that is taller than all buildings between k and j.
+    
+    # Actually, the condition "no building taller than Building j between i and j"
+    # is satisfied if and only if Building j is the first building to the right 
+    # of some index k (i <= k < j) that is taller than H_k? No.
+    
+    # Let's use the property: j satisfies the condition for i if 
+    # H_j > max(H_{i+1}, ..., H_{j-1}).
+    # This is true if and only if there is no k such that i < k < j and H_k > H_j.
+    # In other words, for a fixed j, it satisfies the condition for all i 
+    # such that for all k in (i, j), H_k < H_j.
+    # This means i must be greater than or equal to the index of the first 
+    # building to the left of j that is taller than H_j.
+    # Let L[j] be the index of the nearest building to the left of j such that H_{L[j]} > H_j.
+    # If no such building exists, L[j] = 0 (using 1-based indexing).
+    # Then for a fixed j, the condition is satisfied for all i such that L[j] <= i < j.
+    # Note: the problem says i < j, and the range of k is i < k < j.
+    # If i = L[j], then k can be L[j]+1 ... j-1. All these H_k are < H_j.
+    # If i = L[j] - 1, then k can be L[j] ... j-1. But H_{L[j]} > H_j, so the condition fails.
+    # So for a fixed j, the valid i's are L[j], L[j]+1, ..., j-1.
+    # The number of such i's is j - L[j].
+    
+    # Wait, the question asks for each i, find the number of j's.
+    # We found that for a fixed j, it contributes to i in range [L[j], j-1].
+    # We can use a difference array (or Fenwick tree) to count this.
+    # For each j from 1 to N:
+    #   Increment count for i in range [L[j], j-1].
+    
+    # To find L[j] for all j, we use a monotonic stack.
+    l = [0] * (n + 1)
+    stack = []
+    for j in range(1, n + 1):
+        current_h = h[j-1]
+        while stack and h[stack[-1]-1] < current_h:
+            stack.pop()
+        if stack:
+            l[j] = stack[-1]
+        else:
+            l[j] = 0
+        stack.append(j)
+        
+    # Now we need to calculate c_i = sum_{j=i+1}^N [L[j] <= i < j]
+    # This is equivalent to: for each j, add 1 to range [L[j], j-1].
+    # We use a difference array to perform range updates.
+    diff = [0] * (n + 2)
+    for j in range(1, n + 1):
+        # Range is [L[j], j-1]. 
+        # Note: i must be at least 1.
+        start = max(1, l[j])
+        end = j - 1
+        if start <= end:
+            diff[start] += 1
+            diff[end + 1] -= 1
+            
+    # Compute prefix sums of diff array to get c_i
+    results = []
+    current_c = 0
+    for i in range(1, n + 1):
+        current_c += diff[i]
+        results.append(str(current_c))
+        
+    sys.stdout.write(" ".join(results) + "\n")
+
+if __name__ == "__main__":
+    solve()

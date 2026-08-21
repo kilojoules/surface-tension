@@ -1,0 +1,61 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    # State consists of:
+    # 1. plants: A sorted list of "birth heights". 
+    #    Since all plants grow by the same amount, we store the height 
+    #    they would have had at T=0.
+    # 2. current_time: The total T elapsed since the start.
+    # 3. results: A list to store the answers to type 3 queries.
+    
+    def process_query(state, query_str):
+        plants, current_time, results = state
+        parts = list(map(int, query_str.split()))
+        q_type = parts[0]
+        
+        if q_type == 1:
+            # Plant height is 0 now, so its "birth height" is -current_time
+            # We use bisect to keep the list sorted
+            import bisect
+            bisect.insort(plants, -current_time)
+            return (plants, current_time, results)
+        
+        elif q_type == 2:
+            # Increase global time
+            return (plants, current_time + parts[1], results)
+        
+        elif q_type == 3:
+            # Harvest plants where: birth_height + current_time >= H
+            # Which means: birth_height >= H - current_time
+            H = parts[1]
+            threshold = H - current_time
+            
+            # Find index of first plant to harvest
+            import bisect
+            idx = bisect.bisect_left(plants, threshold)
+            
+            # Number of plants harvested is total length minus index of first valid
+            harvested_count = len(plants) - idx
+            
+            # Remove harvested plants by slicing
+            # Note: slicing creates a new list, adhering to the "no loop" constraint
+            return (plants[:idx], current_time, results + [harvested_count])
+
+    # Use reduce to iterate through queries without a for/while loop
+    final_state = reduce(process_query, queries, ([], 0, []))
+    
+    # Output results using join and map to avoid for loop
+    sys.stdout.write("\n".join(map(str, final_state[2])) + "\n")
+
+if __name__ == "__main__":
+    solve()

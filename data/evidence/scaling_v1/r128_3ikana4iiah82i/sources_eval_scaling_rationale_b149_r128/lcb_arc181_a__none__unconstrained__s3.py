@@ -1,0 +1,145 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # Use a generator to process test cases
+    def process_cases(data, t_remaining):
+        if t_remaining <= 0:
+            return []
+        
+        N = int(data[0])
+        P = list(map(int, data[1:N+1]))
+        
+        # Condition 0: Already sorted
+        # We check if P_i == i for all i. 
+        # Using all() is allowed as it is a built-in higher-order function.
+        is_sorted = all(P[i] == i + 1 for i in range(N))
+        
+        if is_sorted:
+            res = 0
+        else:
+            # Condition 1: Can be solved in 1 operation
+            # An operation at k sorts [1, k-1] and [k+1, N].
+            # This works if P[k-1] == k and max(P[0...k-2]) == k-1.
+            # We use reduce to calculate prefix maximums.
+            prefix_max = list(reduce(lambda acc, x: acc + [max(acc[-1], x)], P, [0]))
+            # Note: the reduce above creates a list of prefix maxes. 
+            # Since we can't use loops, we use a list comprehension to check the condition.
+            # The prefix_max list will have N+1 elements (starting with 0).
+            # For a given k (1-indexed), we check if P[k-1] == k and prefix_max[k-1] == k-1.
+            # Wait, the logic is: if we pick k, we need P[k-1] to be the element that 
+            # stays put, and the elements to the left to be {1...k-1}.
+            # So we need P[k-1] == k and max(P[0...k-2]) == k-1.
+            
+            # Correct logic for 1 operation:
+            # There exists k such that P[k-1] == k and 
+            # (k==1 or max(P[0...k-2]) == k-1) and 
+            # (k==N or min(P[k...N-1]) == k+1)
+            # Actually, if P[k-1] == k and max(P[0...k-2]) == k-1, 
+            # then the remaining elements must be {k+1...N}.
+            
+            # We need to handle the prefix max carefully.
+            # Let's redefine prefix_max to be exactly the max of elements before index i.
+            # P = [2, 1, 3, 5, 4], N=5
+            # k=3: P[2]=3. Max(P[0], P[1]) = max(2,1) = 2. Condition met.
+            
+            # To avoid the O(N^2) of the previous reduce, we use a more efficient way.
+            # Since we can't use loops, we can use a list comprehension with a 
+            # helper function or a clever reduce.
+            
+            # Let's use a list comprehension to check if any k satisfies the condition.
+            # We need the prefix maximums. We can get them using a trick with 
+            # a mutable list inside reduce.
+            def get_prefix_max(arr):
+                res = [0] * len(arr)
+                # We use a list to simulate a mutable state in reduce
+                reduce(lambda state, x: state.append(max(state[-1], x)) if state else state, 
+                       arr, [0])
+                # This is tricky because reduce expects a return value.
+                # Let's use a simpler approach.
+                return None
+
+            # Since we can't use loops, we use the fact that 
+            # if P[k-1] == k and max(P[0...k-2]) == k-1, it's 1 op.
+            # We can compute prefix maxes using a list and a side-effect in a 
+            # list comprehension, but that's basically a loop.
+            # The most "functional" way in Python to get prefix max is 
+            # itertools.accumulate.
+            from itertools import accumulate
+            p_max = list(accumulate(P, max))
+            
+            # Check if there is any k (1 to N) such that:
+            # 1. P[k-1] == k
+            # 2. k == 1 or p_max[k-2] == k-1
+            can_do_1 = any(
+                (P[i] == i + 1) and (i == 0 or p_max[i-1] == i)
+                for i in range(N)
+            )
+            
+            res = 1 if can_do_1 else 2
+            
+        return [res] + process_cases(data[N+1:], t_remaining - 1)
+
+    # Using a recursive-like structure via map/join to avoid loops
+    # But the recursion limit and the nature of the problem suggest 
+    # we should just process the flat list.
+    
+    # To avoid loops and recursion, we can use a generator expression 
+    # and join the results.
+    
+    def solve_single(case_data):
+        N = int(case_data[0])
+        P = list(map(int, case_data[1:N+1]))
+        from itertools import accumulate
+        p_max = list(accumulate(P, max))
+        
+        is_sorted = all(P[i] == i + 1 for i in range(N))
+        if is_sorted: return 0
+        
+        can_do_1 = any((P[i] == i + 1) and (i == 0 or p_max[i-1] == i) for i in range(N))
+        return 1 if can_do_1 else 2
+
+    # We need to group the input_data into chunks of (N + 1)
+    # Since we can't use loops, we use a custom function with map.
+    def get_chunks(data):
+        # This is the only place where we might need a loop to slice the data
+        # But we can use a recursive-like approach with a generator.
+        def gen(d):
+            if not d: return
+            n = int(d[0])
+            yield d[:n+1]
+            yield from gen(d[n+1:])
+        return gen(data)
+
+    # However, the recursion limit is an issue. Let's use a different approach.
+    # We can use a while loop inside a function, but the prompt says 
+    # "avoid explicit loops". Let's use a generator and map.
+    
+    # To handle the chunking without a loop:
+    # We can use a helper class or a closure to keep track of the current index.
+    class State:
+        def __init__(self, data):
+            self.data = data
+            self.ptr = 0
+        def next_case(self):
+            if self.ptr >= len(self.data): return None
+            n = int(self.data[self.ptr])
+            res = self.data[self.ptr : self.ptr + n + 1]
+            self.ptr += n + 1
+            return res
+
+    state = State(input_data)
+    # Use map to apply solve_single to the chunks
+    # We use a list comprehension to drive the state.함수
+    results = [solve_single(state.next_case()) for _ in range(T)]
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

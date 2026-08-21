@@ -1,0 +1,120 @@
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[0:2])
+    tx, ty = map(int, input_data[2:4])
+
+    # The tiles are 2x1. 
+    # When i+j is even, A_{i,j} and A_{i+1,j} are one tile.
+    # This means for a fixed j, the tiles are paired as (0,1), (2,3)... if j is even
+    # and (-1,0), (1,2)... if j is odd.
+    # Essentially, a tile is defined by (floor((i + (j % 2)) / 2), j).
+    
+    # Let's transform the coordinates to a coordinate system where 
+    # each unit of distance in the new system corresponds to a tile boundary.
+    # The horizontal "block" index is b_x = (i + (j % 2)) // 2
+    # The vertical "block" index is b_y = j
+    
+    # However, the cost is based on how many tiles you enter.
+    # Moving vertically always enters a new tile.
+    # Moving horizontally might stay in the same tile.
+    
+    # Let's use the property:
+    # A tile is identified by (x_tile, y_tile) where:
+    # x_tile = (i + (j % 2)) // 2
+    # y_tile = j
+    
+    # The distance between two tiles (x1, y1) and (x2, y2) in this grid
+    # is the L1 distance, but we must account for the fact that 
+    # moving horizontally is "cheaper" in terms of tile entries.
+    
+    # The minimum cost to move between (sx, sy) and (tx, ty) is:
+    # cost = max(|sx - tx|, |sy - tx|) is for Chebyshev, but here 
+    # the tiles are oriented.
+    
+    # Correct logic for this specific tiling:
+    # The cost is max(|sx - tx|, |sy - ty|) if we could move diagonally.
+    # But we move in 4 directions.
+    # The distance is actually:
+    # dist = max(abs(sx - tx), abs(sy - ty)) is for a different problem.
+    # For this specific tiling, the distance is:
+    # cost = abs(sy - ty) + max(0, (abs(sx - tx) - abs(sy - ty)) // 2)
+    # Wait, that's for a different tile layout.
+    
+    # Let's re-evaluate:
+    # To move from (sx, sy) to (tx, ty):
+    # Vertical distance is dy = abs(sy - ty).
+    # Horizontal distance is dx = abs(sx - tx).
+    # Each vertical step costs 1.
+    # Horizontal steps cost 1 every 2 units, but the parity of the row matters.
+    # The optimal strategy is to move diagonally as much as possible.
+    # One diagonal step (1 horizontal, 1 vertical) costs 1 toll.
+    # After covering dy, we have dx - dy horizontal distance left.
+    # These remaining horizontal steps cost 1 toll every 2 units.
+    
+    # The formula for this specific tiling is:
+    # cost = max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty)) // 2)
+    # Let's check Sample 1: 5 0 to 2 5. dx=3, dy=5. max(5, (3+5)//2) = 5. Correct.
+    # Sample 2: 3 1 to 4 1. dx=1, dy=0. max(0, (1+0)//2) = 0. Correct.
+    
+    # Why this formula?
+    # Each vertical move costs 1. A vertical move also allows us to 
+    # "shift" our horizontal tile alignment.
+    # Effectively, we can move 1 unit vertically and 1 unit horizontally 
+    # and only pay 1 toll (the vertical one), provided we are moving 
+    # into the 'other' half of the 2x1 tile.
+    
+    # The cost is simply:
+    # result = max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty)) // 2)
+    # But we must be careful with the parity of the starting tile.
+    # Actually, the simplest general form for this tiling is:
+    # cost = abs(sy - ty) + max(0, (abs(sx - tx) - abs(sy - ty) + 1) // 2)
+    # Wait, if dx=1, dy=0, cost should be 0. (1-0+1)//2 = 1. Incorrect.
+    
+    # Let's use the coordinate transformation:
+    # A tile is ( (i + j%2)//2, j )
+    # Distance between (x1, y1) and (x2, y2) in this grid:
+    # The cost to move from (sx, sy) to (tx, ty) is:
+    # dx = abs(sx - tx)
+    # dy = abs(sy - ty)
+    # The answer is max(dy, (dx + dy) // 2)
+    # Let's re-verify Sample 2: dx=1, dy=0 -> max(0, 1//2) = 0. Correct.
+    # Sample 1: dx=3, dy=5 -> max(5, 8//2) = 5. Correct.
+    
+    print(max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty)) // 2))
+
+if __name__ == "__main__":
+    solve()
+```
+
+Wait, I should double check the logic. If $dx=2, dy=0$, the cost should be 1. $\max(0, 2//2) = 1$. Correct. If $dx=3, dy=0$, cost should be 1. $\max(0, 3//2) = 1$. Correct. If $dx=4, dy=0$, cost should be 2. $\max(0, 4//2) = 2$. Correct.
+The logic holds.
+
+Final check on the formula:
+The distance is $\max(|S_y - T_y|, \lceil \frac{|S_x - T_x| + |S_y - T_y|}{2} \rceil)$? 
+No, for $dx=1, dy=0$, $\lceil 1/2 \rceil = 1$, but the answer is 0.
+The correct one is $\max(|S_y - T_y|, \lfloor \frac{|S_x - T_x| + |S_y - T_y|}{2} \rfloor)$.
+Sample 1: $\max(5, 8//2) = 5$.
+Sample 2: $\max(0, 1//2) = 0$.
+Sample 3: $dx=1774347406705768, dy=1803987432423651$.
+$\max(1803987432423651, (1774347406705768 + 1803987432423651)//2)$
+$= \max(1803987432423651, 1789167419564709) = 1803987432423651$.
+Wait, Sample 3 output is $1794977862420151$. My manual calculation is wrong.
+Let's re-read: "When $i+j$ is even, $A_{i,j}$ and $A_{i+1,j}$ are in the same tile."
+This means for a fixed $j$, tiles are $\{ (i,j), (i+1,j) \}$ where $i+j$ is even.
+If $j$ is even, $i$ must be even. Tiles: $\{0,1\}, \{2,3\} \dots$
+If $j$ is odd, $i$ must be odd. Tiles: $\{-1,0\}, \{1,2\} \dots$
+This is exactly what I modeled. Let's re-calculate Sample 3.
+$S_x=2552608206527595, S_y=5411232866732612$
+$T_x=771856005518028, T_y=7206210729152763$
+$dx = |2552608206527595 - 771856005518028| = 1780752201009567$
+$dy = |5411232866732612 - 7206210729152763| = 1794977862420151$
+$\max(1794977862420151, (1780752201009567 + 1794977862420151)//2)$
+$= \max(1794977862420151, 1787865031714859) = 1794977862420151$.
+Matches Sample 3!

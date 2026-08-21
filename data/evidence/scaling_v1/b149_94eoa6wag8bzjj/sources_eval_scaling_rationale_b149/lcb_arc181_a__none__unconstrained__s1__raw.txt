@@ -1,0 +1,62 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing the use of high-level abstractions and built-in iterators over manual index management. This approach leverages Python's highly optimized internal C-loops via `map`, `filter`, and `functools.reduce`, which can often be more concise and expressive for data transformation tasks. For this problem, I will use `map` for input processing and a combination of `min`/`max` with generator expressions to determine the range of elements already in their correct positions at the boundaries of the permutation.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use an iterator to consume tokens one by one
+    it = iter(input_data)
+    T_str = next(it, None)
+    if T_str is None:
+        return
+    T = int(T_str)
+    
+    # Process each test case
+    # We use map() to apply the logic to each case
+    # The logic for each case:
+    # 1. If already sorted, 0 operations.
+    # 2. If there exists k such that sorting [1, k-1] and [k+1, N] fixes it, 1 operation.
+    #    This is possible if there is some k where P[k] is the only element 
+    #    out of place, or more generally, if all elements {1...k-1} are in 
+    #    positions [1...k-1] (after sorting) and {k+1...N} are in [k+1...N].
+    #    Actually, the condition for 1 operation is: there exists k such that
+    #    the set of values {P_1, ..., P_{k-1}} is {1, ..., k-1} 
+    #    AND the set of values {P_{k+1}, ..., P_N} is {k+1, ..., N}.
+    #    This is equivalent to saying P_k = k and the prefix/suffix are permutations
+    #    of their respective indices.
+    #    Wait, the operation sorts the ranges. So if we pick k, 
+    #    P_i = i for all i != k is guaranteed after one op.
+    #    The only thing that matters is if P_k = k.
+    #    If P_k = k, then after sorting [1, k-1] and [k+1, N], all P_i = i.
+    #    So 1 operation is enough if there is at least one k such that P_k = k.
+    #    Otherwise, 2 operations are always enough (as proven by problem statement).
+    
+    def process_case():
+        N = int(next(it))
+        P = [int(next(it)) for _ in range(N)]
+        
+        # Check if already sorted
+        # We use all() with a generator expression
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        # Check if there is any k such that P[k] == k + 1
+        # If such k exists, one operation with that k sorts everything.
+        if any(P[i] == i + 1 for i in range(N)):
+            return 1
+        
+        # Otherwise, 2 operations are required.
+        return 2
+
+    # Use map to execute process_case T times and join results with newlines
+    results = map(lambda _: process_case(), range(T))
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

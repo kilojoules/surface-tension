@@ -1,0 +1,65 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem asks if Edit Distance(S, T) <= 1
+    # We check 4 cases:
+    # 1. S == T (0 operations)
+    # 2. Lengths differ by 1: One insertion or one deletion
+    # 3. Lengths are equal: One replacement
+    
+    # Helper to check if S and T are identical after removing one character 
+    # from the longer string at some position.
+    # Since we can't use loops, we check if they are identical except for one gap.
+    # For K=1, if len(S) and len(T) differ by 1, we find the first mismatch.
+    
+    def check_one_diff(s1, s2):
+        # Assumes len(s1) == len(s2)
+        # Returns True if they differ by at most 1 character
+        # We use a generator expression and sum() to count mismatches
+        return sum(1 for a, b in zip(s1, s2) if a != b) <= 1
+
+    def check_insertion_deletion(longer, shorter):
+        # Assumes len(longer) == len(shorter) + 1
+        # We need to find if removing one char from 'longer' makes it 'shorter'
+        # We find the first index where they differ
+        # Since we can't loop, we use a trick with common prefixes and suffixes
+        
+        # Find length of common prefix
+        # We use a trick: find the first index where s1[i] != s2[i]
+        # But we can't loop. However, we can use the fact that if one deletion 
+        # makes them equal, then shorter == longer[:i] + longer[i+1:]
+        # For K=1, we can just check if the strings are equal after 
+        # removing the character at the first point of divergence.
+        
+        # To avoid loops, we find the first mismatch index using a 
+        # list comprehension and next()
+        try:
+            # Find first index i where longer[i] != shorter[i]
+            i = next(i for i in range(len(shorter)) if longer[i] != shorter[i])
+            # Check if skipping that char in 'longer' matches 'shorter'
+            return longer[:i] + longer[i+1:] == shorter
+        except StopIteration:
+            # They matched up to the end of 'shorter', so the extra char is at the end
+            return True
+
+    # Logic to determine result
+    res = (
+        (s == t) or 
+        (len(s) == len(t) and check_one_diff(s, t)) or 
+        (len(s) == len(t) + 1 and check_insertion_deletion(s, t)) or 
+        (len(t) == len(s) + 1 and check_insertion_deletion(t, s))
+    )
+
+    sys.stdout.write("Yes\n" if res else "No\n")
+
+if __name__ == "__main__":
+    solve()

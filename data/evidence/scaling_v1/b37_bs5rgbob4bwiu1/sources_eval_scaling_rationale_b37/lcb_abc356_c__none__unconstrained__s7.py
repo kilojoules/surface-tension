@@ -1,0 +1,58 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+
+    # Parse the tests
+    # Each test is a tuple: (set_of_keys, result)
+    # We use a helper function to process the flat list into a list of tests
+    def parse_tests(data, index, count):
+        if count == 0:
+            return []
+        
+        # C_i is the number of keys
+        C_i = int(data[index])
+        # The next C_i elements are the keys
+        keys = set(map(int, data[index + 1 : index + 1 + C_i]))
+        # The element after the keys is the result R_i
+        result = data[index + 1 + C_i]
+        
+        # Recursively parse the remaining tests
+        return [(keys, result)] + parse_tests(data, index + 2 + C_i, count - 1)
+
+    tests = parse_tests(input_data, 3, M)
+
+    # Generate all 2^N combinations of real (1) and dummy (0) keys
+    # product([0, 1], repeat=N) gives all binary strings of length N
+    # We map these to a state where index i corresponds to key i+1
+    
+    # A combination is valid if for every test:
+    # If R_i == 'o', count of real keys in the set >= K
+    # If R_i == 'x', count of real keys in the set < K
+    
+    # We use a generator expression inside sum() to count valid combinations
+    # combination is a tuple of 0s and 1s
+    # To count real keys in a test: sum(combination[k-1] for k in test_keys)
+    
+    ans = sum(
+        1 for combination in product([0, 1], repeat=N)
+        if all(
+            (sum(combination[k-1] for k in test_keys) >= K) if res == 'o' 
+            else (sum(combination[k-1] for k in test_keys) < K)
+            for test_keys, res in tests
+        )
+    )
+
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

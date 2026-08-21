@@ -1,0 +1,251 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into a list of (hand, target)
+    # H_i is at index 2 + 2*i, T_i is at index 3 + 2*i
+    instructions = [
+        (input_data[2 + 2*i], int(input_data[3 + 2*i]))
+        for i in range(Q)
+    ]
+
+    # Helper to calculate distance between two parts on a ring of size N
+    # Since we can move in both directions, the distance is the 
+    # shortest path around the circle.
+    # However, the problem states we cannot pass through the other hand.
+    # This means we must move in the direction that doesn't encounter the other hand.
+    # There are only two directions: clockwise and counter-clockwise.
+    # One of them will be blocked by the other hand unless the other hand is not in the way.
+    # Actually, the constraint "cannot move to the destination part if the other hand is there"
+    # implies that if we want to move from A to B, and the other hand is at C,
+    # we can only take the path that does not contain C.
+    
+    def get_dist(start, end, obstacle):
+        # The two possible paths on a ring:
+        # 1. Clockwise: (start + i) % N
+        # 2. Counter-clockwise: (start - i) % N
+        # We need the distance of the path that does not contain the obstacle.
+        
+        # Normalize to 0-indexed
+        s, e, o = start - 1, end - 1, obstacle - 1
+        
+        # Path 1: s -> s+1 -> ... -> e (modulo N)
+        # This path contains o if o is between s and e in clockwise direction.
+        # Clockwise distance from s to e:
+        dist_cw = (e - s) % N
+        # Clockwise distance from s to o:
+        dist_so = (o - s) % N
+        
+        # If dist_so < dist_cw, the obstacle is on the clockwise path.
+        # Otherwise, it's on the counter-clockwise path.
+        # Note: the problem guarantees the instruction is achievable.
+        
+        if dist_so < dist_cw:
+            # Clockwise is blocked, must go counter-clockwise
+            return N - dist_cw
+        else:
+            # Counter-clockwise is blocked or obstacle is at the end (but T_i != obstacle is guaranteed)
+            # We can go clockwise.
+            return dist_cw
+
+    # We use accumulate to track the state (left_hand, right_hand, total_dist)
+    # Initial state: Left=1, Right=2, Dist=0
+    initial_state = (1, 2, 0)
+    
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        if hand == 'L':
+            # Move left hand from l to target, right hand r is the obstacle
+            cost = get_dist(l, target, r)
+            return (target, r, d + cost)
+        else:
+            # Move right hand from r to target, left hand l is the obstacle
+            cost = get_dist(r, target, l)
+            return (l, target, d + cost)
+
+    # Process all instructions
+    final_state = list(accumulate(instructions, transition, initial=initial_state))[-1]
+    
+    # The result is the total distance (the third element of the state tuple)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Note:** I used `initial` in `accumulate` which is available in Python 3.8+. If using an older version, one would prepend the initial state to the instructions list and use a lambda. The logic follows the ring distance constraint where the "other hand" acts as a wall, forcing the moving hand to take the only available arc.
+**Wait**, I noticed a small error in my `accumulate` call: `initial` is not a keyword argument for `accumulate`. I should prepend the initial state to the iterable.
+
+Corrected logic for the transition:
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N, Q = int(input_data[0]), int(input_data[1])
+    instructions = [(input_data[2 + 2*i], int(input_data[3 + 2*i])) for i in range(Q)]
+
+    def get_dist(start, end, obstacle):
+        s, e, o = start - 1, end - 1, obstacle - 1
+        dist_cw = (e - s) % N
+        dist_so = (o - s) % N
+        return (N - dist_cw) if dist_so < dist_cw else dist_cw
+
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        if hand == 'L':
+            return (target, r, d + get_dist(l, target, r))
+        return (l, target, d + get_dist(r, target, l))
+
+    # Prepend initial state to instructions to simulate 'initial'
+    # Since transition expects (state, instr), we wrap the initial state
+    # and handle the first step manually or adjust the list.
+    
+    # Correct approach: use a list comprehension or loop since Q is small (100)
+    # But the prompt asks for a functional style if possible.
+    # Let's use a simple loop for reliability.
+    
+    state = (1, 2, 0)
+    for instr in instructions:
+        state = transition(state, instr)
+    print(state[2])
+
+solve()
+```
+Since I cannot provide two blocks, I will merge the logic into one clean Python script.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N: number of parts, Q: number of instructions
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into (hand, target) tuples
+    instructions = [
+        (input_data[2 + 2*i], int(input_data[3 + 2*i]))
+        for i in range(Q)
+    ]
+
+    # Function to calculate distance on a ring avoiding an obstacle
+    # s: start, e: end, o: obstacle (all 1-indexed)
+    def get_dist(s, e, o):
+        # Convert to 0-indexed for modulo arithmetic
+        s_0, e_0, o_0 = s - 1, e - 1, o - 1
+        # Clockwise distance from start to end
+        dist_cw = (e_0 - s_0) % N
+        # Clockwise distance from start to obstacle
+        dist_so = (o_0 - s_0) % N
+        # If the obstacle is encountered before the target in clockwise direction,
+        # we must move counter-clockwise.
+        return (N - dist_cw) if dist_so < dist_cw else dist_cw
+
+    # State: (left_hand_pos, right_hand_pos, total_distance)
+    # Initial state: Left hand at 1, Right hand at 2, Distance 0
+    initial_state = (1, 2, 0)
+
+    # Process instructions sequentially to update the state
+    # We use a list comprehension to iterate and a helper to update the state
+    # However, since we need the previous state, a standard loop is cleanest.
+    # To keep it "functional", we can use a reduction-like approach.
+    from functools import reduce
+    
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        if hand == 'L':
+            return (target, r, d + get_dist(l, target, r))
+        else:
+            return (l, target, d + get_dist(r, target, l))
+
+    final_state = reduce(transition, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block". I will provide the final polished version.
+**Final check on logic:** If $S=1, E=5, O=3$ and $N=6$. 
+$S_0=0, E_0=4, O_0=2$. 
+$dist\_cw = (4-0)\%6 = 4$. 
+$dist\_so = (2-0)\%6 = 2$. 
+Since $2 < 4$, the obstacle is on the clockwise path. 
+Distance is $6 - 4 = 2$ (counter-clockwise: $1 \to 6 \to 5$). Correct.
+If $S=1, E=3, O=5$ and $N=6$.
+$S_0=0, E_0=2, O_0=4$.
+$dist\_cw = (2-0)\%6 = 2$.
+$dist\_so = (4-0)\%6 = 4$.
+Since $4 \not< 2$, we take the clockwise path. Distance is 2. Correct.
+If $S=1, E=1, O=2$.
+$dist\_cw = 0, dist\_so = 1$. $1 \not< 0$. Distance 0. Correct.
+If $S=1, E=2, O=1$. (Not possible per constraints $T_i \neq l_i$ or $r_i$).
+
+One edge case: $S=1, E=6, O=2, N=6$.
+$S_0=0, E_0=5, O_0=1$.
+$dist\_cw = 5, dist\_so = 1$.
+$1 < 5 \implies$ distance is $6-5 = 1$. (Path: $1 \to 6$). Correct.
+
+Final code structure:
+```python
+import sys
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    instructions = [(input_data[2 + 2*i], int(input_data[3 + 2*i])) for i in range(Q)]
+
+    def get_dist(s, e, o):
+        s0, e0, o0 = s - 1, e - 1, o - 1
+        dcw = (e0 - s0) % N
+        dso = (o0 - s0) % N
+        return (N - dcw) if dso < dcw else dcw
+
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        return (target, r, d + get_dist(l, target, r)) if hand == 'L' else (l, target, d + get_dist(r, target, l))
+
+    print(reduce(transition, instructions, (1, 2, 0))[2])
+
+if __name__ == "__main__":
+    solve()
+```
+This looks solid. The constraints $N, Q \le 100$ make this $O(Q)$ approach perfectly efficient.
+
+One final check on the "cannot move to the destination part if the other hand is there" rule.
+The rule says: "Move one of your hands to an adjacent part... only if the other hand is not on the destination part."
+This means if the other hand is at position $X$, you can never step onto $X$.
+Therefore, the only available path is the one that does not contain $X$.
+Since it's a ring, there are only two paths. If one is blocked by $X$, you must take the other.
+The distance is then the length of the non-blocked arc.
+My `get_dist` logic:
+`dcw` is the distance going clockwise.
+`dso` is the distance to the obstacle going clockwise.
+If `dso < dcw`, the obstacle is encountered before the target. Thus, the clockwise path is blocked.
+The only remaining path is counter-clockwise, which has length `N - dcw`.
+Otherwise, the clockwise path is clear (the obstacle is either behind the target or at the target, but the problem guarantees $T_i \neq$ obstacle).
+Wait, if the obstacle is at the target, the move is impossible. But the problem guarantees $T_i \neq r_i$ (for $H_i=L$) and $T_i \neq l_i$ (for $

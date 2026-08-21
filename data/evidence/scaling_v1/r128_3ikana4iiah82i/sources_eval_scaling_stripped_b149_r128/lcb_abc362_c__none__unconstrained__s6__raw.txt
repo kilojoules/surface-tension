@@ -1,0 +1,267 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once and split into a list of integers
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N is the first element, followed by L_i, R_i pairs
+    N = int(input_data[0])
+    pairs = [ (int(input_data[2*i + 1]), int(input_data[2*i + 2])) for i in range(N) ]
+    
+    # Calculate the minimum and maximum possible sums of X_i
+    # min_sum = sum(L_i), max_sum = sum(R_i)
+    # We use a generator expression inside sum()
+    min_sum = sum(L for L, R in pairs)
+    max_sum = sum(R for L, R in pairs)
+    
+    # A solution exists if and only if 0 is within the range [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        # We need to find X_i such that L_i <= X_i <= R_i and sum(X_i) = 0.
+        # Let X_i = L_i + d_i, where 0 <= d_i <= (R_i - L_i).
+        # Then sum(L_i + d_i) = 0  =>  sum(d_i) = -sum(L_i).
+        # Let Target = -min_sum. We need to distribute Target across d_i.
+        target = -min_sum
+        
+        # For each i, the maximum we can add to L_i is (R_i - L_i).
+        # We take the minimum of the remaining target and the available headroom.
+        # We use a helper function to maintain the state of the remaining target.
+        def distribute(state, pair):
+            rem, results = state
+            L, R = pair
+            headroom = R - L
+            add = min(rem, headroom)
+            return (rem - add, results + [L + add])
+        
+        # Use accumulate to iterate through the pairs while updating the remaining target.
+        # The initial state is (target, [])
+        final_state = list(accumulate(pairs, distribute, initial=(target, [])))[-1]
+        X = final_state[1]
+        
+        print("Yes")
+        print(*(X))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Note on the implementation:** I used `itertools.accumulate` to avoid explicit `for` loops, as the prompt requested a functional-style approach to state management. The `distribute` function handles the logic of filling the "headroom" of each $X_i$ until the total sum reaches zero. Since $N$ is up to $2 \times 10^5$, the $O(N)$ complexity is maintained.
+**Correction on `accumulate`:** In Python 3.8+, `initial` is supported. The `final_state` extracts the result list from the tuple. Since I cannot use loops, I used a list comprehension/generator inside `sum` and `accumulate` to process the data.
+
+Wait, the `results + [L + add]` inside `distribute` creates a new list every time, leading to $O(N^2)$ time complexity. To keep it $O(N)$, I should map the logic differently.
+
+**Revised Logic for $O(N)$:**
+We can pre-calculate the prefix sums of the "headroom" $(R_i - L_i)$. For any $i$, we can determine if the target is fully met by the sum of headrooms up to $i$.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N = int(input_data[0])
+    L = [int(input_data[i]) for i in range(1, 2*N+1, 2)]
+    R = [int(input_data[i]) for i in range(2, 2*N+1, 2)]
+    
+    min_sum = sum(L)
+    max_sum = sum(R)
+    
+    if min_sum <= 0 <= max_sum:
+        target = -min_sum
+        # Calculate how much of the target is covered by each interval's headroom
+        # We use a list comprehension to simulate a loop.
+        # To avoid O(N^2), we can't append to a list. 
+        # Instead, we calculate the contribution of each i based on the 
+        # sum of headrooms of all j < i.
+        
+        # headrooms = [R[i] - L[i] for i in range(N)]
+        # We need the prefix sum of headrooms to know how much target is left.
+        # Since we can't use loops, we use a trick with a mutable object or 
+        # a more clever mathematical approach.
+        
+        # Actually, the simplest way to do this without loops is to 
+        # use a generator that consumes the target.
+        def gen_X(target, pairs):
+            for l, r in pairs:
+                add = min(target, r - l)
+                yield l + add
+                target -= add
+        
+        # But the prompt forbids 'for' loops. Let's use map/zip.
+        # We can use a closure with a list to track the remaining target.
+        state = [target]
+        def get_val(pair):
+            l, r = pair
+            add = min(state[0], r - l)
+            state[0] -= add
+            return l + add
+        
+        X = list(map(get_val, zip(L, R)))
+        print("Yes")
+        print(*X)
+    else:
+        print("No")
+
+solve()
+```
+*Self-correction:* The prompt says "Return only Python source". I will provide the version using `map` and a state list, as it is the most idiomatic way to handle state in Python without explicit `for/while` loops.
+**Wait**, the prompt says "Write a complete Python program". I will use the `map` approach.
+
+Final check on constraints: $N=2 \times 10^5$, $O(N)$ is required. `map` and `list` are $O(N)$.
+
+```python
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Extract Ls and Rs using slicing
+    Ls = list(map(int, input_data[1::2]))
+    Rs = list(map(int, input_data[2::2]))
+    
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    if min_sum <= 0 <= max_sum:
+        # We need to distribute 'target' across the headrooms (R_i - L_i)
+        target = -min_sum
+        
+        # To maintain state without a loop, we use a mutable container (list)
+        # and a function called via map.
+        state = [target]
+        def allocate(pair):
+            l, r = pair
+            amount = min(state[0], r - l)
+            state[0] -= amount
+            return l + amount
+        
+        # Process all pairs to generate the sequence X
+        X = list(map(allocate, zip(Ls, Rs)))
+        
+        sys.stdout.write("Yes\n" + " ".join(map(str, X)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+One last check: `input_data[1::2]` gets indices 1, 3, 5... (the Ls). `input_data[2::2]` gets indices 2, 4, 6... (the Rs). This is correct.
+
+Final Code:
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N is the first element
+    N = int(input_data[0])
+    # L_i are at indices 1, 3, 5... and R_i are at indices 2, 4, 6...
+    Ls = list(map(int, input_data[1::2]))
+    Rs = list(map(int, input_data[2::2]))
+    
+    # The total sum is 0 if the range [sum(L), sum(R)] contains 0
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    if min_sum <= 0 <= max_sum:
+        # We must increase the sum from min_sum to 0.
+        # The total increase needed is -min_sum.
+        state = [-min_sum]
+        
+        def allocate(pair):
+            l, r = pair
+            # We can increase X_i from L_i up to R_i.
+            # The increase is the minimum of the remaining target and the available headroom.
+            increase = min(state[0], r - l)
+            state[0] -= increase
+            return l + increase
+        
+        # Use map to apply the allocate function to all (L_i, R_i) pairs.
+        # This avoids explicit for/while loops.
+        X = list(map(allocate, zip(Ls, Rs)))
+        
+        sys.stdout.write("Yes\n" + " ".join(map(str, X)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block". I will provide the code.
+
+Final check on the logic:
+If $\sum L_i = -10$ and $\sum R_i = 10$, then $0$ is in range.
+Target increase = $10$.
+If $L_1=1, R_1=5$, headroom is $4$. $X_1 = 1 + \min(10, 4) = 5$. Remaining target = $6$.
+If $L_2=-5, R_2=-2$, headroom is $3$. $X_2 = -5 + \min(6, 3) = -2$. Remaining target = $3$.
+If $L_3=-6, R_3=0$, headroom is $6$. $X_3 = -6 + \min(3, 6) = -3$. Remaining target = $0$.
+Sum: $5 + (-2) + (-3) = 0$. Correct.
+
+The use of `state = [-min_sum]` and updating `state[0]` inside `map` is a common Python trick to maintain state across `map` calls without using a loop.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N is the first element
+    N = int(input_data[0])
+    # L_i are at indices 1, 3, 5... and R_i are at indices 2, 4, 6...
+    Ls = list(map(int, input_data[1::2]))
+    Rs = list(map(int, input_data[2::2]))
+    
+    # The total sum is 0 if the range [sum(L), sum(R)] contains 0
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    if min_sum <= 0 <= max_sum:
+        # We must increase the sum from min_sum to 0.
+        # The total increase needed is -min_sum.
+        state = [-min_sum]
+        
+        def allocate(pair):
+            l, r = pair
+            # We can increase X_i from L_i up to R_i.
+            # The increase is the minimum of the remaining target and the available headroom.
+            increase = min(state[0], r - l)
+            state[0] -= increase
+            return l + increase
+        
+        # Use map to apply the allocate function to all (L_i, R_i) pairs.
+        X = list(map(allocate, zip(Ls, Rs)))
+        
+        sys.stdout.write("Yes\n" + " ".join(map(str, X)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+One last detail: the prompt says "Return only Python source". I will remove the explanation.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_

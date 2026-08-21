@@ -1,0 +1,47 @@
+import sys
+
+def solve():
+    # Read K, S, and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # Since K=1, we only need to check if the edit distance is <= 1.
+    # We find the first index where S and T differ.
+    
+    # Find the length of the common prefix
+    # We use a generator expression with next() to find the first index of difference
+    # range(min(len(s), len(t))) provides the indices to check
+    diff_idx = next((i for i in range(min(len(s), len(t))) if s[i] != t[i]), min(len(s), len(t)))
+
+    # Slices from the first difference to the end
+    s_suffix = s[diff_idx:]
+    t_suffix = t[diff_idx:]
+
+    # Case 1: S and T are identical up to the end of the shorter string.
+    # They are identical if the difference in length is <= K.
+    if not s_suffix or not t_suffix:
+        print("Yes" if abs(len(s) - len(t)) <= k else "No")
+        return
+
+    # Case 2: There is a difference. We check the three possible single-edit operations:
+    # 1. Replace: S[i] becomes T[i], so S[diff_idx+1:] must equal T[diff_idx+1:]
+    # 2. Delete from S: S[diff_idx] is removed, so S[diff_idx+1:] must equal T[diff_idx:]
+    # 3. Insert into S: T[diff_idx] is added to S, so S[diff_idx:] must equal T[diff_idx+1:]
+    
+    # We use a list of booleans and the any() function to check if any condition is met.
+    # This avoids explicit if/elif/else blocks for the logic check.
+    possibilities = [
+        s_suffix[1:] == t_suffix[1:], # Replace
+        s_suffix[1:] == t_suffix,     # Delete from S
+        s_suffix == t_suffix[1:]      # Insert into S
+    ]
+
+    print("Yes" if any(possibilities) else "No")
+
+if __name__ == "__main__":
+    solve()

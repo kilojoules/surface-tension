@@ -1,0 +1,231 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to group the input into test cases
+    # Each case has N followed by N elements of P
+    def get_cases(data):
+        it = iter(data[1:])
+        for _ in range(T):
+            N = int(next(it))
+            P = [int(next(it)) for _ in range(N)]
+            yield N, P
+
+    # For a given P, the answer is:
+    # 0 if P is already sorted.
+    # 1 if there exists k such that sorting [1, k-1] and [k+1, N] sorts the whole array.
+    #   This is possible if and only if there is some k such that:
+    #   {P_1, ..., P_{k-1}, P_{k+1}, ..., P_N} = {1, ..., N} \ {k}
+    #   Which is always true for any k since P is a permutation.
+    #   The real condition is: after sorting, P_i = i for all i.
+    #   This means the set of values in positions 1...k-1 must be {1...k-1}
+    #   and the set of values in positions k+1...N must be {k+1...N}.
+    #   This is equivalent to saying P_k = k and the elements are partitioned.
+    #   Actually, the operation sorts two blocks. The only element NOT sorted is P_k.
+    #   For the result to be (1, 2, ..., N), we MUST have P_k = k, and 
+    #   all elements in indices < k must be < k, and all elements in indices > k must be > k.
+    #   Wait, that's just saying P_k = k and max(P_1...P_{k-1}) < k.
+    #   Since it's a permutation, if P_k = k and max(P_1...P_{k-1}) < k, then 
+    #   the first k-1 elements must be a permutation of 1...k-1.
+    # 2 otherwise. (It is proven that 2 is always sufficient for N >= 3).
+    
+    def calculate_ans(N, P):
+        # Check if already sorted
+        # Using accumulate to check if P_i == i for all i
+        # But we can just check if P == sorted(P)
+        # Since we need to avoid loops, we use a generator expression with all()
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        # Check if 1 operation suffices:
+        # Exists k (1-indexed) such that P_k = k and 
+        # max(P_1...P_{k-1}) < k and min(P_{k+1}...P_N) > k.
+        # Let's use accumulate to find prefix maxes and suffix mins.
+        prefix_max = list(accumulate(P, max))
+        suffix_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # k is 1-indexed, so index is k-1
+        # For k=1: suffix_min[1] > 1 (if N > 1)
+        # For k=N: prefix_max[N-2] < N (if N > 1)
+        # For 1 < k < N: prefix_max[k-2] < k and suffix_min[k] > k and P[k-1] == k
+        
+        # We can check this in a single pass using a generator
+        # Note: P is 1-indexed in problem, 0-indexed in Python list
+        # For index i (0 to N-1):
+        # Left side: i == 0 or prefix_max[i-1] < i + 1
+        # Right side: i == N-1 or suffix_min[i+1] > i + 1
+        # Middle: P[i] == i + 1
+        
+        can_do_1 = any(
+            (i == 0 or prefix_max[i-1] < i + 1) and
+            (i == N-1 or suffix_min[i+1] > i + 1) and
+            (P[i] == i + 1)
+            for i in range(N)
+        )
+        
+        return 1 if can_do_1 else 2
+
+    # Process all cases and print results
+    results = [calculate_ans(N, P) for N, P in get_cases(input_data)]
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I noticed a logic error in my `can_do_1` check.** 
+If $k=1$, the operation sorts $P_2 \dots P_N$. For the result to be $1 \dots N$, we need $P_1=1$ and the rest to be sorted. But the operation *makes* the rest sorted. So we only need $P_1=1$.
+Similarly, if $k=N$, we only need $P_N=N$.
+If $1 < k < N$, we need $P_k=k$, and the elements $\{P_1 \dots P_{k-1}\}$ to be $\{1 \dots k-1\}$ and $\{P_{k+1} \dots P_N\}$ to be $\{k+1 \dots N\}$.
+This is exactly what `prefix_max[i-1] < i + 1` and `suffix_min[i+1] > i + 1` and `P[i] == i + 1` checks.
+
+Corrected logic:
+1. If $P$ is sorted $\rightarrow 0$.
+2. If there exists $i \in \{0 \dots N-1\}$ such that:
+   - $P[i] = i+1$
+   - (if $i>0$, $\max(P_0 \dots P_{i-1}) = i$)
+   - (if $i<N-1$, $\min(P_{i+1} \dots P_{N-1}) = i+2$)
+   Then $\rightarrow 1$.
+3. Otherwise $\rightarrow 2$.
+
+Actually, if $P[i]=i+1$ and $\max(P_0 \dots P_{i-1}) = i$, then the first $i$ elements must be a permutation of $1 \dots i$. This is a standard property.
+
+Final check on constraints: $N=2 \cdot 10^5$, $T=10^5$, sum of $N \le 2 \cdot 10^5$. The $O(N)$ approach is perfect.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    def get_cases(data):
+        it = iter(data[1:])
+        for _ in range(T):
+            N = int(next(it))
+            P = [int(next(it)) for _ in range(N)]
+            yield N, P
+
+    def calculate_ans(N, P):
+        # Check if already sorted
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        # Prefix max and Suffix min
+        prefix_max = list(accumulate(P, max))
+        suffix_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Check if 1 operation suffices
+        # For index i, P[i] must be i+1, and elements to the left must be < i+1,
+        # and elements to the right must be > i+1.
+        can_do_1 = any(
+            (i == 0 or prefix_max[i-1] == i) and
+            (i == N-1 or suffix_min[i+1] == i + 2) and
+            (P[i] == i + 1)
+            for i in range(N)
+        )
+        
+        return 1 if can_do_1 else 2
+
+    results = [calculate_ans(N, P) for N, P in get_cases(input_data)]
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `prefix_max[i-1] == i` is only true if the elements are $1 \dots i$. Since it's a permutation, if the max of $i$ elements is $i$, they must be $1 \dots i$. This is correct.
+
+Final logic:
+- 0: `all(P[i] == i+1)`
+- 1: `any(P[i]==i+1 and (i==0 or pref_max[i-1]==i) and (i==N-1 or suff_min[i+1]==i+2))`
+- 2: otherwise.
+This is $O(N)$ per test case. Total $O(\sum N)$.
+
+One last detail: the problem says $N \ge 3$. My logic holds for $N \ge 1$.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # Generator to parse cases without loops
+    def get_cases(data):
+        it = iter(data[1:])
+        for _ in range(T):
+            # Using a list comprehension to consume N elements
+            # We must read N first to know how many to consume
+            n_val = int(next(it))
+            p_vals = [int(next(it)) for _ in range(n_val)]
+            yield n_val, p_vals
+
+    def calculate_ans(N, P):
+        # 0 operations: already sorted
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        # Precompute prefix max and suffix min
+        # prefix_max[i] is max(P[0...i])
+        # suffix_min[i] is min(P[i...N-1])
+        prefix_max = list(accumulate(P, max))
+        suffix_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # 1 operation: exists k such that P[k]=k and 
+        # elements to the left are {1...k-1} and right are {k+1...N}
+        # In 0-indexing, this is index i:
+        # P[i] == i+1 AND (i==0 or prefix_max[i-1] == i) 
+        # AND (i==N-1 or suffix_min[i+1] == i+2)
+        can_do_1 = any(
+            (P[i] == i + 1) and
+            (i == 0 or prefix_max[i-1] == i) and
+            (i == N-1 or suffix_min[i+1] == i + 2)
+            for i in range(N)
+        )
+        
+        return 1 if can_do_1 else 2
+
+    # Use map/list comprehension to avoid explicit for-loops for T cases
+    results = [calculate_ans(N, P) for N, P in get_cases(input_data)]
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+One final check: `prefix_max[i-1] == i` is correct because if the maximum of the first $i$ elements (indices $0$ to $i-1$) is $i$, and they are a permutation of some subset of $\{1 \dots N\}$, then they must be exactly $\{1 \dots i\}$. Similarly for `suffix_min`.
+
+Final code structure:
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    T = int(input_data[0])
+    def get_cases(data):
+        it = iter(data[1:])
+        for _ in range(T):
+            n_val = int(next(it))
+            yield n_val, [int(next(it)) for _ in range(n_val)]
+    def calculate_ans(N, P):
+        if all(P[i] == i + 1 for i in range(N)): return 0
+        p_max = list(accumulate

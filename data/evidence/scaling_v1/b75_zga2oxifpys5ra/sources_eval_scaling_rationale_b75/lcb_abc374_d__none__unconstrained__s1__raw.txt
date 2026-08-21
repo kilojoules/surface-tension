@@ -1,0 +1,95 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm, emphasizing the transformation of data streams. In this specific problem, since $N$ is very small (up to 6), the most idiomatic "functional" approach is to generate all possible permutations of the line segments and all possible orientations (start/end point) for each segment, then calculate the total time for each combination and find the minimum. I will use `itertools.permutations` and `itertools.product` to handle the combinatorial space and `functools.reduce` to accumulate the travel time across the sequence of segments.
+
+```python
+import sys
+import math
+from itertools import permutations, product
+from functools import reduce
+
+def solve():
+    # Read input and parse values
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples: ((x1, y1), (x2, y2))
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute the time taken to print each segment (length / T)
+    print_times = [dist(seg[0], seg[1]) / T for seg in segments]
+    total_print_time = sum(print_times)
+
+    # We need to try all permutations of segments and all 2^N orientations
+    # A state in our reduction will be (current_position, accumulated_travel_time)
+    def calculate_travel_time(state, segment_endpoints):
+        curr_pos, acc_time = state
+        start_pt, end_pt = segment_endpoints
+        # Time to move from current position to the start of the segment + 
+        # time to move from start to end (though the problem says we move to 
+        # one endpoint then print to the other, the 'printing' time is constant
+        # and handled by total_print_time. We only need the 'non-emitting' travel time).
+        # Wait, the prompt says: 1. Move to endpoint (S), 2. Print to other (T).
+        # So travel time is dist(curr_pos, start_pt) / S.
+        return (end_pt, acc_time + dist(curr_pos, start_pt) / S)
+
+    # Generate all permutations of segment indices
+    all_perms = permutations(range(N))
+    
+    # Generate all possible orientation flips (0: A->C, 1: C->A)
+    all_flips = product([0, 1], repeat=N)
+    
+    # To avoid nested loops, we use a generator expression inside min()
+    # We iterate over every permutation of segments and every combination of directions
+    # For a fixed permutation and flip-set, we use reduce to calculate total travel time.
+    
+    # Since we need to iterate over both perms and flips, and N is small, 
+    # we can flatten the combination of (permutation, flip_sequence).
+    
+    def get_total_time(perm, flips):
+        # Reorder segments based on permutation
+        ordered_segs = [segments[i] for i in perm]
+        # Determine start and end points based on flips
+        # If flip is 0: (seg[0], seg[1]), if flip is 1: (seg[1], seg[0])
+        endpoints = [
+            (ordered_segs[i][flips[perm[i]]] if flips[perm[i]] == 0 else ordered_segs[i][1],
+             ordered_segs[i][1-flips[perm[i]]] if flips[perm[i]] == 0 else ordered_segs[i][0])
+            for i in range(N)
+        ]
+        # The above logic for flips is slightly flawed because flips is indexed by 0..N-1
+        # Let's redefine: flips[i] corresponds to the i-th segment in the original list.
+        # For the j-th segment in the permutation (which is index p = perm[j]):
+        # if flips[p] == 0: start=seg[p][0], end=seg[p][1]
+        # if flips[p] == 1: start=seg[p][1], end=seg[p][0]
+        
+        oriented = [
+            (segments[p][flips[p]], segments[p][1 - flips[p]])
+            for p in perm
+        ]
+        
+        final_state = reduce(calculate_travel_time, oriented, ((0, 0), 0.0))
+        return final_state[1]
+
+    # We use a generator expression to find the minimum travel time across all possibilities
+    # We use product(permutations(range(N)), product([0, 1], repeat=N)) to avoid loops
+    min_travel_time = min(
+        get_total_time(p, f) 
+        for p in permutations(range(N)) 
+        for f in product([0, 1], repeat=N)
+    )
+
+    print(f"{min_travel_time + total_print_time:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```

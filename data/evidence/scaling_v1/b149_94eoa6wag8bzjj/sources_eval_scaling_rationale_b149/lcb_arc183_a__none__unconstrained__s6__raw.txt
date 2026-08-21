@@ -1,0 +1,178 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing the use of high-order functions and recursion over stateful iteration. To solve this problem, I will use `functools.reduce` to simulate the iterative process of determining each element of the sequence, and `math.comb` to calculate the number of permutations of a multiset to determine the lexicographical rank.
+
+```python
+import sys
+from math import comb
+from functools import reduce
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences is S = (NK)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Let's calculate the total S first.
+    # Since S can be very large, we use Python's arbitrary precision integers.
+    
+    def get_total_permutations(counts):
+        # Formula for permutations of a multiset: n! / (k1! * k2! ... kn!)
+        # We can compute this using combinations:
+        # comb(n, k1) * comb(n-k1, k2) * ...
+        total_len = sum(counts)
+        return reduce(lambda acc, c: acc * comb(total_len - (sum(counts[:counts.index(c)]) if counts.index(c) > 0 else 0), c), 
+                      counts, 1)
+    
+    # The above reduce is slightly wrong because of duplicate counts. 
+    # Let's use a more robust way to calculate multiset permutations.
+    def count_permutations(counts):
+        total = sum(counts)
+        res = 1
+        # We simulate the product of comb(remaining, count)
+        # Using a helper to track the remaining length
+        def helper(idx, rem):
+            if idx == len(counts):
+                return 1
+            return comb(rem, counts[idx]) * helper(idx + 1, rem - counts[idx])
+        return helper(0, total)
+
+    # Target rank: floor((S + 1) / 2)
+    # Note: S is the total number of permutations.
+    # For N=2, K=2, S=6. Rank = floor(7/2) = 3.
+    
+    # To avoid recursion depth issues and loops, we use reduce to build the sequence.
+    # State: (current_counts, target_rank)
+    # current_counts: list of remaining counts for each number 1...N
+    
+    initial_counts = [k] * n
+    total_s = count_permutations(initial_counts)
+    target_rank = (total_s + 1) // 2
+
+    def find_next_char(state):
+        counts, rank = state
+        
+        # We need to find the smallest digit d (1 to N) such that 
+        # the sum of permutations starting with digits < d is less than rank,
+        # and the sum including d is >= rank.
+        
+        def search(d, current_rank):
+            if d > n:
+                return None
+            
+            # If we pick digit d, how many permutations are there?
+            # Only if counts[d-1] > 0
+            if counts[d-1] > 0:
+                # Temporarily decrement count of d
+                temp_counts = list(counts)
+                temp_counts[d-1] -= 1
+                num_perms = count_permutations(temp_counts)
+                
+                if current_rank <= num_perms:
+                    return (d, current_rank)
+                else:
+                    return search(d + 1, current_rank - num_perms)
+            else:
+                return search(d + 1, current_rank)
+
+        result = search(1, rank)
+        digit, new_rank = result
+        
+        # Update counts for the next step
+        new_counts = list(counts)
+        new_counts[digit-1] -= 1
+        return (new_counts, new_rank), digit
+
+    # Use reduce to generate the sequence of length N*K
+    # The accumulator is (state, sequence)
+    final_state, sequence = reduce(
+        lambda acc, _: (
+            (find_next_char(acc[0]), 
+             acc[1] + [find_next_char(acc[0])[1]])
+        ),
+        range(n * k),
+        ((initial_counts, target_rank), [])
+    )
+    
+    # The reduce logic above calls find_next_char twice per step. 
+    # Let's refine it to be efficient and correct.
+    
+    # Corrected reduce:
+    def step(acc, _):
+        state, seq = acc
+        (next_state, digit) = find_next_char(state)
+        return (next_state, seq + [digit])
+
+    # Re-running the logic inside a clean wrapper
+    def run():
+        res = reduce(step, range(n * k), ((initial_counts, target_rank), []))
+        print(*(res[1]))
+
+    run()
+
+if __name__ == "__main__":
+    # Increase recursion depth for the helper function
+    sys.setrecursionlimit(2000)
+    solve()
+```
+
+Wait, the `reduce` logic I wrote calls `find_next_char` twice. Let me provide the final polished version.
+
+```python
+import sys
+from math import comb
+from functools import reduce
+
+# Increase recursion depth for the helper function
+sys.setrecursionlimit(10000)
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    def count_permutations(counts):
+        def helper(idx, rem):
+            if idx == len(counts):
+                return 1
+            return comb(rem, counts[idx]) * helper(idx + 1, rem - counts[idx])
+        return helper(0, sum(counts))
+
+    initial_counts = [k] * n
+    total_s = count_permutations(initial_counts)
+    target_rank = (total_s + 1) // 2
+
+    def find_next_char(state):
+        counts, rank = state
+        def search(d, current_rank):
+            if d > n: return None
+            if counts[d-1] > 0:
+                temp_counts = list(counts)
+                temp_counts[d-1] -= 1
+                num_perms = count_permutations(temp_counts)
+                if current_rank <= num_perms:
+                    return (d, current_rank)
+                return search(d + 1, current_rank - num_perms)
+            return search(d + 1, current_rank)
+        
+        res = search(1, rank)
+        digit, new_rank = res
+        new_counts = list(counts)
+        new_counts[digit-1] -= 1
+        return (new_counts, new_rank), digit
+
+    def step(acc, _):
+        state, seq = acc
+        (next_state, digit) = find_next_char(state)
+        return (next_state, seq + [digit])
+
+    final_res = reduce(step, range(n * k), ((initial_counts, target_rank), []))
+    print(*(final_res[1]))
+
+if __name__ == "__main__":
+    solve()
+```

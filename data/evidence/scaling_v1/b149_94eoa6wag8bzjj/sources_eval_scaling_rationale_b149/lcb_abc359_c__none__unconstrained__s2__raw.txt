@@ -1,0 +1,124 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing the use of expressions over statements. This encourages the use of high-level abstractions and prevents side-effect-driven state mutations, which can lead to more concise logic for mathematical problems. For this specific problem, I will use `min` and `max` to handle the coordinate transformations and absolute differences, and a conditional expression to calculate the final toll based on the parity of the grid coordinates.
+
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # The tiling pattern is based on the parity of i + j.
+    # When i + j is even, A_{i,j} and A_{i+1,j} are one tile.
+    # This means tiles are 2x1 blocks aligned horizontally.
+    # The pattern shifts every row.
+    # Let's transform the coordinates to a system where tiles are uniform.
+    # A tile can be identified by (floor(x/2), y) if we shift based on y % 2.
+    # Specifically, if y is even, tiles are {(0,0),(1,0)}, {(2,0),(3,0)}...
+    # If y is odd, tiles are {(-1,1),(0,1)}, {(1,1),(2,1)}...
+    
+    # To normalize: if y is odd, we can think of it as shifting the x-coordinate by -1.
+    # Let nx = x if y % 2 == 0 else x - 1
+    # Then the tile index is (nx // 2, y)
+    
+    # However, a simpler observation:
+    # Moving horizontally within a tile costs 0.
+    # Moving vertically always enters a new tile unless you are already in one.
+    # The cost is effectively the Manhattan distance in a transformed space.
+    # Let's use the transformation:
+    # X' = x + (y % 2)
+    # Y' = y
+    # The distance is then related to |X'_s - X'_t| / 2 and |Y'_s - Y'_t|.
+    
+    # Let's refine:
+    # In row y, the tiles are [2k + (y%2), 2k + 1 + (y%2)]
+    # Let's map x to a "tile index" cx:
+    # if y % 2 == 0: cx = x // 2
+    # if y % 2 == 1: cx = (x - 1) // 2
+    
+    # The cost to move from (sx, sy) to (tx, ty):
+    # The vertical distance is |sy - ty|.
+    # The horizontal distance in terms of tiles is |cx_s - cx_t|.
+    # But we can move diagonally by combining a vertical and horizontal move.
+    # The optimal cost is max(|cx_s - cx_t|, |sy - ty|) if we can move diagonally,
+    # but we can only move N, S, E, W.
+    # Actually, the cost is simply |sy - ty| + max(0, |cx_s - cx_t| - (some value))
+    # Let's reconsider:
+    # Each vertical move costs 1. A vertical move also changes the parity of y,
+    # which shifts the tile boundaries.
+    # The minimum cost is |sy - ty| + max(0, abs(cx_s - cx_t) - 0) is wrong.
+    # The correct distance is:
+    # Let dx = abs(sx - tx) and dy = abs(sy - ty)
+    # If we move dy vertically, we can cover some horizontal distance.
+    # In each vertical step, the "free" horizontal zone shifts.
+    # The minimum cost is max(dy, (dx + dy + 1) // 2) is for a different problem.
+    
+    # Correct logic for this specific tiling:
+    # The cost is |sy - ty| + max(0, abs(cx_s - cx_t) - 0) is also not quite it.
+    # Let's use the property: cost = max(|sy - ty|, abs(cx_s - cx_t)) 
+    # is for 8-connectivity. Here we have 4-connectivity but 
+    # moving vertically 1 unit and horizontally 1 unit can sometimes 
+    # keep you in the same tile or move you to an adjacent one.
+    
+    # Let's use the coordinate transformation:
+    # u = x + y, v = x - y
+    # This is not a standard grid.
+    
+    # Let's use the property:
+    # The cost is |sy - ty| + max(0, abs(cx_s - cx_t) - 0) if we can't move diagonally.
+    # Wait, the sample 1: (5,0) to (2,5). 
+    # sx=5, sy=0 -> cx_s = 5 // 2 = 2
+    # tx=2, ty=5 -> cx_t = (2-1) // 2 = 0
+    # dy = 5, dcx = |2 - 0| = 2.
+    # Output is 5. This suggests cost = max(dy, dcx * 2) is wrong.
+    # It suggests cost = max(dy, abs(cx_s - cx_t) * 2) is wrong.
+    # Actually, the cost is simply max(dy, abs(cx_s - cx_t) * 2) is also not it.
+    # Let's try: cost = max(dy, abs(cx_s - cx_t) * 2) for Sample 1: max(5, 2*2) = 5.
+    # Sample 2: (3,1) to (4,1). 
+    # sx=3, sy=1 -> cx_s = (3-1)//2 = 1
+    # tx=4, ty=1 -> cx_t = (4-1)//2 = 1
+    # dy = 0, dcx = 0. Cost = 0. Correct.
+    
+    # Let's check the logic: 
+    # To change cx by 1, you must move at least 2 units horizontally (cost 1)
+    # or 1 unit vertically and 1 unit horizontally (cost 1).
+    # So the cost to change cx by 1 is 1, and the cost to change cy by 1 is 1.
+    # But you can change both cx and cy by 1 using only 1 vertical move.
+    # Therefore, the cost is max(abs(sy - ty), abs(cx_s - cx_t) * 2) ? 
+    # No, if dcx is 2 and dy is 0, you need 2 moves.
+    # The cost is max(dy, 2 * abs(cx_s - cx_t)) if we can't move diagonally.
+    # But we can move 1 unit vertical and 1 unit horizontal to change cx.
+    # The cost is actually:
+    # Let dx = abs(sx - tx), dy = abs(sy - ty)
+    # The cost is max(dy, (dx + dy + 1) // 2) is for a different tile set.
+    # For this set: cost = max(dy, abs(cx_s - cx_t) * 2) is still not quite right.
+    # Let's use: cost = max(dy, abs(cx_s - cx_t) * 2) for Sample 1: max(5, 4) = 5.
+    # Wait, if dy=0 and dcx=1, cost should be 1. max(0, 2) = 2. Incorrect.
+    # If dy=0 and dcx=1, you move 2 units horizontally, entering 1 new tile. Cost = 1.
+    # So the cost is max(dy, abs(cx_s - cx_t)).
+    # Sample 1: max(5, 2) = 5.
+    # Sample 2: max(0, 0) = 0.
+    # Let's test Sample 3:
+    # sx=2552608206527595, sy=5411232866732612 -> cx_s = 2552608206527595 // 2 = 1276304103263797
+    # tx=771856005518028, ty=7206210729152763 -> cx_t = (771856005518028 - 1) // 2 = 385928002759013
+    # dy = abs(5411232866732612 - 7206210729152763) = 1794977862420151
+    # dcx = abs(1276304103263797 - 385928002759013) = 890376100504784
+    # max(1794977862420151, 890376100504784) = 1794977862420151. Matches Sample 3!
+    
+    # Final logic:
+    # cx = (x - (y % 2)) // 2
+    # cost = max(abs(sy - ty), abs(cx_s - cx_t))
+    
+    # To avoid loops and recursion, I'll use a helper function and map.
+    def get_cx(x, y):
+        return (x - (y % 2)) // 2
+
+    print(max(abs(sy - ty), abs(get_cx(sx, sy) - get_cx(tx, ty))))
+
+if __name__ == "__main__":
+    solve()
+```

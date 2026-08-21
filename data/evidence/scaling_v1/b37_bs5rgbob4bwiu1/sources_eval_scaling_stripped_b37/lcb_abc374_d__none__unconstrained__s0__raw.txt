@@ -1,0 +1,106 @@
+```python
+import sys
+from itertools import permutations
+import math
+
+def solve():
+    # Read input and parse N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples: ((x1, y1), (x2, y2))
+    segments = [
+        (
+            (int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+            (int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        )
+        for i in range(N)
+    ]
+
+    # Precompute lengths of each segment (time taken to print)
+    # length / T
+    seg_times = [
+        math.sqrt((s[0][0] - s[1][0])**2 + (s[0][1] - s[1][1])**2) / T
+        for s in segments
+    ]
+
+    # Function to calculate distance between two points
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # We need to visit every segment. For each segment, we can start at either end.
+    # There are N! permutations of segments and 2^N ways to choose the direction.
+    # Since N is small (<= 6), we can iterate through all permutations and 
+    # use dynamic programming or recursion to find the best direction for each.
+    
+    # However, with N=6, N! * 2^N is only 720 * 64 = 46,080, which is small enough
+    # to brute force or use a simple recursive search.
+    
+    # For a fixed order of segments, we want to minimize travel time.
+    # Let f(i, end_point_index) be the min time to complete first i segments,
+    # ending at endpoint index (0 or 1) of segment i.
+    
+    def solve_for_order(p):
+        # p is a permutation of indices 0...N-1
+        # dp[0] = time ending at endpoint 0 of segment p[0]
+        # dp[1] = time ending at endpoint 1 of segment p[0]
+        
+        # Initial movement from (0,0) to start of first segment
+        # Option 1: Start at endpoint 1, end at endpoint 0
+        # Time = dist((0,0), ep1)/S + seg_time
+        # Option 2: Start at endpoint 0, end at endpoint 1
+        # Time = dist((0,0), ep0)/S + seg_time
+        
+        s0 = segments[p[0]]
+        t0 = seg_times[p[0]]
+        
+        # dp state: (time_if_ended_at_ep0, time_if_ended_at_ep1)
+        # To end at ep0, we must have started at ep1.
+        # To end at ep1, we must have started at ep0.
+        dp = (
+            dist((0, 0), s0[1]) / S + t0,
+            dist((0, 0), s0[0]) / S + t0
+        )
+        
+        for i in range(1, N):
+            curr_seg = segments[p[i]]
+            curr_t = seg_times[p[i]]
+            prev_seg = segments[p[i-1]]
+            
+            # New time ending at endpoint 0 (started at endpoint 1)
+            # Can come from prev_dp[0] (ended at prev ep0) or prev_dp[1] (ended at prev ep1)
+            t_end0 = min(
+                dp[0] + dist(prev_seg[0], curr_seg[1]) / S,
+                dp[1] + dist(prev_seg[1], curr_seg[1]) / S
+            ) + curr_t
+            
+            # New time ending at endpoint 1 (started at endpoint 0)
+            t_end1 = min(
+                dp[0] + dist(prev_seg[0], curr_seg[0]) / S,
+                dp[1] + dist(prev_seg[1], curr_seg[0]) / S
+            ) + curr_t
+            
+            dp = (t_end0, t_end1)
+            
+        return min(dp)
+
+    # Iterate through all permutations of segment indices
+    all_orders = permutations(range(N))
+    ans = min(solve_for_order(p) for p in all_orders)
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Explanation:**
+1. **Complexity**: The number of segments $N$ is very small ($\le 6$). The total number of ways to order the segments is $N!$ (720). For each order, we have $2^N$ ways to orient them, but we can solve this using dynamic programming in $O(N)$ time per permutation.
+2. **DP State**: For a fixed sequence of segments, `dp[0]` is the minimum time to finish the current segment ending at its first endpoint, and `dp[1]` is the minimum time ending at its second endpoint.
+3. **Transitions**: To end at endpoint $A$, the laser must have traveled from the previous segment's end point to endpoint $B$ (without emitting) and then from $B$ to $A$ (emitting).
+4. **Final Calculation**: We wrap this in a generator expression inside `min()` to find the minimum time across all possible permutations of the segments.

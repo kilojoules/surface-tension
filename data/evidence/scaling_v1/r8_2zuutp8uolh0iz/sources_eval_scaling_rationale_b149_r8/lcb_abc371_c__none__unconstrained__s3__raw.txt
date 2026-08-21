@@ -1,0 +1,86 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative style to a functional paradigm, emphasizing data transformation over state mutation. In Python, this encourages the use of `itertools` for combinatorial logic and list comprehensions for mapping and filtering, which can often be more concise and expressive for problems involving permutations and graph isomorphisms. For this problem, I will use `itertools.permutations` to iterate through all possible vertex mappings and `sum` with generator expressions to calculate the cost of transforming graph $H$ into a graph isomorphic to $G$ under each mapping.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer-like approach via a list to handle input consumption without loops
+    # However, since we can't use loops, we map the input to a flat list and 
+    # access by index.
+    data = list(map(int, input_data))
+    
+    N = data[0]
+    
+    # Extract M_G and edges of G
+    MG = data[1]
+    g_edges_raw = data[2 : 2 + 2 * MG]
+    
+    # Extract M_H and edges of H
+    idx_mh = 2 + 2 * MG
+    MH = data[idx_mh]
+    h_edges_raw = data[idx_mh + 1 : idx_mh + 1 + 2 * MH]
+    
+    # Extract A matrix
+    idx_a = idx_mh + 1 + 2 * MH
+    a_values = data[idx_a:]
+    
+    # Represent graphs as adjacency matrices (0 or 1)
+    # G_adj[i][j] == 1 if edge exists between i+1 and j+1
+    # We use a dictionary or a flat list to simulate the matrix since we can't use loops to build it
+    # Actually, we can use list comprehensions to build the adjacency matrices.
+    
+    # To build G_adj, we check if (i, j) is in the list of edges.
+    # We store edges as sorted tuples in a set for O(1) lookup.
+    g_set = set(tuple(sorted((g_edges_raw[i], g_edges_raw[i+1]))) 
+                for i in range(0, len(g_edges_raw), 2))
+    h_set = set(tuple(sorted((h_edges_raw[i], h_edges_raw[i+1]))) 
+                for i in range(0, len(h_edges_raw), 2))
+    
+    # The A matrix is given as A_{1,2}, A_{1,3}... A_{N-1,N}
+    # We need a way to map (i, j) where 1 <= i < j <= N to the index in a_values.
+    # The index for (i, j) is sum_{k=1}^{i-1} (N-k) + (j-i-1)
+    # Let's pre-calculate the cost for every pair (i, j) in a dictionary.
+    # We can use a list comprehension to create the mapping.
+    
+    # Generate all pairs (i, j) with 1 <= i < j <= N
+    all_pairs = [ (i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1) ]
+    # Map each pair to its cost from the input list
+    cost_map = {pair: cost for pair, cost in zip(all_pairs, a_values)}
+    
+    # We want to find a permutation P of (1...N) such that we minimize 
+    # the cost of changing H to match G under permutation P.
+    # Specifically, for every pair (i, j) with 1 <= i < j <= N:
+    # If (i, j) is an edge in G, then (P[i], P[j]) must be an edge in H.
+    # If it's not, we pay A_{P[i], P[j]} (or A_{P[j], P[i]}).
+    
+    # The cost for a permutation P is the sum over all 1 <= i < j <= N of:
+    # cost_map[sorted(P[i], P[j])] if (edge in G XOR edge in H) else 0
+    
+    # We use 0-indexing for the permutation for convenience.
+    # P is a permutation of (1...N).
+    
+    def calculate_cost(p):
+        # p is a tuple representing the mapping: vertex i in G maps to vertex p[i-1] in H.
+        # For every pair (i, j) in G, check if the corresponding pair (p[i-1], p[j-1]) in H
+        # matches the edge status.
+        return sum(
+            cost_map[tuple(sorted((p[i], p[j])))]
+            for i in range(N) for j in range(i + 1, N)
+            if ((i + 1, j + 1) in g_set) != (tuple(sorted((p[i], p[j]))) in h_set)
+        )
+
+    # Try all permutations and find the minimum cost.
+    # N <= 8, so N! <= 40320, which is feasible.
+    ans = min(map(calculate_cost, permutations(range(1, N + 1))))
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

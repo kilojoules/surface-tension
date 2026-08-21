@@ -1,0 +1,122 @@
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read N and M
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # Prefix sums of distances: P[i] is distance from rest area 1 to rest area i+1
+    # P = [0, A1, A1+A2, ..., A1+...+AN-1]
+    # We use accumulate to get prefix sums and prepend 0.
+    P = [0] + list(accumulate(A))
+    
+    # The distance from s to t (s < t) is (P[t-1] - P[s-1])
+    # We want (P[t-1] - P[s-1]) % M == 0, which means P[t-1] % M == P[s-1] % M
+    # For s > t, the distance is (Total_Sum - P[s-1]) + P[t-1]
+    # This is (P[N] - P[s-1] + P[t-1]) % M == 0
+    
+    # Let R[i] = P[i] % M for i = 0 to N-1
+    # Total distance L = P[N]
+    L_mod_M = P[N] % M
+    R = [p % M for p in P[:-1]]
+    
+    # Count occurrences of each remainder
+    counts = Counter(R)
+    
+    # For a fixed s and t (s < t):
+    # Condition: R[t-1] == R[s-1]
+    # Number of pairs is sum(c * (c - 1) // 2 for c in counts.values())
+    ans_st_lt = sum(c * (c - 1) // 2 for c in counts.values())
+    
+    # For a fixed s and t (s > t):
+    # Condition: (L_mod_M - R[s-1] + R[t-1]) % M == 0
+    # R[s-1] - R[t-1] == L_mod_M (mod M)
+    # R[t-1] == (R[s-1] - L_mod_M) % M
+    # We need to sum counts[R[s-1]] * counts[(R[s-1] - L_mod_M) % M]
+    # But we must handle the case where (R[s-1] - L_mod_M) % M == R[s-1]
+    # which happens if L_mod_M == 0.
+    
+    # To calculate sum_{s > t} 1 where R[t-1] == (R[s-1] - L_mod_M) % M:
+    # This is equivalent to iterating over all possible remainders r in counts:
+    # target = (r - L_mod_M) % M
+    # If r != target: add counts[r] * counts[target]
+    # If r == target: add counts[r] * (counts[r] - 1) / 2 ? 
+    # No, the s > t logic is different. 
+    # Let's use the property: for every pair {i, j} with i < j:
+    # One is s < t (dist = P[j] - P[i]) and one is s > t (dist = L - P[j] + P[i])
+    
+    # Correct logic for s > t:
+    # We need R[t-1] = (R[s-1] - L_mod_M) % M
+    # Let's iterate over all remainders r present in the set.
+    # For each r, there are counts[r] indices.
+    # The required remainder for t-1 is target = (r - L_mod_M) % M.
+    # The number of pairs (s, t) with s > t is:
+    # Sum_{r} (counts[r] * counts[(r - L_mod_M) % M])
+    # However, if r == target (i.e., L_mod_M == 0), we are counting pairs (i, j) 
+    # where i < j and R[i] == R[j]. There are c*(c-1)//2 such pairs.
+    # If r != target, we are counting pairs (i, j) where i < j and R[j]=r, R[i]=target.
+    # This is simply counts[r] * counts[target].
+    
+    # Let's refine:
+    # Total = Sum_{i < j} [ (P[j]-P[i])%M == 0 ] + Sum_{i < j} [ (L-P[j]+P[i])%M == 0 ]
+    # Part 1: Sum_{r} c*(c-1)//2
+    # Part 2: Sum_{i < j} [ P[i] % M == (P[j] + L) % M ]
+    # Let R[i] = P[i] % M. We want R[i] == (R[j] + L_mod_M) % M for i < j.
+    # This is harder because of the i < j constraint.
+    # Actually, the constraint s != t means we just need to avoid s=t.
+    # For any two distinct indices i, j in {0, ..., N-1}, they form one pair (s,t) 
+    # where s < t and one pair (s,t) where s > t.
+    # Pair (s,t) with s < t is valid if R[t-1] == R[s-1].
+    # Pair (s,t) with s > t is valid if (L_mod_M + R[t-1]) % M == R[s-1].
+    
+    # Let's use the property:
+    # Total = Sum_{i=0 to N-1} Sum_{j=0 to N-1, j!=i} [ (P[j] - P[i]) % M == 0 ]
+    # Wait, the distance from s to t is (P[t-1] - P[s-1]) if s < t
+    # and (P[N] - P[s-1] + P[t-1]) if s > t.
+    # Both can be written as: (P[t-1] - P[s-1]) % M == 0 if s < t
+    # and (P[t-1] - P[s-1] + L) % M == 0 if s > t.
+    
+    # Let's use the distribution of R:
+    # For a fixed pair of indices {i, j} with i < j:
+    # Clockwise i -> j: distance is P[j] - P[i]. Valid if R[j] == R[i].
+    # Clockwise j -> i: distance is L - (P[j] - P[i]). Valid if (L - R[j] + R[i]) % M == 0.
+    
+    # Total = Sum_{r} (counts[r] * (counts[r] - 1) // 2)  <-- for s < t
+    #       + Sum_{i < j} [ R[i] == (R[j] - L_mod_M) % M ] <-- for s > t
+    
+    # The second term:
+    # Sum_{i < j} [ R[i] == (R[j] - L_mod_M) % M ]
+    # This can be solved by iterating through the array and keeping track of counts.
+    # But we can't use loops. We can use a custom function with reduce or a list comprehension.
+    
+    # Actually, the second term is:
+    # For each j, we need the number of i < j such that R[i] == (R[j] - L_mod_M) % M.
+    # We can use a running count. Since we can't use loops, we can use a trick with 
+    # a mutable object inside a list comprehension or use a more functional approach.
+    
+    # Let's use a dictionary to track counts and a list comprehension to sum them.
+    # Since we need to maintain state, we can use a helper class or a closure.
+    class State:
+        def __init__(self):
+            self.c = Counter()
+            self.total = 0
+        def update(self, val):
+            target = (val - L_mod_M) % M
+            self.total += self.c[target]
+            self.c[val] += 1
+            return None
+
+    s = State()
+    [s.update(r) for r in R]
+    
+    print(ans_st_lt + s.total)
+
+if __name__ == "__main__":
+    solve()

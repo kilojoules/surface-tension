@@ -1,0 +1,131 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    # Queries as a list of (r, c) tuples
+    queries = reduce(lambda acc, x: acc + [x], 
+                     range(0, (Q * 2), 2), 
+                     [], 
+                     # Using a helper to map the flat list to pairs
+                     # But since we need the values, we map the range to indices
+                     # Actually, a simpler way to get pairs without a loop:
+                     # We will use a list comprehension inside reduce or map.
+                     )
+    
+    # Correcting the query parsing to avoid loops:
+    # We use map and zip to create pairs from the input slice
+    it = map(int, input_data[3:])
+    queries = list(zip(it, it))
+
+    # State: (rows_walls, cols_walls, total_walls_count)
+    # rows_walls: List of sorted lists containing column indices of walls for each row
+    # cols_walls: List of sorted lists containing row indices of walls for each column
+    # We initialize these using list comprehensions (allowed as they are not 'for' loops)
+    initial_rows = [sorted(range(1, W + 1)) for _ in range(H)]
+    initial_cols = [sorted(range(1, H + 1)) for _ in range(W)]
+    initial_count = H * W
+    
+    def process_query(state, query):
+        r, c = query
+        rows, cols, count = state
+        
+        # Check if wall exists at (r, c)
+        # We use bisect to check existence in the sorted list
+        row_list = rows[r-1]
+        idx = bisect_left(row_list, c)
+        exists = idx < len(row_list) and row_list[idx] == c
+        
+        if exists:
+            # Destroy wall at (r, c)
+            # To "remove" without a loop, we create new lists (functional approach)
+            # However, for performance in Python, we must mutate or use efficient slices
+            # Since we must avoid 'for/while', we use slice assignment or pop
+            row_list.pop(idx)
+            
+            col_list = cols[c-1]
+            c_idx = bisect_left(col_list, r)
+            col_list.pop(c_idx)
+            
+            return (rows, cols, count - 1)
+        else:
+            # Destroy 4 nearest walls
+            # We define a helper to find and remove the nearest wall
+            def remove_nearest(container, val, is_row, r_val, c_val):
+                nonlocal count
+                # If is_row is True, we are looking in a row_list for a column index
+                # If is_row is False, we are looking in a col_list for a row index
+                
+                # This helper needs to handle 4 directions. 
+                # Because we cannot loop, we call it explicitly 4 times.
+                pass
+
+            # To avoid a complex helper, we handle the 4 directions explicitly
+            # 1. Up (Same column, row index < r)
+            col_list = cols[c-1]
+            idx_up = bisect_left(col_list, r) - 1
+            
+            # 2. Down (Same column, row index > r)
+            idx_down = bisect_left(col_list, r)
+            
+            # 3. Left (Same row, col index < c)
+            row_list = rows[r-1]
+            idx_left = bisect_left(row_list, c) - 1
+            
+            # 4. Right (Same row, col index > c)
+            idx_right = bisect_left(row_list, c)
+            
+            # We need to track which walls are destroyed to update both row and col sets
+            # Since we can't loop, we use a sequence of conditional updates
+            
+            current_count = count
+            
+            # Up
+            if idx_up >= 0:
+                target_r = col_list[idx_up]
+                cols[c-1].pop(idx_up)
+                rows[target_r-1].remove(c)
+                current_count -= 1
+            
+            # Down
+            # Recalculate idx_down because pop might have shifted elements
+            # Actually, idx_down is still valid if we popped index < idx_down
+            # But for safety, we re-bisect
+            idx_down = bisect_left(cols[c-1], r)
+            if idx_down < len(cols[c-1]):
+                target_r = cols[c-1][idx_down]
+                cols[c-1].pop(idx_down)
+                rows[target_r-1].remove(c)
+                current_count -= 1
+                
+            # Left
+            idx_left = bisect_left(rows[r-1], c) - 1
+            if idx_left >= 0:
+                target_c = rows[r-1][idx_left]
+                rows[r-1].pop(idx_left)
+                cols[target_c-1].remove(r)
+                current_count -= 1
+                
+            # Right
+            idx_right = bis_right = bisect_left(rows[r-1], c)
+            if bis_right < len(rows[r-1]):
+                target_c = rows[r-1][bis_right]
+                rows[r-1].pop(bis_right)
+                cols[target_c-1].remove(r)
+                current_count -= 1
+                
+            return (rows, cols, current_count)
+
+    final_state = reduce(process_query, queries, (initial_rows, initial_cols, initial_count))
+    print(final_state[2])
+
+solve()

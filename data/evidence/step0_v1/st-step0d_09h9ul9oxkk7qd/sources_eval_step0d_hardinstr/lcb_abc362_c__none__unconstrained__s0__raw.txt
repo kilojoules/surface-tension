@@ -1,0 +1,60 @@
+The constraint to avoid explicit loops forces a shift from imperative state management to a functional paradigm, emphasizing data transformation over mutation. In this specific problem, we need to calculate the minimum and maximum possible sums of the sequence and, if 0 falls within that range, distribute the remaining required sum across the elements. I will use `sum()` for totals, list comprehensions for transformations, and `itertools.accumulate` to handle the distribution of the "surplus" sum across the sequence without using a `for` loop.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into lists of Ls and Rs using list comprehensions
+    L = [int(input_data[i]) for i in range(1, 2 * N + 1, 2)]
+    R = [int(input_data[i]) for i in range(2, 2 * N + 2, 2)]
+    
+    # Calculate the boundaries of the possible sum
+    min_sum = sum(L)
+    max_sum = sum(R)
+    
+    # Condition for existence: 0 must be between the minimum and maximum possible sums
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start with the minimum possible values.
+    # We need to add 'target_diff' to the elements to make the sum 0.
+    target_diff = -min_sum
+    
+    # For each element, the maximum we can add is (R_i - L_i).
+    capacities = [r - l for l, r in zip(L, R)]
+    
+    # Use accumulate to find how much of the target_diff is consumed by each element.
+    # accumulate([c1, c2, ...]) gives [c1, c1+c2, c1+c2+c3, ...]
+    cum_capacities = list(accumulate(capacities))
+    
+    # The amount added to X_i is the difference between the current cumulative 
+    # capacity and the previous one, capped by the remaining target_diff.
+    # We can calculate the actual contribution of each index i:
+    # contribution_i = min(capacity_i, target_diff - sum_of_previous_capacities)
+    
+    # To avoid loops, we calculate the "filled" amount for each index.
+    # The total amount filled up to index i is min(target_diff, cum_capacities[i]).
+    filled_until = [min(target_diff, val) for val in cum_capacities]
+    
+    # The amount added to X_i is filled_until[i] - filled_until[i-1].
+    # We prepend 0 to filled_until to handle the i=0 case.
+    filled_until = [0] + filled_until
+    added = [filled_until[i+1] - filled_until[i] for i in range(N)]
+    
+    # Final X_i = L_i + added_i
+    X = [L[i] + added[i] for i in range(N)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()
+```

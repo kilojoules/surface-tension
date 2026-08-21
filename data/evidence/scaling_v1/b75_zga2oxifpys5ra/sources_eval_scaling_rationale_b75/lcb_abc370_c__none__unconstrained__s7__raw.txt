@@ -1,0 +1,48 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, emphasizing declarative data transformations over imperative state updates. In Python, this encourages the use of comprehensions and built-in higher-order functions, which can lead to more concise code for sequence transformations. To solve this problem, I will use list comprehensions to identify indices where $S$ and $T$ differ and nested comprehensions (or `functools.reduce`) to generate the sequence of intermediate strings, ensuring the lexicographical requirement is met by processing indices in a specific order based on whether the character in $S$ is greater than or less than the character in $T$.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s_str = input_data[0]
+    t_str = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(s_str)) if s_str[i] != t_str[i]]
+    
+    # To get the lexicographically smallest array X:
+    # 1. We must change characters at indices where S[i] > T[i] first.
+    #    For these, we should process indices from left to right (0 to N-1).
+    # 2. Then we change characters where S[i] < T[i].
+    #    For these, we should process indices from right to left (N-1 to 0).
+    # This ensures that the resulting strings in the sequence are as small as possible.
+    
+    decreasing = [i for i in diff_indices if s_str[i] > t_str[i]]
+    increasing = [i for i in diff_indices if s_str[i] < t_str[i]]
+    
+    # Sort decreasing indices ascending, and increasing indices descending
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Use reduce to generate the sequence of strings
+    # The accumulator is a list of strings (the array X)
+    # The current value is the index to be changed
+    def generate_x(acc, idx):
+        current_s = acc[-1] if acc else s_str
+        # Create new string by replacing character at idx with T[idx]
+        next_s = current_s[:idx] + t_str[idx] + current_s[idx+1:]
+        return acc + [next_s]
+
+    result_x = reduce(generate_x, order, [])
+    
+    # Output the number of elements and the elements themselves
+    print(len(result_x))
+    print('\n'.join(result_x))
+
+if __name__ == "__main__":
+    solve()
+```

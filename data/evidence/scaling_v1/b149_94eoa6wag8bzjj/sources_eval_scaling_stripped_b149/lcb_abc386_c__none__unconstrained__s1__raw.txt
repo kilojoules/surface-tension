@@ -1,0 +1,265 @@
+```python
+import sys
+
+def solve():
+    # Read input and strip whitespace
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # K is given as 1 according to the problem statement
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    n, m = len(s), len(t)
+    
+    # If length difference is more than 1, it's impossible with K=1
+    if abs(n - m) > 1:
+        print("No")
+        return
+
+    # If strings are identical, 0 operations needed
+    if s == t:
+        print("Yes")
+        return
+
+    # Helper to check if s can become t by deleting one char from s
+    # (Used for both deletion from S and insertion into S)
+    def check_one_diff(s1, s2):
+        # s1 is the longer string, s2 is the shorter
+        # We look for the first mismatch
+        for i in range(len(s2)):
+            if s1[i] != s2[i]:
+                # Try skipping the character in s1 and check if the rest matches
+                return s1[i+1:] == s2[i:]
+        # If no mismatch found in s2's length, the extra char must be at the end
+        return True
+
+    # Case 1: Replace one character (lengths must be equal)
+    if n == m:
+        # Count positions where characters differ
+        diffs = [i for i in range(n) if s[i] != t[i]]
+        if len(diffs) == 1:
+            print("Yes")
+        else:
+            print("No")
+            
+    # Case 2: Delete one character from S (S is longer)
+    elif n == m + 1:
+        if check_one_diff(s, t):
+            print("Yes")
+        else:
+            print("No")
+            
+    # Case 3: Insert one character into S (T is longer)
+    elif m == n + 1:
+        if check_one_diff(t, s):
+            print("Yes")
+        else:
+            print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Note on logic:** Since $K=1$ is guaranteed, the problem reduces to checking if the Edit Distance between $S$ and $T$ is $\le 1$. 
+1. If $|S| = |T|$, they must differ by at most one character (Substitution).
+2. If $|S| = |T| + 1$, $T$ must be a subsequence of $S$ (Deletion).
+3. If $|T| = |S| + 1$, $S$ must be a subsequence of $T$ (Insertion).
+4. Otherwise, it is impossible.
+The `check_one_diff` function efficiently validates the subsequence property for strings differing by length 1 in $O(N)$ time.
+**Correction:** The prompt says $K=1$ is a sub-problem of $F$, but the constraints say $K=1$. My code handles $K=1$ specifically as requested.
+**Wait**, the prompt says "Determine whether it is possible... between 0 and K times". If $K$ were larger, a different approach (like the $O(NK)$ edit distance algorithm) would be needed. But for $K=1$, this is the optimal approach.
+**Final check on constraints:** Lengths up to 500,000. Python's slicing `s1[i+1:] == s2[i:]` is $O(N)$, and since it happens once, the total complexity is $O(N)$, which fits within time limits.
+**Wait**, I noticed a small bug in `check_one_diff`: if the strings are `abc` and `ab`, the loop finishes without returning. I added `return True` at the end of the helper to handle the trailing character case.
+
+Actually, looking at the prompt again, it says "This problem is a sub-problem of Problem F... with K=1". It then says "Constraints: K=1". I will stick to the $K=1$ logic.
+
+```python
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if len(input_data) < 3:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    n, m = len(s), len(t)
+    
+    # For K=1, the length difference cannot exceed 1
+    if abs(n - m) > 1:
+        print("No")
+        return
+
+    # If strings are already identical
+    if s == t:
+        print("Yes")
+        return
+
+    # Helper to check if removing one char from long_s makes it short_s
+    def is_one_del_away(long_s, short_s):
+        for i in range(len(short_s)):
+            if long_s[i] != short_s[i]:
+                return long_s[i+1:] == short_s[i:]
+        return True # Extra character is at the end
+
+    # Case: Substitution (Lengths equal)
+    if n == m:
+        # Count mismatches using a generator expression
+        diff_count = sum(1 for a, b in zip(s, t) if a != b)
+        print("Yes" if diff_count <= 1 else "No")
+    # Case: Deletion from S
+    elif n == m + 1:
+        print("Yes" if is_one_del_away(s, t) else "No")
+    # Case: Insertion into S (Deletion from T)
+    elif m == n + 1:
+        print("Yes" if is_one_del_away(t, s) else "No")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for ONLY the code block. I will provide the final version.
+**Final logic check:**
+Sample 1: `abc`, `agc` -> `n=3, m=3`, `diff_count=1` -> Yes.
+Sample 2: `abc`, `awtf` -> `n=3, m=4`, `is_one_del_away('awtf', 'abc')`: `a==a`, `w!=b`, `tf != bc` -> No.
+Sample 3: `abc`, `ac` -> `n=3, m=2`, `is_one_del_away('abc', 'ac')`: `a==a`, `b!=c`, `c == c` -> Yes.
+Sample 4: `back`, `black` -> `n=4, m=5`, `is_one_del_away('black', 'back')`: `b==b`, `l!=a`, `ack == ack` -> Yes.
+Sample 5: `same`, `same` -> `s==t` -> Yes.
+Sample 6: `leap`, `read` -> `n=4, m=4`, `diff_count=3` -> No.
+All samples pass.
+**Wait**, the prompt says "Return only Python source inside a single ```python code block." I must remove all explanations.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if len(input_data) < 3:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    n, m = len(s), len(t)
+    
+    if abs(n - m) > 1:
+        print("No")
+        return
+
+    if s == t:
+        print("Yes")
+        return
+
+    def is_one_del_away(long_s, short_s):
+        for i in range(len(short_s)):
+            if long_s[i] != short_s[i]:
+                return long_s[i+1:] == short_s[i:]
+        return True
+
+    if n == m:
+        diff_count = sum(1 for a, b in zip(s, t) if a != b)
+        print("Yes" if diff_count <= 1 else "No")
+    elif n == m + 1:
+        print("Yes" if is_one_del_away(s, t) else "No")
+    elif m == n + 1:
+        print("Yes" if is_one_del_away(t, s) else "No")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I just noticed the prompt says "Determine whether it is possible... between 0 and K times". If $K$ were provided as an input and could be $>1$, the logic above only works for $K=1$. However, the constraint explicitly says $\color{red}{K=1}$. I will stick to the $K=1$ logic as it is the only way to handle strings of length 500,000 without a complex $O(NK)$ DP or $O(N \log N)$ approach. Actually, for $K=1$, the logic is $O(N)$.
+
+One final check: the prompt says "You can solve this problem by submitting a correct solution for Problem F to this problem." Problem F is the general version. But since the constraint here is $K=1$, the specialized logic is acceptable and more efficient.
+
+Final code structure:
+```python
+import sys
+
+def solve():
+    # Using sys.stdin.read().split() to get all inputs
+    data = sys.stdin.read().split()
+    if not data: return
+    k, s, t = int(data[0]), data[1], data[2]
+    n, m = len(s), len(t)
+    
+    # The problem specifies K=1 in the constraints.
+    # For K=1, the edit distance is <= 1 if:
+    # 1. Strings are identical.
+    # 2. Lengths are equal and they differ by 1 char.
+    # 3. Lengths differ by 1 and the shorter is a subsequence of the longer.
+    
+    if abs(n - m) > 1:
+        print("No")
+        return
+    
+    if s == t:
+        print("Yes")
+        return
+
+    def check_subsequence(longer, shorter):
+        # Find first mismatch
+        for i in range(len(shorter)):
+            if longer[i] != shorter[i]:
+                # Check if skipping one char in 'longer' matches the rest
+                return longer[i+1:] == shorter[i:]
+        return True # Extra char at the end
+
+    if n == m:
+        # Substitution case
+        print("Yes" if sum(1 for a, b in zip(s, t) if a != b) <= 1 else "No")
+    else:
+        # Insertion/Deletion case
+        if n > m:
+            print("Yes" if check_subsequence(s, t) else "No")
+        else:
+            print("Yes" if check_subsequence(t, s) else "No")
+
+if __name__ == "__main__":
+    solve()
+```
+This looks solid.
+
+Wait, one last detail: "Return only Python source inside a single ```python code block." I will remove the comments and the `if __name__` wrapper to be as concise as possible, though the wrapper is standard. I'll keep it for correctness.
+
+Actually, I'll use a more functional approach for the `check_subsequence` to avoid the loop if possible, but a loop is fine. Let's refine.
+
+```python
+import sys
+
+def solve():
+    data = sys.stdin.read().split()
+    if len(data) < 3: return
+    k, s, t = int(data[0]), data[1], data[2]
+    n, m = len(s), len(t)
+    
+    if abs(n - m) > 1:
+        print("No")
+        return
+    
+    if s == t:
+        print("Yes")
+        return
+
+    def check(l, r):
+        # Find index of first difference
+        # Using a generator to find the first index where s[i] != t[i]
+        diff_idx = next((i for i in range(len(r)) if l[i] != r[i]), len(r))
+        return l[diff_idx + 1:] == r[diff_idx:]
+
+    if n == m:
+        print("Yes" if sum(1 for a, b in zip(s, t) if a != b) <= 1 else "No")
+    elif n == m + 1:
+        print("Yes" if check(s, t) else "No")
+    else:
+        print("Yes" if check(t, s) else "No")
+
+solve()
+```
+This is clean and efficient.
+
+Final check on the "K=1" constraint. If the judge provides $K > 1$ despite the constraint saying $K=1$, this code fails. But the prompt says "Constraints: K=1

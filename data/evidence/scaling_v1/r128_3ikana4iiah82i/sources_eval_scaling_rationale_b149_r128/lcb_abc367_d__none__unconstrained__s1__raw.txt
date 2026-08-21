@@ -1,0 +1,90 @@
+The constraint to avoid explicit loops forces a shift from imperative style to a functional paradigm, emphasizing data transformations over state mutation. In this specific problem, I will use `itertools.accumulate` to calculate prefix sums of the distances, and `collections.Counter` combined with `sum()` and a generator expression to count pairs that satisfy the modulo condition.
+
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read all input at once and split into a list of integers
+    data = list(map(int, sys.stdin.read().split()))
+    
+    # N is the number of rest areas, M is the modulo
+    n, m = data[0], data[1]
+    a = data[2:]
+    
+    # Calculate prefix sums of distances clockwise from rest area 1.
+    # p[i] is the distance from rest area 1 to rest area i+1.
+    # p[0] = 0, p[1] = A_1, p[2] = A_1 + A_2, ..., p[N] = sum(A_1...A_N)
+    p = list(accumulate(a, lambda x, y: x + y, initial=0))
+    
+    # The distance from s to t (s < t) is (p[t-1] - p[s-1]).
+    # The distance from s to t (s > t) is (p[N] - p[s-1]) + p[t-1].
+    # Both conditions are equivalent to: (p[t-1] - p[s-1]) % M == 0
+    # when considering the total loop distance p[N].
+    # However, the problem asks for pairs (s, t) where s != t.
+    # Let x_i = p[i] % M. We are looking for pairs (i, j) such that:
+    # If i < j: (x_j - x_i) % M == 0  => x_j == x_i
+    # If i > j: (p[N] + x_j - x_i) % M == 0 => (x_i - x_j) % M == p[N] % M
+    
+    # Let total_dist_mod = p[N] % M
+    total_dist_mod = p[n] % m
+    
+    # Count occurrences of each remainder modulo M
+    counts = Counter(x % m for x in p[:n])
+    
+    # For each remainder r, let c = counts[r].
+    # Pairs (s, t) with s < t: if x_s == x_t, then distance is multiple of M.
+    # This gives c * (c - 1) // 2 pairs.
+    # Pairs (s, t) with s > t: if (x_s - x_t) % M == total_dist_mod, then distance is multiple of M.
+    # This is equivalent to x_s == (total_dist_mod + x_t) % M.
+    
+    # Calculate s < t pairs
+    ans_lt = sum(c * (c - 1) // 2 for c in counts.values())
+    
+    # Calculate s > t pairs
+    # For each r, we need the count of r' such that r == (total_dist_mod + r') % M
+    # Which is r' == (r - total_dist_mod) % M
+    ans_gt = sum(counts[r] * counts[(r - total_dist_mod) % m] for r in counts)
+    
+    # Special case: if total_dist_mod == 0, the s > t logic counts pairs where x_s == x_t.
+    # But we must exclude the cases where s == t (which is already handled by the logic,
+    # but we need to be careful about the definition of s > t).
+    # If total_dist_mod == 0, then (x_s - x_t) % M == 0 is the same as x_s == x_t.
+    # The number of pairs (s, t) with s > t and x_s == x_t is also c * (c - 1) // 2.
+    
+    # If total_dist_mod == 0, the second sum counts c*c. We need to subtract the s==t cases.
+    # Actually, the most robust way:
+    # For every pair (i, j) with i != j:
+    # Distance is (p[j] - p[i]) % p[N] if i < j else (p[N] - p[i] + p[j]) % p[N]
+    # We want this to be 0 mod M.
+    # This is always (p[j] - p[i]) % M == 0 if total_dist_mod == 0.
+    # If total_dist_mod != 0, then:
+    # i < j: p[j] % M == p[i] % M
+    # i > j: p[i] % M == (p[j] % M + total_dist_mod) % M
+    
+    # If total_dist_mod == 0:
+    # Any pair (i, j) with i != j and p[i] % M == p[j] % M works.
+    # Total = sum(c * (c - 1))
+    
+    # If total_dist_mod != 0:
+    # i < j: p[i] % M == p[j] % M  => sum(c * (c-1) // 2)
+    # i > j: p[i] % M == (p[j] % M + total_dist_mod) % M => sum(counts[r] * counts[(r - total_dist_mod) % m])
+    
+    # We can unify this:
+    # The number of pairs (s, t) is the sum over all r of:
+    # counts[r] * counts[(r + total_dist_mod) % m]
+    # BUT, we must subtract cases where s == t.
+    # s == t happens when r == (r + total_dist_mod) % m, which means total_dist_mod == 0.
+    # If total_dist_mod == 0, we subtract sum(counts[r]) = N.
+    
+    # Final calculation:
+    result = sum(counts[r] * counts[(r + total_dist_mod) % m] for r in counts)
+    if total_dist_mod == 0:
+        result -= n
+        
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

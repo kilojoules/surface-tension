@@ -1,0 +1,43 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line of input
+    try:
+        line1 = sys.stdin.readline().split()
+        if not line1:
+            return
+        n, k = map(int, line1)
+        # Read the string S
+        s = sys.stdin.readline().strip()
+    except ValueError:
+        return
+
+    # To avoid explicit loops and recursion, we use itertools.permutations
+    # to generate all possible arrangements of the characters in S.
+    # Since N <= 10, N! is at most 3,628,800, which fits within time limits.
+    
+    # We use a set to store unique permutations because S may contain duplicate characters.
+    # We then filter these permutations based on the palindrome condition.
+    
+    # A substring of length K is a palindrome if it reads the same forwards and backwards.
+    # We check every substring of length K in the permutation.
+    
+    all_perms = set(permutations(s))
+    
+    # We use a generator expression inside sum() to count valid permutations.
+    # For a permutation p, we check if any substring p[i:i+k] is equal to its reverse.
+    # The condition "do not contain a palindrome" means for all i, p[i:i+k] != p[i:i+k][::-1].
+    
+    result = sum(
+        1 for p in all_perms 
+        if not any(
+            p[i:i+k] == p[i:i+k][::-1] 
+            for i in range(n - k + 1)
+        )
+    )
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,151 @@
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read N and M
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # Let P_i be the prefix sum of A.
+    # The distance from s to t (s < t) is (P_{t-1} - P_{s-1}) mod M.
+    # The distance from s to t (s > t) is (TotalSum - P_{s-1} + P_{t-1}) mod M.
+    # We want distance % M == 0.
+    
+    # Calculate prefix sums modulo M. 
+    # P[i] = sum(A[0...i-1]) % M. P[0] = 0.
+    # We use accumulate to avoid loops.
+    P = list(accumulate(A, lambda x, y: (x + y) % M, initial=0))
+    
+    # Total sum of A modulo M
+    total_sum_mod = P[N]
+    
+    # We are looking for pairs (s, t) with 1 <= s, t <= N and s != t.
+    # Case 1: s < t
+    # (P[t-1] - P[s-1]) % M == 0  => P[t-1] == P[s-1] (mod M)
+    # Note: P indices are 0 to N. The distance from s to t is sum(A[s-1...t-2]).
+    # This is P[t-1] - P[s-1].
+    # For a fixed value v, if it appears C_v times in P[0...N-1], 
+    # there are C_v * (C_v - 1) // 2 pairs.
+    
+    # Case 2: s > t
+    # (total_sum_mod - P[s-1] + P[t-1]) % M == 0
+    # => P[s-1] - P[t-1] == total_sum_mod (mod M)
+    
+    # Let's use a Counter for P[0...N-1]
+    counts = Counter(P[:N])
+    
+    # For Case 1: s < t, we need P[s-1] == P[t-1].
+    # The number of pairs is sum(C_v * (C_v - 1) // 2)
+    ans_s_lt_t = sum(v * (v - 1) // 2 for v in counts.values())
+    
+    # For Case 2: s > t, we need P[s-1] - P[t-1] == total_sum_mod (mod M).
+    # This is equivalent to P[s-1] == (P[t-1] + total_sum_mod) (mod M).
+    # For each t-1, we need to count how many s-1 (where s-1 > t-1) satisfy this.
+    # However, it's easier to think: for every pair (t-1, s-1) with t-1 < s-1,
+    # we check if P[s-1] - P[t-1] == total_sum_mod (mod M).
+    # This is sum(count(v) * count((v + total_sum_mod) % M))
+    # But we must exclude the case where s-1 == t-1 (which is impossible since s > t).
+    # If total_sum_mod == 0, then P[s-1] == P[t-1], which is the same as Case 1.
+    # But the problem says s != t.
+    
+    if total_sum_mod == 0:
+        # If total_sum is 0 mod M, then s < t and s > t both reduce to P[s-1] == P[t-1].
+        # Total pairs = N * (N-1) if all P are same, etc.
+        # Actually, for each pair {i, j}, both (i, j) and (j, i) work.
+        print(2 * ans_s_lt_t)
+    else:
+        # Case 2: s > t. We need P[s-1] - P[t-1] == total_sum_mod (mod M).
+        # We can iterate over all v in counts and multiply by count of (v + total_sum_mod) % M.
+        # Since total_sum_mod != 0, v != (v + total_sum_mod) % M, so no overlap with s=t.
+        ans_s_gt_t = sum(counts[v] * counts.get((v + total_sum_mod) % M, 0) for v in counts)
+        print(ans_s_lt_t + ans_s_gt_t)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a logic error in the `s < t` case.
+The distance from $s$ to $t$ ($s < t$) is $A_s + A_{s+1} + \dots + A_{t-1}$.
+In 0-indexing, this is `sum(A[s-1 : t-1])`.
+This is $P[t-1] - P[s-1]$.
+For $s=1, t=2$, distance is $A_1$, which is $P[1] - P[0]$.
+For $s=1, t=N$, distance is $A_1 + \dots + A_{N-1}$, which is $P[N-1] - P[0]$.
+So for $s < t$, we need $P[t-1] \equiv P[s-1] \pmod M$ where $0 \le s-1 < t-1 \le N-1$.
+This is exactly what `ans_s_lt_t` calculates.
+
+For $s > t$, the distance is $(A_s + \dots + A_N) + (A_1 + \dots + A_{t-1})$.
+This is $(\text{Total} - P[s-1]) + P[t-1]$.
+We want $(\text{Total} - P[s-1] + P[t-1]) \equiv 0 \pmod M$.
+$\Rightarrow P[s-1] - P[t-1] \equiv \text{Total} \pmod M$.
+Since $s > t$, we have $s-1 > t-1$.
+Let $i = t-1$ and $j = s-1$. We need $0 \le i < j \le N-1$ such that $P[j] - P[i] \equiv \text{Total} \pmod M$.
+This is different from my `ans_s_gt_t` which just counted pairs.
+Actually, if $\text{Total} \not\equiv 0 \pmod M$, then for any pair $\{i, j\}$ with $i < j$, only one of $(s=i+1, t=j+1)$ or $(s=j+1, t=i+1)$ can satisfy the condition.
+If $P[j] - P[i] \equiv \text{Total} \pmod M$, then $s=j+1, t=i+1$ works.
+If $P[j] - P[i] \equiv -\text{Total} \pmod M$, then $s=i+1, t=j+1$ works.
+Wait, the condition $s < t$ was $P[t-1] - P[s-1] \equiv 0 \pmod M$.
+Let's re-evaluate:
+Pair $(s, t)$ works if:
+1. $s < t$ and $P[t-1] - P[s-1] \equiv 0 \pmod M$
+2. $s > t$ and $P[N] - P[s-1] + P[t-1] \equiv 0 \pmod M$
+
+If $P[N] \equiv 0 \pmod M$:
+Condition 1: $P[t-1] \equiv P[s-1] \pmod M$
+Condition 2: $0 - P[s-1] + P[t-1] \equiv 0 \Rightarrow P[t-1] \equiv P[s-1] \pmod M$
+Both are the same. For any $i < j$, if $P[i] \equiv P[j]$, both $(s=i+1, t=j+1)$ and $(s=j+1, t=i+1)$ work.
+Total = $2 \times \sum \frac{C_v(C_v-1)}{2}$. Correct.
+
+If $P[N] \not\equiv 0 \pmod M$:
+Condition 1: $P[t-1] \equiv P[s-1] \pmod M$ (with $s < t$)
+Condition 2: $P[s-1] - P[t-1] \equiv P[N] \pmod M$ (with $s > t$)
+These are disjoint.
+For Condition 1, we need pairs $i < j$ such that $P[i] \equiv P[j]$.
+For Condition 2, we need pairs $i < j$ such that $P[j] - P[i] \equiv P[N]$.
+This is $\sum_{i < j} [P[j] - P[i] \equiv P[N]]$.
+This is NOT $\sum C_v \cdot C_{v+P[N]}$. That would count all pairs regardless of index.
+We need to count pairs $(i, j)$ with $i < j$ such that $P[j] - P[i] \equiv P[N]$.
+This can be done by iterating through the array and keeping track of counts of $P[i]$ seen so far.
+
+Corrected logic for $P[N] \neq 0$:
+Ans = $\sum_{i < j} [P[i] \equiv P[j]] + \sum_{i < j} [P[j] - P[i] \equiv P[N]]$
+The first term is $\sum \frac{C_v(C_v-1)}{2}$.
+The second term: as we iterate $j$ from $0$ to $N-1$, we add the count of $P[i] \equiv (P[j] - P[N]) \pmod M$ for $i < j$.
+
+Final check on Sample 1: $N=4, M=3, A=[2, 1, 4, 3]$.
+$P = [0, 2, 3, 7, 10] \pmod 3 = [0, 2, 0, 1, 1]$.
+$P[0 \dots 3] = [0, 2, 0, 1]$. $P[N] = 1$.
+$C = \{0: 2, 2: 1, 1: 1\}$.
+Term 1: $2(1)//2 + 0 + 0 = 1$. (Pair $s=1, t=3$)
+Term 2: $i < j$ such that $P[j] - P[i] \equiv 1 \pmod 3$.
+$j=1, P[1]=2: P[i]=1 \Rightarrow 0$
+$j=2, P[2]=0: P[i]=2 \Rightarrow 1$ (Pair $s=3, t=2$ - wait, $s>t$ is $j+1, i+1$, so $s=3, t=2$)
+$j=3, P[3]=1: P[i]=0 \Rightarrow 2$ (Pairs $s=4, t=1$ and $s=4, t=3$)
+Total = $1 + (0 + 1 + 2) = 4$. Correct.
+
+Wait, the $s > t$ condition is $P[s-1] - P[t-1] \equiv P[N] \pmod M$ with $t < s$.
+Let $i = t-1$ and $j = s-1$. Then $i < j$ and $P[j] - P[i] \equiv P[N] \pmod M$.
+This is exactly what I wrote.
+
+Revised code structure:
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N, M = int(input_data[0]), int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    P = list(accumulate(A, lambda x, y: (x + y) % M, initial=0))
+    total_sum_mod = P[N]
+    P_vals = P[:N]
+    counts = Counter(P_vals)
+    
+    ans_s_lt_t = sum(v * (v - 1) // 2 for v

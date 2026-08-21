@@ -1,0 +1,251 @@
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    ptr = 1
+    
+    # Process each test case
+    # We use a list comprehension to iterate through T cases
+    # For each case, we extract N and the permutation P
+    # The core logic:
+    # 0 operations: P is already sorted.
+    # 1 operation: There exists k such that sorting [1, k-1] and [k+1, N] sorts P.
+    #   This happens if there is exactly one element P_k that is 'out of place' 
+    #   relative to the sorted version, and removing it leaves the rest sortable.
+    #   Actually, the condition for 1 operation is: there exists k such that
+    #   {P_1, ..., P_{k-1}} = {1, ..., k-1} and {P_{k+1}, ..., P_N} = {k+1, ..., N}.
+    #   Wait, the operation sorts the ranges. So if we pick k, P_k stays put.
+    #   For the result to be (1, ..., N), we MUST have P_k = k.
+    #   Then we need the set {P_1, ..., P_{k-1}} to be {1, ..., k-1} 
+    #   and {P_{k+1}, ..., P_N} to be {k+1, ..., N}.
+    #   This is equivalent to saying P_k = k and for all i < k, P_i < k, and for all i > k, P_i > k.
+    # 2 operations: Always possible for N >= 3.
+    
+    # To implement this without loops, we use map/filter/all/any.
+    # However, the constraint is T test cases. We can't use a loop to iterate T.
+    # We can use a generator expression inside a join.
+    
+    def get_ans(N, P):
+        # Check if already sorted
+        # We can't use P == sorted(P) because sorted() is allowed but we need to avoid loops.
+        # Actually, sorted() is a builtin. The constraint says no for/while loops.
+        # Let's check if P is already sorted.
+        is_sorted = (P == sorted(P))
+        if is_sorted:
+            return "0"
+        
+        # Check if 1 operation suffices:
+        # There exists k (1-indexed) such that P[k-1] == k and 
+        # max(P[0...k-2]) < k and min(P[k...N-1]) > k.
+        # This is equivalent to: P[k-1] == k and 
+        # the set of elements before k-1 is {1...k-1} and after is {k+1...N}.
+        # A simpler condition: P[k-1] == k and 
+        # (all P[i] < k for i < k-1) and (all P[i] > k for i > k-1).
+        
+        # To avoid loops, we can use a generator expression with 'any'.
+        # But we need to check prefixes and suffixes.
+        # Let's use the property: P[k-1] == k and 
+        # the number of elements in P[0...k-2] that are < k is k-1.
+        # Since P is a permutation, if P[k-1] == k and all P[i] < k for i < k-1,
+        # then the suffix must be > k.
+        
+        # We can pre-calculate prefix maximums and suffix minimums using a trick.
+        # But we can't use loops. We can use a list comprehension to build a list.
+        # Wait, the constraint says "no for/while loops". 
+        # List comprehensions are explicitly allowed.
+        
+        # Let's use list comprehensions to find if any k works.
+        # For a fixed k, the condition is:
+        # P[k-1] == k and max(P[:k-1], default=0) < k and min(P[k:], default=N+1) > k.
+        
+        # Since we can't use a loop to check all k, we use 'any'.
+        # But max/min inside 'any' would be O(N^2). We need O(N).
+        # We can use a list comprehension to create prefix_max and suffix_min.
+        # But we can't use a loop to build them. 
+        # Actually, we can use a technique to get prefix maxes without loops?
+        # In Python, we can't do reduce/accumulate without importing itertools.
+        # itertools.accumulate is allowed.
+        
+        # Let's refine:
+        # 0: P == sorted(P)
+        # 1: exists k such that P[k-1] == k and pref_max[k-2] < k and suff_min[k] > k
+        # 2: otherwise.
+        
+        # To implement this, we need to handle the T cases.
+        # We can use a list comprehension to process the cases.
+        return "1" if any(
+            P[k] == k + 1 and 
+            (k == 0 or pref_max[k-1] < k + 1) and 
+            (k == N - 1 or suff_min[k+1] > k + 1)
+            for k in range(N)
+        ) else "2"
+
+    # Since I need to define pref_max and suff_min inside get_ans, 
+    # and I can't use loops, I'll use itertools.accumulate.
+    # But I can't define functions inside functions and call them in a way that 
+    # requires loops. I will use a helper logic.
+    
+    # Let's redefine the logic to fit the constraints.
+    pass
+
+# The above was a sketch. Here is the final implementation.
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to yield (N, P) pairs from the flat input list
+    def get_cases(data):
+        it = iter(data[1:])
+        return ( (int(next(it)), [int(next(it)) for _ in range(int(current_n))]) 
+                 for current_n in [next(it, 0)] ) # This is wrong.
+    
+    # Correct way to group input into cases without for/while:
+    # Since sum of N is 2e5, we can't use recursion.
+    # We can use a list comprehension to extract Ns and Ps.
+    # But the Ps have variable lengths.
+    # The only way to group variable length items without loops is to 
+    # use a custom function with reduce or a very clever list comprehension.
+    # Actually, the simplest way is to use a generator with next().
+    
+    # Let's use a helper class to maintain state for the iterator.
+    class State:
+        def __init__(self, data):
+            self.it = iter(data)
+        def next_case(self):
+            try:
+                n = int(next(self.it))
+                p = [int(next(self.it)) for _ in range(n)]
+                return (n, p)
+            except StopIteration:
+                return None
+
+    # Wait, the constraint says "no for/while loops". 
+    # List comprehensions are allowed. [int(next(self.it)) for _ in range(n)] is a loop.
+    # "You cannot use for or while loops... List comprehensions are allowed."
+    # This means `for _ in range(n)` inside `[]` is okay.
+    
+    # Let's implement the logic inside a list comprehension.
+    # We need to handle the T cases.
+    
+    # To avoid the 'for' in the case loop, we can use map() or a list comprehension.
+    # But we need to consume the iterator.
+    
+    # Let's use a function that processes the flat list using a recursive-like 
+    # structure via map/reduce or just a list comprehension if we can.
+    # Actually, the most reliable way to group the input is to use a generator.
+    
+    # Let's redefine the whole thing.
+    pass
+
+# Final attempt at the structure:
+def final_solve():
+    import sys
+    from itertools import accumulate
+    
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    T = int(input_data[0])
+    it = iter(input_data[1:])
+    
+    # This function extracts one case and returns (N, P)
+    def extract_case(state):
+        # state is a list [iterator]
+        n = int(next(state[0]))
+        p = [int(next(state[0])) for _ in range(n)]
+        return (n, p)
+
+    # Use map to apply extract_case T times. 
+    # Since extract_case needs to be called T times, we pass range(T).
+    # We use a list [it] to wrap the iterator so it's mutable/shared.
+    cases = map(lambda _: extract_case([it]), range(T))
+    
+    def compute_ans(case):
+        N, P = case
+        if P == sorted(P):
+            return "0"
+        
+        # Prefix maxes and Suffix mins
+        # accumulate(P, max) gives [P0, max(P0, P1), ...]
+        pref_max = list(accumulate(P, max))
+        # accumulate(P[::-1], min) gives [PN, min(PN, PN-1), ...]
+        suff_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Check if any k works: P[k] == k+1 and pref_max[k-1] < k+1 and suff_min[k+1] > k+1
+        # Using a list comprehension to check all k and 'any' to aggregate.
+        # We handle boundaries k=0 and k=N-1 carefully.
+        res = any(
+            P[k] == k + 1 and 
+            (k == 0 or pref_max[k-1] < k + 1) and 
+            (k == N - 1 or suff_min[k+1] > k + 1)
+            for k in range(N)
+        )
+        return "1" if res else "2"
+
+    # Map the compute_ans function over all cases and join with newlines.
+    sys.stdout.write("\n".join(map(compute_ans, cases)) + "\n")
+
+if __name__ == "__main__":
+    final_solve()
+```
+Actually, I noticed a small mistake in the `extract_case` logic. I will provide the final cleaned-up version.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    it = iter(input_data[1:])
+    
+    # Helper to extract a single case (N, P) from the iterator
+    def extract_case(_):
+        n = int(next(it))
+        p = [int(next(it)) for _ in range(n)]
+        return (n, p)
+
+    # Helper to compute the answer for a single case
+    def compute_ans(case):
+        N, P = case
+        # 0 operations: already sorted
+        if P == sorted(P):
+            return "0"
+        
+        # O(N) prefix max and suffix min using accumulate
+        pref_max = list(accumulate(P, max))
+        suff_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # 1 operation: exists k such that P[k] == k+1 and 
+        # all elements before are < k+1 and all elements after are > k+1
+        # We use a generator expression inside any()
+        can_do_1 = any(
+            P[k] == k + 1 and 
+            (k == 0 or pref_max[k-1] < k + 1) and 
+            (k == N - 1 or suff_min[k+1] > k + 1)
+            for k in range(N)
+        )
+        
+        return "1" if can_do_1 else "2"
+
+    # Process T cases using map and join the results
+    # range(T) is used just to drive the map for T iterations
+    results = map(compute_ans, map(extract_case, range(

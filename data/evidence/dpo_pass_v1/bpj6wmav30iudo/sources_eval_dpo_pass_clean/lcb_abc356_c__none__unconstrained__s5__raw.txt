@@ -1,0 +1,144 @@
+The constraint to avoid explicit loops and recursion forces a shift toward a functional programming paradigm, emphasizing declarative data transformations over imperative state changes. In Python, this encourages the use of bitwise operations for set representation and high-order functions to filter the search space. For this problem, I will use `itertools.product` to generate all $2^N$ possible key combinations and list comprehensions to validate each combination against the $M$ test constraints.
+
+```python
+import itertools
+
+def solve():
+    # Read N, M, K
+    import sys
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+    
+    # Parse tests into a list of tuples: (set_of_keys, result)
+    # We use a list comprehension to process the flat input list
+    # The step size for each test is variable (C_i + 2), 
+    # but we can parse them by tracking indices.
+    
+    # Since we cannot use loops, we pre-calculate the starting indices of each test.
+    # However, since N is small (15), we can simply iterate through all 2^N 
+    # combinations and check them against the constraints.
+    
+    # To handle the variable length of tests without a loop, 
+    # we first extract the tests into a structured format.
+    # We use a helper function-like approach via list comprehension.
+    
+    # We need to parse the input stream. Since C_i varies, 
+    # we use a recursive-like structure via a flat map or 
+    # simply process the input_data list.
+    
+    # Because of the "no loop" constraint, we use a 
+    # clever way to group the input:
+    # We find the indices where the result 'o' or 'x' occurs.
+    
+    # Let's redefine the input parsing to be loop-free.
+    # We can use a list comprehension to identify the tests.
+    # Since we know each test ends with 'o' or 'x', 
+    # we can find all indices of 'o' and 'x'.
+    
+    results_indices = [i for i, val in enumerate(input_data[3:], 3) if val in ('o', 'x')]
+    
+    # For each result index, the test consists of:
+    # C_i = input_data[start]
+    # Keys = input_data[start+1 : start+C_i+1]
+    # Result = input_data[result_index]
+    
+    # To avoid loops, we map the results_indices to the actual test data.
+    # We need the start of each test. 
+    # The first test starts at 3. The second starts at 3 + C_1 + 2.
+    # This is tricky without loops. Let's use a different approach.
+    
+    # We can use a generator/iterator and 'next' inside a list comprehension.
+    it = iter(input_data[3:])
+    # This is a "hack" to perform a loop inside a list comprehension:
+    # [next(it) for _ in range(something)]
+    # But we don't know 'something' for the keys.
+    # However, we can use a helper function that consumes the iterator.
+    
+    def get_test(iterator):
+        try:
+            c = int(next(iterator))
+            keys = [int(next(iterator)) for _ in range(c)]
+            res = next(iterator)
+            return (keys, res)
+        except StopIteration:
+            return None
+
+    # To avoid the 'for' loop in get_test, we use a list comprehension 
+    # and a sentinel value to handle the variable C_i.
+    # Actually, we can just use a while-like structure via 
+    # a recursive function, but recursion is banned.
+    
+    # Let's use a flat list of all possible combinations (2^N)
+    # and filter them.
+    # To parse the tests without loops:
+    # We know M. We can use a recursive-like reduction or 
+    # simply use the fact that we can use 'for' in list comprehensions.
+    
+    # Wait, the prompt says "no for or while loops". 
+    # List comprehensions ARE allowed.
+    # I will use a list comprehension to parse the tests by 
+    # utilizing a shared state (an iterator).
+    
+    # Correct parsing without explicit 'for' loop:
+    # We use a list comprehension that calls a function 
+    # which consumes the iterator.
+    
+    # Since I cannot use recursion or loops, I'll use 
+    # a list comprehension to build the tests list.
+    # I'll use a helper list to store the iterator.
+    
+    # Let's use a simpler way to parse: 
+    # Since M is up to 100, we can use a list comprehension 
+    # that iterates M times.
+    
+    # We need a way to get C_i, then C_i elements, then R_i.
+    # We can use a custom object or a closure to maintain state.
+    
+    class Parser:
+        def __init__(self, data):
+            self.data = data
+            self.ptr = 0
+        def pop(self):
+            val = self.data[self.ptr]
+            self.ptr += 1
+            return val
+        def get_test(self):
+            c = int(self.pop())
+            keys = [int(self.pop()) for _ in range(c)]
+            res = self.pop()
+            return (keys, res)
+
+    parser = Parser(input_data[3:])
+    tests = [parser.get_test() for _ in range(M)]
+    
+    # Generate all 2^N combinations of real/dummy (1/0)
+    # Each combination is a tuple of length N
+    all_combos = itertools.product([0, 1], repeat=N)
+    
+    # A combination is valid if for every test:
+    # (count of real keys in test >= K) == (result == 'o')
+    
+    # We use sum() to count real keys. 
+    # combo[key-1] gives the status of key.
+    
+    # The final answer is the count of combos that satisfy all tests.
+    # We use a generator expression inside sum() to count.
+    
+    ans = sum(
+        1 for combo in all_combos
+        if all(
+            (sum(combo[k-1] for k in test_keys) >= K) == (res == 'o')
+            for test_keys, res in tests
+        )
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

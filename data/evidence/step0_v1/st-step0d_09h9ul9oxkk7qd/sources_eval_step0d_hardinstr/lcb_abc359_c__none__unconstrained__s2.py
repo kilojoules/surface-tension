@@ -1,0 +1,136 @@
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # The tiling rule: 
+    # If i+j is even, A_{i,j} and A_{i+1,j} are one tile.
+    # This means tiles are horizontal 2x1 blocks.
+    # In row j, tiles are {(0,j), (1,j)}, {(2,j), (3,j)} if j is even.
+    # In row j, tiles are {(-1,j), (0,j)}, {(1,j), (2,j)} if j is odd.
+    
+    # Let's transform coordinates to a grid where each unit is a tile.
+    # For a fixed y, the tile index is:
+    # If y is even: floor(x / 2)
+    # If y is odd: floor((x + 1) / 2)
+    # This can be written as: (x + (y % 2)) // 2
+    
+    # However, the cost to move is based on how many tiles you enter.
+    # Moving vertically always enters a new tile.
+    # Moving horizontally might stay in the same tile.
+    
+    # Let's define the "tile coordinate" (X, Y)
+    # Y = y
+    # X = (x + (y % 2)) // 2
+    
+    # The cost to move from (sx, sy) to (tx, ty):
+    # The distance is essentially the L1 distance in the transformed space,
+    # but we must account for the fact that moving diagonally in the 
+    # original space might be cheaper.
+    
+    # Let's use the property:
+    # Cost = max(|sy - ty|, (|sx - tx| + |sy - ty|) // 2) 
+    # is NOT correct here because the tiles are only 2x1.
+    
+    # Correct logic:
+    # To get from (sx, sy) to (tx, ty):
+    # 1. Vertical distance is always paid: |sy - ty|
+    # 2. Horizontal distance: 
+    #    Each tile covers 2 units of x.
+    #    The number of horizontal boundaries crossed is roughly |sx - tx| / 2.
+    #    Specifically, if we are at (sx, sy) and (tx, ty),
+    #    the number of tiles crossed horizontally is the difference in 
+    #    their tile-indices X_s and X_t.
+    
+    # Let X(x, y) = (x + (y % 2)) // 2
+    # The distance is |sy - ty| + max(0, |X(tx, ty) - X(sx, sy)| - (some allowance))
+    # Actually, the simplest way to view this is:
+    # You must pay for every vertical step.
+    # You pay for horizontal steps only when you cross a tile boundary.
+    # If you move diagonally, you can "absorb" some horizontal movement 
+    # into the vertical steps.
+    
+    # The cost is:
+    # dx = abs(sx - tx)
+    # dy = abs(sy - ty)
+    # If we move dy vertically, we can cover some horizontal distance.
+    # Each vertical move enters a new tile. That tile has a width of 2.
+    # One can move 1 unit horizontally "for free" relative to the vertical move
+    # if the tile alignment allows.
+    
+    # The precise formula for this specific tiling is:
+    # cost = max(dy, (dx + dy + 1) // 2) 
+    # Wait, let's check Sample 1: 5 0 to 2 5. dx=3, dy=5.
+    # max(5, (3+5+1)//2) = 5. Correct.
+    # Sample 2: 3 1 to 4 1. dx=1, dy=0.
+    # max(0, (1+0+1)//2) = 1. Incorrect. Sample 2 says 0.
+    
+    # Re-evaluating:
+    # In Sample 2, (3,1) and (4,1) are in the same tile.
+    # i=3, j=1. i+j = 4 (even). So A_{3,1} and A_{4,1} are one tile.
+    # Thus, moving from 3.5, 1.5 to 4.5, 1.5 costs 0.
+    
+    # The cost is:
+    # Let X(x, y) = (x + (y % 2)) // 2
+    # The distance is |sy - ty| + max(0, abs(X(tx, ty) - X(sx, sy)) - (some value))
+    # Actually, the most reliable formula for this grid is:
+    # cost = max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty) + (1 if parity_change else 0)) // 2)
+    # Let's use the coordinate transformation:
+    # The distance is the L1 distance in the transformed space where 
+    # we can move from (X, Y) to (X, Y+1) or (X+1, Y) or (X, Y-1) or (X-1, Y).
+    # But we can also move from (X, Y) to (X', Y+1) where X' is the tile index 
+    # of the square (x, y+1).
+    
+    # The simplest correct formula for this problem is:
+    # cost = max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty)) // 2)
+    # Let's check Sample 1: max(5, (3+5)//2) = 5.
+    # Sample 2: max(0, (1+0)//2) = 0.
+    # Sample 3: sx=2552608206527595, sy=5411232866732612, tx=771856005518028, ty=7206210729152763
+    # dx = 1780752199999567, dy = 1794977862420151
+    # max(1794977862420151, (1780752199999567 + 1794977862420151)//2) = 1794977862420151.
+    # Matches Sample 3.
+    
+    # Final check on the logic:
+    # Each vertical move costs 1 and can potentially cover 1 unit of horizontal distance
+    # (by moving to the other half of the 2x1 tile).
+    # So dy vertical moves can cover up to 2*dy horizontal distance? 
+    # No, the tiles shift.
+    # In two vertical steps (y -> y+1 -> y+2), the tile boundaries at y and y+2 are the same.
+    # The boundary at y+1 is shifted by 1.
+    # This means in 2 vertical steps, you can move 2 units horizontally for the cost of 2.
+    # So cost = max(dy, (dx + dy + 1) // 2) is almost it, but the shift 
+    # means you can move dx units using dy vertical steps if dx <= dy.
+    # If dx > dy, you need (dx - dy) // 2 additional horizontal steps.
+    # Total cost = dy + max(0, (dx - dy + 1) // 2) = max(dy, (dx + dy + 1) // 2)
+    # Wait, Sample 2: dx=1, dy=0 -> (1+0+1)//2 = 1. Still 1.
+    # The issue is the starting tile. If sx, sy is the "right" half of a tile,
+    # and tx, ty is the "left" half of the next, you might not need an extra cost.
+    
+    # Let's use the X(x, y) = (x + (y % 2)) // 2
+    # The distance is the L1 distance between (X(sx, sy), sy) and (X(tx, ty), ty)
+    # but you can move diagonally in the (X, Y) space? 
+    # No, the moves are:
+    # 1. Change Y by 1: Cost 1. X might change by 0 or 1.
+    # 2. Change X by 1: Cost 1.
+    # This is equivalent to: Cost = max(|sy - ty|, |X(tx, ty) - X(sx, sy)|)
+    # Wait, let's check Sample 1: X(5,0) = 5//2 = 2. X(2,5) = (2+1)//2 = 1.
+    # max(|0-5|, |1-2|) = max(5, 1) = 5.
+    # Sample 2: X(3,1) = (3+1)//2 = 2. X(4,1) = (4+1)//2 = 2.
+    # max(|1-1|, |2-2|) = 0.
+    # Sample 3: X(sx, sy) = (2552608206527595 + 0)//2 = 1276304103263797
+    # X(tx, ty) = (771856005518028 + 1)//2 = 385928002759014
+    # max(|5411232866732612 - 7206210729152763|, |1276304103263797 - 385928002759014|)
+    # max(1794977862420151, 890376100504783) = 1794977862420151.
+    
+    # This logic holds. The cost is max(|sy - ty|, |X(tx, ty) - X(sx, sy)|).
+    
+    print(max(abs(sy - ty), abs((tx + (ty % 2)) // 2 - (sx + (sy % 2)) // 2)))
+
+if __name__ == "__main__":
+    solve()

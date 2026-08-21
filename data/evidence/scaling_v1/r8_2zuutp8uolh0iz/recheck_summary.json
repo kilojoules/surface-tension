@@ -1,0 +1,31 @@
+[
+  {
+    "csv": "eval_scaling_rationale_b149_r8.csv",
+    "n_problems": 15,
+    "n_gens": 102,
+    "compliance": 0.4216,
+    "compliance_and_pass": 0.2647,
+    "pass_rate": 0.598,
+    "probs_all_compliant": 3,
+    "probs_in_zone": 2,
+    "probs_mixed": 6,
+    "probs_any_compliant": 9,
+    "per_problem_rate": {
+      "lcb/abc356_c": 0.0,
+      "lcb/abc359_c": 1.0,
+      "lcb/abc362_c": 0.875,
+      "lcb/abc363_c": 1.0,
+      "lcb/abc367_d": 0.75,
+      "lcb/abc370_c": 0.875,
+      "lcb/abc370_d": 0.571,
+      "lcb/abc371_c": 0.375,
+      "lcb/abc374_d": 0.0,
+      "lcb/abc376_b": 0.0,
+      "lcb/abc379_d": 0.0,
+      "lcb/abc385_c": 1.0,
+      "lcb/abc386_c": 0.125,
+      "lcb/arc181_a": 0.0,
+      "lcb/arc183_a": 0.0
+    }
+  }
+]

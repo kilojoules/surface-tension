@@ -1,0 +1,84 @@
+import sys
+from math import factorial
+from functools import reduce
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences S is (N*K)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Let's calculate S.
+    def get_total_permutations(counts):
+        total_len = sum(counts)
+        denom = reduce(lambda a, b: a * factorial(b), counts, 1)
+        return factorial(total_len) // denom
+
+    # S is the total number of permutations of the multiset
+    s_total = get_total_permutations([k] * n)
+    target_index = (s_total + 1) // 2
+
+    # We need to find the target_index-th sequence.
+    # We will use reduce to build the sequence step by step.
+    # State: (current_counts, current_index)
+    # current_counts: tuple of remaining counts for each number 1..N
+    # current_index: the rank we are looking for among remaining sequences
+    
+    def get_next_state(state, _):
+        counts, idx = state
+        
+        # We want to find the smallest digit d (1 to N) such that 
+        # the number of sequences starting with digits < d is less than idx.
+        
+        def find_digit(d, current_idx):
+            if d > n:
+                return None, None
+            
+            if counts[d-1] > 0:
+                # Calculate how many sequences start with digit d
+                # New counts would be counts with counts[d-1] decremented
+                new_counts = list(counts)
+                new_counts[d-1] -= 1
+                num_with_d = get_total_permutations(new_counts)
+                
+                if current_idx <= num_with_d:
+                    return d, current_idx
+                else:
+                    return find_digit(d + 1, current_idx - num_with_d)
+            else:
+                return find_digit(d + 1, current_idx)
+
+        digit, new_idx = find_digit(1, idx)
+        
+        # Update counts for the next step
+        new_counts_list = list(counts)
+        new_counts_list[digit-1] -= 1
+        
+        return (tuple(new_counts_list), new_idx), digit
+
+    # Use reduce to simulate the loop for NK positions
+    # The initial state is (initial_counts, target_index)
+    initial_state = ((k,) * n, target_index)
+    
+    # We need to collect the digits. Since reduce returns the final state,
+    # we can use a trick to collect results by storing them in a list 
+    # inside the state or by using a custom accumulator.
+    # However, to strictly avoid loops and maintain purity, 
+    # we can use a recursive-like structure via reduce by passing the sequence along.
+    
+    def accumulator(state, _):
+        (counts, idx), seq = state
+        (next_state, digit) = get_next_state((counts, idx), None)
+        return (next_state, seq + [digit])
+
+    final_result = reduce(accumulator, range(n * k), (initial_state, []))
+    
+    # Output the sequence
+    print(*(final_result[1]))
+
+if __name__ == "__main__":
+    solve()

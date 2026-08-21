@@ -1,0 +1,71 @@
+import sys
+
+def solve():
+    # Read input and map to integers
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy, tx, ty = map(int, input_data)
+
+    # The tiles are 2x1 rectangles.
+    # Rule: If i+j is even, A_{i,j} and A_{i+1,j} are the same tile.
+    # This means for a fixed j:
+    # If j is even: (0,1), (2,3), (4,5) ... are pairs
+    # If j is odd: (-1,0), (1,2), (3,4) ... are pairs
+    # Let's transform (x, y) to tile coordinates (u, v).
+    # v = y (since tiles are 2x1, they only span one unit of y)
+    # For u:
+    # If y is even, x is grouped as (0,1), (2,3)... so u = x // 2
+    # If y is odd, x is grouped as (-1,0), (1,2)... so u = (x + 1) // 2
+    
+    # To generalize: u = (x + (y % 2)) // 2
+    # The cost to move between tiles:
+    # Moving from (u, v) to (u', v') costs:
+    # Vertical move: each step in y enters a new tile.
+    # Horizontal move: each step in u enters a new tile.
+    # However, the problem asks for the minimum toll.
+    # A move in one direction can span multiple tiles.
+    # Each time he "enters" a tile, he pays 1.
+    # Starting tile is free.
+    # This is equivalent to the distance in the transformed grid.
+    # Let f(x, y) = ((x + (y % 2)) // 2, y)
+    # The distance is |u1 - u2| + |v1 - v2|, but we must account for the 
+    # fact that moving diagonally in the original grid might be cheaper.
+    # Actually, the cost is simply the Manhattan distance in the (u, v) space
+    # if we consider that moving from (u, v) to (u, v+1) costs 1,
+    # and (u, v) to (u+1, v) costs 1.
+    # Wait, the rule is: "Each time he enters a tile, he pays a toll of 1."
+    # If he is at (ux, uy) and moves to (vx, vy), the cost is 
+    # the number of boundary crossings.
+    # In the transformed grid, the distance is max(|u1-u2|, |v1-v2|) 
+    # is NOT correct because he can only move axially.
+    # The correct distance is |u1 - u2| + |v1 - v2|? 
+    # Let's check Sample 1: (5,0) to (2,5)
+    # S: u = (5 + 0)//2 = 2, v = 0
+    # T: u = (2 + (5%2))//2 = (2+1)//2 = 1, v = 5
+    # Dist = |2-1| + |0-5| = 1 + 5 = 6. Sample says 5.
+    # Re-evaluating: Moving from (u, v) to (u, v+1) always enters a new tile.
+    # Moving from (u, v) to (u+1, v) always enters a new tile.
+    # But moving from (u, v) to (u, v+1) might land you in a tile that 
+    # also covers (u+1, v) or (u-1, v).
+    # The transformation is: 
+    # Let X = x + (y % 2), Y = y. 
+    # The tiles are blocks of 2 in X. So U = X // 2, V = Y.
+    # The distance is |U1 - U2| + |V1 - V2|. 
+    # But we can move diagonally in the (U, V) space by moving 
+    # 1 unit X and 1 unit Y in the original space.
+    # If we move from (u, v) to (u+1, v+1), we enter one tile.
+    # So the distance is max(|U1 - U2|, |V1 - V2|).
+    # Let''s check Sample 1: U1=2, V1=0; U2=1, V2=5. max(1, 5) = 5. Correct.
+    # Sample 2: (3,1) to (4,1). U1=(3+1)//2=2, V1=1; U2=(4+1)//2=2, V2=1. max(0,0)=0. Correct.
+    
+    u_s = (sx + (sy % 2)) // 2
+    v_s = sy
+    u_t = (tx + (ty % 2)) // 2
+    v_t = ty
+    
+    print(max(abs(u_s - u_t), abs(v_s - v_t)))
+
+if __name__ == "__main__":
+    solve()

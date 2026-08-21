@@ -1,0 +1,62 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # N: number of keys, M: number of tests, K: required real keys
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+
+    # Parse the tests
+    # Each test is stored as (set_of_keys, result)
+    # We use a helper function or a comprehension to group the input tokens
+    # Since we cannot use loops, we use a list comprehension to slice the input_data
+    # The structure of each test is: C_i, A_{i,1}...A_{i,C_i}, R_i
+    # However, because C_i varies, we must process the tokens carefully.
+    
+    # To handle variable length tests without loops, we can use a recursive-like 
+    # structure via a custom function or a clever comprehension.
+    # Given the constraints and the "no loop" rule, we can pre-process the 
+    # input into a list of tests using a while-like logic implemented via 
+    # a helper function that calls itself (recursion).
+    
+    def parse_tests(tokens, current_idx):
+        if current_idx >= len(tokens):
+            return []
+        
+        c_i = int(tokens[current_idx])
+        keys = [int(x) for x in tokens[current_idx + 1 : current_idx + 1 + c_i]]
+        result = tokens[current_idx + 1 + c_i]
+        
+        return [(keys, result)] + parse_tests(tokens, current_idx + 2 + c_i)
+
+    tests = parse_tests(input_data[3:], 0)
+
+    # Generate all 2^N combinations of real (1) and dummy (0) keys
+    # Each combination is a tuple of length N
+    all_combinations = product([0, 1], repeat=N)
+
+    # Validation logic:
+    # For a combination 'comb', it is valid if for all tests (keys, res):
+    # if res == 'o', then sum(comb[k-1] for k in keys) >= K
+    # if res == 'x', then sum(comb[k-1] for k in keys) < K
+    
+    # We use a generator expression inside sum() to count valid combinations
+    ans = sum(
+        1 for comb in all_combinations
+        if all(
+            (sum(comb[k-1] for k in keys) >= K) if res == 'o' 
+            else (sum(comb[k-1] for k in keys) < K)
+            for (keys, res) in tests
+        )
+    )
+
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

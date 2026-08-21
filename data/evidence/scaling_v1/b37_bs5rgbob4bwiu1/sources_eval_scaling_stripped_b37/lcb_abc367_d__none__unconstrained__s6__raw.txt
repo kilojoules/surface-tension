@@ -1,0 +1,204 @@
+```python
+import sys
+from itertools import accumulate
+from functools import reduce
+
+def solve():
+    # Read N and M
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # Let P_i be the prefix sum of distances: P_i = sum(A_1 ... A_{i-1})
+    # The distance from s to t (s < t) is (P_t - P_s) mod M == 0
+    # The distance from s to t (s > t) is (Total_Sum - P_s + P_t) mod M == 0
+    # This simplifies to:
+    # If s < t: P_s % M == P_t % M
+    # If s > t: (P_s - Total_Sum) % M == P_t % M
+    
+    # Calculate prefix sums modulo M
+    # P = [0, A1, A1+A2, ..., A1+...+A_{N-1}]
+    # We use accumulate to get [0, A1, A1+A2, ...]
+    # Since we only need sums up to N-1 for the P_i values:
+    prefixes = list(accumulate([0] + A[:-1], lambda x, y: (x + y) % M))
+    
+    # Total sum of all A_i modulo M
+    total_sum_mod = sum(A) % M
+    
+    # For a fixed s, we want to count t != s such that dist(s, t) % M == 0.
+    # Let x = P_s % M.
+    # We need t such that:
+    # 1. t > s and P_t % M == x
+    # 2. t < s and (total_sum_mod - x + P_t) % M == 0  => P_t % M == (x - total_sum_mod) % M
+    
+    # Let count_map be the frequency of each remainder in prefixes
+    # We can use a list since M is at most 10^6
+    counts = [0] * M
+    for p in prefixes:
+        counts[p] += 1
+        
+    # For each s, the number of valid t is:
+    # (count of P_t % M == P_s % M) - 1  <-- The -1 excludes t=s
+    # PLUS
+    # (count of P_t % M == (P_s - total_sum_mod) % M)
+    # BUT, if (P_s % M) == (P_s - total_sum_mod) % M, we have double counted t=s.
+    # However, the logic above is for a specific s. 
+    # Let's refine:
+    # For a fixed s, we seek t != s such that:
+    # If t > s: P_t % M == P_s % M
+    # If t < s: P_t % M == (P_s - total_sum_mod) % M
+    
+    # This is tricky because the condition depends on whether t > s.
+    # Let's use the property:
+    # Total pairs = sum_{s=1}^N (count of t > s where P_t == P_s) 
+    #              + sum_{s=1}^N (count of t < s where P_t == (P_s - total_sum_mod))
+    
+    # Let f(v) be the number of times remainder v appears in prefixes.
+    # The number of pairs (s, t) with s < t and P_s == P_t is f(v)*(f(v)-1)//2 summed over v.
+    # The number of pairs (s, t) with s > t and P_t == (P_s - total_sum_mod) is:
+    # For each s, we need t < s. This is harder.
+    
+    # Let's reconsider:
+    # A pair (s, t) is valid if:
+    # 1. s < t and (P_t - P_s) % M == 0
+    # 2. s > t and (Total - P_s + P_t) % M == 0
+    
+    # Let X = P_s % M and Y = P_t % M.
+    # Condition 1: X == Y and s < t
+    # Condition 2: Y == (X - Total) % M and s > t
+    
+    # Let's use the fact that for any two distinct indices i, j (i < j):
+    # They form a valid pair (s=i, t=j) if P_i == P_j
+    # They form a valid pair (s=j, t=i) if P_i == (P_j - Total) % M
+    
+    # Total = sum_{i < j} [P_i == P_j] + sum_{i < j} [P_i == (P_j - Total) % M]
+    
+    # sum_{i < j} [P_i == P_j] is sum (f(v) * (f(v)-1) // 2)
+    
+    # For the second term: sum_{j=1}^N (count of i < j such that P_i == (P_j - Total) % M)
+    # We can calculate this by iterating j from 0 to N-1 and maintaining a running count of P_i.
+    
+    # First term:
+    ans = sum(c * (c - 1) // 2 for c in counts if c > 1)
+    
+    # Second term:
+    # We need sum_{j=0}^{N-1} (count of i < j where P_i == (P_j - total_sum_mod) % M)
+    # We use a list comprehension with a custom function or a loop.
+    # Since we cannot use loops, we can use a map/reduce approach to track state.
+    
+    def update_state(state, p_j):
+        current_counts, total_valid = state
+        target = (p_j - total_sum_mod) % M
+        # Count how many P_i (i < j) match the target
+        valid_for_j = current_counts[target]
+        # Update count for P_j
+        # Note: lists are mutable, so we update in place
+        current_counts[p_j] += 1
+        return (current_counts, total_valid + valid_for_j)
+
+    # Initialize state: ([0]*M, 0)
+    # We use reduce to simulate the loop over j
+    final_state = reduce(update_state, prefixes, ([0] * M, 0))
+    
+    print(ans + final_state[1])
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a mistake in my logic. The `update_state` function modifies the list `current_counts` in place, which is allowed in Python, but the `reduce` function expects a return value. My `update_state` returns the tuple, so it should work. However, the problem asks for the number of pairs $(s, t)$.
+
+Let's double check the logic:
+1. $s < t$: Distance is $P_t - P_s$. Valid if $P_t \equiv P_s \pmod M$.
+2. $s > t$: Distance is $(P_N - P_s) + P_t$. Valid if $P_N - P_s + P_t \equiv 0 \pmod M \Rightarrow P_t \equiv (P_s - P_N) \pmod M$.
+
+My code:
+- `ans` calculates $\sum_{i < j} [P_i \equiv P_j \pmod M]$.
+- `final_state[1]` calculates $\sum_{j=0}^{N-1} \sum_{i < j} [P_i \equiv (P_j - P_N) \pmod M]$.
+
+This matches the logic.
+
+One final check on constraints: $N=2 \cdot 10^5$, $M=10^6$. The `reduce` and `accumulate` functions are efficient. The memory usage for the `counts` list is $10^6$ integers, which is well within limits.
+
+```python
+import sys
+from itertools import accumulate
+from functools import reduce
+
+def solve():
+    # Read N and M
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # P_i is the distance from rest area 1 to rest area i+1
+    # P_0 = 0
+    # P_1 = A_1
+    # P_2 = A_1 + A_2 ...
+    # We only need P_0 ... P_{N-1}
+    # Total distance L = sum(A_1 ... A_N)
+    
+    # Use accumulate to get prefix sums modulo M
+    # We take only the first N elements (0 to N-1)
+    # A[:-1] gives A_1 to A_{N-1}
+    prefixes = list(accumulate([0] + A[:-1], lambda x, y: (x + y) % M))
+    
+    # Total sum of all A_i modulo M
+    total_sum_mod = sum(A) % M
+    
+    # Count occurrences of each remainder
+    # Using a list comprehension to avoid explicit for-loops
+    # We can't use a loop to populate 'counts', so we use a different approach:
+    # Since we need the total counts for the first term, and a running count for the second,
+    # we can handle the first term using the final state of the second term's count list.
+    
+    def update_state(state, p_j):
+        current_counts, total_valid = state
+        target = (p_j - total_sum_mod) % M
+        valid_for_j = current_counts[target]
+        current_counts[p_j] += 1
+        return (current_counts, total_valid + valid_for_j)
+
+    # Initial state: (count_list, total_valid_pairs)
+    initial_state = ([0] * M, 0)
+    final_counts, second_term = reduce(update_state, prefixes, initial_state)
+    
+    # First term: sum of f(v)*(f(v)-1)//2
+    first_term = sum(c * (c - 1) // 2 for c in final_counts)
+    
+    print(first_term + second_term)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `reduce` function with a mutable list inside the state tuple is the only way to maintain a "running count" without a `for` loop. This is a standard functional pattern in Python for stateful reductions.
+
+Final check on Sample 1:
+N=4, M=3, A=[2, 1, 4, 3]
+Prefixes: [0, 2, 3, 7] mod 3 -> [0, 2, 0, 1]
+Total sum: 10 mod 3 -> 1
+Pairs (s,t) with s < t:
+(1,3): P_3 - P_1 = 0 - 0 = 0 (Valid)
+Pairs (s,t) with s > t:
+(3,1): (10 - 0 + 0) % 3 = 1 (Invalid)
+(4,1): (10 - 1 + 0) % 3 = 0 (Valid)
+(4,3): (10 - 1 + 0) % 3 = 0 (Valid)
+(3,2): (10 - 0 + 2) % 3 = 0 (Valid)
+Total: 1 + 3 = 4. Correct.
+My code:
+`prefixes` = [0, 2, 0, 1]
+`total_sum_mod` = 1
+`final_counts` = {0:2, 1:1, 2:1}
+`first_term` = 2*1//2 = 1
+`second_term`:
+j=0: p=0, target=(0-1)%3=2, count[2]=0, state=(count[0]=1, 0)
+j=1: p=2, target=(2-1)%3=1, count[1]=0, state=(count[2]=1, 0)
+j=2: p=0, target=(0-1)%3=2, count[2]=1, state=(count[0]=2, 1)
+j=3: p=1, target=(1-1)%3=0, count[0]=2, state=(count[1]=1, 1+

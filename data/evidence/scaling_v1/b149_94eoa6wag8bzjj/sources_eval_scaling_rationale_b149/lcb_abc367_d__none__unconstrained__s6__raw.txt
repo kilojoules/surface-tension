@@ -1,0 +1,163 @@
+The constraint to avoid explicit loops forces a shift toward functional programming patterns, which can lead to more concise and declarative code by focusing on "what" to compute rather than "how" to iterate. To solve this problem, I will use `itertools.accumulate` to calculate prefix sums of the distances, `collections.Counter` to group these sums by their remainder modulo $M$, and `sum` with generator expressions to calculate the number of valid pairs $(s, t)$.
+
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read all input at once and split into a list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use next() to extract N and M from the iterator
+    # Since we cannot use loops, we use a generator/map approach for the rest
+    it = input_data
+    N = next(it)
+    M = next(it)
+    A = list(it)
+
+    # Let P[i] be the distance from rest area 1 to rest area i+1.
+    # P[0] = 0
+    # P[1] = A[0]
+    # P[2] = A[0] + A[1] ...
+    # The distance from s to t (s < t) is P[t-1] - P[s-1].
+    # The distance from s to t (s > t) is (Total_Sum - P[s-1]) + P[t-1].
+    # In both cases, we want (P[t-1] - P[s-1]) % M == 0.
+    # This is equivalent to P[t-1] % M == P[s-1] % M.
+    
+    # Calculate prefix sums modulo M
+    # accumulate(A, lambda x, y: (x + y) % M, initial=0) gives P[0]...P[N]
+    # Note: P[N] is the total sum around the lake.
+    # We are interested in rest areas 1 to N, so we look at P[0] to P[N-1].
+    
+    prefixes = list(accumulate(A, lambda x, y: (x + y) % M, initial=0))
+    
+    # We only care about the first N prefix sums (0 to N-1)
+    # because the distance from s to t is (P[t-1] - P[s-1]) mod M.
+    # If s < t, dist = P[t-1] - P[s-1]
+    # If s > t, dist = Total - P[s-1] + P[t-1]
+    # For the condition dist % M == 0:
+    # If s < t: P[t-1] % M == P[s-1] % M
+    # If s > t: P[t-1] % M == (P[s-1] - Total) % M
+    
+    # Let's redefine: 
+    # Let X_i = P[i] % M for i = 0 ... N-1.
+    # Total = P[N] % M.
+    # Pair (s, t) is valid if:
+    # 1. s < t and X_{t-1} == X_{s-1}
+    # 2. s > t and X_{t-1} == (X_{s-1} - Total) % M
+    
+    total_sum_mod = prefixes[N]
+    counts = Counter(prefixes[:N])
+    
+    # For a fixed remainder r, let c[r] be the number of times it appears in prefixes[:N].
+    # The number of pairs (s, t) with s < t and X_{t-1} == X_{s-1} is:
+    # sum(c[r] * (c[r] - 1) // 2 for r in counts)
+    # However, the problem asks for pairs (s, t). 
+    # Let's use the property: 
+    # Distance(s, t) = (P[t-1] - P[s-1]) mod Total_Sum
+    # We want (P[t-1] - P[s-1]) % M == 0.
+    # This is simply P[t-1] % M == P[s-1] % M.
+    # This holds regardless of whether s < t or s > t, 
+    # PROVIDED we treat the distance as the clockwise path.
+    # Clockwise distance from s to t is:
+    # If s < t: P[t-1] - P[s-1]
+    # If s > t: (P[N] - P[s-1]) + P[t-1]
+    # Both are congruent to P[t-1] - P[s-1] modulo P[N].
+    # Since we want the distance to be a multiple of M, we need:
+    # (P[t-1] - P[s-1]) % M == 0  => P[t-1] % M == P[s-1] % M.
+    # This is only true if the total sum P[N] is also a multiple of M? 
+    # No. Let's re-evaluate.
+    # Dist(s, t) = (P[t-1] - P[s-1]) if s < t else (P[N] - P[s-1] + P[t-1])
+    # Condition: Dist(s, t) % M == 0.
+    # If s < t: P[t-1] % M == P[s-1] % M
+    # If s > t: P[t-1] % M == (P[s-1] - P[N]) % M
+    
+    # Let c[r] be count of P[i] % M == r for i in 0...N-1.
+    # Pairs (s, t) with s < t: sum(c[r] * (c[r]-1) // 2)
+    # Pairs (s, t) with s > t: 
+    # For each s, we need t < s such that P[t-1] % M == (P[s-1] - P[N]) % M.
+    # This is sum(c[r] * c[(r - total_sum_mod) % M]) 
+    # But we must exclude cases where s=t (not allowed) and handle the s > t logic.
+    # Actually, the simplest way:
+    # For every pair (s, t) with s != t:
+    # If s < t, condition is P[t-1] % M == P[s-1] % M
+    # If s > t, condition is P[t-1] % M == (P[s-1] - P[N]) % M
+    
+    # Let's use the counts:
+    # Total pairs = sum(c[r] * (c[r] - 1) // 2 for r in counts)  <-- this is for s < t
+    # For s > t, we need P[t-1] % M == (P[s-1] - total_sum_mod) % M.
+    # Let r_s = P[s-1] % M and r_t = P[t-1] % M.
+    # We need r_t == (r_s - total_sum_mod) % M.
+    # For a fixed r_s, there are c[(r_s - total_sum_mod) % M] possible values for r_t.
+    # However, we must ensure t < s.
+    # This is tricky without loops. Let's use the property that:
+    # Total valid pairs = sum_{s < t} [P[t-1]%M == P[s-1]%M] + sum_{s > t} [P[t-1]%M == (P[s-1]-P[N])%M]
+    
+    # Let's use a different approach:
+    # For each i in 0...N-1, let X_i = P[i] % M.
+    # We want pairs (i, j) such that:
+    # 1. i < j and X_j == X_i
+    # 2. i > j and X_j == (X_i - total_sum_mod) % M
+    
+    # The number of pairs (i, j) with i < j and X_j == X_i is sum(c[r]*(c[r]-1)//2).
+    # The number of pairs (i, j) with i > j and X_j == (X_i - total_sum_mod) % M:
+    # This is sum_{i=1 to N-1} (count of X_j == (X_i - total_sum_mod)%M for j < i).
+    # This can be solved by iterating and keeping track of counts, but we can't use loops.
+    # Wait, if we use a generator expression with a mutable state (like a list or dict), 
+    # we can simulate a loop.
+    
+    state = Counter()
+    # Use a list comprehension to iterate and update state, then sum the results.
+    # result = [state[(X_i - total_sum_mod) % M] for X_i in prefixes[:N]]
+    # But we need to update state at each step.
+    # We can use a trick: (state.update({X_i: state[X_i]+1}) or state[(X_i - total_sum_mod)%M])
+    # However, state.update returns None.
+    
+    # Let's use a more robust way to count s > t:
+    # For a fixed r, let c[r] be the total count.
+    # The number of pairs (i, j) with i > j and X_j == (X_i - total_sum_mod) % M is:
+    # If total_sum_mod == 0:
+    #   It's the same as i < j, which is sum(c[r]*(c[r]-1)//2).
+    # If total_sum_mod != 0:
+    #   We need to count pairs (i, j) such that i > j and X_j == (X_i - total_sum_mod) % M.
+    #   This is not simply a function of total counts. We need the positions.
+    
+    # Actually, let's reconsider:
+    # Dist(s, t) = (P[t-1] - P[s-1]) mod Total_Sum
+    # We want (P[t-1] - P[s-1]) % M == 0.
+    # This is P[t-1] % M == P[s-1] % M ONLY IF Total_Sum % M == 0.
+    # If Total_Sum % M != 0, then for s > t:
+    # Dist(s, t) = Total_Sum - P[s-1] + P[t-1]
+    # Dist(s, t) % M = (total_sum_mod - X_{s-1} + X_{t-1}) % M
+    # We want (total_sum_mod - X_{s-1} + X_{t-1}) % M == 0
+    # => X_{t-1} % M == (X_{s-1} - total_sum_mod) % M.
+    
+    # To calculate sum_{i=1 to N-1} (count of X_j == (X_i - total_sum_mod)%M for j < i)
+    # without loops, we can use a custom function with `reduce`.
+    from functools import reduce
+    
+    def count_s_gt_t(acc, x):
+        current_count = acc[0][(x - total_sum_mod) % M]
+        acc[0][x] += 1
+        return (acc[0], acc[1] + current_count)
+
+    # Initial state: (Counter(), 0)
+    final_res = reduce(count_s_gt_t, prefixes[:N], (Counter(), 0))
+    
+    # Now calculate s < t:
+    # sum(c[r] * (c[r]-1) // 2)
+    # But wait, the reduce already processed all X_i. 
+    # The s < t case is: X_j == X_i for j > i.
+    # That is sum_{i=0 to N-2} (count of X_j == X_i for j > i).
+    # Which is sum(c[r]*(c[r]-1)//2).
+    
+    c = final_res[0]
+    s_lt_t = sum(c[r] * (c[r] - 1) // 2 for r in c)
+    s_gt_t = final_res[1]
+    
+    print(s_lt_t + s_gt_t)
+
+if __name__ == "__main__":
+    solve()
+```

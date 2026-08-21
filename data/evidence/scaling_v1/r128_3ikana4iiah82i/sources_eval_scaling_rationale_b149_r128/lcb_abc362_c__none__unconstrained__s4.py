@@ -1,0 +1,82 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Create pairs of (L, R)
+    pairs = [ (int(input_data[i]), int(input_data[i+1])) 
+             for i in range(1, len(input_data), 2) ]
+    
+    # Calculate the minimum possible sum and maximum possible sum
+    # sum(L_i) <= sum(X_i) <= sum(R_i)
+    # We need sum(X_i) = 0, so we must have sum(L) <= 0 <= sum(R)
+    min_sum = sum(L for L, R in pairs)
+    max_sum = sum(R for L, R in pairs)
+    
+    if min_sum > 0 or max_sum < 0:
+        print("No")
+        return
+
+    # We start with X_i = L_i. The current sum is min_sum.
+    # We need to add 'remainder' to the X_i values to reach 0.
+    remainder = -min_sum
+    
+    # For each i, the maximum we can add to L_i is (R_i - L_i).
+    # We want to distribute 'remainder' across these capacities.
+    # Let C_i = R_i - L_i. We need to find Y_i such that 0 <= Y_i <= C_i 
+    # and sum(Y_i) = remainder.
+    
+    # To avoid loops, we can use a greedy approach:
+    # Y_i = min(C_i, remainder - sum(C_j for j < i))
+    # However, a simpler way to think about it:
+    # The total capacity is max_sum - min_sum.
+    # We need to fill 'remainder' amount of that capacity.
+    
+    # Let's use a prefix sum of capacities to determine the cutoff.
+    capacities = [R - L for L, R in pairs]
+    prefix_capacities = [0] + [sum(capacities[:i+1]) for i in range(N)] 
+    # Note: The above list comprehension is O(N^2). 
+    # To keep it O(N), we use itertools.accumulate.
+    from itertools import accumulate
+    prefix_capacities = [0] + list(accumulate(capacities))
+    
+    # We need to find how much of the remainder is absorbed by each index.
+    # For index i (0-indexed), the capacity is capacities[i].
+    # The amount absorbed is:
+    # min(capacities[i], max(0, remainder - prefix_capacities[i]))
+    # Wait, the logic is: 
+    # The total amount absorbed by indices 0 to i-1 is prefix_capacities[i].
+    # The amount absorbed by index i is min(capacities[i], remainder - prefix_capacities[i])
+    # but only if remainder > prefix_capacities[i].
+    
+    # Correct logic for Y_i:
+    # Y_i = clamp(remainder - prefix_capacities[i], 0, capacities[i])
+    # where clamp(v, low, high) = max(low, min(v, high))
+    
+    # Let's refine:
+    # The total remainder to distribute is 'remainder'.
+    # For the i-th element, it can take up to capacities[i].
+    # It will take the full capacity if the remainder is greater than the 
+    # sum of all capacities before it + its own capacity.
+    # It will take nothing if the remainder is less than the sum of capacities before it.
+    # Otherwise, it takes the partial amount.
+    
+    # Y_i = max(0, min(capacities[i], remainder - prefix_capacities[i]))
+    # Let's test: remainder = 10, capacities = [4, 4, 4]
+    # i=0: max(0, min(4, 10-0)) = 4. Remainder left: 6.
+    # i=1: max(0, min(4, 10-4)) = 4. Remainder left: 2.
+    # i=2: max(0, min(4, 10-8)) = 2. Remainder left: 0.
+    # Total = 10. Correct.
+    
+    X = [L + max(0, min(capacities[i], remainder - prefix_capacities[i])) 
+         for i, (L, R) in enumerate(pairs)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,74 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state-mutation to a functional paradigm, emphasizing data transformation over state updates. This approach leverages Python's powerful sequence processing tools, which are often more concise and can be more efficient for specific data shapes. To solve this problem, I will use `itertools.permutations` to explore all possible sequences of line segments and `itertools.product` to handle the binary choice of direction for each segment, utilizing `min()` and list comprehensions to calculate the total time for all combinations.
+
+```python
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((
+            (int(input_data[idx]), int(input_data[idx+1])),
+            (int(input_data[idx+2]), int(input_data[idx+3]))
+        ))
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute segment lengths and printing times
+    seg_times = [dist(s[0], s[1]) / T for s in segments]
+    
+    # We need to try all permutations of segments and all directions (2^N)
+    # A direction is represented by 0 (start -> end) or 1 (end -> start)
+    
+    # Generate all permutations of indices 0 to N-1
+    all_perms = permutations(range(N))
+    # Generate all possible direction combinations (0 or 1 for each segment)
+    all_dirs = list(product([0, 1], repeat=N))
+    
+    # To avoid loops, we use a nested comprehension to calculate total time for every scenario
+    # Scenario: (permutation, directions)
+    # Total time = sum of (move to start of seg / S) + (print seg / T)
+    
+    # We can pre-calculate the cost of printing all segments since it's constant
+    total_print_time = sum(seg_times)
+    
+    # We need to find the minimum travel time
+    # travel_time = dist(origin, first_start)/S + sum(dist(prev_end, next_start)/S)
+    
+    # Using a generator expression inside min() to find the optimal path
+    ans = min(
+        sum(
+            [
+                # Distance from origin to the first segment's start point
+                dist((0, 0), segments[p[0]][dirs[p[0]]] if dirs[p[0]] == 0 else segments[p[0]][1]) / S
+            ] + [
+                # Distance from the end of segment i to the start of segment i+1
+                dist(
+                    segments[p[i]][1] if dirs[p[i]] == 0 else segments[p[i]][0],
+                    segments[p[i+1]][0] if dirs[p[i+1]] == 0 else segments[p[i+1]][1]
+                ) / S
+                for i in range(N - 1)
+            ]
+        )
+        for p in all_perms
+        for dirs in all_dirs
+    )
+    
+    # The final answer is the minimum travel time + the constant printing time
+    print(f"{ans + total_print_time:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```

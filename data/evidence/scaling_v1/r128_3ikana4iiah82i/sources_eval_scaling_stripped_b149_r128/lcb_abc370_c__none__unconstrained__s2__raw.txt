@@ -1,0 +1,229 @@
+```python
+import sys
+from itertools import product
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    M = len(diff_indices)
+
+    # We need to change characters at diff_indices one by one.
+    # To make the array X lexicographically smallest, we want the strings 
+    # appearing earlier in X to be lexicographically smaller.
+    # This means we should prioritize changing characters at earlier indices 
+    # to their target values in T, BUT only if the target character is 
+    # smaller than the current character. 
+    # Actually, the rule is: we must change one character per step.
+    # To minimize the string lexicographically at each step:
+    # 1. If we can change a character at index i to T[i] and T[i] < S[i], 
+    #    we should do it as early as possible (smallest i).
+    # 2. If we must change a character at index i to T[i] and T[i] > S[i], 
+    #    we should delay it as much as possible (largest i).
+    
+    # Let's refine: 
+    # We have a set of indices that MUST be changed.
+    # In each step, we pick one index i from the remaining set and set S[i] = T[i].
+    # To make the resulting string smallest, we want to decrease characters 
+    # at the earliest possible positions first.
+    # If we can't decrease any character, we must increase a character at the 
+    # latest possible position to avoid affecting the prefix.
+    
+    # However, the problem asks for the lexicographically smallest ARRAY.
+    # This means we want X_1 to be as small as possible, then X_2, etc.
+    # To make X_1 smallest:
+    # - If there is any index i where T[i] < S[i], we should pick the smallest such i.
+    # - If for all remaining indices i, T[i] > S[i], we should pick the largest such i.
+    
+    # Since we can't use loops, we can simulate this using a recursive-like 
+    # structure via a list comprehension or a helper function.
+    # But the simplest way to implement the logic "smallest i if T[i]<S[i] else largest i"
+    # without loops is to use a functional approach.
+    
+    def get_next_index(current_S, remaining_indices):
+        # Find indices where T[i] < current_S[i]
+        decreasing = [i for i in remaining_indices if T[i] < current_S[i]]
+        if decreasing:
+            return min(decreasing)
+        # Otherwise, pick the largest index to minimize the impact on the prefix
+        return max(remaining_indices)
+
+    # To avoid loops and recursion, we can pre-calculate the sequence of indices.
+    # Since we can't use loops, we can use a trick with a list and a function 
+    # that computes the state. But the state depends on the previous choice.
+    # Wait, the logic "smallest i if T[i] < S[i] else largest i" is independent 
+    # of the order of other changes because T[i] is a constant.
+    # If T[i] < S[i], changing it always makes the string smaller.
+    # If T[i] > S[i], changing it always makes the string larger.
+    
+    # Correct Strategy:
+    # 1. Sort indices where T[i] < S[i] in ascending order.
+    # 2. Sort indices where T[i] > S[i] in descending order.
+    # 3. The sequence of indices to change is (Sorted Decreasing) + (Sorted Increasing).
+    
+    dec_indices = sorted([i for i in diff_indices if T[i] < S[i]])
+    inc_indices = sorted([i for i in diff_indices if T[i] > S[i]], reverse=True)
+    order = dec_indices + inc_indices
+    
+    # Now we need to generate the strings. 
+    # X_j is S with characters at order[0...j-1] replaced by T.
+    # We can use a list comprehension and a helper to build the string.
+    
+    def build_string(step):
+        # For the j-th element of X (step j), indices order[0...j-1] are changed.
+        changed_indices = set(order[:step])
+        return "".join([T[i] if i in changed_indices else S[i] for i in range(len(S))])
+
+    # Generate X for step in 1...M
+    X = [build_string(step) for step in range(1, M + 1)]
+    
+    # Output
+    print(M)
+    print("\n".join(X))
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I used `range` and `sorted` and `join`. The prompt forbids `for` and `while` loops. List comprehensions are explicitly allowed. `range` is allowed. `sorted` is a built-in.
+
+Let's double check the logic:
+If $S = \text{"adbe"}$, $T = \text{"bcbc"}$.
+Diff indices: $0(a \to b), 1(d \to c), 3(e \to c)$.
+- Index 0: $T[0] > S[0]$ (increase)
+- Index 1: $T[1] < S[1]$ (decrease)
+- Index 3: $T[3] < S[3]$ (decrease)
+
+Decreasing indices: $[1, 3]$. Sorted ascending: $[1, 3]$.
+Increasing indices: $[0]$. Sorted descending: $[0]$.
+Order: $[1, 3, 0]$.
+$X_1$: change index 1 $\to$ "acbe"
+$X_2$: change index 3 $\to$ "acbc"
+$X_3$: change index 0 $\to$ "bcbc"
+Result: 3, acbe, acbc, bcbc. Matches Sample 1.
+
+Sample 3: $S = \text{"afwgebrw"}$, $T = \text{"oarbrenq"}$.
+Diffs:
+0: a $\to$ o (inc)
+1: f $\to$ a (dec)
+2: w $\to$ r (dec)
+3: g $\to$ b (dec)
+4: e $\to$ r (inc)
+5: b $\to$ e (inc)
+6: r $\to$ n (dec)
+7: w $\to$ q (dec)
+
+Dec: $[1, 2, 3, 6, 7]$. Sorted: $[1, 2, 3, 6, 7]$.
+Inc: $[0, 4, 5]$. Sorted desc: $[5, 4, 0]$.
+Order: $[1, 2, 3, 6, 7, 5, 4, 0]$.
+This matches the sample output logic.
+The use of `set` and `in` inside the comprehension is allowed.
+
+Final check on constraints: No `for` or `while` loops. Only list comprehensions.
+The `solve()` function is called once.
+
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    M = len(diff_indices)
+
+    # To make the array X lexicographically smallest:
+    # 1. We want to make the string smaller as early as possible.
+    #    So we change characters that decrease (T[i] < S[i]) in increasing order of index.
+    # 2. We want to make the string larger as late as possible.
+    #    So we change characters that increase (T[i] > S[i]) in decreasing order of index.
+    
+    dec_indices = sorted([i for i in diff_indices if T[i] < S[i]])
+    inc_indices = sorted([i for i in diff_indices if T[i] > S[i]], reverse=True)
+    order = dec_indices + inc_indices
+    
+    # Helper to build string for a specific step
+    # step is the number of characters changed so far
+    def build_string(step):
+        changed_indices = set(order[:step])
+        return "".join([T[i] if i in changed_indices else S[i] for i in range(len(S))])
+
+    # Generate X for step in 1...M
+    X = [build_string(step) for step in range(1, M + 1)]
+    
+    # Output
+    sys.stdout.write(f"{M}\n" + "\n".join(X) + ("\n" if M > 0 else ""))
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `if M > 0` in the write is to avoid a trailing newline if $M=0$, but the sample output for $M=0$ is just `0`. If $M=0$, `"\n".join(X)` is an empty string. `f"{M}\n" + ""` results in `"0\n"`. The sample output shows `0` without a trailing newline? Actually, standard competitive programming allows trailing newlines. But to be safe: `f"{M}" + ("\n" + "\n".join(X) if M > 0 else "")`.
+
+One last check: the prompt says "Return only Python source inside a single ```python code block."
+
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    M = len(diff_indices)
+
+    # To make the array X lexicographically smallest:
+    # 1. We want to make the string smaller as early as possible.
+    #    So we change characters that decrease (T[i] < S[i]) in increasing order of index.
+    # 2. We want to make the string larger as late as possible.
+    #    So we change characters that increase (T[i] > S[i]) in decreasing order of index.
+    
+    dec_indices = sorted([i for i in diff_indices if T[i] < S[i]])
+    inc_indices = sorted([i for i in diff_indices if T[i] > S[i]], reverse=True)
+    order = dec_indices + inc_indices
+    
+    # Helper to build string for a specific step
+    def build_string(step):
+        changed_indices = set(order[:step])
+        return "".join([T[i] if i in changed_indices else S[i] for i in range(len(S))])
+
+    # Generate X for step in 1...M
+    X = [build_string(step) for step in range(1, M + 1)]
+    
+    # Output
+    sys.stdout.write(f"{M}" + ("\n" + "\n".join(X) if M > 0 else ""))
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the `if M > 0` logic is slightly flawed if $M=0$ because it won't print the newline. But the sample output for $M=0$ is just `0`. Let's use a more robust way. `sys.stdout.write(f"{M}\n" + "\n".join(X))` is fine for $M>0$. For $M=0$, it prints `0\n`. Most judges accept this. To be perfectly aligned with "0" (no newline), I'll use the conditional.
+
+Wait, the `if not input_data: return` is a statement. The prompt says "no for/while loops". It doesn't forbid `if` statements.
+
+Final code structure:
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    S, T = input_data[0], input_data[1]
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    M = len(diff_indices)
+    dec_indices = sorted([i for i in diff_indices if T[i] < S[i]])
+    inc_indices = sorted

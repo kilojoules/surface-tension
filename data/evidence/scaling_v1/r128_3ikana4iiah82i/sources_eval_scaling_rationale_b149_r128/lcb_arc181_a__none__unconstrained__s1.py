@@ -1,0 +1,109 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # T is the first element
+    T = int(input_data[0])
+    
+    # We need to process T test cases. Since we cannot use loops, 
+    # we use a list comprehension to iterate through the cases.
+    # Each case starts at index 1 + (sum of Ns encountered so far).
+    # Because N varies, we can't use a simple slice. 
+    # Instead, we'll use a helper function or a complex comprehension.
+    
+    # To handle the variable N per test case without a loop, 
+    # we can use a generator or a recursive-like structure via map,
+    # but the prompt forbids recursion. 
+    # However, we can process the flat list by tracking indices.
+    
+    # Wait, the constraint says "no for/while loops". 
+    # A list comprehension is explicitly allowed.
+    # To handle the variable N, I will first group the input into cases.
+    
+    def get_cases(data):
+        # Since we can't use loops to group, we use a trick with a 
+        # mutable list and append inside a list comprehension.
+        # Note: This is a common pattern to bypass loop restrictions 
+        # while maintaining state.
+        res = []
+        # We use a helper list to store the current index
+        idx = [0]
+        
+        def process():
+            if idx[0] >= len(data):
+                return
+            # This is still recursive. Let's use a different approach.
+            pass
+            
+    # Let's redefine: we can use list comprehensions.
+    # To handle the variable N, I will use a technique to 
+    # pre-calculate the boundaries of each test case.
+    
+    # Actually, the most reliable way to handle variable N without 
+    # loops/recursion is to use a generator and next().
+    
+    it = iter(input_data)
+    
+    def handle_case():
+        try:
+            N = int(next(it))
+            P = [int(next(it)) for _ in range(N)]
+            
+            # Check if already sorted
+            # P_i = i for all i (1-indexed)
+            is_sorted = all(P[i] == i + 1 for i in range(N))
+            if is_sorted:
+                return 0
+            
+            # Check if it can be done in 1 operation
+            # An operation at k sorts [0, k-1) and [k+1, N)
+            # This succeeds if there exists k such that:
+            # 1. P[k] == k + 1
+            # 2. All elements in P[0...k-1] are < k + 1
+            # 3. All elements in P[k+1...N-1] are > k + 1
+            
+            # To check this efficiently for all k:
+            # Let L_max[k] be max of P[0...k-1]
+            # Let R_min[k] be min of P[k+1...N-1]
+            
+            # Since we can't use loops, we use list comprehensions.
+            # But we need prefix max and suffix min.
+            # We can't use itertools.accumulate? The prompt doesn't forbid imports.
+            from itertools import accumulate
+            
+            l_max = list(accumulate(P, max))
+            # For suffix min, reverse, accumulate, then reverse back
+            r_min = list(accumulate(P[::-1], min))[::-1]
+            
+            # k is 0-indexed here.
+            # Condition for k:
+            # (k == 0 or l_max[k-1] < P[k]) and 
+            # (k == N-1 or r_min[k+1] > P[k]) and
+            # (P[k] == k + 1)
+            
+            # We check if any k satisfies this.
+            can_do_1 = any(
+                (k == 0 or l_max[k-1] < P[k]) and 
+                (k == N-1 or r_min[k+1] > P[k]) and 
+                (P[k] == k + 1)
+                for k in range(N)
+            )
+            
+            return 1 if can_do_1 else 2
+            
+        except StopIteration:
+            return None
+
+    # Use map to apply handle_case T times.
+    # Since handle_case uses next(it), it will consume the iterator.
+    results = map(lambda _: handle_case(), range(T))
+    
+    # Print results separated by newlines
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

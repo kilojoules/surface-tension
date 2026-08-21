@@ -1,0 +1,105 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to process test cases to avoid explicit for/while loops
+    # We use a helper function to process the flat list of tokens
+    def process_cases(data):
+        # current_idx tracks the position in the flat input list
+        # We use reduce to iterate through the number of test cases
+        def accumulator(state, _):
+            idx, results = state
+            N = int(data[idx])
+            P = list(map(int, data[idx + 1 : idx + 1 + N]))
+            
+            # Check if already sorted (0 operations)
+            # Using all() inside a list comprehension is allowed
+            is_sorted = (P == sorted(P))
+            
+            if is_sorted:
+                res = 0
+            else:
+                # Precompute prefix maximums and suffix minimums
+                # Using list comprehensions and slicing to avoid loops
+                # prefix_max[i] = max(P[0...i])
+                # suffix_min[i] = min(P[i...N-1])
+                
+                # To avoid loops for prefix/suffix, we can't use reduce easily for 
+                # O(N) without recursion or specific tricks. 
+                # However, the constraint says "no for/while loops". 
+                # We can use map/reduce/comprehensions.
+                
+                # Using a trick with itertools.accumulate for O(N) prefix/suffix
+                from itertools import accumulate
+                pref_max = list(accumulate(P, max))
+                suff_min = list(accumulate(P[::-1], min))[::-1]
+                
+                # An operation with index k (1-indexed) works if:
+                # 1. k=1: suffix [2, N] contains {1, ..., N-1} sorted? 
+                #    Actually, the rule is: sort 1..k-1 and k+1..N.
+                #    If k=1, we sort P[1...N-1]. This works if P[0] == 1 is NOT required,
+                #    but the final result must be P_i = i.
+                #    So if k=1, we need P[0] to be 1 and the rest to be sortable.
+                #    Wait, the rule is: P_i = i for all i.
+                #    If k=1, we sort P[1...N-1]. The result is (P[0], sorted(P[1...N-1])).
+                #    This is (1, 2, ..., N) iff P[0] == 1.
+                #    If k=N, we sort P[0...N-2]. Result is (sorted(P[0...N-2]), P[N-1]).
+                #    This is (1, 2, ..., N) iff P[N-1] == N.
+                #    If 1 < k < N, we sort P[0...k-2] and P[k...N-1].
+                #    Result is (sorted(P[0...k-2]), P[k-1], sorted(P[k...N-1])).
+                #    This is (1, ..., N) iff P[k-1] == k AND 
+                #    max(P[0...k-2]) <= k-1 AND min(P[k...N-1]) >= k+1.
+                
+                # We check if any k in 1...N satisfies this.
+                # For k=1: P[0] == 1 is NOT the condition. 
+                # If k=1, we sort P[1...N-1]. The result is (P[0], 1, 2, ..., N-1) 
+                # if the set {P[1]...P[N-1]} is {1...N-1}. 
+                # But we need P_i = i, so we need P[0]=1, P[1]=2...
+                # Actually, if k=1, the operation sorts P[1...N-1]. 
+                # The resulting sequence is (P[0], sorted(P[1...N-1])).
+                # This equals (1, 2, ..., N) iff P[0] == 1.
+                # Wait, the sample 1: P=(2,1,3,5,4), N=5. k=3 sorts P[0..1] and P[3..4].
+                # P[0..1] is (2,1) -> (1,2). P[3..4] is (5,4) -> (4,5).
+                # Result: (1,2,3,4,5). Correct.
+                # So for a given k (1-indexed):
+                # The operation succeeds if:
+                # 1. P[k-1] == k
+                # 2. The set {P[0]...P[k-2]} is {1...k-1}
+                # 3. The set {P[k]...P[N-1]} is {k+1...N}
+                
+                # Condition 2 is true if max(P[0...k-2]) == k-1 (for k > 1)
+                # Condition 3 is true if min(P[k...N-1]) == k+1 (for k < N)
+                
+                # Check k=1: P[0]==1 and min(P[1...]) == 2
+                # Check k=N: P[N-1]==N and max(P[0...N-2]) == N-1
+                # Check 1 < k < N: P[k-1]==k and (k==1 or pref_max[k-2]==k-1) and (k==N or suff_min[k]==k+1)
+                
+                # We can use a list comprehension to check all k and then 'any()'
+                possible_1 = any([
+                    (k == 1 and P[0] == 1) or 
+                    (k == N and P[N-1] == N) or 
+                    (1 < k < N and P[k-1] == k and pref_max[k-2] == k-1 and suff_min[k] == k+1)
+                    for k in range(1, N + 1)
+                ])
+                
+                res = 1 if possible_1 else 2
+            
+            return (idx + 1 + N, results + [res])
+
+        # Use reduce to simulate the loop over T test cases
+        final_state = __import__('functools').reduce(accumulator, range(T), (1, []))
+        return final_state[1]
+
+    # Execute and print results
+    results = process_cases(input_data)
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

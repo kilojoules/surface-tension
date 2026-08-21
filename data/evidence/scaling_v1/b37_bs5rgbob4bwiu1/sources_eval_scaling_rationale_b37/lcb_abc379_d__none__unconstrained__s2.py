@@ -1,0 +1,70 @@
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries and maintain state:
+    # state = (current_total_height, sorted_list_of_birth_heights, results_list)
+    # A plant planted at total_height 'S' has current height: current_total_height - S
+    # Harvest condition: current_total_height - S >= H  =>  S <= current_total_height - H
+    
+    # Flatten queries into a list of tuples for reduce
+    # Since queries have different lengths, we parse them manually first
+    queries = []
+    idx = 1
+    while idx < len(input_data):
+        q_type = input_data[idx]
+        if q_type == '1':
+            queries.append((1, 0))
+            idx += 1
+        elif q_type == '2':
+            queries.append((2, int(input_data[idx + 1])))
+            idx += 2
+        else:
+            queries.append((3, int(input_data[idx + 1])))
+            idx += 2
+
+    # State transition function for reduce
+    def transition(state, query):
+        cur_h, plants, results = state
+        q_type, val = query
+        
+        if q_type == 1:
+            # Plant new: birth height is the current total height
+            # We use a sorted list to keep track of birth heights
+            # Since we can't use loops, we use slice assignment or sorted()
+            # However, for performance, we maintain the list and use bisect/insort
+            # But since we must avoid loops, we use the fact that 
+            # plants are always added with the current cur_h, 
+            # and cur_h is non-decreasing. So plants remains sorted.
+            return (cur_h, plants + [cur_h], results)
+        
+        elif q_type == 2:
+            # Increase height
+            return (cur_h + val, plants, results)
+        
+        else:
+            # Harvest: height >= H  => birth_height <= cur_h - H
+            threshold = cur_h - val
+            # Find number of plants with birth_height <= threshold
+            # bisect_right finds the index of the first element > threshold
+            count = bisect_right(plants, threshold)
+            # Remove harvested plants (those from index 0 to count-1)
+            return (cur_h, plants[count:], results + [count])
+
+    # Initial state: (current_total_height, plants_list, results_list)
+    initial_state = (0, [], [])
+    final_state = reduce(transition, queries, initial_state)
+    
+    # Print all results joined by newlines
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()

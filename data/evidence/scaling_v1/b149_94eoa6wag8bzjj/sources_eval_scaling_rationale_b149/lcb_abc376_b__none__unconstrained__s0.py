@@ -1,0 +1,84 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions as pairs of (H, T)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Helper to calculate distance on a ring of size N
+    # from 'start' to 'end' avoiding 'obs'
+    # There are only two directions: clockwise and counter-clockwise.
+    # One direction is blocked if 'obs' lies on the path.
+    def get_dist(start, end, obs, n):
+        # Clockwise distance
+        cw_dist = (end - start) % n
+        # The obstacle is at (obs - start) % n. 
+        # If 0 < (obs - start) % n < cw_dist, the clockwise path is blocked.
+        cw_blocked = 0 < (obs - start) % n < cw_dist
+        
+        # Counter-clockwise distance
+        ccw_dist = (start - end) % n
+        # The obstacle is at (obs - start) % n.
+        # If 0 < (obs - start) % n < ccw_dist is False, it doesn't mean it's clear.
+        # Actually, the CCW path is blocked if the obstacle is "behind" the start
+        # relative to the CW path, specifically if (start - obs) % n < ccw_dist.
+        ccw_blocked = 0 < (start - obs) % n < ccw_dist
+        
+        # We need to handle the 1-indexing by treating everything as 0-indexed internally
+        # But the logic above works for any consistent indexing.
+        # Since we use % n, we just need to be careful.
+        # Let's use 0-indexing for the logic.
+        return 0 # Placeholder, logic implemented inside reduce
+
+    # State: (left, right, total_cost)
+    # Initial state: left=1, right=2, cost=0
+    initial_state = (1, 2, 0)
+
+    def step(state, instr):
+        l, r, cost = state
+        h, t = instr
+        
+        # Normalize to 0-indexed for easier modulo arithmetic
+        # However, the problem uses 1-N. Let's use 0 to N-1.
+        l_idx, r_idx, t_idx = l-1, r-1, t-1
+        
+        if h == 'L':
+            # Move left hand from l_idx to t_idx avoiding r_idx
+            # Clockwise: l -> l+1 -> ... -> t
+            cw_dist = (t_idx - l_idx) % N
+            cw_blocked = 0 < (r_idx - l_idx) % N < cw_dist
+            
+            # Counter-clockwise: l -> l-1 -> ... -> t
+            ccw_dist = (l_idx - t_idx) % N
+            ccw_blocked = 0 < (l_idx - r_idx) % N < ccw_dist
+            
+            # It is guaranteed that at least one path is open.
+            move_cost = min([d for d, blocked in [(cw_dist, cw_blocked), (ccw_dist, ccw_blocked)] if not blocked])
+            return (t, r, cost + move_cost)
+        else:
+            # Move right hand from r_idx to t_idx avoiding l_idx
+            cw_dist = (t_idx - r_idx) % N
+            cw_blocked = 0 < (l_idx - r_idx) % N < cw_dist
+            
+            ccw_dist = (r_idx - t_idx) % N
+            ccw_blocked = 0 < (r_idx - l_idx) % N < ccw_dist
+            
+            move_cost = min([d for d, blocked in [(cw_dist, cw_blocked), (ccw_dist, ccw_blocked)] if not blocked])
+            return (l, t, cost + move_cost)
+
+    final_state = reduce(step, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

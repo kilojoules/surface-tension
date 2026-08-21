@@ -1,0 +1,41 @@
+import sys
+
+def solve():
+    # Read input and strip whitespace
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem asks if edit distance <= 1
+    # Case 1: S and T are identical
+    # Case 2: Lengths differ by 0 -> Check if exactly one character differs (Replacement)
+    # Case 3: Lengths differ by 1 -> Check if removing one char from longer makes it the shorter (Insertion/Deletion)
+    # Case 4: Lengths differ by > 1 -> Impossible
+    
+    # Helper to check if s can become t by removing one character
+    # We find the first mismatch and check if the rest of the strings match
+    def check_one_diff(s1, s2):
+        # Find first index where s1 and s2 differ
+        # Using a generator expression with next() to find the first mismatch index
+        mismatch_idx = next((i for i, (a, b) in enumerate(zip(s1, s2)) if a != b), min(len(s1), len(s2)))
+        
+        # If lengths are equal, it's a replacement: check if suffixes after mismatch_idx+1 are equal
+        # If lengths differ by 1, it's an insertion/deletion: check if s1[mismatch_idx+1:] == s2[mismatch_idx:] (if s1 is longer)
+        return (
+            (len(s1) == len(s2) and s1[mismatch_idx+1:] == s2[mismatch_idx+1:]) or
+            (len(s1) == len(s2) + 1 and s1[mismatch_idx+1:] == s2[mismatch_idx:]) or
+            (len(s2) == len(s1) + 1 and s1[mismatch_idx:] == s2[mismatch_idx+1:])
+        )
+
+    # Final result logic
+    # We use a conditional expression to output Yes or No
+    # S == T is 0 operations. check_one_diff handles exactly 1 operation.
+    result = "Yes" if (s == t or (abs(len(s) - len(t)) <= 1 and check_one_diff(s, t))) else "No"
+    sys.stdout.write(result + "\n")
+
+if __name__ == "__main__":
+    solve()

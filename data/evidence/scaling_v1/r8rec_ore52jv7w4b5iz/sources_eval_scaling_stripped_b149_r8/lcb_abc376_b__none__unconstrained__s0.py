@@ -1,0 +1,115 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into a list of (H, T)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # State: (left_hand, right_hand)
+    # Initial state: L=1, R=2
+    # We need to find the minimum distance to reach the target T_i 
+    # while the other hand stays fixed.
+    
+    # Since N and Q are small (100), we can use a BFS-like approach 
+    # or simply calculate the distance on the ring.
+    # On a ring of size N, the distance between a and b is min(|a-b|, N-|a-b|).
+    # However, the "other hand" acts as a barrier. 
+    # If the other hand is at position 'p', the ring becomes a line.
+    # The distance from 'start' to 'end' avoiding 'p' is:
+    # 1. Clockwise distance if p is not in the way.
+    # 2. Counter-clockwise distance if p is not in the way.
+    # Actually, there is only one path that doesn't cross p.
+    
+    def get_dist(start, end, barrier, n):
+        if start == end:
+            return 0
+        # Normalize to 0-indexed for easier modulo arithmetic
+        s, e, b = start - 1, end - 1, barrier - 1
+        
+        # The distance moving "right" (increasing index)
+        # The number of steps from s to e is (e - s) % n
+        # This path is blocked if the barrier b is encountered.
+        # The barrier is encountered if (b - s) % n < (e - s) % n.
+        
+        dist_right = (e - s) % n
+        blocked_right = (b - s) % n < dist_right
+        
+        dist_left = (s - e) % n
+        blocked_left = (b - s) % n > dist_left and (b - s) % n != 0 # Simplified
+        # Wait, a simpler way:
+        # There are two paths: 
+        # Path 1: s -> s+1 -> ... -> e (mod N)
+        # Path 2: s -> s-1 -> ... -> e (mod N)
+        # One of these must contain the barrier unless s=e.
+        # The one that doesn't contain the barrier is the only valid path.
+        
+        # Check if barrier is "between" s and e clockwise
+        # The clockwise path is s, (s+1)%n, ..., e.
+        # The barrier b is on this path if (b-s)%n < (e-s)%n.
+        # Note: (b-s)%n == 0 means b == s, but problem says T_i != other_hand.
+        
+        if (b - s) % n < (e - s) % n:
+            # Clockwise is blocked, must go counter-clockwise
+            return (s - e) % n
+        else:
+            # Counter-clockwise is blocked or barrier is at e (not possible per constraints)
+            # Actually, if (b-s)%n > (e-s)%n, the clockwise path is clear.
+            # If (b-s)%n == (e-s)%n, the barrier is at the destination (forbidden).
+            return (e - s) % n
+
+    # We can use a list comprehension to simulate the state transitions
+    # since we cannot use for/while loops.
+    # We use a helper function and map/reduce or a list comprehension.
+    # But we need to keep track of the total distance and current positions.
+    
+    # State: (current_l, current_r, total_dist)
+    # We process instructions one by one.
+    
+    def process_instruction(state, instr):
+        l, r, d = state
+        h, t = instr
+        if h == 'L':
+            return (t, r, d + get_dist(l, t, r, N))
+        else:
+            return (l, t, d + get_dist(r, t, l, N))
+
+    # To simulate a loop, we can use a recursive-like structure with a list
+    # or use a trick with a list and a function that updates the state.
+    # Since we can't use loops, we'll use a technique to iterate through the instructions.
+    # We can use a list to store the states and reference the previous index.
+    
+    # Using a list comprehension to build the sequence of states:
+    # states[i] = process_instruction(states[i-1], instructions[i-1])
+    # But list comprehensions can't reference their own elements.
+    # We can use a trick with a mutable object (like a list) and a function.
+    
+    state_container = [1, 2, 0] # l, r, total_dist
+    
+    def update_state(instr):
+        l, r, d = state_container[0], state_container[1], state_container[2]
+        h, t = instr
+        dist = get_dist(l, t, r, N) if h == 'L' else get_dist(r, t, l, N)
+        if h == 'L':
+            state_container[0], state_container[2] = t, d + dist
+        else:
+            state_container[1], state_container[2] = t, d + dist
+        return state_container
+
+    # Use map to trigger the update_state function for each instruction
+    list(map(update_state, instructions))
+    
+    print(state_container[2])
+
+if __name__ == "__main__":
+    solve()

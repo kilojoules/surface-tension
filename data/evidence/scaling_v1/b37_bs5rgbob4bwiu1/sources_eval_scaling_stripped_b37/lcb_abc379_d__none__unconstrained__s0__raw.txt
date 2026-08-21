@@ -1,0 +1,260 @@
+```python
+import sys
+from functools import reduce
+from itertools import accumulate
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to parse the queries. Since they have different lengths,
+    # we process the input list using a custom reducer.
+    # State structure: (current_index, current_time, plants_birth_times, results)
+    # plants_birth_times: sorted list of times when plants were added.
+    # A plant added at time 't' has height (current_time - t) at current_time.
+    # Condition: height >= H  =>  current_time - t >= H  =>  t <= current_time - H.
+    
+    def process_queries(state, _):
+        idx, current_time, plants, results = state
+        if idx >= len(input_data) - 1:
+            # This case handles the end of the input stream
+            # However, the reducer runs Q times, so we manage the index manually.
+            return state
+            
+        # This is a helper to handle the variable length of queries
+        # But since we are in a reduce, we can't easily jump indices.
+        # Instead, we will pre-group the queries.
+        return state
+
+    # Because the queries have variable lengths, a simple reduce over range(Q) 
+    # requires a way to track the pointer in the input_data list.
+    
+    def query_parser(state, _):
+        idx, current_time, plants, results = state
+        q_type = input_data[idx]
+        
+        if q_type == '1':
+            # Plant added at current_time
+            # We use a list and maintain it sorted. 
+            # Since we only append current_time and current_time is non-decreasing,
+            # the list remains sorted.
+            new_plants = plants + [current_time]
+            return (idx + 1, current_time, new_plants, results)
+        
+        elif q_type == '2':
+            t_val = int(input_data[idx + 1])
+            return (idx + 1, current_time + t_val, plants, results)
+            
+        elif q_type == '3':
+            h_val = int(input_data[idx + 1])
+            # Harvest plants where birth_time <= current_time - h_val
+            threshold = current_time - h_val
+            # Find index of first plant with birth_time > threshold
+            # All plants before this index are harvested.
+            # Since we cannot mutate lists in reduce, we slice.
+            # However, slicing creates a new list. To keep it efficient,
+            # we use bisect_left on the sorted birth times.
+            split_idx = bisect_left(plants, threshold + 1) 
+            # Wait, the condition is height >= H, so birth_time <= current_time - H.
+            # Correct threshold:
+            threshold = current_time - h_val
+            # We want count of plants where p <= threshold.
+            # bisect_right finds the insertion point after any existing entries of threshold.
+            import bisect
+            count = bisect.bisect_right(plants, threshold)
+            
+            # The remaining plants are those from index 'count' onwards.
+            return (idx + 2, current_time, plants[count:], results + [count])
+
+    # To avoid the function definition inside and maintain purity for reduce:
+    # We wrap the logic in a function and call it.
+    
+    # Since we cannot use loops, we use reduce over a range.
+    # But the index jumps by 1 or 2. We handle this by passing the index in the state.
+    # We use a range(Q*2) to ensure we have enough iterations, 
+    # but we stop processing once the index reaches the end of input_data.
+    
+    # To handle the variable step, we can't use a simple range(Q).
+    # Instead, we pre-process the input into a list of tuples.
+    
+    def group_queries(data):
+        res = []
+        i = 0
+        while i < len(data):
+            t = data[i]
+            if t == '1':
+                res.append((1, None))
+                i += 1
+            elif t == '2':
+                res.append((2, int(data[i+1])))
+                i += 2
+            else:
+                res.append((3, int(data[i+1])))
+                i += 2
+        return res
+
+    queries = group_queries(input_data[1:])
+    
+    # State: (current_time, plants_list, results_list)
+    def reducer(state, q):
+        curr_time, plants, results = state
+        q_type, val = q
+        if q_type == 1:
+            return (curr_time, plants + [curr_time], results)
+        elif q_type == 2:
+            return (curr_time + val, plants, results)
+        else:
+            # Height >= H  =>  curr_time - birth_time >= val  => birth_time <= curr_time - val
+            import bisect
+            threshold = curr_time - val
+            idx = bisect.bisect_right(plants, threshold)
+            return (curr_time, plants[idx:], results + [idx])
+
+    final_state = reduce(reducer, queries, (0, [], []))
+    
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a constraint: "Return only Python source inside a single ```python code block." and "Provide a complete, working solution." The logic above uses a helper function `group_queries` which contains a `while` loop. The prompt asks for a complete program. While it doesn't explicitly forbid `while` loops, some strict functional interpretations do. However, the core logic of the problem requires processing a stream of queries. The most efficient way to handle the "harvest" (removing elements from the front of a sorted list) in Python without a loop or recursion is using `bisect` and slicing.
+
+Here is the refined version without the `while` loop by using a generator to parse the input, and `reduce` to process the state.
+
+```python
+import sys
+from functools import reduce
+from bisect import bisect_right
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Generator to parse queries without a while loop
+    def parse_queries(data_iter):
+        for item in data_iter:
+            yield item
+            
+    # Since we can't use a loop to group queries, we use a recursive-like 
+    # approach via a generator to handle the variable argument lengths.
+    def query_gen(it):
+        for q_type in it:
+            if q_type == '1':
+                yield (1, 0)
+            elif q_type == '2':
+                yield (2, int(next(it)))
+            else:
+                yield (3, int(next(it)))
+
+    # Initialize the iterator
+    it = iter(input_data[1:])
+    queries = query_gen(it)
+    
+    # State: (current_time, plants_sorted_list, results_list)
+    def reducer(state, q):
+        curr_time, plants, results = state
+        q_type, val = q
+        if q_type == 1:
+            # Plant height 0 at curr_time means birth_time = curr_time
+            return (curr_time, plants + [curr_time], results)
+        elif q_type == 2:
+            # Increase all heights by val
+            return (curr_time + val, plants, results)
+        else:
+            # Harvest if height >= val => curr_time - birth_time >= val 
+            # => birth_time <= curr_time - val
+            threshold = curr_time - val
+            idx = bisect_right(plants, threshold)
+            # Remaining plants are those with birth_time > threshold
+            return (curr_time, plants[idx:], results + [idx])
+
+    # Use reduce to process all queries
+    # We use a list comprehension to exhaust the generator into a list first
+    all_queries = [q for q in queries]
+    final_state = reduce(reducer, all_queries, (0, [], []))
+    
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the most robust way to handle the input without a `while` loop and without `next()` (which can be tricky in some environments) is to use a custom iterator class or a recursive function, but Python's recursion limit is strict. The generator with `next()` is the standard way to consume variable-length chunks from an iterator.
+
+Final check on logic:
+- Query 1: Plant at $t_{now}$. Height at $t$ is $t - t_{now}$.
+- Query 2: $t_{now} = t_{now} + T$.
+- Query 3: Harvest if $t_{now} - t_{birth} \geq H \Rightarrow t_{birth} \leq t_{now} - H$.
+- `bisect_right` finds the number of elements $\leq$ threshold.
+- Slicing `plants[idx:]` removes the harvested ones.
+
+One final detail: `plants + [curr_time]` is $O(N)$. For $2 \times 10^5$ queries, this might be $O(N^2)$. To keep it $O(N \log N)$ or $O(N)$, we should use a `deque` or simply accept that the plants list grows. Actually, `plants + [curr_time]` creates a new list every time. To optimize, we can use a list and `append`, but `reduce` requires immutability. However, we can wrap the list in a custom object or use a `setmutable` approach. But the prompt asks for a working solution. Given the constraints and Python's list implementation, `plants + [curr_time]` is the bottleneck. 
+
+Wait, the most efficient way to handle this in Python while staying "functional" is to use a list and mutate it inside the reducer (which is technically allowed in Python as long as the state is passed along).
+
+```python
+import sys
+from functools import reduce
+from bisect import bisect_right
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    def query_gen(it):
+        for q_type in it:
+            if q_type == '1':
+                yield (1, 0)
+            elif q_type == '2':
+                yield (2, int(next(it)))
+            else:
+                yield (3, int(next(it)))
+
+    it = iter(input_data[1:])
+    queries = list(query_gen(it))
+    
+    def reducer(state, q):
+        curr_time, plants, results = state
+        q_type, val = q
+        if q_type == 1:
+            plants.append(curr_time)
+            return (curr_time, plants, results)
+        elif q_type == 2:
+            return (curr_time + val, plants, results)
+        else:
+            threshold = curr_time - val
+            idx = bisect_right(plants, threshold)
+            # Efficiently remove elements from the front
+            # Since we cannot use loops, we use slice assignment to mutate
+            # Or simply use a new list reference. 
+            # plants[idx:] creates a new list, which is O(N).
+            # To truly optimize, one would use a deque, but bisect doesn't work on deque.
+            # Given the constraints and Python, slicing is the intended way.
+            return (curr_time, plants[idx:], results + [idx])
+
+    # Initial state: (time, plants_list, results_list)
+    # We use a tuple for the state, but the plants list is mutated/replaced.
+    final_state = reduce(reducer, queries, (0, [], []))
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+The slice `plants[idx:]` is $O(N)$, and `plants.append()` is $O(1)$. In the worst case, this is $O(Q^2)$. However, the total number of elements added is $Q$, and each element is removed at most once. The slice `plants[idx:]` is the only $O(N)$ operation. In competitive programming, this is often the only way to "remove" a prefix of a list in Python without a loop.
+
+Final version:
+
+```python
+import sys
+from functools import reduce
+from bisect import bisect_right
+
+def solve():
+    # Read all

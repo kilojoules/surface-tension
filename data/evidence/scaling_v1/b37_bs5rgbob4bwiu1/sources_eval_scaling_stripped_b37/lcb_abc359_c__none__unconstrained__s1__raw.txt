@@ -1,0 +1,149 @@
+```python
+import sys
+
+def solve():
+    # Read input and parse integers
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # The problem describes a grid of 2x1 tiles.
+    # A tile covers A_{i,j} and A_{i+1,j} if i+j is even.
+    # This means for a fixed j, the tiles are [(0,1), (2,3), ...] if j is even
+    # and [(-1,0), (1,2), ...] if j is0 is odd.
+    # Essentially, a tile is defined by the pair (j, floor((i + (j % 2)) / 2)).
+    # Let's transform the coordinates to a new coordinate system (u, v)
+    # where u is the tile index horizontally and v is the tile index vertically.
+    # For a cell (i, j):
+    # v = j
+    # u = (i + (j % 2)) // 2
+    
+    # However, the movement rules are: moving n units in a direction.
+    # Moving vertically (changing j) always enters a new tile unless n=0.
+    # Moving horizontally (changing i) might stay in the same tile.
+    # A move is "free" if it stays within the same tile.
+    # The cost is the number of tiles entered.
+    # This is equivalent to the distance in a graph where nodes are tiles.
+    # Two tiles are connected if they share a boundary.
+    # The distance between tile (u1, v1) and (u2, v2) in this specific 
+    # brick-wall pattern is known to be:
+    # dist = max(|u1 - u2|, |v1 - v2| + (1 if parity of u/v changes in a specific way else 0))
+    # Actually, the simplest formula for this specific grid distance is:
+    # Let dx = tx - sx, dy = ty - sy.
+    # The cost is max(abs(dx // 2), abs(dy)) if we align the bricks.
+    # A more robust way:
+    # The distance is max(|sx - tx| // 2, |sy - ty|) 
+    # but we must account for the offset shift every row.
+    # The correct formula for this specific tiling distance is:
+    # dist = max(abs(sx - tx + (sy % 2) - (ty % 2)) // 2, abs(sy - ty))
+    # Wait, the standard formula for this "brick" distance is:
+    # Let x' = x + (y % 2) / 2
+    # Distance = max(|x1' - x2'|, |y1 - y2|)
+    # Since we are at centers (.5, .5), we can use:
+    # cost = max(abs(sx + (sy % 2) - (tx + (ty % 2))) // 2, abs(sy - ty))
+    # Let's test Sample 1: 5 0 -> 2 5
+    # sx=5, sy=0; tx=2, ty=5
+    # abs(5 + 0 - (2 + 1)) // 2 = 2 // 2 = 1
+    # abs(0 - 5) = 5
+    # max(1, 5) = 5. Correct.
+    # Sample 2: 3 1 -> 4 1
+    # sx=3, sy=1; tx=4, ty=1
+    # abs(3 + 1 - (4 + 1)) // 2 = abs(4 - 5) // 2 = 0
+    # abs(1 - 1) = 0
+    # max(0, 0) = 0. Correct.
+    
+    # The logic: 
+    # In one vertical step, you move 1 unit of distance.
+    # In two horizontal steps, you move 1 unit of "tile" distance.
+    # Because the bricks shift, the horizontal distance is (dx + shift) // 2.
+    
+    res = max(abs(sx + (sy % 2) - (tx + (ty % 2))) // 2, abs(sy - ty))
+    print(res)
+
+if __name__ == "__main__":
+    solve()
+```
+
+Wait, the logic `abs(sx + (sy % 2) - (tx + (ty % 2))) // 2` might be slightly off for all parity cases. Let's refine:
+The horizontal index of the tile containing $(i, j)$ is $u = \lfloor \frac{i + (j \pmod 2)}{2} \rfloor$.
+The vertical index is $v = j$.
+The distance between $(u_1, v_1)$ and $(u_2, v_2)$ in this grid is $\max(|u_1 - u_2|, |v_1 - v_2|)$.
+Let's check Sample 1: $S(5,0) \to u_s = (5+0)//2 = 2, v_s = 0$. $T(2,5) \to u_t = (2+1)//2 = 1, v_t = 5$.
+$\max(|2-1|, |0-5|) = \max(1, 5) = 5$.
+Sample 2: $S(3,1) \to u_s = (3+1)//2 = 2, v_s = 1$. $T(4,1) \to u_t = (4+1)//2 = 2, v_t = 1$.
+$\max(|2-2|, |1-1|) = 0$.
+This matches perfectly.
+
+Final logic:
+$u = (i + (j \% 2)) // 2$
+$v = j$
+$ans = \max(|u_s - u_t|, |v_s - v_t|)$
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    us = (sx + (sy % 2)) // 2
+    vs = sy
+    ut = (tx + (ty % 2)) // 2
+    vt = ty
+    
+    print(max(abs(us - ut), abs(vs - vt)))
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the code in a single block. I will provide the refined version.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and map to integers
+    data = map(int, sys.stdin.read().split())
+    
+    # Using a list comprehension to extract values since map is an iterator
+    coords = [c for c in data]
+    sx, sy, tx, ty = coords
+    
+    # A tile is defined by its vertical coordinate j and a horizontal index.
+    # According to the rule: if i+j is even, A_{i,j} and A_{i+1,j} are one tile.
+    # This means for a given j, the tiles are pairs (i, i+1) where i has the 
+    # same parity as j.
+    # The horizontal index u of the tile containing A_{i,j} is (i + (j % 2)) // 2.
+    # The vertical index v is simply j.
+    # The distance between two tiles in this geometry is max(|u1 - u2|, |v1 - v2|).
+    
+    us = (sx + (sy % 2)) // 2
+    vs = sy
+    ut = (tx + (ty % 2)) // 2
+    vt = ty
+    
+    # The minimum toll is the Chebyshev distance in the (u, v) coordinate system.
+    print(max(abs(us - ut), abs(vs - vt)))
+
+if __name__ == "__main__":
+    solve()
+```
+One last check on the parity:
+If $j=0$ (even), $i=0 \implies u=0, i=1 \implies u=0, i=2 \implies u=1$.
+If $j=1$ (odd), $i=0 \implies u=(0+1)//2=0, i=1 \implies u=(1+1)//2=1$.
+Wait, if $j=1$, $A_{0,1}$ is $i=0, j=1$. $i+j=1$ (odd). The rule says if $i+j$ is even, $A_{i,j}$ and $A_{i+1,j}$ are one tile.
+So for $j=1$, $A_{1,1}$ and $A_{2,1}$ are one tile ($1+1=2$ is even).
+$A_{0,1}$ is in a tile with $A_{-1,1}$.
+My formula: $i=0, j=1 \implies u=(0+1)//2 = 0$. $i=1, j=1 \implies u=(1+1)//2 = 1$.
+This means $A_{0,1}$ is tile 0, $A_{1,1}$ is tile 1.
+Is $A_{1,1}$ and $A_{2,1}$ in the same tile?
+$i=1, j=1 \implies u=(1+1)//2 = 1$.
+$i=2, j=1 \implies u=(2+1)//2 = 1$.
+Yes, they both map to $u=1$. The formula holds.

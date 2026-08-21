@@ -1,0 +1,171 @@
+The constraint to avoid explicit loops forces a shift toward a functional programming paradigm, emphasizing declarative data transformations over imperative state updates. While not always more "idiomatic" for state-heavy simulations, it encourages the use of higher-order functions and immutable-style updates. To solve this problem without loops, I will use `functools.reduce` to maintain the state of the grid (represented by sets of existing walls for each row and column) across the sequence of queries, and `bisect` for efficient searching of the nearest walls.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = zip(map(int, input_data[3::2]), map(int, input_data[4::2]))
+
+    # We maintain the state of walls using sorted lists for each row and column.
+    # rows[i] contains the column indices of walls in row i.
+    # cols[j] contains the row indices of walls in column j.
+    # Since H*W is up to 4e5, we use lists and bisect for O(log N) lookups.
+    # To avoid loops, we use reduce to process queries and map/list comprehensions for initialization.
+    
+    initial_rows = [sorted(range(1, W + 1)) for _ in range(H)]
+    initial_cols = [sorted(range(1, H + 1)) for _ in range(W)]
+    
+    # State is (rows, cols, total_walls)
+    # We use a helper function to handle the wall destruction logic.
+    def process_query(state, query):
+        rows, cols, total = state
+        r, c = query
+        
+        # Check if wall exists at (r, c)
+        # Note: r and c are 1-indexed, lists are 0-indexed.
+        row_idx = r - 1
+        col_idx = c - 1
+        
+        # Use bisect to check existence
+        pos_in_row = bisect_left(rows[row_idx], c)
+        exists = pos_in_row < len(rows[row_idx]) and rows[row_idx][pos_in_row] == c
+        
+        if exists:
+            # Destroy wall at (r, c)
+            # We must create new lists/objects to avoid mutating state in a way 
+            # that conflicts with the 'no loop' philosophy, though 
+            # in-place mutation is faster. However, since we must avoid 
+            # loops, we use slice assignment or similar.
+            new_row = rows[row_idx][:pos_in_row] + rows[row_idx][pos_in_row+1:]
+            
+            # Update the corresponding column list
+            pos_in_col = bisect_left(cols[col_idx], r)
+            new_col = cols[col_idx][:pos_in_col] + cols[col_idx][pos_in_col+1:]
+            
+            # Update state
+            # We use a trick to update specific indices in the lists without a loop
+            # by creating a new list via slice/concatenation or just mutating.
+            # Since the prompt forbids loops, we use the fact that 
+            # we can replace elements via indexing.
+            rows[row_idx] = new_row
+            cols[col_idx] = new_col
+            return (rows, cols, total - 1)
+        
+        else:
+            # Destroy 4 nearest walls
+            # 1. Left
+            pos_l = bisect_left(rows[row_idx], c) - 1
+            # 2. Right
+            pos_r = bisect_left(rows[row_idx], c)
+            # 3. Up
+            pos_u = bisect_left(cols[col_idx], r) - 1
+            # 4. Down
+            pos_d = bisect_left(cols[col_idx], r)
+            
+            # Identify walls to be destroyed
+            # We use a helper to safely remove and return if the wall existed
+            def remove_wall(r_coord, c_coord, current_total):
+                # r_coord, c_coord are 1-indexed
+                ri, ci = r_coord - 1, c_coord - 1
+                p_row = bisect_left(rows[ri], c_coord)
+                if p_row < len(rows[ri]) and rows[ri][p_row] == c_coord:
+                    rows[ri] = rows[ri][:p_row] + rows[ri][p_row+1:]
+                    p_col = bisect_left(cols[ci], r_coord)
+                    cols[ci] = cols[ci][:p_col] + cols[ci][p_col+1:]
+                    return current_total - 1
+                return current_total
+
+            # We need to handle the 4 directions. 
+            # Since we can't loop, we call the removal function 4 times.
+            t1 = total
+            t2 = t1
+            t3 = t2
+            t4 = t3
+            
+            # Left
+            if pos_l >= 0:
+                t2 = remove_wall(r, rows[row_idx][pos_l] if pos_l < len(rows[row_idx]) else -1, t1)
+            # Right
+            if pos_r < len(rows[row_idx]):
+                # Note: rows[row_idx] might have changed if the left wall was the same (not possible here)
+                # But we must re-calculate position because the list changed.
+                pr = bisect_left(rows[row_idx], c)
+                if pr < len(rows[row_idx]):
+                    t3 = remove_wall(r, rows[row_idx][pr], t2)
+            # Up
+            if pos_u >= 0:
+                pu = bisect_left(cols[col_idx], r) - 1
+                if pu >= 0:
+                    t4 = remove_wall(cols[col_idx][pu], c, t3)
+            # Down
+            if pos_d < len(cols[col_idx]):
+                pd = bisect_left(cols[col_idx], r)
+                if pd < len(cols[col_idx]):
+                    t4 = remove_wall(cols[col_idx][pd], c, t4)
+            
+            # The logic above is slightly flawed because the 4 removals happen "simultaneously".
+            # We must identify all 4 targets first, then remove them.
+            return (rows, cols, t4)
+
+    # Corrected process_query to handle simultaneous destruction
+    def process_query_fixed(state, query):
+        rows, cols, total = state
+        r, c = query
+        row_idx, col_idx = r - 1, c - 1
+        
+        pos_in_row = bisect_left(rows[row_idx], c)
+        if pos_in_row < len(rows[row_idx]) and rows[row_idx][pos_in_row] == c:
+            # Destroy wall at (r, c)
+            rows[row_idx].pop(pos_in_row)
+            pos_in_col = bisect_left(cols[col_idx], r)
+            cols[col_idx].pop(pos_in_col)
+            return (rows, cols, total - 1)
+        
+        # Identify targets
+        targets = []
+        # Left
+        pl = bisect_left(rows[row_idx], c) - 1
+        if pl >= 0: targets.append((r, rows[row_idx][pl]))
+        # Right
+        pr = bisect_left(rows[row_idx], c)
+        if pr < len(rows[row_idx]): targets.append((r, rows[row_idx][pr]))
+        # Up
+        pu = bisect_left(cols[col_idx], r) - 1
+        if pu >= 0: targets.append((cols[col_idx][pu], c))
+        # Down
+        pd = bisect_left(cols[col_idx], r)
+        if pd < len(cols[col_idx]): targets.append((cols[col_idx][pd], c))
+        
+        # Remove targets (using a helper to avoid loops, though we can't use a loop to iterate targets)
+        # Since there are at most 4 targets, we can just map a removal function.
+        def remove(s, target):
+            rs, cs, tot = s
+            tr, tc = target
+            ri, ci = tr - 1, tc - 1
+            p_row = bisect_left(rs[ri], tc)
+            if p_row < len(rs[ri]) and rs[ri][p_row] == tc:
+                rs[ri].pop(p_row)
+                p_col = bisect_left(cs[ci], tr)
+                cs[ci].pop(p_col)
+                return (rs, cs, tot - 1)
+            return s
+
+        # Use reduce to apply the remove function to the list of targets
+        return reduce(remove, targets, (rows, cols, total))
+
+    final_state = reduce(process_query_fixed, queries, (initial_rows, initial_cols, H * W))
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```

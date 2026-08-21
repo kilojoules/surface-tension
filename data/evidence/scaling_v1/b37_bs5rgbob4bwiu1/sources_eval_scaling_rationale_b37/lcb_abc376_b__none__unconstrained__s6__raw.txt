@@ -1,0 +1,81 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing declarative transformations over imperative state updates. While not always "cleaner" for state-heavy simulations, it encourages the use of higher-order functions and prevents side-effect-driven bugs. To solve this problem, I will use `functools.reduce` to maintain the state of the two hands and accumulate the total distance traveled across the sequence of instructions.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions are pairs of (H, T)
+    instructions = []
+    for i in range(Q):
+        h = input_data[2 + 2*i]
+        t = int(input_data[3 + 2*i])
+        instructions.append((h, t))
+
+    # State: (current_l, current_r, total_distance)
+    # Initial state: Left hand at 1, Right hand at 2, distance 0
+    initial_state = (1, 2, 0)
+
+    def calculate_dist(start, end, obstacle, n):
+        # There are two paths on a ring: clockwise and counter-clockwise.
+        # One path is blocked by the obstacle.
+        # Path 1: start -> start+1 -> ... -> end (mod N)
+        # Path 2: start -> start-1 -> ... -> end (mod N)
+        
+        # We need to check if the obstacle lies on the path.
+        # Since we can only move one hand, the other hand (obstacle) 
+        # must not be stepped on.
+        
+        # Distance moving "right" (increasing index)
+        # (end - start) % N
+        dist_right = (end - start) % N
+        
+        # Check if obstacle is encountered moving right:
+        # The obstacle is encountered if (obstacle - start) % N < dist_right
+        blocked_right = (obstacle - start) % N < dist_right
+        
+        # Distance moving "left" (decreasing index)
+        dist_left = (start - end) % N
+        
+        # Check if obstacle is encountered moving left:
+        # The obstacle is encountered if (start - obstacle) % N < dist_left
+        blocked_left = (start - obstacle) % N < dist_left
+        
+        # It is guaranteed that the instruction is achievable.
+        # Return the distance of the path that is not blocked.
+        if not blocked_right:
+            return dist_right
+        if not blocked_left:
+            return dist_left
+        return float('inf') # Should not happen per guarantees
+
+    def process_instruction(state, instr):
+        l, r, total = state
+        h, t = instr
+        
+        if h == 'L':
+            # Move left hand to t, right hand r is obstacle
+            # We must use 1-based indexing logic, but % N works best with 0-based.
+            # Convert to 0-based for calculation: (l-1, t-1, r-1)
+            d = calculate_dist(l-1, t-1, r-1, N)
+            return (t, r, total + d)
+        else:
+            # Move right hand to t, left hand l is obstacle
+            d = calculate_dist(r-1, t-1, l-1, N)
+            return (l, t, total + d)
+
+    # Use reduce to simulate the process across all instructions
+    final_state = reduce(process_instruction, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```

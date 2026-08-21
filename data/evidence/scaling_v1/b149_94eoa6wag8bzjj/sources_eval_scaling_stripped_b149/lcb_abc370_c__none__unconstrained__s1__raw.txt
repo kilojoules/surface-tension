@@ -1,0 +1,76 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To minimize the number of elements in X, we must change exactly one 
+    # character per step. The minimum number of steps is the number of differences.
+    # To make the array X lexicographically smallest, we want the strings 
+    # appearing earlier in the array to be lexicographically smaller.
+    # This means we should prioritize changing characters at the earliest 
+    # possible indices to the target characters in T, BUT only if the 
+    # target character T[i] is smaller than the current character S[i].
+    # Actually, the rule is simpler: to make the string X_j smallest, 
+    # we should change the leftmost index i where S[i] != T[i] if T[i] < S[i].
+    # If for all differing indices i, T[i] > S[i], we must change the 
+    # rightmost index first to keep the prefix as small as possible for as long as possible.
+    
+    # Correct Strategy for Lexicographical Smallest Array:
+    # 1. If there are indices i where T[i] < S[i], we should process all such 
+    #    indices from left to right first.
+    # 2. Then, we process all indices i where T[i] > S[i] from right to left.
+    
+    left_to_right = [i for i in diff_indices if T[i] < S[i]]
+    right_to_left = [i for i in diff_indices if T[i] > S[i]][::-1]
+    
+    # The sequence of indices to change
+    order = left_to_right + right_to_left
+    
+    # Generate the array X
+    # We use a list of characters for S to allow mutation
+    s_list = list(S)
+    X = []
+    for idx in order:
+        s_list[idx] = T[idx]
+        X.append("".join(s_list))
+    
+    # Output the result
+    print(len(X))
+    for string in X:
+        print(string)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, let me re-evaluate the lexicographical requirement.**
+The goal is to make the *array* $X$ lexicographically smallest. 
+$X = (X_1, X_2, \dots, X_M)$.
+To make $X_1$ as small as possible, we look at the first index $i$ where $S[i] \neq T[i]$. 
+- If $T[i] < S[i]$, changing $S[i]$ to $T[i]$ immediately makes the string smaller than any other possible first move.
+- If $T[i] > S[i]$, changing $S[i]$ to $T[i]$ makes the string larger. To keep $X_1$ small, we should avoid changing $S[i]$ and instead change some $S[j]$ ($j > i$) where $T[j] < S[j]$. If no such $j$ exists, we must change the *rightmost* index $j$ where $S[j] \neq T[j]$ to keep the prefix $S[0 \dots i]$ unchanged for as long as possible.
+
+Thus, the strategy is:
+1. Change all $i$ where $T[i] < S[i]$ from left to right.
+2. Change all $i$ where $T[i] > S[i]$ from right to left.
+
+The provided code implements this logic.
+- `left_to_right`: indices $i$ where $T[i] < S[i]$, sorted ascending.
+- `right_to_left`: indices $i$ where $T[i] > S[i]$, sorted descending.
+- Result: `left_to_right + right_to_left`.
+- This ensures $X_1$ is the smallest possible string, then $X_2$, and so on.
+- If $S=T$, `diff_indices` is empty, $M=0$, output is 0. Correct.
+- Sample 1: `adbe`, `bcbc`. Diff at 0(a,b), 1(d,c), 3(e,c).
+  - $T[0]>S[0]$ (b>a), $T[1]<S[1]$ (c<d), $T[3]<S[3]$ (c<e).
+  - `left_to_right`: [1, 3], `right_to_left`: [0].
+  - Order: [1, 3, 0].
+  - $X_1$: `acbe`, $X_2$: `acbc`, $X_3$: `bcbc`. Matches sample.

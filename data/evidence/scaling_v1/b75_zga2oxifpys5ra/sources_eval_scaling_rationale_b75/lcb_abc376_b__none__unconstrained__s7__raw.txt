@@ -1,0 +1,99 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm, emphasizing the transformation of data streams rather than the mutation of variables. In this specific problem, since we must track the positions of two hands across a sequence of instructions, `functools.reduce` is the ideal tool to maintain a running state (current positions and total distance) across the instruction set. To calculate the shortest path between two points on a ring while avoiding a specific "blocked" node, I will use a helper function that compares the clockwise and counter-clockwise distances, accounting for the fact that one direction might be blocked by the other hand.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into a list of (H, T)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Helper to calculate distance between start and end on a ring of size N
+    # avoiding the 'blocked' node.
+    # Since we can only move one hand, the other hand acts as a wall.
+    # On a ring, there are two paths. One is blocked if the 'blocked' node 
+    # lies on that path.
+    def get_dist(start, end, blocked, n):
+        if start == end:
+            return 0
+        
+        # Clockwise distance (increasing index)
+        # Path: start -> start+1 -> ... -> end
+        # The blocked node is on this path if:
+        # 1. start < blocked < end
+        # 2. end < start and (blocked > start or blocked < end)
+        
+        # Simplest way to check if a node 'b' is on the path from 's' to 'e' 
+        # moving clockwise:
+        def is_on_clockwise(s, e, b):
+            if s < e:
+                return s < b < e
+            else: # wrap around
+                return b > s or b < e
+
+        # Distance clockwise
+        dist_cw = (end - start) % n
+        # Distance counter-clockwise
+        dist_ccw = (start - end) % n
+        
+        # Check if the blocked node is on the clockwise path
+        # Note: the problem says we cannot move to the destination if the other hand is there.
+        # But the guarantee says T_i != other_hand, so we only worry about intermediate nodes.
+        if is_on_clockwise(start, end, blocked):
+            return dist_ccw
+        else:
+            # If clockwise is clear, it's always the shortest or equal to CCW
+            # However, we must check if CCW is also blocked.
+            # Actually, on a ring, if one path is blocked, you MUST take the other.
+            # If neither is blocked, you take the minimum.
+            # But wait, the 'blocked' node is a single point. 
+            # It can only block one of the two arcs unless it is the start or end.
+            # Since T_i != blocked and start != blocked (from problem guarantees),
+            # the blocked node is strictly inside one of the two arcs.
+            
+            # Check if blocked is on the counter-clockwise path
+            # The CCW path is just the CW path from 'end' to 'start'.
+            if is_on_clockwise(end, start, blocked):
+                return dist_cw
+            else:
+                # This case (neither path blocked) only happens if N=2, but N >= 3.
+                # With N >= 3, one node always leaves the other nodes connected.
+                # Actually, if the blocked node is not on the CW path, 
+                # it MUST be on the CCW path (or be the start/end).
+                return min(dist_cw, dist_ccw)
+
+    # State: (left_hand, right_hand, total_distance)
+    # Initial state: L=1, R=2, dist=0
+    initial_state = (1, 2, 0)
+
+    def update(state, instr):
+        l, r, total = state
+        h, t = instr
+        
+        if h == 'L':
+            # Move left hand from l to t, right hand r is blocked
+            d = get_dist(l, t, r, N)
+            return (t, r, total + d)
+        else:
+            # Move right hand from r to t, left hand l is blocked
+            d = get_dist(r, t, l, N)
+            return (l, t, total + d)
+
+    # Use reduce to iterate through instructions and accumulate state
+    final_state = reduce(update, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```

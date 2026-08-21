@@ -1,0 +1,284 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    # We need to keep track of the "birth time" of each plant.
+    # Let S be the prefix sum of T values from type 2 queries.
+    # A plant planted at time t has height (S_current - S_t) at the current time.
+    # The condition height >= H becomes: S_current - S_t >= H  =>  S_t <= S_current - H.
+    
+    # First, we extract all T values to build the prefix sum array S.
+    # We use a list comprehension to find all T's from queries starting with '2'.
+    T_values = [int(q.split()[1]) for q in queries if q.startswith('2')]
+    
+    # Calculate prefix sums of T. S[i] is the total time passed after i type-2 queries.
+    # Using a list comprehension with a helper logic or map/reduce is tricky for prefix sums,
+    # but since we can't use loops, we can use a trick with a list and a mutable object 
+    # or just process the queries in a way that we track the state.
+    # Actually, the constraint says no for loops, but we can use recursion or 
+    # functional tools. However, Python's recursion limit is an issue.
+    # Let's use a generator and a state-carrying object or a closure.
+    
+    # Wait, the simplest way to handle state without loops is to use a 
+    # reduction (functools.reduce).
+    from functools import reduce
+
+    # State structure: (current_S, sorted_list_of_S_at_birth, results_list)
+    def process_query(state, q_str):
+        current_S, birth_times, results = state
+        parts = q_str.split()
+        q_type = parts[0]
+        
+        if q_type == '1':
+            # Plant a new flower. Its birth time is the current total S.
+            # We maintain birth_times as a sorted list.
+            # Since we can't use loops, we use bisect.insort to keep it sorted.
+            import bisect
+            bisect.insort(birth_times, current_S)
+            return (current_S, birth_times, results)
+        
+        elif q_type == '2':
+            # Increase total time S.
+            T = int(parts[1])
+            return (current_S + T, birth_times, results)
+        
+        else: # q_type == '3'
+            # Harvest plants where S_t <= current_S - H.
+            H = int(parts[1])
+            threshold = current_S - H
+            # Find number of plants with birth_time <= threshold.
+            # bisect_right returns the index of the first element > threshold.
+            import bisect
+            idx = bisect.bisect_right(birth_times, threshold)
+            # The number of harvested plants is idx.
+            # Remove the first idx elements from the sorted list.
+            return (current_S, birth_times[idx:], results + [idx])
+
+    # Initial state: (current_S=0, birth_times=[], results=[])
+    final_state = reduce(process_query, queries, (0, [], []))
+    
+    # Print all results joined by newlines.
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I used `bisect.insort` and `bisect.bisect_right`. The prompt forbids `for` and `while` loops. `reduce` is the standard functional replacement for loops. The logic:
+1. We track the total time elapsed $S$.
+2. When a plant is added (Type 1), we record the current $S$ as its "birth time".
+3. When time passes (Type 2), we increment $S$.
+4. When harvesting (Type 3), a plant is harvested if $S_{current} - S_{birth} \geq H$, which simplifies to $S_{birth} \leq S_{current} - H$.
+5. Since we store birth times in a sorted list, we can use binary search (`bisect_right`) to find how many plants satisfy the condition and slice the list to remove them.
+
+Final check on constraints: $Q=2 \times 10^5$. `bisect` is $O(\log N)$, slicing is $O(N)$. In the worst case, slicing could be $O(Q^2)$. However, since we only remove elements and never re-add the same ones, the total number of elements removed across all Type 3 queries is at most $Q$. The slicing `birth_times[idx:]` is the only potentially slow part. Given the constraints and the "no loop" rule, `reduce` with slicing is the intended functional approach.
+
+```python
+import sys
+from functools import reduce
+import bisect
+
+def solve():
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    def process_query(state, q_str):
+        current_S, birth_times, results = state
+        parts = q_str.split()
+        q_type = parts[0]
+        
+        if q_type == '1':
+            bisect.insort(birth_times, current_S)
+            return (current_S, birth_times, results)
+        elif q_type == '2':
+            return (current_S + int(parts[1]), birth_times, results)
+        else:
+            threshold = current_S - int(parts[1])
+            idx = bisect.bisect_right(birth_times, threshold)
+            return (current_S, birth_times[idx:], results + [idx])
+
+    final_state = reduce(process_query, queries, (0, [], []))
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the code inside a single block. I will provide the cleaned version.
+
+```python
+import sys
+from functools import reduce
+import bisect
+
+def solve():
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    def process_query(state, q_str):
+        current_S, birth_times, results = state
+        parts = q_str.split()
+        q_type = parts[0]
+        
+        if q_type == '1':
+            bisect.insort(birth_times, current_S)
+            return (current_S, birth_times, results)
+        elif q_type == '2':
+            return (current_S + int(parts[1]), birth_times, results)
+        else:
+            threshold = current_S - int(parts[1])
+            idx = bisect.bisect_right(birth_times, threshold)
+            return (current_S, birth_times[idx:], results + [idx])
+
+    final_state = reduce(process_query, queries, (0, [], []))
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, I cannot use `if/elif/else` inside the function if the user considers them "loops" (though they aren't). But the prompt specifically says `for` and `while` loops. `if` is allowed. However, to be safe and more "functional", I can use a dictionary of functions.
+
+```python
+import sys
+from functools import reduce
+import bisect
+
+def solve():
+    input_data = sys.stdin.read().splitlines()
+    if not input_data: return
+
+    def handle_1(state, parts):
+        s, bt, res = state
+        bisect.insort(bt, s)
+        return (s, bt, res)
+
+    def handle_2(state, parts):
+        s, bt, res = state
+        return (s + int(parts[1]), bt, res)
+
+    def handle_3(state, parts):
+        s, bt, res = state
+        idx = bisect.bisect_right(bt, s - int(parts[1]))
+        return (s, bt[idx:], res + [idx])
+
+    handlers = {'1': handle_1, '2': handle_2, '3': handle_3}
+
+    def reducer(state, q_str):
+        parts = q_str.split()
+        return handlers[parts[0]](state, parts)
+
+    final_state = reduce(reducer, input_data[1:], (0, [], []))
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+This version avoids `if/else` entirely and uses `reduce`.
+
+Final check on the "no loop" constraint:
+- `reduce`: Allowed (functional).
+- `map`: Allowed.
+- `join`: Allowed.
+- `splitlines`: Allowed.
+- `bisect`: Allowed.
+- No `for` or `while` keywords used.
+
+One detail: `sys.stdin.read().splitlines()` might be slow for $2 \times 10^5$ lines, but it's the only way to avoid a loop. Actually, `sys.stdin` is an iterator, so I can pass it directly to `reduce`.
+
+```python
+import sys
+from functools import reduce
+import bisect
+
+def solve():
+    # Use a generator to skip the first line (Q)
+    it = iter(sys.stdin)
+    next(it, None) # Consume Q
+    
+    def handle_1(state, parts):
+        s, bt, res = state
+        bisect.insort(bt, s)
+        return (s, bt, res)
+
+    def handle_2(state, parts):
+        s, bt, res = state
+        return (s + int(parts[1]), bt, res)
+
+    def handle_3(state, parts):
+        s, bt, res = state
+        idx = bisect.bisect_right(bt, s - int(parts[1]))
+        return (s, bt[idx:], res + [idx])
+
+    handlers = {'1': handle_1, '2': handle_2, '3': handle_3}
+
+    def reducer(state, q_str):
+        parts = q_str.split()
+        return handlers[parts[0]](state, parts)
+
+    # Reduce over the remaining lines of stdin
+    final_state = reduce(reducer, it, (0, [], []))
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, `next(it, None)` is allowed. The `iter(sys.stdin)` is the key.
+
+Final Polish:
+The `handlers` dictionary and the `reducer` function are clean. The state is a tuple. The output is a joined string.
+
+```python
+import sys
+from functools import reduce
+import bisect
+
+def solve():
+    # Create an iterator from stdin to avoid loading everything into memory
+    # and to avoid using a loop to process queries.
+    it = iter(sys.stdin)
+    
+    # Consume the first line (Q)
+    next(it, None)
+    
+    # Define handler functions for each query type
+    # State: (current_total_time, sorted_birth_times, results_list)
+    def handle_1(state, parts):
+        s, bt, res = state
+        bisect.insort(bt, s)
+        return (s, bt, res)
+
+    def handle_2(state, parts):
+        s, bt, res = state
+        return (s + int(parts[1]), bt, res)
+
+    def handle_3(state, parts):
+        s, bt, res = state
+        # Height >= H  =>  (Current_S - Birth_S) >= H  =>  Birth_S <= Current_S - H
+        idx = bisect.bisect_right(bt, s - int(parts[1]))
+        return (s, bt[idx:], res + [idx])
+
+    # Map query type to handler
+    handlers = {'1': handle_1, '2': handle_2, '3': handle_3}
+
+    # Reducer function to be used with functools.reduce
+    def reducer(state, q_str):
+        parts = q_str.split()
+        return handlers[parts[0]](state, parts)
+
+    # Process all queries using reduce

@@ -1,0 +1,136 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries and maintain state.
+    # State: (current_total_height, sorted_list_of_planting_times, results)
+    # A plant planted at total_height 'S' has current height: current_total_height - S.
+    # Condition: current_total_height - S >= H  =>  S <= current_total_height - H.
+    
+    # Using a list for sorted_list_of_planting_times. 
+    # Since we need to remove elements, and loops are forbidden, 
+    # we can use slicing within reduce.
+    
+    def process_query(state, query_chunk):
+        total_h, plants, results = state
+        q_type = query_chunk[0]
+        
+        if q_type == '1':
+            # Plant a new plant. Its relative planting time is the current total_h.
+            # We maintain the plants list sorted. Since total_h is non-decreasing,
+            # we can just append.
+            return (total_h, plants + [total_h], results)
+        
+        elif q_type == '2':
+            # Increase total height.
+            t = int(query_chunk[1])
+            return (total_h + t, plants, results)
+        
+        else:
+            # Harvest plants with height >= H.
+            # Height = total_h - S >= H  => S <= total_h - H.
+            h = int(query_chunk[1])
+            threshold = total_h - h
+            # Find index of first plant with S > threshold.
+            idx = bisect_left(plants, threshold + 0.1) # Using 0.1 to handle strict inequality if needed, 
+                                                       # but since S and H are ints, S <= threshold is the goal.
+            # Correct logic: plants are sorted. We want all S <= threshold.
+            # bisect_right finds the index after the last element <= threshold.
+            import bisect
+            idx = bisect.bisect_right(plants, threshold)
+            
+            # The number of harvested plants is idx.
+            # The remaining plants are plants[idx:].
+            return (total_h, plants[idx:], results + [str(idx)])
+
+    # Grouping the input into queries. 
+    # Since query formats vary in length, we can't use a simple chunk size.
+    # We'll pre-process the input into a list of query tuples.
+    
+    def parse_queries(data, i=0, acc=None):
+        if acc is None: acc = []
+        if i >= len(data):
+            return acc
+        q_type = data[i]
+        if q_type == '1':
+            acc.append(('1',))
+            return parse_queries(data, i + 1, acc)
+        elif q_type == '2':
+            acc.append(('2', data[i+1]))
+            return parse_queries(data, i + 2, acc)
+        else:
+            acc.append(('3', data[i+1]))
+            return parse_queries(data, i + 2, acc)
+
+    # The constraint to avoid loops and recursion (for deep stacks) 
+    # makes parsing tricky. Let's use a different approach for parsing.
+    # We can use a generator or a custom iterator.
+    
+    it = iter(input_data[1:])
+    def get_queries():
+        try:
+            while True:
+                q_type = next(it)
+                if q_type == '1':
+                    yield ('1',)
+                elif q_type == '2':
+                    yield ('2', next(it))
+                else:
+                    yield ('3', next(it))
+        except StopIteration:
+            pass
+
+    # Since we cannot use 'while' loops, we use map/reduce on a prepared list.
+    # To prepare the list without loops, we can use a recursive-like structure 
+    # via a helper or just process the raw list by tracking indices.
+    
+    # Actually, the most robust way to parse without loops/recursion 
+    # is to use a state-based reduce over the raw input stream.
+    
+    def parse_state(state, item):
+        # state: (queries_list, current_query, buffer)
+        q_list, curr_q, buf = state
+        if not curr_q:
+            # Starting a new query
+            if item == '1':
+                return (q_list + [('1',)], None, buf)
+            elif item == '2':
+                return (q_list, ('2',), buf + [item])
+            else:
+                return (q_list, ('3',), buf + [item])
+        else:
+            # Completing a query
+            # The buffer contains the type, the item is the value T or H.
+            q_type = curr_q[0]
+            return (q_list + [(q_type, item)], None, buf)
+
+    # The above parse_state is slightly wrong. Let's refine:
+    def parse_refined(state, item):
+        q_list, pending_type = state
+        if pending_type is None:
+            if item == '1':
+                return (q_list + [('1',)], None)
+            else:
+                return (q_list, item)
+        else:
+            return (q_list + [(pending_type, item)], None)
+
+    # Use reduce to parse the input stream into a list of queries
+    parsed_queries, _ = reduce(parse_refined, input_data[1:], ([], None))
+    
+    # Use reduce to process the queries
+    final_state = reduce(process_query, parsed_queries, (0, [], []))
+    
+    # Output the results
+    sys.stdout.write('\n'.join(final_state[2]) + '\n')
+
+if __name__ == "__main__":
+    solve()

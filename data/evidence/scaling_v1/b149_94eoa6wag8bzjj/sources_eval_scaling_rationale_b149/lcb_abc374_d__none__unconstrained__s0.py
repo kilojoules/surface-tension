@@ -1,0 +1,98 @@
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((
+            (int(input_data[idx]), int(input_data[idx+1])),
+            (int(input_data[idx+2]), int(input_data[idx+3]))
+        ))
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute lengths of segments to avoid repeated calculation
+    seg_lengths = [dist(s[0], s[1]) for s in segments]
+
+    # We need to try all permutations of segments
+    # For each segment, we can start at either endpoint (2^N possibilities)
+    # The total time is the sum of (dist(current, start)/S + length/T)
+    
+    # Generate all permutations of indices 0 to N-1
+    all_perms = permutations(range(N))
+    
+    # Generate all possible direction configurations (0: start->end, 1: end->start)
+    all_dirs = product([0, 1], repeat=N)
+
+    def calculate_time(perm, dirs):
+        # We use a generator to calculate the sequence of points visited
+        # Starting point is (0, 0)
+        
+        # Determine the actual start and end points for each segment in the permutation
+        path_points = [
+            (segments[perm[i]][0] if dirs[perm[i]] == 0 else segments[perm[i]][1],
+             segments[perm[i]][1] if dirs[perm[i]] == 0 else segments[perm[i]][0])
+            for i in range(N)
+        ]
+        
+        # The sequence of movements:
+        # 0 -> path_points[0].start (move S)
+        # path_points[0].start -> path_points[0].end (move T)
+        # path_points[0].end -> path_points[1].start (move S) ...
+        
+        # To calculate this without loops, we can create a list of pairs (from, to, speed)
+        # The points are: P0(0,0), S1, E1, S2, E2, ..., SN, EN
+        coords = [(0, 0)]
+        # Flatten the start/end pairs into a single list
+        coords += [p for pair in path_points for p in (pair[0], pair[1])]
+        
+        # Create pairs of (point_i, point_{i+1}, speed)
+        # Even indices in the movement sequence are 'move to start' (S), odd are 'print' (T)
+        movements = [
+            (coords[i], coords[i+1], S if i % 2 == 0 else T)
+            for i in range(len(coords) - 1)
+        ]
+        
+        return sum(dist(p1, p2) / speed for p1, p2, speed in movements)
+
+    # Since we cannot use loops, we use a generator expression inside min()
+    # We need to iterate over all permutations and all direction combinations.
+    # Note: dirs is mapped to the segment index, so we access it via dirs[perm[i]]
+    # However, the direction choice is independent for each segment.
+    # It's simpler to treat dirs as a bitmask corresponding to the permutation order.
+    
+    # Corrected logic for dirs: dirs[i] is the direction for the i-th segment in the permutation.
+    def calculate_time_fixed(perm, dirs):
+        # path_points: (start, end) for each segment in the chosen order
+        path_points = [
+            (segments[perm[i]][0] if dirs[i] == 0 else segments[perm[i]][1],
+             segments[perm[i]][1] if dirs[i] == 0 else segments[perm[i]][0])
+            for i in range(N)
+        ]
+        coords = [(0, 0)] + [p for pair in path_points for p in (pair[0], pair[1])]
+        return sum(dist(coords[i], coords[i+1]) / (S if i % 2 == 0 else T) 
+                   for i in range(len(coords) - 1))
+
+    # Use a nested generator to find the minimum
+    ans = min(
+        calculate_time_fixed(p, d)
+        for p in permutations(range(N))
+        for d in product([0, 1], repeat=N)
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

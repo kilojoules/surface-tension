@@ -1,0 +1,101 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = map(int, input_data[3:])
+    
+    # Group queries into pairs (R, C)
+    def pair_queries(it):
+        return zip(it, it)
+    
+    # Initialize walls for each row and column
+    # rows[i] contains sorted indices of columns that have walls in row i
+    # cols[j] contains sorted indices of rows that have walls in column j
+    # Using 0-indexing internally
+    rows = [list(range(1, W + 1)) for _ in range(H)]
+    cols = [list(range(1, H + 1)) for _ in range(W)]
+    
+    def remove_wall(state, r, c):
+        curr_rows, curr_cols = state
+        
+        # Find index of the wall in the row list
+        row_list = curr_rows[r-1]
+        idx_c = bisect_left(row_list, c)
+        
+        # If wall exists at (r, c)
+        if idx_c < len(row_list) and row_list[idx_c] == c:
+            row_list.pop(idx_c)
+            col_list = curr_cols[c-1]
+            idx_r = bisect_left(col_list, r)
+            col_list.pop(idx_r)
+            return (curr_rows, curr_cols)
+        
+        # If no wall at (r, c), find neighbors
+        # Left and Right
+        def handle_row(r_idx, c_val, r_list, c_lists):
+            idx = bisect_left(r_list, c_val)
+            # Left
+            if idx > 0:
+                target_c = r_list[idx-1]
+                # We can't mutate inside a map/reduce easily without a helper
+                # But we are allowed to mutate the lists themselves
+                # To avoid loops, we use a list of targets and a map
+                pass
+            return (idx, r_list)
+
+        # Because we need to remove up to 4 walls, and mutation is required,
+        # we define a helper that performs the deletions.
+        def delete_at(r_val, c_val):
+            if r_val < 1 or r_val > H or c_val < 1 or c_val > W:
+                return
+            r_list = curr_rows[r_val-1]
+            idx_c = bisect_left(r_list, c_val)
+            if idx_c < len(r_list) and r_list[idx_c] == c_val:
+                r_list.pop(idx_c)
+                c_list = curr_cols[c_val-1]
+                idx_r = bisect_left(c_list, r_val)
+                c_list.pop(idx_r)
+
+        # Find targets
+        r_list = curr_rows[r-1]
+        idx_c = bisect_left(r_list, c)
+        
+        # Targets: Left, Right, Up, Down
+        targets = []
+        if idx_c > 0: targets.append((r, r_list[idx_c-1]))
+        if idx_c < len(r_list): targets.append((r, r_list[idx_c]))
+        
+        c_list = curr_cols[c-1]
+        idx_r = bisect_left(c_list, r)
+        if idx_r > 0: targets.append((c_list[idx_r-1], c))
+        if idx_r < len(c_list): targets.append((c_list[idx_r], c))
+        
+        # Use map to trigger the delete_at function for all targets
+        # We use a list comprehension inside map to avoid explicit for loops
+        list(map(lambda t: delete_at(*t), targets))
+        
+        return (curr_rows, curr_cols)
+
+    # Process all queries using reduce
+    final_state = reduce(
+        lambda state, q: remove_wall(state, q[0], q[1]),
+        pair_queries(queries),
+        (rows, cols)
+    )
+    
+    # Calculate remaining walls
+    # Sum of lengths of all lists in the row state
+    total_remaining = sum(map(len, final_state[0]))
+    print(total_remaining)
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,199 @@
+```python
+import sys
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N = int(input_data[0])
+    K = int(input_data[1])
+
+    # The total number of good sequences S is (NK)! / (K!)^N.
+    # We need the floor((S+1)/2)-th sequence.
+    # This is essentially the "middle" sequence.
+    # Because the set of good sequences is symmetric (replacing x with N-x+1),
+    # the middle sequence is the one that is "halfway" through the lexicographical order.
+    
+    # For a sequence A, its symmetric counterpart is A' where A'_i = N + 1 - A_i.
+    # If A < A' lexicographically, then A comes in the first half and A' in the second.
+    # The sequence we are looking for is the one that is "just before" the point where
+    # the sequence becomes its own symmetric opposite, or the smaller of the two middle ones.
+    
+    # Specifically, we want the sequence A such that it is the largest sequence 
+    # where A < A'.
+    # A sequence A is lexicographically smaller than its symmetric A' if at the first 
+    # index i where A_i != A'_i, we have A_i < A'_i.
+    # A_i < N + 1 - A_i  => 2 * A_i < N + 1 => A_i < (N + 1) / 2.
+    
+    # To find the largest A such that A < A', we want to keep A_i as large as possible
+    # while ensuring that at the first index i where A_i != A'_i, A_i < A'_i.
+    # To make A as large as possible, we want the first difference to occur as late as possible.
+    # However, we must eventually have A_i < A'_i.
+    # The largest such A will have A_i = A'_i for as many leading positions as possible.
+    # A_i = A'_i is only possible if N is odd and A_i = (N+1)/2.
+    
+    # Let M = (N+1)//2.
+    # If N is even, the first element A_1 must be < (N+1)/2 to ensure A < A'.
+    # To maximize A, we pick A_1 = N // 2.
+    # Then we fill the remaining slots to make the sequence as lexicographically large as possible.
+    # The remaining elements are: 
+    # - (N // 2) appears (K-1) more times
+    # - elements 1 to (N // 2 - 1) appear K times
+    # - elements (N // 2 + 1) to N appear K times
+    # To maximize the sequence, we place the largest available numbers first.
+    
+    # If N is odd, let M = (N+1)//2.
+    # We can have A_i = M for all K occurrences of M at the start.
+    # Then the first difference must occur at the first index where A_i != M.
+    # At that index, we need A_i < N + 1 - A_i.
+    # To maximize A, we pick A_i = (N-1) // 2.
+    # Then fill the rest with the largest available numbers.
+
+    # General logic for the "middle" sequence:
+    # The sequence A is the largest sequence such that A < A'.
+    # This means at the first index i where A_i != (N+1)/2, we must have A_i < (N+1)/2.
+    # To maximize A, we:
+    # 1. Place all K copies of (N+1)//2 (if N is odd) at the beginning.
+    # 2. Place one copy of (N-1)//2.
+    # 3. Place all remaining elements in descending order.
+    
+    # Let's refine:
+    # If N=2, K=2: S=6. floor(7/2)=3rd.
+    # Sequences: (1,1,2,2), (1,2,1,2), (1,2,2,1), (2,1,1,2), (2,1,2,1), (2,2,1,1)
+    # 3rd is (1,2,2,1).
+    # My logic: N is even. A_1 = 2//2 = 1. Remaining: {1:1, 2:2}. 
+    # Descending: 2, 2, 1. Result: 1, 2, 2, 1. Correct.
+    
+    # If N=3, K=3: S=1680/6=280. floor(281/2)=140th.
+    # N is odd. M=2. 
+    # Start with K copies of 2: 2, 2, 2.
+    # Then one copy of (3-1)//2 = 1.
+    # Remaining: {1:2, 3:3}.
+    # Descending: 3, 3, 3, 1, 1.
+    # Result: 2, 2, 2, 1, 3, 3, 3, 1, 1. Correct.
+
+    # Implementation:
+    res = []
+    counts = {i: K for i in range(1, N + 1)}
+    
+    # 1. Handle the middle element if N is odd
+    if N % 2 == 1:
+        mid = (N + 1) // 2
+        for _ in range(K):
+            res.append(mid)
+        counts[mid] = 0
+        
+    # 2. The first element that breaks the symmetry must be < (N+1)/2
+    # To maximize the sequence, we pick the largest integer < (N+1)/2
+    break_val = (N + 1) // 2 if N % 2 == 0 else (N // 2)
+    # Wait, if N is even, (N+1)//2 is N//2. 
+    # Let's use: break_val = (N + 1) // 2 if N % 2 == 0 else N // 2
+    # Actually: break_val = (N + 1) // 2 is only for N even.
+    # Let's use a simpler rule:
+    # The value that must be smaller than its symmetric counterpart is (N+1)//2 if N even, 
+    # or N//2 if N odd.
+    
+    # Correct break_val:
+    # If N=2, break_val = 1.
+    # If N=3, break_val = 1.
+    # If N=4, break_val = 2.
+    # If N=5, break_val = 2.
+    # This is always N // 2.
+    
+    # But we already handled the N-odd case by placing all (N+1)//2 first.
+    # So for both cases, the next element is N // 2.
+    
+    # Since we can't use loops, we'll use a list comprehension to build the result.
+    # But we need to track counts. Since we only remove a few specific items, 
+    # we can just construct the final list.
+    
+    # For N even:
+    # Part 1: [N//2]
+    # Part 2: Sorted([1...N] * K minus one N//2), descending.
+    
+    # For N odd:
+    # Part 1: [(N+1)//2] * K
+    # Part 2: [N//2]
+    # Part 3: Sorted([1...N] * K minus K*(N+1)//2 and one N//2), descending.
+    
+    # Using a conditional to build the whole list:
+    def build_seq():
+        # We use a list of all elements and then remove the ones we placed
+        all_elts = [i for i in range(1, N + 1) for _ in range(K)]
+        
+        if N % 2 == 0:
+            # First element is N//2, then others descending
+            # To remove one N//2 from all_elts:
+            # We can't use remove(), so we filter and use a flag via a list
+            # But we can just construct the remaining list:
+            rem = [i for i in range(1, N + 1) for _ in range(K if i != N//2 else K-1)]
+            return [N//2] + sorted(rem, reverse=True)
+        else:
+            # First K elements are (N+1)//2, then one N//2, then others descending
+            mid = (N + 1) // 2
+            low = N // 2
+            rem = [i for i in range(1, N + 1) for _ in range(K if (i != mid and (i != low or False)) else 0)]
+            # The above logic for rem is slightly wrong because it removes all low.
+            # Let's do:
+            rem = [i for i in range(1, N + 1) for _ in range(K if i != mid else 0)]
+            # Now remove one 'low' from rem. 
+            # Since we can't use loops/remove, we can use a list comprehension 
+            # that skips the first occurrence of 'low'.
+            # However, we can just say: 
+            # elements 1 to low-1 appear K times, low appears K-1 times, 
+            # elements low+1 to mid-1 appear K times, mid appears 0 times,
+            # elements mid+1 to N appear K times.
+            
+            # Let's use a more direct approach for the remaining elements:
+            # All i from 1 to N, with count K, except mid (0) and low (K-1).
+            rem = [i for i in range(1, N + 1) for _ in range(K if (i != mid and i != low) else (K-1 if i == low else 0))]
+            return [mid] * K + [low] + sorted(rem, reverse=True)
+
+    print(*(build_seq()))
+
+solve()
+```
+**Wait**, the constraints say `no loops`. My `build_seq` uses `for` in list comprehensions. In Python, list comprehensions are generally accepted as "not loops" in the context of these constraints if they are used for construction, but the prompt says "no loops". Let me double-check. Actually, the prompt says "Write a complete Python program". It doesn't explicitly forbid `for` in comprehensions, but usually, "no loops" means no `for` or `while` statements. List comprehensions are expressions.
+
+However, looking at the logic, the `for` in `[i for i in range(1, N + 1) for _ in range(K)]` is a loop. To be safe, I will use `map`, `filter`, and `sorted`.
+
+Actually, the most "functional" way to handle the "remove one" logic without any `for` is to use slicing or mathematical construction.
+
+Corrected logic without any `for` keywords:
+1. `all_elements = sorted([i for i in range(1, N+1) for _ in range(K)], reverse=True)` -> Still has `for`.
+2. Use `itertools.repeat` and `itertools.chain`.
+
+Revised approach:
+- If $N$ is even:
+  - First element: $N // 2$
+  - Remaining: All elements $1 \dots N$ each $K$ times, minus one $N // 2$, sorted descending.
+- If $N$ is odd:
+  - First $K$ elements: $(N+1) // 2$
+  - Next element: $N // 2$
+  - Remaining: All elements $1 \dots N$ each $K$ times, minus $K$ copies of $(N+1)//2$ and one $N // 2$, sorted descending.
+
+To avoid `for`, I can use `itertools.chain.from_iterable` and `map(itertools.repeat, ...)`.
+
+```python
+import sys
+from itertools import chain, repeat
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N, K = map(int, input_data)
+
+    def get_rem(exclude_val, exclude_count, mid_val=None, mid_count=0):
+        # Generate all elements, then filter/adjust
+        # Instead of filtering, we can just generate the ranges
+        # and use a conditional to adjust the count.
+        return sorted(
+            chain.from_iterable(
+                map(lambda i: repeat(i, K - (exclude_count if i == exclude_val else 0) - (K if i == mid_val else 0)), 
+                    range(1, N + 1))
+            ), 
+            reverse=True
+        )
+
+    if N % 2 == 0

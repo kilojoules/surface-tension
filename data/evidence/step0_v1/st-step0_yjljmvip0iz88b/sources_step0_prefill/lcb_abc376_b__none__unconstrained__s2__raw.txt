@@ -1,0 +1,92 @@
+```python
+import sys
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Initial positions
+    l = 1
+    r = 2
+    total_ops = 0
+    
+    idx = 2
+    for _ in range(Q):
+        h = input_data[idx]
+        t = int(input_data[idx+1])
+        idx += 2
+        
+        if h == 'L':
+            # Move left hand from l to t, right hand r is fixed.
+            # The ring is 1...N. The right hand r blocks the path.
+            # There are two directions to move on a ring: clockwise and counter-clockwise.
+            # However, the rule is we cannot move to the part the other hand is holding.
+            # This means the left hand must move in the arc that does NOT contain r.
+            
+            # Calculate distance moving "right" (increasing index) and "left" (decreasing index)
+            # But we must check if r is in the way.
+            
+            # The available path for L is the arc from l to t that doesn't pass through r.
+            # Since we are guaranteed the instruction is achievable, such a path exists.
+            # The only way to get from l to t without passing r is to move in the direction
+            # that goes away from r.
+            
+            # Let's determine the distance. 
+            # On a ring of N, the distance between l and t is:
+            # dist1 = (t - l + N) % N
+            # dist2 = (l - t + N) % N
+            # One of these paths contains r, the other doesn't.
+            
+            # Check if r is encountered when moving from l to t clockwise (increasing)
+            # r is encountered if (r - l + N) % N < (t - l + N) % N
+            # Wait, the simplest way:
+            # The two arcs between l and t are:
+            # 1. l -> l+1 -> ... -> t (modulo N)
+            # 2. l -> l-1 -> ... -> t (modulo N)
+            
+            # We need the length of the arc that does NOT contain r.
+            # The total distance is N. The distance from l to r is:
+            # d_lr = (r - l + N) % N
+            # The distance from r to t is:
+            # d_rt = (t - r + N) % N
+            # The distance from l to t is:
+            # d_lt = (t - l + N) % N
+            
+            # If we move clockwise from l to t, and r is "between" them, 
+            # then the clockwise path is blocked.
+            # r is between l and t clockwise if (r-l+N)%N < (t-l+N)%N.
+            
+            dist_cw = (t - l + N) % N
+            r_is_between_cw = (r - l + N) % N < dist_cw and r != l and r != t
+            
+            if not r_is_between_cw:
+                total_ops += dist_cw
+            else:
+                # Must move counter-clockwise
+                total_ops += (l - t + N) % N
+            
+            l = t
+            
+        else: # h == 'R'
+            # Move right hand from r to t, left hand l is fixed.
+            dist_cw = (t - r + N) % N
+            l_is_between_cw = (l - r + N) % N < dist_cw and l != r and l != t
+            
+            if not l_is_between_cw:
+                total_ops += dist_cw
+            else:
+                # Must move counter-clockwise
+                total_ops += (r - t + N) % N
+            
+            r = t
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()
+```

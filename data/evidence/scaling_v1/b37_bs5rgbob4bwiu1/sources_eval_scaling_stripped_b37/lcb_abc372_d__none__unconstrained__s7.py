@@ -1,0 +1,218 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and the list of heights
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # The condition "no building taller than Building j between i and j"
+    # means that for a fixed i, we are looking for the number of indices j > i
+    # such that H[k] < H[j] for all i < k < j.
+    # This is equivalent to saying that Building j is a "visible" building
+    # when looking right from Building i.
+    # A building j is visible from i if it is a left-to-right maximum 
+    # in the subarray H[i+1...N-1].
+    
+    # However, the problem asks for this for every i.
+    # Let's rephrase: j satisfies the condition for i if 
+    # H[j] > max(H[i+1...j-1]).
+    # This means j is a record-breaking height starting from index i+1.
+    
+    # For a fixed i, the indices j that satisfy this are:
+    # j1 = i + 1
+    # j2 = first index > j1 such that H[j2] > H[j1]
+    # j3 = first index > j2 such that H[j3] > H[j2]
+    # ... and so on.
+    
+    # This looks like a problem that can be solved by processing the array
+    # from right to left using a Segment Tree or a similar structure, 
+    # but there is a known technique for "counting visible elements" 
+    # using a Segment Tree where each node stores the maximum height in its range
+    # and a precomputed count of visible elements relative to a height.
+
+    class SegmentTree:
+        def __init__(self, data):
+            self.n = len(data)
+            self.tree = [0] * (4 * self.n)
+            self.build(data, 1, 0, self.n - 1)
+
+        def build(self, data, node, start, end):
+            if start == end:
+                self.tree[node] = data[start]
+                return
+            mid = (start + end) // 2
+            self.build(data, 2 * node, start, mid)
+            self.build(data, 2 * node + 1, mid + 1, end)
+            self.tree[node] = max(self.tree[2 * node], self.tree[2 * node + 1])
+
+        def count_visible(self, node, start, end, min_h):
+            # Count elements in range [start, end] that are > min_h
+            # and are left-to-right maximums.
+            if self.tree[node] <= min_h:
+                return 0
+            if start == end:
+                return 1 if self.tree[node] > min_h else 0
+            
+            mid = (start + end) // 2
+            # If the max of the left child is <= min_h, 
+            # nothing in the left child is visible, search only right.
+            if self.tree[2 * node] <= min_h:
+                return self.count_visible(2 * node + 1, mid + 1, end, min_h)
+            
+            # If the max of the left child is > min_h,
+            # some elements in the left are visible.
+            # The number of visible elements in the right child depends on 
+            # the maximum of the left child.
+            # We can precompute the visibility of the right child relative to the left.
+            # To avoid complex state, we use a helper function to calculate 
+            # the contribution of the right subtree given the max of the left.
+            return self.count_visible(2 * node, start, mid, min_h) + \
+                   self.calc_suffix(2 * node + 1, mid + 1, end, self.tree[2 * node])
+
+        def calc_suffix(self, node, start, end, threshold):
+            # Helper to count elements > threshold in a range, 
+            # given that they must also be left-to-right maximums.
+            if self.tree[node] <= threshold:
+                return 0
+            if start == end:
+                return 1 if self.tree[node] > threshold else 0
+            
+            mid = (start + end) // 2
+            if self.tree[2 * node] <= threshold:
+                return self.calc_suffix(2 * node + 1, mid + 1, end, threshold)
+            else:
+                # Left child contributes, and right child's contribution 
+                # is already constrained by the left child's own maximum.
+                # We need the number of elements in the right child visible 
+                # given the max of the left child.
+                # This is: (total visible in node) - (visible in left child relative to 0)
+                # Wait, that's only if threshold < max(left).
+                # The correct logic for the recursive step:
+                return self.calc_suffix(2 * node, start, mid, threshold) + \
+                       (self.query_precomputed(2 * node + 1, mid + 1, end, self.tree[2 * node]))
+
+        # To make this O(N log^2 N), we need to avoid the recursion in calc_suffix
+        # by storing the result of "visible elements in right child given max of left"
+        # in the tree nodes.
+        
+    # Since the above class was a sketch, let's implement the logic without a class
+    # using a functional approach with a segment tree stored in a list.
+
+def solve_final():
+    # Use fast I/O
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # tree_max[v] = max height in range
+    # tree_vis[v] = number of visible elements in range [L, R] 
+    #               considering only the range itself (relative to H[L-1] = 0)
+    tree_max = [0] * (4 * N)
+    tree_vis = [0] * (4 * N)
+
+    def build(v, tl, tr):
+        if tl == tr:
+            tree_max[v] = H[tl]
+            tree_vis[v] = 1
+        else:
+            tm = (tl + tr) // 2
+            build(2 * v, tl, tm)
+            build(2 * v + 1, tm + 1, tr)
+            tree_max[v] = max(tree_max[2 * v], tree_max[2 * v + 1])
+            # tree_vis[v] is visible in left + visible in right given max of left
+            tree_vis[v] = tree_vis[2 * v] + count_greater(2 * v + 1, tm + 1, tr, tree_max[2 * v])
+
+    def count_greater(v, tl, tr, h):
+        if tree_max[v] <= h:
+            return 0
+        if tl == tr:
+            return 1 if tree_max[v] > h else 0
+        tm = (tl + tr) // 2
+        if tree_max[2 * v] <= h:
+            return count_greater(2 * v + 1, tm + 1, tr, h)
+        else:
+            # Left child has elements > h. 
+            # Right child's contribution is already precomputed relative to left child's max.
+            # The contribution of the right child to the current node v is:
+            # tree_vis[v] - tree_vis[2*v]
+            return count_greater(2 * v, tl, tm, h) + (tree_vis[v] - tree_vis[2 * v])
+
+    # We need to wrap the functions to avoid 'recursion' errors and handle the 
+    # function definitions inside solve_final. 
+    # Since we cannot use 'self', we use a helper to initialize the tree.
+    
+    # To avoid recursion depth issues:
+    sys.setrecursionlimit(300000)
+    
+    # We need to define the functions before calling build.
+    # Because count_greater is called inside build, and build is called first.
+    # We use a list to hold the functions to allow mutual recursion.
+    
+    def run():
+        # Using a dictionary or list to store functions for mutual recursion
+        f = {}
+        
+        def cg(v, tl, tr, h):
+            if tree_max[v] <= h: return 0
+            if tl == tr: return 1
+            tm = (tl + tr) // 2
+            if tree_max[2 * v] <= h:
+                return cg(2 * v + 1, tm + 1, tr, h)
+            return cg(2 * v, tl, tm, h) + (tree_vis[v] - tree_vis[2 * v])
+
+        f['cg'] = cg
+        
+        def bld(v, tl, tr):
+            if tl == tr:
+                tree_max[v] = H[tl]
+                tree_vis[v] = 1
+            else:
+                tm = (tl + tr) // 2
+                bld(2 * v, tl, tm)
+                bld(2 * v + 1, tm + 1, tr)
+                tree_max[v] = max(tree_max[2 * v], tree_max[2 * v + 1])
+                tree_vis[v] = tree_vis[2 * v] + f['cg'](2 * v + 1, tm + 1, tr, tree_max[2 * v])
+
+        bld(1, 0, N - 1)
+        
+        # For each i, we want visible elements in range [i+1, N-1]
+        # This is a range query. However, the condition is simply 
+        # "visible elements in suffix [i+1, N-1]".
+        # We can implement a function that queries the number of visible 
+        # elements in range [L, R] given a starting height h.
+        
+        def query(v, tl, tr, l, r, h):
+            # This is tricky because the height h changes as we move right.
+            # We need to return (count, max_h)
+            if l > r:
+                return 0, h
+            if l == tl and r == tr:
+                cnt = f['cg'](v, tl, tr, h)
+                return cnt, max(h, tree_max[v])
+            
+            tm = (tl + tr) // 2
+            # Query left child, then use the resulting max_h to query right child
+            res_l = query(2 * v, tl, tm, l, min(r, tm), h)
+            res_r = query(2 * v + 1, tm + 1, tr, max(l, tm + 1), r, res_l[1])
+            return res_l[0] + res_r[0], res_r[1]
+
+        # For each i from 0 to N-1, we query range [i+1, N-1] with h = 0
+        # Note: The problem says "no building taller than Building j between i and j".
+        # This means for j = i+1, it's always true.
+        # For j > i+1, H[j] > max(H[i+1...j-1]).
+        # This is exactly the count of left-to-right maximums in H[i+1...N-1].
+        
+        results = [query(1, 0, N - 1, i + 1, N - 1, 0)[0] for i in range(N)]
+        print(*(results))
+
+    run()
+
+if __name__ == "__main__":
+    solve_final()

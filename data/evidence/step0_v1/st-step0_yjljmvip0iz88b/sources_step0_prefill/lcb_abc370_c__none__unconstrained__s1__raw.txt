@@ -1,0 +1,61 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s = list(input_data[0])
+    t = list(input_data[1])
+    n = len(s)
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(n) if s[i] != t[i]]
+    m = len(diff_indices)
+    
+    # To minimize the number of elements in X, we must change exactly one 
+    # character per step for each index where S and T differ.
+    # To make the array X lexicographically smallest, we want the strings 
+    # X_1, X_2, ... X_M to be as small as possible.
+    # A string is smaller if its characters at earlier positions are smaller.
+    # Therefore, we should prioritize changing characters at indices that 
+    # result in a lexicographically smaller string.
+    
+    # Specifically, if we change S[i] to T[i]:
+    # 1. If T[i] < S[i], changing this index makes the string smaller.
+    #    We should do this as early as possible.
+    # 2. If T[i] > S[i], changing this index makes the string larger.
+    #    We should do this as late as possible.
+    
+    # For indices where T[i] < S[i], we process them in increasing order of i
+    # to make the resulting strings as small as possible immediately.
+    # For indices where T[i] > S[i], we process them in decreasing order of i
+    # to delay the "increase" in the string's lexicographical value.
+    
+    decreasing = [i for i in diff_indices if t[i] < s[i]]
+    increasing = [i for i in diff_indices if t[i] > s[i]]
+    
+    # Sort decreasing indices ascending (process leftmost first to reduce string value)
+    decreasing.sort()
+    # Sort increasing indices descending (process rightmost first to keep string value low)
+    increasing.sort(reverse=True)
+    
+    # The sequence of indices to change
+    order = decreasing + increasing
+    
+    # Generate the sequence of strings
+    current_s = s[:]
+    x = []
+    for idx in order:
+        current_s[idx] = t[idx]
+        x.append("".join(current_s))
+    
+    # Output the result
+    print(len(x))
+    for string in x:
+        print(string)
+
+if __name__ == "__main__":
+    solve()
+```

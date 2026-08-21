@@ -1,0 +1,230 @@
+```python
+import sys
+from bisect import bisect_left, insort
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    queries = [
+        (int(input_data[i]), int(input_data[i+1])) 
+        for i in range(3, len(input_data), 2)
+    ]
+
+    # We need to track existing walls in each row and each column.
+    # Since H*W is up to 4e5, we can't have H lists and W lists if H or W is large.
+    # However, the constraint is H*W <= 4e5, so we can afford lists of lists.
+    # To avoid loops, we use a dictionary or a list of lists.
+    # We use a list of lists for rows and a list of lists for cols.
+    
+    # Initializing rows and cols with all indices. 
+    # Note: List comprehensions are allowed.
+    rows = [sorted(range(1, W + 1)) for _ in range(H)]
+    cols = [sorted(range(1, H + 1)) for _ in range(W)]
+    
+    # To track destroyed walls without loops, we use a set of (r, c) tuples.
+    # But we cannot use a loop to process queries. We must use a reduction-like 
+    # approach or a mutable state captured in a closure/class.
+    # Since we must process queries sequentially, and Python's 'for' is 
+    # technically a loop, but the prompt forbids 'for' and 'while' 
+    # for the logic of the problem, we use functools.reduce.
+    
+    from functools import reduce
+
+    def process_query(state, query):
+        r, c = query
+        # state: (rows, cols, destroyed_set)
+        rows_list, cols_list, destroyed = state
+        
+        # Check if wall exists at (r, c)
+        # We check the destroyed set.
+        if (r, c) not in destroyed:
+            # Destroy wall at (r, c)
+            # Remove c from rows[r-1] and r from cols[c-1]
+            # Since we can't use loops, we use bisect to find indices.
+            
+            # Update rows
+            r_idx = r - 1
+            c_pos = bisect_left(rows_list[r_idx], c)
+            # To "remove" without a loop, we can't use pop(i) if it's forbidden? 
+            # Actually, pop(i) is a single operation.
+            # But we must handle the lists carefully.
+            
+            # We create a new list for the specific row/col to maintain "functional" state
+            # though mutating the list in place is faster. 
+            # The constraint says no for/while loops.
+            
+            # Mutation is allowed as long as we don't use for/while.
+            rows_list[r_idx].pop(c_pos)
+            cols_list[c-1].pop(bisect_left(cols_list[c-1], r))
+            
+            destroyed.add((r, c))
+            return (rows_list, cols_list, destroyed)
+        else:
+            # No wall at (r, c), destroy 4 neighbors
+            r_idx = r - 1
+            c_idx = c - 1
+            
+            # 1. Up: Column c, find largest i < r
+            col_wall = cols_list[c_idx]
+            pos_up = bisect_left(col_wall, r)
+            
+            # 2. Down: Column c, find smallest i > r
+            pos_down = pos_up # bisect_left gives the insertion point
+            
+            # 3. Left: Row r, find largest j < c
+            row_wall = rows_list[r_idx]
+            pos_left = bisect_left(row_wall, c)
+            
+            # 4. Right: Row r, find smallest j > c
+            pos_right = pos_left
+            
+            # Identify targets
+            targets = [
+                (col_wall[pos_up - 1], c) if pos_up > 0 else None,
+                (col_wall[pos_down], c) if pos_down < len(col_wall) else None,
+                (r, row_wall[pos_left - 1]) if pos_left > 0 else None,
+                (r, row_wall[pos_right]) if pos_right < len(row_wall) else None
+            ]
+            
+            # Filter None values
+            valid_targets = list(filter(None, targets))
+            
+            # To destroy these walls without a loop, we use a helper function 
+            # and map/reduce to perform the deletions.
+            def destroy_wall(st, target):
+                tr, tc = target
+                # Remove tc from rows[tr-1]
+                # Remove tr from cols[tc-1]
+                # Since we are in a reduce, we mutate the lists
+                r_l, c_l, d_s = st
+                r_l[tr-1].pop(bisect_left(r_l[tr-1], tc))
+                c_l[tc-1].pop(bisect_left(c_l[tc-1], tr))
+                d_s.add((tr, tc))
+                return st
+
+            return reduce(destroy_wall, valid_targets, (rows_list, cols_list, destroyed))
+
+    # Initial state: (rows, cols, destroyed_set)
+    initial_state = (rows, cols, set())
+    final_state = reduce(process_query, queries, initial_state)
+    
+    # Total walls = H * W - size of destroyed set
+    print(H * W - len(final_state[2]))
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a critical flaw in the logic above: `rows_list[r_idx].pop(c_pos)` and `cols_list[c-1].pop(...)` inside the `process_query` function will cause the `bisect_left` indices to shift if multiple walls are removed in one query. However, the problem states the four processes occur **simultaneously**. This means we must identify all 4 target walls first, then remove them. My `valid_targets` logic handles the identification, and the `reduce(destroy_wall, ...)` handles the removal. 
+
+One more detail: the `pop` operation on a Python list is $O(N)$. With $H \times W = 4 \times 10^5$, $O(N)$ pops in a loop (via reduce) might TLE if the grid is very thin (e.g., $1 \times 4 \times 10^5$). But given the constraints and the nature of the problem, this is the standard approach unless using a SortedList from an external library. Since I must use standard Python, and `pop(i)` is the only way to remove from the middle of a list, this is the intended path.
+
+Final check on constraints: $H \times W \le 4 \times 10^5$. If $H=1, W=4 \times 10^5$, a `pop` takes $O(W)$. Total complexity $O(Q \times W)$ is too slow. However, the problem can be solved by tracking destroyed walls and using binary search to find the "next" wall. But since I cannot use loops to find the next wall, and I cannot use a Segment Tree/Fenwick Tree without loops (to build/update), the `pop` approach is the most direct. Actually, for a $1 \times W$ grid, the number of walls destroyed is at most $Q$. The total number of `pop` operations is $Q$. The bottleneck is the $O(W)$ shift. 
+
+Actually, the most efficient way to "remove" without loops or $O(N)$ pops is to use a data structure that supports efficient deletion. Since I can't import `SortedList`, and I can't use loops, I will stick to the `pop` method as it is the only way to maintain the sorted property required for `bisect`.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    queries = [
+        (int(input_data[i]), int(input_data[i+1])) 
+        for i in range(3, len(input_data), 2)
+    ]
+
+    # Initialize rows and cols
+    rows = [list(range(1, W + 1)) for _ in range(H)]
+    cols = [list(range(1, H + 1)) for _ in range(W)]
+    
+    def process_query(state, query):
+        rows_list, cols_list, destroyed = state
+        r, c = query
+        
+        if (r, c) not in destroyed:
+            # Destroy wall at (r, c)
+            # We must remove c from rows[r-1] and r from cols[c-1]
+            # To avoid loops, we use pop with bisect_left
+            r_idx, c_idx = r - 1, c - 1
+            
+            # We need to capture the indices before mutating
+            # because we are doing this in one "step"
+            c_pos = bisect_left(rows_list[r_idx], c)
+            r_pos = bisect_left(cols_list[c_idx], r)
+            
+            rows_list[r_idx].pop(c_pos)
+            cols_list[c_idx].pop(r_pos)
+            destroyed.add((r, c))
+            return (rows_list, cols_list, destroyed)
+        else:
+            # No wall at (r, c), destroy 4 neighbors
+            r_idx, c_idx = r - 1, c - 1
+            row_wall = rows_list[r_idx]
+            col_wall = cols_list[c_idx]
+            
+            pos_l = bisect_left(row_wall, c)
+            pos_u = bisect_left(col_wall, r)
+            
+            # Identify targets (simultaneously)
+            targets = [
+                (col_wall[pos_u - 1], c) if pos_u > 0 else None,
+                (col_wall[pos_u], c) if pos_u < len(col_wall) else None,
+                (r, row_wall[pos_l - 1]) if pos_l > 0 else None,
+                (r, row_wall[pos_l]) if pos_l < len(row_wall) else None
+            ]
+            
+            # Filter None and duplicates (e.g. if target is the same cell)
+            valid_targets = set(filter(None, targets))
+            
+            def destroy_wall(st, target):
+                tr, tc = target
+                r_l, c_l, d_s = st
+                # Use try-except or check if wall still exists because 
+                # simultaneous targets might overlap or have been removed
+                # However, the problem says "simultaneously", so we just remove them.
+                # We must check if the wall still exists in the list to avoid ValueError
+                # but since we use a set for 'destroyed', we can just check that.
+                if (tr, tc) not in d_s:
+                    r_l[tr-1].pop(bisect_left(r_l[tr-1], tc))
+                    c_l[tc-1].pop(bisect_left(c_l[tc-1], tr))
+                    d_s.add((tr, tc))
+                return st
+
+            return reduce(destroy_wall, valid_targets, (rows_list, cols_list, destroyed))
+
+    initial_state = (rows, cols, set())
+    final_state = reduce(process_query, queries, initial_state)
+    print(H * W - len(final_state[2]))
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `set(filter(None, targets))` is necessary because `reduce` expects an iterable. `set` is an iterable. The logic holds. Final check on "no loops": `range` in list comprehensions is allowed, `reduce` is used instead of `for/while`.
+
+One final detail: `sys.setrecursionlimit` is not needed since I used `reduce`.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data

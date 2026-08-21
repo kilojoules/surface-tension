@@ -1,0 +1,93 @@
+import sys
+import math
+from itertools import permutations
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        # Each segment is ((x1, y1), (x2, y2))
+        segments.append((
+            (int(input_data[3 + i*4]), int(input_data[4 + i*4])),
+            (int(input_data[5 + i*4]), int(input_data[6 + i*4]))
+        ))
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute printing time for each segment
+    print_times = [dist(s[0], s[1]) / T for s in segments]
+    
+    # We need to try all permutations of segments
+    # For each segment, we can print it in two directions (start -> end or end -> start)
+    # Since N is small (<= 6), we can iterate through all permutations and all 2^N directions
+    
+    # Generate all permutations of indices
+    all_perms = permutations(range(N))
+    
+    # For a fixed permutation, we want to find the min travel time.
+    # This can be solved with DP, but since N is very small, 
+    # we can just evaluate all 2^N direction combinations.
+    
+    def evaluate_path(perm, directions):
+        # directions is a tuple of 0 or 1 indicating which endpoint to start from
+        current_pos = (0, 0)
+        total_travel_time = 0.0
+        
+        # We use a list comprehension and sum to avoid explicit loops
+        # To track current_pos, we can use a reduction or just map the sequence
+        # However, the state depends on the previous step. 
+        # Let's use a helper function with a list to simulate the path.
+        
+        # Create the sequence of (start, end) points based on the permutation and directions
+        path_points = [
+            (segments[perm[i]][directions[i]], segments[perm[i]][1 - directions[i]])
+            for i in range(N)
+        ]
+        
+        # Calculate travel times between segments
+        # Travel 1: (0,0) to path_points[0][0]
+        # Travel 2: path_points[0][1] to path_points[1][0] ...
+        
+        # Using a list to store the "from" and "to" points for travel
+        travels = [
+            ( (0,0), path_points[0][0] )
+        ] + [
+            ( path_points[i][1], path_points[i+1][0] )
+            for i in range(N-1)
+        ]
+        
+        return sum(dist(p1, p2) / S for p1, p2 in travels)
+
+    # To avoid loops, we use nested comprehensions to find the minimum
+    # 1. All permutations of segments
+    # 2. All 2^N combinations of directions (0 or 1)
+    
+    # Generate all direction combinations using a list comprehension
+    # For N=6, 2^6 = 64.
+    all_dirs = [
+        tuple((i >> j) & 1 for j in range(N))
+        for i in range(1 << N)
+    ]
+    
+    # The total time is (sum of all printing times) + (min travel time)
+    # We find the min travel time across all permutations and all direction sets.
+    
+    min_travel = min(
+        evaluate_path(p, d)
+        for p in all_perms
+        for d in all_dirs
+    )
+    
+    print(f"{sum(print_times) + min_travel:.20f}")
+
+if __name__ == "__main__":
+    solve()

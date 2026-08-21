@@ -1,0 +1,61 @@
+The constraint to avoid explicit loops forces a shift from imperative style to a functional paradigm, emphasizing data transformation over state mutation. For this problem, I will use `sum()` for aggregations and list comprehensions for the iterative construction of the sequence $X$. To handle the distribution of the remaining sum across the variables without a loop, I will pre-calculate the cumulative available "headroom" (the difference $R_i - L_i$) and use a combination of `min` and `max` within a comprehension to determine how much of the required sum each $X_i$ should absorb.
+
+```python
+import sys
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into lists of Ls and Rs
+    pairs = [int(x) for x in input_data[1:]]
+    L = pairs[0::2]
+    R = pairs[1::2]
+    
+    # Calculate the minimum and maximum possible sums
+    min_sum = sum(L)
+    max_sum = sum(R)
+    
+    # A solution exists if and only if 0 is within [min_sum, max_sum]
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start with X_i = L_i. The current sum is min_sum.
+    # We need to add 'diff' to the elements to reach a total sum of 0.
+    diff = 0 - min_sum
+    
+    # To avoid loops, we need a way to track how much of 'diff' is used.
+    # We can use a prefix sum of the available ranges (R_i - L_i).
+    # Let range_i = R_i - L_i.
+    # The amount added to X_i is min(range_i, diff - sum(range_0...range_{i-1})).
+    # However, since we cannot use loops or reduce, we can calculate the 
+    # contribution of each i by comparing the total diff to the prefix sums.
+    
+    ranges = [R[i] - L[i] for i in range(N)]
+    
+    # Using a trick with itertools.accumulate to get prefix sums without loops
+    from itertools import accumulate
+    prefix_ranges = list(accumulate(ranges))
+    
+    # For each i, the amount we can add is:
+    # The portion of 'diff' that falls between prefix_ranges[i-1] and prefix_ranges[i].
+    # Let P[i] be the prefix sum of ranges.
+    # Addition for index i = max(0, min(ranges[i], diff - (P[i-1] if i>0 else 0)))
+    
+    # We can pre-calculate P[i-1] by shifting the prefix_ranges list.
+    P_prev = [0] + prefix_ranges[:-1]
+    
+    # X_i = L_i + amount_added
+    # amount_added = max(0, min(ranges[i], diff - P_prev[i]))
+    X = [L[i] + max(0, min(ranges[i], diff - P_prev[i])) for i in range(N)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()
+```

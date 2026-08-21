@@ -2,8 +2,8 @@
 
 **Pre-registered**: prereg/propensity_panel_2026-08-09.md + Amendments 1–5
 (data/propensity/ADDENDUM.md), each externally gist-anchored before the
-data it governs. Committed conventions throughout; all raw records in
-`vast_logs/tynlsatwprmdst/st/results/raw/` (panel scores, battery
+data it governs. Committed conventions throughout; all raw records published in
+`data/evidence/propensity_v1/` (local mirror `vast_logs/tynlsatwprmdst/`) (panel scores, battery
 generations, interruption records; 57 MB). Pod ≈ 32.8 h ≈ **$49** of the
 A4.1 $90 cap.
 

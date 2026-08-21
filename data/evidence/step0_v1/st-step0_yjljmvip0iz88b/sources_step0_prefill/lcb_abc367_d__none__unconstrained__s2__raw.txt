@@ -1,0 +1,100 @@
+```python
+import sys
+
+def solve():
+    # Read N and M from the first line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # Let P[i] be the prefix sum of A, i.e., distance from rest area 1 to rest area i+1.
+    # P[0] = 0
+    # P[1] = A[0]
+    # P[2] = A[0] + A[1]
+    # ...
+    # P[N] = sum(A_1 to A_N)
+    
+    # The distance from s to t (s < t) is P[t-1] - P[s-1].
+    # The distance from s to t (s > t) is (P[N] - P[s-1]) + P[t-1].
+    
+    # We want distance % M == 0.
+    # For s < t: (P[t-1] - P[s-1]) % M == 0  => P[t-1] % M == P[s-1] % M.
+    # For s > t: (P[N] - P[s-1] + P[t-1]) % M == 0 => (P[s-1] - P[t-1]) % M == P[N] % M.
+    
+    P = [0] * (N + 1)
+    for i in range(N):
+        P[i+1] = P[i] + A[i]
+    
+    # We only care about P[i] % M for i in 0...N-1 (representing rest areas 1...N)
+    # Let R[i] = P[i] % M for i = 0, 1, ..., N-1.
+    R = [P[i] % M for i in range(N)]
+    
+    # Count occurrences of each remainder
+    count = {}
+    for r in R:
+        count[r] = count.get(r, 0) + 1
+        
+    total_sum_mod = P[N] % M
+    ans = 0
+    
+    # For each s, we want to find t such that distance(s, t) % M == 0.
+    # If s < t: R[t-1] == R[s-1]
+    # If s > t: R[s-1] - R[t-1] == total_sum_mod (mod M) => R[t-1] == (R[s-1] - total_sum_mod) % M
+    
+    # Let's iterate through all possible remainders r that exist in R.
+    # For a fixed s with R[s-1] = r:
+    # The number of t > s with R[t-1] = r is (count[r] - 1) - (index of s in sorted R)
+    # This is getting complicated. Let's use the property:
+    # Total pairs (s, t) with s != t is the sum over all r of:
+    # (number of s with R[s-1]=r) * (number of t with R[t-1]=r) 
+    # BUT this includes s=t and doesn't account for the s > t case correctly.
+    
+    # Correct approach:
+    # For every pair (s, t) with s < t:
+    # Condition: R[t-1] == R[s-1]
+    # For every pair (s, t) with s > t:
+    # Condition: R[t-1] == (R[s-1] - total_sum_mod) % M
+    
+    # Part 1: s < t
+    # For each remainder r, if there are k occurrences, there are k*(k-1)//2 pairs.
+    for r in count:
+        k = count[r]
+        ans += k * (k - 1) // 2
+        
+    # Part 2: s > t
+    # We need R[t-1] == (R[s-1] - total_sum_mod) % M.
+    # Let r_s = R[s-1] and r_t = (r_s - total_sum_mod) % M.
+    # We want to count pairs (s, t) such that s > t and R[t-1] = r_t.
+    # This is equivalent to: for all s, t such that R[s-1]=r_s and R[t-1]=r_t,
+    # count how many have s > t.
+    
+    # Instead of iterating s and t, let's use the counts.
+    # For a fixed r_s and r_t = (r_s - total_sum_mod) % M:
+    # If r_s != r_t:
+    # There are count[r_s] indices for s and count[r_t] indices for t.
+    # In the sequence R, some r_s appear before r_t and some after.
+    # This is still slightly complex. Let's simplify.
+    
+    # Let's just iterate through the array R once.
+    # For s > t, we need R[t-1] == (R[s-1] - total_sum_mod) % M.
+    # As we iterate i from 0 to N-1 (where i is the index for s-1):
+    # The number of t < s is the number of times (R[i] - total_sum_mod) % M has appeared so far.
+    
+    # We already calculated s < t. Now calculate s > t.
+    s_gt_t_count = 0
+    current_counts = {}
+    for i in range(N):
+        r_s = R[i]
+        r_t = (r_s - total_sum_mod) % M
+        s_gt_t_count += current_counts.get(r_t, 0)
+        current_counts[r_s] = current_counts.get(r_s, 0) + 1
+        
+    print(ans + s_gt_t_count)
+
+if __name__ == "__main__":
+    solve()
+```

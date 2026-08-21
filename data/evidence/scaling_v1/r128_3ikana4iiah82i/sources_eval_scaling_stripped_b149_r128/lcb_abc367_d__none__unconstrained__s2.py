@@ -1,0 +1,143 @@
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read N and M
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # Let S_i be the prefix sum of A.
+    # The distance from s to t (s < t) is S_{t-1} - S_{s-1}.
+    # The distance from s to t (s > t) is (S_N - S_{s-1}) + S_{t-1}.
+    # We want these to be 0 mod M.
+    
+    # Calculate prefix sums modulo M
+    # S[i] = (A[0] + ... + A[i-1]) % M
+    # S[0] = 0
+    S = list(accumulate(A, lambda x, y: (x + y) % M, initial=0))
+    
+    # Total sum of all A_i modulo M
+    total_sum = S[N]
+    
+    # We are looking for pairs (s, t) such that:
+    # 1. s < t and (S[t-1] - S[s-1]) % M == 0  => S[t-1] == S[s-1]
+    # 2. s > t and (total_sum - S[s-1] + S[t-1]) % M == 0 => S[s-1] - S[t-1] == total_sum
+    
+    # Let's count occurrences of each value in S[0...N-1]
+    # Note: S has N+1 elements, but we only care about starting points 1 to N,
+    # which correspond to indices 0 to N-1 in S.
+    counts = {}
+    for i in range(N):
+        val = S[i]
+        counts[val] = counts.get(val, 0) + 1
+        
+    # For a fixed value v, if there are C_v indices i where S[i] == v:
+    # The number of pairs (s, t) with s < t and S[s-1] == S[t-1] == v is C_v * (C_v - 1) // 2.
+    # However, the problem asks for pairs (s, t). 
+    # If S[s-1] == S[t-1], then the distance from s to t is 0 mod M.
+    # If S[s-1] - S[t-1] == total_sum, then the distance from s to t is 0 mod M.
+    
+    # Let's evaluate the total pairs:
+    # For every pair {i, j} with i < j from {0, ..., N-1}:
+    # Pair (s=i+1, t=j+1) is valid if S[j] - S[i] == 0 mod M (Wait, the distance from s to t is A_s + ... + A_{t-1})
+    # Let's redefine: Distance from s to t (s < t) is S[t-1] - S[s-1].
+    # Distance from s to t (s > t) is S[N] - S[s-1] + S[t-1].
+    
+    # Let x = S[s-1] and y = S[t-1].
+    # If s < t: valid if x == y.
+    # If s > t: valid if x - y == total_sum (mod M).
+    
+    # Total pairs = Sum_{v} (C_v * (C_v - 1) // 2)  <-- for s < t
+    #              + Sum_{v} (C_v * C_{(v - total_sum) % M}) <-- for s > t
+    # Note: in the second sum, if v == (v - total_sum) % M, we must exclude the case s=t.
+    # But the constraint says s != t.
+    # If total_sum == 0, then the second sum is Sum (C_v * C_v). 
+    # But we must subtract the cases where s=t, so Sum (C_v * (C_v - 1)).
+    # Actually, if total_sum == 0, then s < t and s > t are both valid if S[s-1] == S[t-1].
+    # That would be C_v * (C_v - 1) // 2  +  C_v * (C_v - 1) // 2 = C_v * (C_v - 1).
+    
+    # Let's use a more direct approach:
+    # For every pair i, j in 0...N-1 with i != j:
+    # If i < j: valid if S[j] - S[i] == 0 mod M (Wait, the distance from s to t is A_s + ... + A_{t-1})
+    # Let's use the sample: N=4, M=3, A=[2, 1, 4, 3]
+    # S = [0, 2, 3, 7, 10] -> mod 3: [0, 2, 0, 1, 1]
+    # s=1 (S[0]=0), t=2 (S[1]=2): dist 2.
+    # s=1 (S[0]=0), t=3 (S[2]=0): dist 0. VALID.
+    # s=1 (S[0]=0), t=4 (S[3]=1): dist 1.
+    # s=2 (S[1]=2), t=3 (S[2]=0): dist -2=1.
+    # s=2 (S[1]=2), t=4 (S[3]=1): dist -1=2.
+    # s=2 (S[1]=2), t=1 (S[0]=0): dist 10-2+0 = 8 = 2.
+    # s=3 (S[2]=0), t=4 (S[3]=1): dist 1.
+    # s=3 (S[2]=0), t=1 (S[0]=0): dist 10-0+0 = 10 = 1.
+    # s=3 (S[2]=0), t=2 (S[1]=2): dist 10-0+2 = 12 = 0. VALID.
+    # s=4 (S[3]=1), t=1 (S[0]=0): dist 10-1+0 = 9 = 0. VALID.
+    # s=4 (S[3]=1), t=2 (S[1]=2): dist 10-1+2 = 11 = 2.
+    # s=4 (S[3]=1), t=3 (S[2]=0): dist 10-1+0 = 9 = 0. VALID.
+    # Total: 4.
+    
+    # Correct logic:
+    # Pair (s, t) is valid if:
+    # 1. s < t AND (S[t-1] - S[s-1]) % M == 0
+    # 2. s > t AND (S[N] - S[s-1] + S[t-1]) % M == 0
+    
+    # Let's use the indices i = s-1 and j = t-1. i, j \in {0, ..., N-1}.
+    # 1. i < j AND S[j] == S[i]
+    # 2. i > j AND S[i] - S[j] == S[N] (mod M)
+    
+    # For a fixed value v, let C_v be the number of times it appears in S[0...N-1].
+    # The number of pairs (i, j) with i < j and S[i] == S[j] == v is C_v * (C_v - 1) // 2.
+    # The number of pairs (i, j) with i > j and S[i] - S[j] == S[N] (mod M) is:
+    # For each i, we need S[j] == (S[i] - S[N]) % M where j < i.
+    # This is a range query problem. We can use a Fenwick tree or simply iterate and 
+    # keep track of counts of S[j] seen so far.
+    
+    # Let's refine:
+    # Part 1: s < t. We need S[t-1] == S[s-1].
+    # This is Sum_{v} (C_v * (C_v - 1) // 2).
+    # Part 2: s > t. We need S[s-1] - S[t-1] == S[N] (mod M).
+    # This is Sum_{i=1 to N-1} (count of j < i such that S[j] == (S[i] - S[N]) % M).
+    
+    # We can calculate both in one pass using a dictionary to store counts of S[j].
+    # For each i from 0 to N-1:
+    #   Current value v = S[i]
+    #   Target value for s > t: target = (v - total_sum) % M
+    #   Add counts[target] to total_s_gt_t
+    #   Add counts[v] to total_s_lt_t (since current i is the 't' and previous are 's')
+    #   Update counts[v]
+    
+    # Wait, the logic for s < t is: for a fixed t, how many s < t have S[s-1] == S[t-1]?
+    # That is exactly what `counts[v]` provides before updating.
+    
+    # Let's implement this.
+    
+    # We need to handle the loop without explicit for/while.
+    # We can use a custom function with reduce.
+    
+    def accumulate_counts(acc, v):
+        curr_counts, total_valid = acc
+        # s < t: current v is S[t-1], we need S[s-1] == v
+        # s > t: current v is S[s-1], we need S[t-1] == (v - total_sum) % M
+        
+        # For s < t:
+        term1 = curr_counts.get(v, 0)
+        # For s > t:
+        term2 = curr_counts.get((v - total_sum) % M, 0)
+        
+        # Update counts dictionary
+        new_counts = curr_counts.copy()
+        new_counts[v] = new_counts.get(v, 0) + 1
+        
+        return (new_counts, total_valid + term1 + term2)
+
+    # Use reduce to iterate through S[0...N-1]
+    from functools import reduce
+    final_state = reduce(accumulate_counts, S[:N], ({}, 0))
+    print(final_state[1])
+
+if __name__ == "__main__":
+    solve()

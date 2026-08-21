@@ -1,0 +1,144 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. While not necessarily "cleaner" for all programmers, it encourages the use of high-order functions and immutable transformations, leveraging Python's powerful `functools.reduce` for simulating state accumulation. For this problem, I will use `functools.reduce` to iteratively determine each element of the sequence and `math.comb` to calculate the number of permutations of a multiset.
+
+```python
+import sys
+from functools import reduce
+from math import comb
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N, K = map(int, input_data)
+
+    # The total number of good sequences S is (NK)! / (K!^N)
+    # We need the floor((S+1)/2)-th sequence.
+    # Let target = (S + 1) // 2.
+    
+    # To calculate S:
+    # S = comb(NK, K) * comb((N-1)K, K) * ... * comb(K, K)
+    # However, we can calculate the number of sequences starting with a specific digit
+    # using the multiset permutation formula: (Total remaining)! / Product(remaining_counts!)
+    
+    # We use reduce to build the sequence. 
+    # The state is (current_counts, target_index)
+    # current_counts is a tuple of length N, all initialized to K.
+    
+    initial_counts = tuple([K] * N)
+    
+    # Total S calculation using reduce
+    # S = (NK)! / (K!^N)
+    # We can compute this by iteratively multiplying combinations
+    total_s = reduce(lambda acc, i: acc * comb(i, K), range(N * K, (N - 1) * K, -K), 1) if N > 0 else 1
+    target_s = (total_s + 1) // 2
+
+    # Function to calculate permutations of remaining elements
+    # Perms = (sum(counts))! / product(counts!)
+    # This can be computed as product of comb(sum_so_far, count_i)
+    calc_perms = lambda counts: reduce(
+        lambda acc, c: acc * comb(sum(counts), c) if c > 0 else acc, 
+        counts, 
+        1
+    ) # Note: This is a simplified logic; the actual multiset formula is needed.
+    
+    # Correct multiset permutation formula:
+    # count_total = sum(counts)
+    # perms = comb(count_total, counts[0]) * comb(count_total - counts[0], counts[1]) ...
+    get_multiset_perms = lambda counts: reduce(
+        lambda acc, i: acc * comb(sum(counts[i:]), counts[i]),
+        range(N),
+        1
+    )
+
+    # We use reduce to determine the sequence element by element.
+    # state: (counts, target, result_sequence)
+    final_state = reduce(
+        lambda state, _: (
+            # For the current position, try digits d = 1 to N
+            # If counts[d-1] > 0, calculate how many sequences start with d
+            # If target <= that number, pick d. Else, subtract that number from target and try d+1.
+            (lambda counts, target: (
+                # We need to find the smallest d such that target <= sum(perms for 1..d)
+                # Since we can't loop, we use a list comprehension and reduce/next to find d
+                (lambda d_options: (
+                    # d_options is a list of (digit, perms_with_digit)
+                    # We find the digit where the target falls
+                    # We use a nested reduce to find the chosen digit and the updated target
+                    reduce(
+                        lambda inner_state, opt: 
+                            inner_state if inner_state[0] is not None 
+                            else (opt[0], target - opt[1]) if target > opt[1] 
+                            else (opt[0], target),
+                        d_options,
+                        (None, target)
+                    )
+                ))(
+                    [
+                        (d + 1, get_multiset_perms(
+                            tuple([counts[i] - (1 if i == d else 0) for i in range(N)])
+                        ))
+                        for d in range(N) if counts[d] > 0
+                    ]
+                )
+            ))(state[0], state[1])
+        ),
+        range(N * K),
+        (initial_counts, target_s, [])
+    )
+    
+    # The above reduce logic is slightly flawed because it doesn't update the state correctly 
+    # for the next iteration in a way that allows the result sequence to grow.
+    # Let's refine the reduce to handle the sequence construction.
+    
+    def find_digit(counts, target):
+        # Returns (chosen_digit, new_target)
+        # Use a list of (digit, count_of_sequences_starting_with_digit)
+        options = [
+            (d + 1, get_multiset_perms(tuple([counts[i] - (1 if i == d else 0) for i in range(N)])))
+            for d in range(N) if counts[d] > 0
+        ]
+        # Use reduce to find which digit the target falls into
+        return reduce(
+            lambda acc, opt: 
+                acc if acc[0] is not None 
+                else (opt[0], target - opt[1]) if target > opt[1] 
+                else (opt[0], target),
+            options,
+            (None, target)
+        )
+
+    # Corrected reduce for sequence generation
+    result = reduce(
+        lambda state, _: (
+            (lambda d, t: (
+                tuple([state[0][i] - (1 if i == d - 1 else 0) for i in range(N)]),
+                t,
+                state[2] + [d]
+            ))(
+                # Find digit and new target
+                # We use a helper function defined inside lambda via a trick or just call it
+                # Since we can't define functions, we inline the find_digit logic
+                (lambda options, target: reduce(
+                    lambda acc, opt: 
+                        acc if acc[0] is not None 
+                        else (opt[0], target - opt[1]) if target > opt[1] 
+                        else (opt[0], target),
+                    options,
+                    (None, target)
+                ))(
+                    [(d + 1, get_multiset_perms(tuple([state[0][i] - (1 if i == d else 0) for i in range(N)]))) 
+                     for d in range(N) if state[0][d] > 0],
+                    state[1]
+                )
+            )
+        ),
+        range(N * K),
+        (initial_counts, target_s, [])
+    )
+
+    print(*(result[2]))
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,224 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s_str = input_data[0]
+    t_str = input_data[1]
+    
+    s = list(s_str)
+    t = list(t_str)
+    n = len(s)
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(n) if s[i] != t[i]]
+    
+    # To get the lexicographically smallest sequence of strings:
+    # 1. We must change characters one by one.
+    # 2. For a specific index i, if T[i] < S[i], changing S[i] to T[i] 
+    #    makes the string lexicographically smaller immediately.
+    #    We should do these changes as early as possible (from left to right).
+    # 3. If T[i] > S[i], changing S[i] to T[i] makes the string lexicographically larger.
+    #    We should delay these changes as much as possible (from right to left).
+    
+    # Indices where T[i] < S[i] (processed left to right)
+    decreasing = [i for i in diff_indices if t[i] < s[i]]
+    # Indices where T[i] > S[i] (processed right to left)
+    increasing = [i for i in diff_indices if t[i] > s[i]]
+    increasing.sort(reverse=True)
+    
+    # The sequence of indices to change
+    change_order = decreasing + increasing
+    
+    # Generate the sequence of strings
+    # We use a list comprehension to create the strings by updating the 
+    # current state of S for each index in the change_order.
+    # Since we need the state after each change, we can track the changes.
+    
+    # To avoid loops, we can use a helper function or a list comprehension 
+    # that builds the strings based on the index of the change.
+    
+    # For the i-th change (0-indexed), the character at change_order[i] becomes T[change_order[i]],
+    # and all characters at change_order[j] for j < i have already been changed.
+    
+    res = [
+        "".join([t[k] if k in change_order[:i+1] else s[k] for k in range(n)])
+        for i in range(len(change_order))
+    ]
+    
+    # Output the number of operations
+    print(len(res))
+    # Output each string in the sequence
+    for string in res:
+        print(string)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, there is a logic error in the list comprehension above: `k in change_order[:i+1]` is $O(M)$ inside a loop of $N$, making the total complexity $O(M^2 N)$. While it passes the constraints ($100^3$), the logic `t[k] if k in change_order[:i+1] else s[k]` is slightly wrong because it doesn't account for the fact that `s` is the *initial* string. Actually, it is correct because it checks if the index `k` has been modified yet.
+
+However, the prompt asks for the lexicographically smallest array. If $T[i] < S[i]$, changing it immediately reduces the string value. If $T[i] > S[i]$, changing it increases the string value, so we do those last. Among those that decrease, we process left-to-right. Among those that increase, we process right-to-left.
+
+Corrected logic implementation:
+1. Indices $i$ where $T[i] < S[i]$ sorted ascending.
+2. Indices $i$ where $T[i] > S[i]$ sorted descending.
+
+Final check on Sample 1: `adbe` -> `bcbc`.
+Diffs: index 0 (a->b, inc), 1 (d->c, dec), 2 (b->b, same), 3 (e->c, dec).
+Decreasing: index 1, 3. Increasing: index 0.
+Order: 1, 3, 0.
+Strings:
+1. `acbe` (index 1 changed)
+2. `acbc` (index 3 changed)
+3. `bcbc` (index 0 changed)
+Matches sample output.
+Sample 3: `afwgebrw` -> `oarbrenq`.
+Indices: 0(a-o, inc), 1(f-a, dec), 2(w-r, dec), 3(g-b, dec), 4(e-r, inc), 5(b-e, inc), 6(r-n, dec), 7(w-q, dec).
+Dec: 1, 2, 3, 6, 7. Inc: 5, 4, 0.
+Order: 1, 2, 3, 6, 7, 5, 4, 0.
+This matches the logic.
+The provided code is complete and correct.
+***
+**Wait**, I noticed a small bug in my comprehension: `k in change_order[:i+1]` checks if the index was changed. But the logic `t[k] if ... else s[k]` only works if we only change a character *once*. Since the problem says "Change one character in S", and we want to reach T in minimum steps, we only change each differing index exactly once. Thus, the logic holds.
+
+One final detail: The comprehension `[t[k] if k in change_order[:i+1] else s[k] for k in range(n)]` is $O(N \cdot M^2)$. With $N, M \le 100$, $100^3 = 1,000,000$, which is well within Python's limits for 1 second.
+
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s_str = input_data[0]
+    t_str = input_data[1]
+    
+    s = list(s_str)
+    t = list(t_str)
+    n = len(s)
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(n) if s[i] != t[i]]
+    
+    # To get the lexicographically smallest sequence of strings:
+    # 1. Change characters that decrease the string value first (T[i] < S[i]), left to right.
+    # 2. Change characters that increase the string value last (T[i] > S[i]), right to left.
+    decreasing = [i for i in diff_indices if t[i] < s[i]]
+    increasing = [i for i in diff_indices if t[i] > s[i]]
+    increasing.sort(reverse=True)
+    
+    change_order = decreasing + increasing
+    
+    # Generate the sequence of strings by applying changes one by one
+    # We use a list comprehension to build the state of the string after each step i
+    res = [
+        "".join([t[k] if k in change_order[:i+1] else s[k] for k in range(n)])
+        for i in range(len(change_order))
+    ]
+    
+    print(len(res))
+    for string in res:
+        print(string)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the code inside a single block. I will provide the final version.
+***
+Final check on the logic:
+If $S = "ba", T = "ab"$.
+Diffs: 0 (b->a, dec), 1 (a->b, inc).
+Order: 0, 1.
+Strings: "aa", "ab".
+If we did 1, 0: "bb", "ab".
+"aa" < "bb", so 0, 1 is correct.
+If $S = "az", T = "by"$.
+Diffs: 0 (a->b, inc), 1 (z->y, dec).
+Order: 1, 0.
+Strings: "ay", "by".
+If we did 0, 1: "bz", "by".
+"ay" < "bz", so 1, 0 is correct.
+Logic is solid.
+***
+One last check on the "lexicographically smallest array" definition:
+$X < Y$ if at the first index $j$ where $X_j \neq Y_j$, $X_j$ is lexicographically smaller than $Y_j$.
+My strategy:
+1. Minimize $X_1$: Change the leftmost character that can be decreased.
+2. Repeat for $X_2 \dots X_M$.
+This is exactly what `decreasing` (left-to-right) then `increasing` (right-to-left) does.
+For the increasing ones, changing the rightmost one first keeps the prefix smaller for longer.
+Example: $S=aa, T=bb$.
+Option 1: index 0 then 1 $\rightarrow$ $ba, bb$.
+Option 2: index 1 then 0 $\rightarrow$ $ab, bb$.
+$ab < ba$, so Option 2 is better. This confirms `increasing.sort(reverse=True)`.
+***
+Final Code:
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s_str = input_data[0]
+    t_str = input_data[1]
+    
+    s = list(s_str)
+    t = list(t_str)
+    n = len(s)
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(n) if s[i] != t[i]]
+    
+    # To get the lexicographically smallest array of strings:
+    # 1. We prioritize changes that make the string lexicographically smaller.
+    #    These are indices i where T[i] < S[i]. To make the resulting string 
+    #    as small as possible, we process these from left to right.
+    # 2. Then we handle changes that make the string lexicographically larger.
+    #    These are indices i where T[i] > S[i]. To keep the string smaller 
+    #    for as many steps as possible, we process these from right to left.
+    
+    decreasing = [i for i in diff_indices if t[i] < s[i]]
+    increasing = [i for i in diff_indices if t[i] > s[i]]
+    increasing.sort(reverse=True)
+    
+    change_order = decreasing + increasing
+    
+    # Construct the sequence of strings. 
+    # For each step i, the character at change_order[i] is updated to T.
+    # We use a set for O(1) lookup of changed indices.
+    # Since we cannot use loops, we use a list comprehension with a slice/set.
+    
+    # To avoid the 'no loops' constraint while maintaining state, 
+    # we can use the index i to determine which characters have been changed.
+    res = [
+        "".join([t[k] if k in set(change_order[:i+1]) else s[k] for k in range(n)])
+        for i in range(len(change_order))
+    ]
+    
+    # Output the number of elements M
+    print(len(res))
+    # Output each string in the sequence
+    sys.stdout.write("\n".join(res) + "\n" if res else "")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `sys.stdout.write` handles the case where `res` is empty (Sample 2). If `res` is empty, it prints `0` and then nothing. Correct.
+One final check: `set(change_order[:i+1])` inside a comprehension is technically a function call, not a loop. The comprehension itself is the allowed way to process sequences.
+
+Final Polish:
+The prompt says "Return only Python source inside a single ```python code block."
+I will remove the explanations and keep only the code.
+***
+Actually, I'll use a slightly different approach for the string generation to be safer and cleaner.
+`"".join([t[k] if k in set(change_order[:i+1]) else s[k] for k in range(n)])` is fine.
+Wait, the `if res else ""` in `sys.stdout.write` is important because `"\n".join([])` is `""`, and `"" + "\n"` would print a blank line. Sample 2 requires only `0`.
+If `res` is `[]`, `len(res)` is `0`. `sys.stdout.write("")` prints nothing. Perfect.
+
+One last check on constraints: $S, T$ length 100. $

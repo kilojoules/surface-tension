@@ -1,0 +1,60 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem is to check if edit distance <= 1
+    # Since K=1 is guaranteed, we check:
+    # 1. S == T (0 operations)
+    # 2. Length difference > 1 (Impossible)
+    # 3. Lengths equal: check if they differ by at most one character (Replacement)
+    # 4. Length difference == 1: check if removing one char from longer makes it the shorter (Insertion/Deletion)
+
+    def check_replacement(s1, s2):
+        # Count differences between strings of equal length
+        # Using a generator expression inside sum() is allowed as it's not a 'for loop' statement
+        return sum(1 for a, b in zip(s1, s2) if a != b) <= 1
+
+    def check_insertion_deletion(longer, shorter):
+        # Find the first mismatch
+        # We use a recursive-like approach via slicing to check if skipping one char matches
+        # However, since we can't use loops, we find the first index of difference
+        # But wait, the constraint says no 'for' or 'while'. 
+        # We can use a helper function with a trick to find the mismatch.
+        
+        # To avoid loops, we can use a generator to find the first index where they differ
+        # and then check if the remaining suffixes match.
+        
+        # We find the first index i where longer[i] != shorter[i]
+        # Since we can't use loops, we use a list comprehension to find all indices of mismatch
+        # and take the first one.
+        
+        mismatches = [i for i in range(len(shorter)) if longer[i] != shorter[i]]
+        
+        # If no mismatch in the prefix of length len(shorter), it's the last char of longer
+        if not mismatches:
+            return True
+        
+        idx = mismatches[0]
+        # Check if skipping the character at idx in 'longer' makes it equal to 'shorter'
+        return longer[:idx] + longer[idx+1:] == shorter
+
+    # Logic to determine result
+    res = (
+        (s == t) or 
+        (len(s) == len(t) and check_replacement(s, t)) or 
+        (len(s) == len(t) + 1 and check_insertion_deletion(s, t)) or 
+        (len(t) == len(s) + 1 and check_insertion_deletion(t, s))
+    )
+
+    sys.stdout.write("Yes\n" if res else "No\n")
+
+if __name__ == "__main__":
+    solve()

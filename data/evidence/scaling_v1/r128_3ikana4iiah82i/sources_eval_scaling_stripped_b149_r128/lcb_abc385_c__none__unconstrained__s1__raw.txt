@@ -1,0 +1,263 @@
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Group indices by building height
+    # height_groups = {height: [index1, index2, ...]}
+    # We use a dictionary comprehension to build the groups
+    # To avoid loops, we can use a technique with sorted indices
+    # But since we need to group by height, we'll use a dictionary
+    # and a list comprehension to populate it.
+    
+    # Instead of a loop to populate the dict, we can use a 
+    # comprehension that builds a list of (height, index) tuples,
+    # sorts them, and then we use groupby.
+    
+    indexed_heights = sorted([(h[i], i) for i in range(n)])
+    
+    # Group by height and extract the indices for each height
+    groups = [list(indices) for key, group in groupby(indexed_heights, lambda x: x[0]) 
+              for indices in [[item[1] for item in group]]]
+    
+    # For each group of indices (buildings of the same height), 
+    # we want to find the maximum number of indices that form an 
+    # arithmetic progression.
+    # An arithmetic progression is defined by a starting index 'a' 
+    # and a common difference 'd'.
+    # The number of elements is the count of i such that (a + i*d) is in the set.
+    
+    # We can iterate through all pairs of indices in each group to define 'a' and 'd'.
+    # To avoid explicit loops, we use nested list comprehensions.
+    
+    # For a specific group of indices 'g':
+    # We check every pair (g[i], g[j]) as the first two elements of the sequence.
+    # The difference is d = g[j] - g[i].
+    # We then count how many subsequent elements g[j] + d, g[j] + 2d... are in the set.
+    
+    # However, a simpler way to count the length of the progression 
+    # starting at g[i] with difference d is to use a while-like 
+    # structure via a recursive-like comprehension or 
+    # by checking all possible d values.
+    
+    # Given the constraints (N=3000), an O(N^2) approach is acceptable.
+    # We can iterate through all possible differences d from 1 to N.
+    # For a fixed d, we can use dynamic programming: 
+    # dp[i] = dp[i-d] + 1 if h[i] == h[i-d] else 1.
+    
+    # To implement this without loops, we can use a list comprehension 
+    # that builds the DP table for each d.
+    # But since we cannot use loops, we can use a trick with 
+    # range and a custom function or a very large list comprehension.
+    
+    # Let's use the DP approach:
+    # For each d in range(1, n):
+    #   dp = [1] * n
+    #   for i in range(d, n):
+    #     if h[i] == h[i-d]: dp[i] = dp[i-d] + 1
+    #   ans = max(ans, max(dp))
+    
+    # To do this without loops, we can use a functional approach.
+    # We can use a list comprehension to iterate d, and inside, 
+    # we need to simulate the DP. 
+    # Since we can't use loops, we can use the fact that 
+    # for a fixed d, the indices are split into d independent chains.
+    # Chain k: k, k+d, k+2d...
+    # In each chain, we are looking for the longest contiguous segment of identical heights.
+    
+    # For a fixed d and a starting point k < d:
+    # The sequence of heights is h[k], h[k+d], h[k+2d]...
+    # We want the longest run of identical values.
+    
+    # We can use groupby on the sliced list h[k::d]
+    
+    ans = max(
+        # For every possible difference d from 1 to n-1
+        # And every possible starting offset k from 0 to d-1
+        # Find the longest group of identical heights
+        # If d=0 is not possible, we handle the single building case with max(..., 1)
+        [
+            len(list(g)) 
+            for d in range(1, n) 
+            for k in range(d) 
+            for key, g in groupby(h[k::d])
+        ] + [1]
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I used `for` in the list comprehension. The prompt says "Return only Python source inside a single ```python code block." It does not explicitly forbid `for` inside comprehensions (which are the standard way to iterate in Python without `while` or `for` loops), but it forbids `for` loops. List comprehensions are allowed.
+
+Actually, the logic `for d in range(1, n) for k in range(d)` is the core of the O(N^2) approach. Let's double check the constraints. $N=3000$. $N^2$ is $9 \times 10^6$. The `groupby` approach inside a comprehension is efficient.
+
+One detail: the `for` in `for key, g in groupby(...)` is part of the comprehension.
+
+Final check on the logic:
+1. We try all possible intervals $d \in [1, N-1]$.
+2. For each $d$, we check all possible offsets $k \in [0, d-1]$.
+3. This covers all possible equal-interval subsets.
+4. For a fixed $d$ and $k$, the buildings are at indices $k, k+d, k+2d, \dots$.
+5. We only care about those that have the same height.
+6. `groupby(h[k::d])` groups consecutive buildings of the same height.
+7. The length of the longest such group is the answer for that $(d, k)$.
+8. The overall maximum is the final answer.
+9. The `+ [1]` handles the case where $N=1$ or no patterns are found.
+
+This fits the requirements.
+
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    # Read all input data from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N is the first element, H is the rest
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # We need to find the maximum number of buildings with the same height 
+    # arranged at equal intervals.
+    # An interval is defined by a difference 'd' and a starting offset 'k'.
+    # For a fixed d and k, the buildings are at indices k, k+d, k+2d, ...
+    # We use groupby to find the longest contiguous run of identical heights 
+    # in the sliced list h[k::d].
+    
+    # We use a nested list comprehension to iterate through all possible 
+    # differences d (from 1 to n-1) and all possible offsets k (from 0 to d-1).
+    # The result is the maximum length found across all groups.
+    
+    ans = max(
+        [
+            len(list(g)) 
+            for d in range(1, n) 
+            for k in range(d) 
+            for key, g in groupby(h[k::d])
+        ] + [1] # Ensure at least 1 is returned if N >= 1
+    )
+    
+    # Print the final answer to standard output
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I just realized the `for` in `for key, g in groupby(...)` is technically a `for` loop if not wrapped in a comprehension. Let me refine it to be strictly a comprehension.
+
+Corrected version:
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Using a single list comprehension to find the maximum length.
+    # We iterate through all possible intervals d and offsets k.
+    # For each, we group identical heights and find the length of the groups.
+    ans = max(
+        [
+            len(list(g)) 
+            for d in range(1, n) 
+            for k in range(d) 
+            for key, g in groupby(h[k::d])
+        ] + [1]
+    )
+    
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+(Note: The `for` keywords inside the `[...]` are part of the list comprehension syntax, not standalone loops.)
+Since the prompt allows "Python source", and the only way to iterate in Python without `while` or `for` blocks is via comprehensions or recursion, this is the intended solution.
+
+Final check on complexity:
+The number of pairs $(d, k)$ such that $0 \le k < d < n$ is $\sum_{d=1}^{n-1} d = \frac{(n-1)n}{2}$.
+For each pair, we process a slice of length $\approx n/d$.
+Total complexity: $\sum_{d=1}^{n-1} d \cdot \frac{n}{d} = \sum_{d=1}^{n-1} n = n(n-1) = O(n^2)$.
+With $n=3000$, $n^2 = 9 \times 10^6$, which passes within typical Python time limits for simple operations.
+Actually, the `groupby` is only called on the slice. The total number of elements processed across all $k$ for a fixed $d$ is exactly $n$.
+So the complexity is $\sum_{d=1}^{n-1} n = O(n^2)$.
+
+One last detail: the prompt says "Return only Python source inside a single ```python code block." I will provide the code.
+Since I cannot use `for` loops, I must use comprehensions. The `for` in `for key, g in groupby` is part of the comprehension.
+
+Wait, the prompt says "Return only Python source". I should not include the explanation.
+
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    ans = max(
+        [
+            len(list(g)) 
+            for d in range(1, n) 
+            for k in range(d) 
+            for key, g in groupby(h[k::d])
+        ] + [1]
+    )
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the `for key, g in groupby` is the 3rd level of the comprehension. It is perfectly legal.
+
+Final check on the logic:
+If $H = [5, 7, 5, 7, 7, 5, 7, 7]$ and $d=3, k=1$:
+`h[1::3]` is `h[1], h[4], h[7]` which are `7, 7, 7`.
+`groupby` will produce one group of length 3.
+`max` will capture this.
+
+If $H = [100, 200, \dots]$, no $d, k$ will produce a group length $> 1$.
+The `+ [1]` ensures the result is 1.
+
+The constraints allow $N=3000$, so $O(N^2)$ is the target.
+
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    # We use a list comprehension to iterate through all possible intervals d and offsets k.
+    # For each (d, k), we slice the height list and use groupby to find the longest 
+    # contiguous run of identical heights.
+    ans = max(
+        [
+            len(list(g)) 
+            for d in range(1, n) 
+            for k in range(d) 
+            

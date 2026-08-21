@@ -1,0 +1,101 @@
+import sys
+
+def solve():
+    # Read input and parse coordinates
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # The tiling pattern described creates a grid of 2x1 blocks.
+    # When i+j is even, (i, j) and (i+1, j) are one tile.
+    # This means tiles are horizontal pairs starting at (i, j) if i+j is even.
+    # Let's transform the coordinates to a system where moving between tiles
+    # is represented by a simpler distance.
+    # A common trick for this specific tiling (brick-like pattern) is:
+    # New X = x + (y % 2)
+    # New Y = y
+    # However, the rule is: if i+j is even, A_{i,j} and A_{i+1,j} are one tile.
+    # This means for a fixed j:
+    # If j is even, tiles are {0,1}, {2,3}, {4,5}... (i is even)
+    # If j is odd, tiles are {-1,0}, {1,2}, {3,4}... (i is odd)
+    
+    # Let's define a transformation:
+    # For a cell (x, y), it belongs to a tile identified by (X, Y)
+    # Y = y
+    # If y is even, X = x // 2
+    # If y is odd, X = (x - 1) // 2 if x > 0 else (x - 1) // 2
+    # More simply: X = (x + (y % 2)) // 2
+    
+    # The cost to move between tiles is the Manhattan distance in the (X, Y) space,
+    # but we must account for the fact that moving vertically might cross 
+    # tile boundaries differently.
+    # The actual distance is max(|X1-X2|, |Y1-Y2|) is NOT correct here.
+    # The correct distance for this specific grid is:
+    # cost = abs(X1 - X2) + abs(Y1 - Y2) 
+    # where X = (x + (y % 2)) // 2 and Y = y.
+    # Wait, the rule is: if i+j is even, A_{i,j} and A_{i+1,j} are one tile.
+    # Let's re-evaluate:
+    # If y is even: tiles are [0,1], [2,3]... -> X = x // 2
+    # If y is odd: tiles are [1,2], [3,4]... -> X = (x+1) // 2 (since i+j even => i+1 is even)
+    # Actually, if y is odd, i+j is even when i is odd. So A_{1,y} and A_{2,y} are one tile.
+    # So for y odd, X = (x+1) // 2 is not quite right. 
+    # If y is odd, i=1,3,5... are starts of tiles. So X = (x-1)//2.
+    
+    # Let's use the transformation: 
+    # X = (x + (y % 2)) // 2
+    # Y = y
+    # The distance is then abs(X1 - X2) + abs(Y1 - Y2).
+    # But we must check if we can "cheat" by moving diagonally in the (X, Y) space.
+    # In this grid, moving from (X, Y) to (X+1, Y+1) takes 1 toll (the Y move).
+    # So the distance is max(abs(X1 - X2), abs(Y1 - Y2)).
+    # Let's test Sample 1: (5,0) to (2,5)
+    # S: X = (5 + 0)//2 = 2, Y = 0
+    # T: X = (2 + 1)//2 = 1, Y = 5
+    # max(|2-1|, |0-5|) = 5. Correct.
+    # Sample 2: (3,1) to (4,1)
+    # S: X = (3 + 1)//2 = 2, Y = 1
+    # T: X = (4 + 1)//2 = 2, Y = 1
+    # max(0, 0) = 0. Correct.
+    
+    # To avoid loops/recursion, we use a map/list comprehension or direct calculation.
+    # We can use a lambda to encapsulate the transformation.
+    transform = lambda x, y: ((x + (y % 2)) // 2, y)
+    
+    s_coords = transform(sx, sy)
+    t_coords = transform(tx, ty)
+    
+    # The answer is the Chebyshev distance in the transformed coordinate system.
+    # However, the movement rules allow moving n units. 
+    # Moving horizontally changes X, moving vertically changes Y.
+    # A vertical move of 1 always enters a new tile.
+    # A horizontal move of 1 might or might not enter a new tile.
+    # The cost is actually abs(Y1 - Y2) + max(0, abs(X1 - X2) - abs(Y1 - Y2))
+    # which simplifies to max(abs(X1 - X2), abs(Y1 - Y2)).
+    # Wait, that's only if we can move diagonally. We can't.
+    # We can move Right then Up.
+    # To get from (X1, Y1) to (X2, Y2):
+    # We must pay at least |Y1 - Y2| to change rows.
+    # Each such move can also shift our X position by 1 (since the tile boundaries shift).
+    # So we can cover min(|X1 - X2|, |Y1 - Y2|) distance using the vertical moves.
+    # The remaining horizontal distance is max(0, |X1 - X2| - |Y1 - Y2|).
+    # Total cost = |Y1 - Y2| + max(0, |X1 - X2| - |Y1 - Y2|) = max(|X1 - X2|, |Y1 - Y2|).
+    # But there is a catch: the vertical move only helps if the parity of Y changes.
+    # Actually, the simplest way to think about it:
+    # To change Y by 1, you MUST enter a new tile.
+    # To change X by 1, you might enter a new tile.
+    # The distance is indeed max(abs(X1 - X2), abs(Y1 - Y2)).
+    # Let's double check: if |X1-X2| > |Y1-Y2|, we need extra horizontal moves.
+    # Each horizontal move in the transformed space costs 1.
+    # If |Y1-Y2| > |X1-X2|, we can use the vertical moves to also cover the X distance.
+    # This is because moving from (X, Y) to (X, Y+1) might land you in a tile 
+    # that is effectively (X+1, Y+1) or (X-1, Y+1) in the original grid's tiling.
+    
+    # Final calculation using a single expression to avoid forbidden constructs:
+    ans = max(abs(s_coords[0] - t_coords[0]), abs(s_coords[1] - t_coords[1]))
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

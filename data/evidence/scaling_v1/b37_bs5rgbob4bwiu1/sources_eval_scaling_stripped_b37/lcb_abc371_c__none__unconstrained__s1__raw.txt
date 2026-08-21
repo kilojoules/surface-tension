@@ -1,0 +1,219 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once and split into a list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a generator to consume input values one by one
+    gen = input_data
+    
+    N = next(gen)
+    
+    # Read G edges
+    Mg = next(gen)
+    g_edges = [tuple(sorted((next(gen), next(gen)))) for _ in range(Mg)]
+    
+    # Read H edges
+    Mh = next(gen)
+    h_edges = [tuple(sorted((next(gen), next(gen)))) for _ in range(Mh)]
+    
+    # Read A_{i,j} matrix
+    # The input provides A_{i,j} for 1 <= i < j <= N
+    # We store them in a dictionary with keys (i, j) where i < j
+    # To map the flat input list to (i, j) pairs:
+    # i=1: j=2..N (N-1 values)
+    # i=2: j=3..N (N-2 values) ...
+    
+    # Since we cannot use loops, we use a list comprehension to generate the indices
+    # and zip it with the remaining input generator.
+    indices = [
+        (i, j) 
+        for i in range(1, N + 1) 
+        for j in range(i + 1, N + 1)
+    ]
+    
+    # Create a dictionary mapping (i, j) -> cost
+    # We use a list comprehension to consume the generator for the remaining A values
+    costs_list = [next(gen) for _ in range(len(indices))]
+    cost_map = dict(zip(indices, costs_list))
+    
+    # Represent G and H as sets of frozen sets (edges) for fast lookup
+    # Vertices are 1-indexed as per input
+    G_set = {frozenset(e) for e in g_edges}
+    H_set = {frozenset(e) for e in h_edges}
+    
+    # We need to find a permutation P of (1...N) that minimizes the cost.
+    # The cost for a permutation P is the sum of A_{P_i, P_j} for all pairs (i, j)
+    # where the edge status in G(i, j) differs from the edge status in H(P_i, P_j).
+    
+    # Generate all permutations of (1...N)
+    # For each permutation, calculate the total cost.
+    # We use a generator expression inside min() to avoid explicit loops.
+    
+    # To avoid loops, we pre-calculate all possible pairs (i, j) with i < j
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    
+    # The cost function for a specific permutation p:
+    # For every pair (i, j), check if edge (i, j) in G == edge (p[i-1], p[j-1]) in H.
+    # If they differ, add cost A_{min(p[i-1], p[j-1]), max(p[i-1], p[j-1])}.
+    
+    # We use a helper function to get the cost of a single pair under permutation p
+    def get_pair_cost(p, pair):
+        i, j = pair
+        # Edge in G
+        has_g = frozenset({i, j}) in G_set
+        # Edge in H (after permutation)
+        u, v = p[i-1], p[j-1]
+        has_h = frozenset({u, v}) in H_set
+        
+        if has_g == has_h:
+            return 0
+        else:
+            # Return A_{u, v} ensuring u < v
+            return cost_map[(u, v) if u < v else (v, u)]
+
+    # Map the get_pair_cost over all pairs for every permutation
+    # We use a nested generator: 
+    # 1. Iterate over all permutations p
+    # 2. For each p, sum the costs of all pairs
+    # 3. Find the minimum of these sums
+    
+    ans = min(
+        sum(get_pair_cost(p, pair) for pair in all_pairs)
+        for p in permutations(range(1, N + 1))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a constraint in my thought process: "without loops". While I used `for` inside list/generator comprehensions (which is explicitly allowed), I must ensure the logic is strictly functional. The provided solution uses comprehensions and `map`/`zip`/`min`/`sum`, which fits the requirement.
+
+Final check on logic:
+1. $N \le 8$, so $N! = 40,320$.
+2. Total pairs per permutation: $8 \times 7 / 2 = 28$.
+3. Total operations: $40,320 \times 28 \approx 1.1 \times 10^6$. This is well within the time limit for Python.
+4. The cost is added if the edge existence differs between $G(i, j)$ and $H(P_i, P_j)$.
+5. The cost value used is $A_{P_i, P_j}$.
+
+The code correctly implements this.
+One minor detail: `input_data = map(int, sys.stdin.read().split())` is a map object (iterator). I used `next(gen)` to consume it, which is the standard way to handle variable-length inputs without loops.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input and create an iterator
+    data = map(int, sys.stdin.read().split())
+    
+    # Helper to consume N items from the iterator
+    # Since we can't use loops, we use a list comprehension to 'drain' the iterator
+    # But we need specific values, so we'll wrap the iterator in a class or function
+    # Actually, the simplest way to handle this without loops is to convert to a list first.
+    all_vals = list(data)
+    
+    # Use a pointer-like approach via indexing to extract values
+    # N is at index 0
+    N = all_vals[0]
+    
+    # Mg is at index 1
+    Mg = all_vals[1]
+    # G edges are from index 2 to 2 + 2*Mg - 1
+    g_edges_flat = all_vals[2 : 2 + 2*Mg]
+    G_set = {frozenset({g_edges_flat[i], g_edges_flat[i+1]}) 
+             for i in range(0, len(g_edges_flat), 2)}
+    
+    # Mh is at index 2 + 2*Mg
+    curr = 2 + 2*Mg
+    Mh = all_vals[curr]
+    # H edges are from curr + 1 to curr + 1 + 2*Mh - 1
+    h_edges_flat = all_vals[curr + 1 : curr + 1 + 2*Mh]
+    H_set = {frozenset({h_edges_flat[i], h_edges_flat[i+1]}) 
+             for i in range(0, len(h_edges_flat), 2)}
+    
+    # A values start after the H edges
+    a_start = curr + 1 + 2*Mh
+    a_vals = all_vals[a_start:]
+    
+    # Map A values to (i, j) pairs where 1 <= i < j <= N
+    indices = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(indices, a_vals))
+    
+    # All possible pairs in G
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    
+    # For a permutation p, the cost is the sum of A_{p[i], p[j]} 
+    # if edge(i, j) in G != edge(p[i], p[j]) in H
+    
+    # We use a helper function to calculate cost for one permutation
+    def calc_cost(p):
+        # p is a tuple (P1, P2, ..., PN)
+        # We check every pair (i, j) with 1 <= i < j <= N
+        # Note: i and j here are 1-indexed for G, so index in p is i-1 and j-1
+        return sum(
+            cost_map[(p[i-1], p[j-1]) if p[i-1] < p[j-1] else (p[j-1], p[i-1])]
+            for i, j in all_pairs
+            if (frozenset({i, j}) in G_set) != (frozenset({p[i-1], p[j-1]}) in H_set)
+        )
+
+    # Minimize calc_cost over all permutations of {1, ..., N}
+    print(min(calc_cost(p) for p in permutations(range(1, N + 1))))
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block." I will provide the final cleaned version.
+Final check on the `range(0, len(g_edges_flat), 2)` - this is a comprehension-like structure and is allowed.
+
+One last check on the logic:
+If $G$ has edge $(i, j)$ and $H$ does not have edge $(P_i, P_j)$, we pay $A_{P_i, P_j}$.
+If $G$ does not have edge $(i, j)$ and $H$ has edge $(P_i, P_j)$, we pay $A_{P_i, P_j}$.
+This is exactly what `(frozenset({i, j}) in G_set) != (frozenset({p[i-1], p[j-1]}) in H_set)` checks.
+
+Final Code:
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input and convert to a list to avoid explicit loops for parsing
+    all_vals = list(map(int, sys.stdin.read().split()))
+    
+    N = all_vals[0]
+    Mg = all_vals[1]
+    
+    # Extract G edges: pairs of values starting from index 2
+    g_edges_flat = all_vals[2 : 2 + 2*Mg]
+    G_set = {frozenset({g_edges_flat[i], g_edges_flat[i+1]}) 
+             for i in range(0, len(g_edges_flat), 2)}
+    
+    # Extract H edges: Mh is at index 2 + 2*Mg
+    curr = 2 + 2*Mg
+    Mh = all_vals[curr]
+    h_edges_flat = all_vals[curr + 1 : curr + 1 + 2*Mh]
+    H_set = {frozenset({h_edges_flat[i], h_edges_flat[i+1]}) 
+             for i in range(0, len(h_edges_flat), 2)}
+    
+    # Extract A values: starting after H edges
+    a_start = curr + 1 + 2*Mh
+    a_vals = all_vals[a_start:]
+    
+    # Map A values to (i, j) pairs where 1 <= i < j <= N
+    indices = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(indices, a_vals))
+    
+    # All possible pairs (i, j) with 1 <= i < j <= N
+    all_pairs = indices 
+    
+    # Function to calculate total cost for a given permutation p
+    def calc_cost(p):
+        # For every pair (i, j) in G, check if the edge exists in H at (p[i-1], p[j-1])
+        # If the existence differs, add the cost A_{p[i-1], p[j-1]}
+        return sum(
+            cost_map[(p[i-1], p[j-1]) if p[i-1] < p[j-1] else (p[j-1], p[i-1])]
+            for i, j in all_pairs
+            if (frozenset({i, j}) in G_set) != (frozenset({p[i-1], p[j-1]}) in H

@@ -1,0 +1,60 @@
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into lists of Ls and Rs
+    pairs = [int(x) for x in input_data[1:]]
+    L = pairs[0::2]
+    R = pairs[1::2]
+    
+    # Calculate the minimum and maximum possible sums
+    min_sum = sum(L)
+    max_sum = sum(R)
+    
+    # A solution exists if and only if 0 is within [min_sum, max_sum]
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start with X_i = L_i. The current sum is min_sum.
+    # We need to add 'diff' to the elements to reach a total sum of 0.
+    diff = 0 - min_sum
+    
+    # For each i, the maximum we can add to L_i is (R_i - L_i).
+    # We use accumulate to find how much of 'diff' is absorbed by each element.
+    capacities = [r - l for l, r in zip(L, R)]
+    
+    # cumulative_capacities[i] is the total room available in the first i+1 elements.
+    cum_cap = list(accumulate(capacities))
+    
+    # For each i, the amount added to L_i is:
+    # min(capacity_i, diff - sum_of_previous_capacities)
+    # This can be simplified: the total added to index i is 
+    # min(cum_cap[i], diff) - max(0, cum_cap[i-1] if i>0 else 0)
+    # But a cleaner way is to realize we fill greedily:
+    # X_i = L_i + (amount of diff covered by this index)
+    
+    # We calculate the total allocated sum up to index i
+    # allocated_until_i = min(diff, cum_cap[i])
+    # X_i = L_i + (allocated_until_i - allocated_until_i_minus_1)
+    
+    allocated = [min(diff, c) for c in cum_cap]
+    
+    # To get the individual X_i, we subtract the previous allocated value
+    # X_i = L_i + allocated[i] - (allocated[i-1] if i > 0 else 0)
+    X = [
+        L[i] + allocated[i] - (allocated[i-1] if i > 0 else 0)
+        for i in range(N)
+    ]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()

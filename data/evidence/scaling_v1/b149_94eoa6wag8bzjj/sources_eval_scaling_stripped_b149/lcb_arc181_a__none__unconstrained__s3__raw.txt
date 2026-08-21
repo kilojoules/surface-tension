@@ -1,0 +1,280 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    ptr = 1
+    
+    # Process test cases using a list comprehension to avoid explicit for loops
+    # Each case consists of N followed by N elements of P
+    # We use a generator to yield the cases and then map the logic over them
+    
+    def get_cases(data, t, current_ptr):
+        # This is a helper to chunk the flat list into (N, P) pairs
+        # Since we can't use loops, we use a recursive-like structure via a generator
+        # But wait, the constraint says sum of N is 2e5, we can just 
+        # pre-calculate the boundaries of each test case.
+        pass
+
+    # To avoid loops entirely, we calculate the prefix sums of N to find slices
+    # However, the input format is T, then N, then P... 
+    # We can use a trick with a generator and next() inside a list comprehension
+    # but next() is allowed. Let's use a more robust approach.
+    
+    # We create an iterator for the input data
+    it = iter(input_data[1:])
+    
+    # We define a function to process a single case
+    def process_case():
+        try:
+            n = int(next(it))
+            p = [int(next(it)) for _ in range(n)]
+            
+            # The problem asks for the minimum operations to make P_i = i.
+            # An operation k sorts [1, k-1] and [k+1, N].
+            # If we can find a k such that all elements {1, ..., k-1} are in 
+            # positions 1 to k-1 AND all elements {k+1, ..., N} are in 
+            # positions k+1 to N, then 1 operation is enough.
+            # This is equivalent to saying P_k = k and 
+            # max(P_1...P_{k-1}) = k-1.
+            
+            # Let's check if 0 operations are needed:
+            # We can't use all(), so we check if the sorted version equals P.
+            # Actually, we can check if P_i == i for all i by checking if 
+            # the number of i where P_i == i is N.
+            
+            # To avoid loops/all/any, we use sum() and list comprehensions.
+            is_sorted = sum(1 for i, v in enumerate(p, 1) if i == v) == n
+            if is_sorted:
+                return 0
+            
+            # Check if 1 operation is enough:
+            # We need a k such that:
+            # 1. P_k = k
+            # 2. max(P_1, ..., P_{k-1}) = k-1
+            # 3. min(P_{k+1}, ..., P_N) = k+1
+            
+            # Precompute prefix maxes and suffix mins
+            prefix_max = list(accumulate(p, max))
+            suffix_min = list(accumulate(p[::-1], min))[::-1]
+            
+            # A k (1-indexed) works if:
+            # (k==1 or prefix_max[k-2] == k-1) AND 
+            # (p[k-1] == k) AND 
+            # (k==n or suffix_min[k] == k+1)
+            
+            # We check if any such k exists using sum(...) > 0
+            can_do_1 = sum(
+                1 for k in range(1, n + 1)
+                if (k == 1 or prefix_max[k-2] == k-1) and
+                   (p[k-1] == k) and
+                   (k == n or suffix_min[k] == k+1)
+            ) > 0
+            
+            return 1 if can_do_1 else 2
+        except StopIteration:
+            return None
+
+    # We need to call process_case T times. 
+    # We can use a list comprehension and a helper that exhausts the iterator.
+    # Since we can't use for loops, we use map/list comprehension.
+    # But we need to call it T times.
+    
+    # The constraint is that we cannot use 'for' or 'while'.
+    # We can use a list comprehension to drive the process.
+    # We use a dummy range(T) to trigger the process_case function.
+    results = [process_case() for _ in range(T)]
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I used a `for` loop inside a list comprehension: `[int(next(it)) for _ in range(n)]`. The instructions say "without using any `for` or `while` loops". List comprehensions are explicitly forbidden if they contain `for`.
+
+Let me rewrite it using `map`, `filter`, and `itertools`.
+
+```python
+import sys
+from itertools import accumulate, islice
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # We need to group the flat list into cases.
+    # Since we can't use loops, we can't easily slice dynamically.
+    # However, we can use a recursive-like approach with a generator 
+    # or use the fact that we can use map() with a function that 
+    # consumes an iterator.
+    
+    it = iter(input_data[1:])
+    
+    def get_case_data(iterator):
+        # Consumes N, then consumes N elements
+        # To avoid 'for', we use islice and list()
+        # But we need to know N first.
+        # This is tricky without a loop to drive the T cases.
+        pass
+
+    # Let's use a different approach to parse.
+    # We can use a generator function with yield, but that usually 
+    # requires a loop to consume. 
+    # Actually, the only way to process T cases without a loop 
+    # is to use recursion (with sys.setrecursionlimit) or 
+    # a very clever use of map/reduce.
+    
+    # But wait, the constraint says "without using any for or while loops".
+    # This includes list comprehensions.
+    
+    # Let's use a recursive function to process cases.
+    sys.setrecursionlimit(200005)
+    
+    def process_all(iterator, count):
+        if count == 0:
+            return []
+        
+        # Read N
+        n = int(next(iterator))
+        # Read P using islice
+        p = list(map(int, islice(iterator, n)))
+        
+        # Logic for 0, 1, 2
+        # 0: P_i == i for all i
+        # We use map and sum to check if all P_i == i
+        is_sorted = sum(map(lambda x: x[0] == x[1], zip(p, range(1, n + 1)))) == n
+        
+        # 1: Exists k such that P_k == k, max(P_1..k-1) == k-1, min(P_k+1..N) == k+1
+        prefix_max = list(accumulate(p, max))
+        suffix_min = list(accumulate(p[::-1], min))[::-1]
+        
+        # Check if any k works. We use map and sum.
+        # k is 1-indexed.
+        def check_k(k):
+            cond1 = (k == 1 or prefix_max[k-2] == k-1)
+            cond2 = (p[k-1] == k)
+            cond3 = (k == n or suffix_min[k] == k+1)
+            return 1 if (cond1 and cond2 and cond3) else 0
+        
+        can_do_1 = sum(map(check_k, range(1, n + 1))) > 0
+        
+        res = 0 if is_sorted else (1 if can_do_1 else 2)
+        
+        return [res] + process_all(iterator, count - 1)
+
+    final_results = process_all(it, T)
+    sys.stdout.write('\n'.join(map(str, final_results)) + '\n')
+
+# Since I must provide the code in a single block and the above 
+# logic is inside a function, I will wrap it.
+```
+
+Final check on constraints: `T` is $10^5$, `sum of N` is $2 \times 10^5$. Recursion depth will be $T$. `sys.setrecursionlimit` is necessary.
+
+```python
+import sys
+from itertools import accumulate, islice
+
+# Increase recursion depth for T test cases
+sys.setrecursionlimit(300000)
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    it = iter(input_data[1:])
+    
+    def process_all(iterator, count):
+        if count == 0:
+            return []
+        
+        # Read N
+        try:
+            n_val = next(iterator)
+        except StopIteration:
+            return []
+            
+        n = int(n_val)
+        # Read P using islice and map
+        p = list(map(int, islice(iterator, n)))
+        
+        # 0 operations: P_i == i for all i
+        # Use map and sum to avoid loops
+        is_sorted = sum(map(lambda x: x[0] == x[1], zip(p, range(1, n + 1)))) == n
+        
+        # 1 operation: exists k such that P_k == k, max(left) == k-1, min(right) == k+1
+        prefix_max = list(accumulate(p, max))
+        suffix_min = list(accumulate(p[::-1], min))[::-1]
+        
+        def check_k(k):
+            # k is 1-indexed
+            cond1 = (k == 1 or prefix_max[k-2] == k-1)
+            cond2 = (p[k-1] == k)
+            cond3 = (k == n or suffix_min[k] == k+1)
+            return 1 if (cond1 and cond2 and cond3) else 0
+        
+        can_do_1 = sum(map(check_k, range(1, n + 1))) > 0
+        
+        res = 0 if is_sorted else (1 if can_do_1 else 2)
+        
+        # Recursive call to process remaining cases
+        return [res] + process_all(iterator, count - 1)
+
+    final_results = process_all(it, T)
+    sys.stdout.write('\n'.join(map(str, final_results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block". I will provide the final cleaned version.
+
+One last detail: `p[::-1]` is a slice, which is allowed. `range()` is allowed. `map()`, `filter()`, `sum()`, `list()`, `zip()` are all allowed.
+
+```python
+import sys
+from itertools import accumulate, islice
+
+# Increase recursion depth to handle T up to 10^5
+sys.setrecursionlimit(300000)
+
+def solve():
+    # Read all input and create an iterator
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    it = iter(input_data[1:])
+    
+    def process_all(iterator, count):
+        # Base case for recursion
+        if count == 0:
+            return []
+        
+        # Extract N for the current test case
+        try:
+            n = int(next(iterator))
+        except StopIteration:
+            return []
+            
+        # Extract P using islice to avoid loops
+        p = list(map(int, islice(iterator, n)))
+        
+        # Check if 0 operations are needed: P_i == i for all i
+        # We use map/sum to count matches and compare to N
+        is_sorted = sum(map(lambda x: x[0] == x[1], zip(p, range(1, n + 1)))) == n
+        
+        # Check if 1 operation is enough:
+        # An operation k sorts [1, k-1] and [k+1, N].
+        # This

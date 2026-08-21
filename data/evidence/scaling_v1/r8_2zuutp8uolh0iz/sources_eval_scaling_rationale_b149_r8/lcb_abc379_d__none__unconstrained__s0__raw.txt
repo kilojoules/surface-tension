@@ -1,0 +1,199 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, which can lead to more concise and declarative code by focusing on "what" to compute rather than "how" to iterate. To solve this problem without loops or recursion, I will use `itertools.accumulate` to track the total elapsed time (the height increase) and a sorted list (via `bisect`) to manage the planting times of the plants. Since I cannot use a loop to process queries, I will use a custom class with a `__next__` method or a reducer-like approach via `functools.reduce` to maintain the state of the garden across the sequence of queries.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries and maintain state.
+    # State: (current_total_time, sorted_list_of_planting_times, results_list)
+    # A plant planted at total_time 's' has height (current_total_time - s) at any later time.
+    # Condition: height >= H  =>  current_total_time - s >= H  =>  s <= current_total_time - H.
+    
+    # Since we cannot use loops, we use reduce to iterate through the queries.
+    # We group the input into queries first.
+    
+    # To handle the variable length of queries (1, 2 T, 3 H), 
+    # we preprocess the input into a list of tuples.
+    
+    def parse_queries(data):
+        # This is a tricky part without loops. 
+        # We can use a generator-like approach or a recursive-like structure 
+        # but recursion is forbidden. 
+        # However, we can use a while-loop inside a generator, 
+        # but the prompt says "no for/while loops".
+        # Let's use a different approach: 
+        # We map the input and use a state-based reducer.
+        pass
+
+    # Actually, the most reliable way to process a stream without loops 
+    # is to use a helper class and map/reduce.
+    
+    class Garden:
+        def __init__(self):
+            self.current_time = 0
+            self.plants = [] # Sorted list of planting times
+            self.results = []
+
+        def process(self, query):
+            q_type = query[0]
+            if q_type == '1':
+                # Plant height 0 at current_time
+                self.plants.insert(bisect_left(self.plants, self.current_time), self.current_time)
+            elif q_type == '2':
+                # Increase height by T
+                self.current_time += int(query[1])
+            elif q_type == '3':
+                # Harvest plants where current_time - s >= H  => s <= current_time - H
+                h_val = int(query[1])
+                threshold = self.current_time - h_val
+                # Find number of plants with planting time <= threshold
+                idx = bisect_left(self.plants, threshold + 0.1) # Find first index > threshold
+                # Since we need to remove them, we slice the list.
+                # The number of harvested plants is idx.
+                self.results.append(str(idx))
+                self.plants = self.plants[idx:]
+            return self
+
+    # To avoid loops to parse the input, we can use a generator 
+    # and itertools.islice or similar, but the simplest way 
+    # to handle the variable query length is to use a 
+    # custom iterator and map.
+    
+    def query_generator(data):
+        # We can't use while loops. We use a recursive-like 
+        # structure via a generator, but the prompt forbids recursion.
+        # Wait, the prompt says "no for/while loops" and "no recursion".
+        # This means I must use higher-order functions.
+        # I will use a trick: a generator function is allowed to have a loop? 
+        # No, "no for/while loops" usually means NONE.
+        # Let's use a more functional approach.
+        pass
+
+    # Let's redefine: I will use a class that implements __next__ 
+    # to consume the input list.
+    
+    class QueryParser:
+        def __init__(self, data):
+            self.data = data
+            self.ptr = 0
+        def __iter__(self):
+            return self
+        def __next__(self):
+            if self.ptr >= len(self.data):
+                raise StopIteration
+            q_type = self.data[self.ptr]
+            if q_type == '1':
+                self.ptr += 1
+                return ('1',)
+            elif q_type == '2':
+                val = self.data[self.ptr + 1]
+                self.ptr += 2
+                return ('2', val)
+            else:
+                val = self.data[self.ptr + 1]
+                self.ptr += 2
+                return ('3', val)
+
+    # Now I can use map() or reduce() on the QueryParser.
+    # Since I need to maintain state, reduce is perfect.
+    
+    parser = QueryParser(input_data[1:])
+    garden = Garden()
+    
+    # Use reduce to process all queries
+    # We use a list to trigger the generator since reduce needs an iterable.
+    # To avoid the 'for' loop inside the generator, I'll use the QueryParser 
+    # which is an iterator.
+    
+    reduce(lambda g, q: garden.process(q), parser, garden)
+    
+    sys.stdout.write('\n'.join(garden.results) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+
+Wait, the `QueryParser` uses a `while` loop logic implicitly via `__next__` and `reduce`, but the prompt says "no for/while loops". My `QueryParser` doesn't have a `for` or `while` keyword. However, the logic of `reduce` handles the iteration. Let's double check. The constraint is "no for/while loops" and "no recursion". `reduce` is a higher-order function. `__next__` is a method. This should be valid.
+
+One detail: `self.plants.insert` is $O(N)$. With $Q=2 \times 10^5$, $O(Q^2)$ will TLE. I should use a more efficient way to track plants. Since I need to remove elements from the left and add to the right (planting times are non-decreasing), a `collections.deque` is better, but I need to binary search. A sorted list is needed. However, since planting times are always added as `current_time`, and `current_time` is non-decreasing, the `plants` list is *already sorted*. I can just use `append` and `bisect_left`.
+
+Corrected logic:
+1. `plants` list: always append `current_time`. It stays sorted.
+2. Harvest: find index `idx` where `plants[idx] > current_time - H`. All plants from `0` to `idx-1` are harvested.
+3. Use a pointer (offset) to simulate removing elements from the left to keep it $O(1)$ or $O(\log N)$.
+
+Revised implementation:
+
+```python
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    class Garden:
+        def __init__(self):
+            self.current_time = 0
+            self.plants = [] 
+            self.offset = 0
+            self.results = []
+
+        def process(self, query):
+            q_type = query[0]
+            if q_type == '1':
+                self.plants.append(self.current_time)
+            elif q_type == '2':
+                self.current_time += int(query[1])
+            elif q_type == '3':
+                h_val = int(query[1])
+                threshold = self.current_time - h_val
+                # Find number of plants with planting time <= threshold
+                # We look in the range [offset, len(plants))
+                idx = bisect_right(self.plants, threshold, lo=self.offset)
+                harvested = idx - self.offset
+                self.results.append(str(harvested))
+                self.offset = idx
+            return self
+
+    class QueryParser:
+        def __init__(self, data):
+            self.data = data
+            self.ptr = 0
+        def __iter__(self):
+            return self
+        def __next__(self):
+            if self.ptr >= len(self.data):
+                raise StopIteration
+            q_type = self.data[self.ptr]
+            if q_type == '1':
+                self.ptr += 1
+                return ('1',)
+            elif q_type == '2':
+                val = self.data[self.ptr + 1]
+                self.ptr += 2
+                return ('2', val)
+            else:
+                val = self.data[self.ptr + 1]
+                self.ptr += 2
+                return ('3', val)
+
+    parser = QueryParser(input_data[1:])
+    garden = Garden()
+    reduce(lambda g, q: garden.process(q), parser, garden)
+    sys.stdout.write('\n'.join(garden.results) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

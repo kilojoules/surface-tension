@@ -1,0 +1,82 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # If strings are already identical, it's 0 operations
+    if s == t:
+        print("Yes")
+        return
+
+    # Since K=1, we check if the edit distance is exactly 1.
+    # Edit distance 1 occurs if:
+    # 1. Lengths are equal: one character differs (Substitution)
+    # 2. Length difference is 1: one character inserted or deleted (Insertion/Deletion)
+    
+    len_s = len(s)
+    len_t = len(t)
+
+    # Case 1: Substitution (Length must be equal)
+    # We check if there is exactly one index where s[i] != t[i]
+    def check_substitution():
+        if len_s != len_t:
+            return False
+        # Find indices where characters differ
+        diffs = [i for i in range(len_s) if s[i] != t[i]]
+        return len(diffs) == 1
+
+    # Case 2: Deletion from S / Insertion into T (len_s = len_t + 1)
+    def check_deletion():
+        if len_s != len_t + 1:
+            return False
+        # Try removing character at index i and check if result == t
+        # Instead of a loop, we check if there's any i such that s[:i] + s[i+1:] == t
+        # However, a more efficient way is to find the first mismatch
+        # and check the remaining suffixes.
+        # Since we can't use loops, we use a helper to find the first mismatch.
+        # But we can just use a generator expression with any()
+        # To avoid O(N^2) with slicing in a list comprehension, 
+        # we find the first index of difference.
+        pass
+
+    # Optimized check for Insertion/Deletion using the "one-gap" logic
+    def is_edit_distance_one(s1, s2):
+        # Ensure s1 is the longer string
+        if len(s1) < len(s2):
+            s1, s2 = s2, s1
+        
+        if len(s1) != len(s2) and len(s1) != len(s2) + 1:
+            return False
+        
+        if len(s1) == len(s2):
+            # Substitution check
+            return sum(1 for a, b in zip(s1, s2) if a != b) == 1
+        
+        # Insertion/Deletion check: s1 is longer by 1
+        # Find first mismatch
+        # We use a list comprehension to find the first index where they differ
+        mismatches = [i for i in range(len(s2)) if s1[i] != s2[i]]
+        
+        if not mismatches:
+            # s2 is a prefix of s1
+            return True
+        
+        idx = mismatches[0]
+        # Check if skipping the character in s1 makes them equal
+        return s1[idx+1:] == s2[idx:]
+
+    # Using the logic inside a conditional
+    if is_edit_distance_one(s, t):
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

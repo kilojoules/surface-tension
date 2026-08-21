@@ -1,0 +1,72 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, emphasizing the use of higher-order functions and sequence expressions. This approach leverages Python's highly optimized internal iterators, which can often be more concise and efficient for data transformation tasks. To solve this problem, I will use `itertools.accumulate` to calculate prefix sums of the distances, list comprehensions for data processing, and `collections.Counter` to efficiently count occurrences of remainders modulo $M$.
+
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read all input at once and split into a list of integers
+    input_data = list(map(int, sys.stdin.read().split()))
+    
+    # N: number of rest areas, M: the divisor
+    # A: list of distances between rest area i and i+1
+    N, M = input_data[0], input_data[1]
+    A = input_data[2:]
+    
+    # Calculate prefix sums of distances. 
+    # P[i] is the distance from rest area 1 to rest area i+1.
+    # P[0] = 0, P[1] = A_1, P[2] = A_1 + A_2, ..., P[N] = sum(A_1...A_N)
+    # We use accumulate to avoid explicit for-loops.
+    P = list(accumulate(A, initial=0))
+    
+    # The distance from s to t (clockwise) is:
+    # 1. If s < t: P[t-1] - P[s-1]
+    # 2. If s > t: (P[N] - P[s-1]) + P[t-1]
+    # In both cases, we want (Distance) % M == 0.
+    # This is equivalent to:
+    # If s < t: P[t-1] % M == P[s-1] % M
+    # If s > t: P[t-1] % M == (P[s-1] - P[N]) % M
+    
+    # Let R[i] = P[i] % M.
+    # We are looking for pairs (s, t) such that:
+    # s < t and R[t-1] == R[s-1]
+    # s > t and R[t-1] == (R[s-1] - R[N]) % M
+    
+    # Let Total_R = R[N] = P[N] % M.
+    # The condition for s > t is R[t-1] == (R[s-1] - Total_R) % M,
+    # which is the same as R[s-1] == (R[t-1] + Total_R) % M.
+    
+    # Let's count occurrences of each remainder in R[0...N-1]
+    # Note: P has N+1 elements, but we only care about rest areas 1 to N.
+    # The remainders are R[0], R[1], ..., R[N-1].
+    R = [x % M for x in P[:-1]]
+    counts = Counter(R)
+    
+    # For a fixed s, we want to find t != s such that:
+    # If s < t, R[t-1] = R[s-1]
+    # If s > t, R[t-1] = (R[s-1] - Total_R) % M
+    
+    # Total pairs = Sum_{r=0 to M-1} (count[r] * count[(r - Total_R) % M])
+    # However, we must exclude cases where s == t.
+    # s == t happens when r == (r - Total_R) % M, which means Total_R % M == 0.
+    # If Total_R % M == 0, then for each r, we have count[r] * count[r] pairs,
+    # but we must subtract the N cases where s=t.
+    
+    Total_R = P[N] % M
+    
+    # Use a generator expression inside sum() to avoid explicit loops.
+    # We iterate over the unique remainders present in the Counter.
+    ans = sum(counts[r] * counts[(r - Total_R) % M] for r in counts)
+    
+    # Subtract cases where s == t.
+    # s == t is only possible if (R[s-1] - R[s-1]) % M == Total_R % M,
+    # which means 0 == Total_R % M.
+    # If Total_R % M == 0, there are N such pairs (s, s).
+    final_ans = ans - (N if Total_R == 0 else 0)
+    
+    print(final_ans)
+
+if __name__ == "__main__":
+    solve()
+```

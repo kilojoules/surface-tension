@@ -1,0 +1,111 @@
+import sys
+from collections import deque
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Initial positions
+    l, r = 1, 2
+    total_ops = 0
+    
+    # Process instructions
+    ptr = 2
+    for _ in range(Q):
+        h = input_data[ptr]
+        t = int(input_data[ptr+1])
+        ptr += 2
+        
+        # BFS to find the shortest path for the moving hand
+        # The other hand is a stationary obstacle
+        start_node = l if h == 'L' else r
+        obstacle = r if h == 'L' else l
+        
+        # BFS state: (current_position, distance)
+        queue = deque([(start_node, 0)])
+        visited = {start_node}
+        
+        # We need to find the shortest distance to t
+        # Since we can't use loops or recursion, we use a while loop with deque
+        found_dist = 0
+        
+        # Standard BFS implementation
+        # Note: The problem constraints are small (N=100), so BFS is efficient
+        # To avoid 'while' loops for logic, we can use a trick or just use while
+        # since 'while' is not forbidden for the BFS traversal itself.
+        
+        # To strictly follow "no for/while loops" if that were a constraint (it isn't),
+        # but since I need to implement BFS, I will use the standard while queue approach.
+        
+        # Re-evaluating: The prompt doesn't forbid while loops, only asks for the solution.
+        
+        # To find the distance between two points on a ring of size N with one obstacle:
+        # The obstacle splits the ring into a linear path.
+        # The distance is the length of the path from start to target that doesn't cross the obstacle.
+        
+        # Let's calculate the clockwise and counter-clockwise distances.
+        # One of them must cross the obstacle.
+        
+        # Distance clockwise from A to B: (B - A + N) % N
+        # Distance counter-clockwise from A to B: (A - B + N) % N
+        
+        # The obstacle is at 'obstacle'.
+        # The clockwise path from start to target is:
+        # start -> start+1 -> ... -> target
+        # This path is blocked if 'obstacle' is in {start+1, ..., target} (indices mod N)
+        
+        # Let's use a simpler logic:
+        # There are only two directions. One direction is blocked by the obstacle, 
+        # unless the obstacle is not between the start and target in that direction.
+        
+        # Clockwise distance
+        dist_cw = (t - start_node + N) % N
+        # Check if obstacle is in the clockwise path
+        # Obstacle is in clockwise path if (obstacle - start_node + N) % N <= dist_cw
+        # and obstacle != start_node.
+        is_blocked_cw = ( (obstacle - start_node + N) % N <= dist_cw ) and (obstacle != start_node)
+        
+        # Counter-clockwise distance
+        dist_ccw = (start_node - t + N) % N
+        # Check if obstacle is in the counter-clockwise path
+        is_blocked_ccw = ( (start_node - obstacle + N) % N <= dist_ccw ) and (obstacle != start_node)
+        
+        # Since the problem guarantees the instruction is achievable, 
+        # at least one path is not blocked.
+        
+        # If clockwise is blocked, we must go counter-clockwise.
+        # If counter-clockwise is blocked, we must go clockwise.
+        # If neither is blocked, we take the minimum.
+        # If both are blocked (impossible by constraints), 0.
+        
+        # Correct logic for "blocked":
+        # The obstacle is at 'obstacle'. 
+        # The clockwise path from S to T consists of nodes {S, S+1, ..., T} mod N.
+        # The obstacle blocks this if obstacle is any of {S+1, ..., T} mod N.
+        # This is true if (obstacle - S + N) % N is between 1 and dist_cw inclusive.
+        
+        blocked_cw = 1 <= (obstacle - start_node + N) % N <= dist_cw
+        blocked_ccw = 1 <= (start_node - obstacle + N) % N <= dist_ccw
+        
+        # Minimum distance given the constraints
+        # We use a list comprehension to filter valid distances and take the min
+        valid_distances = [dist_cw for not blocked_cw] + [dist_ccw for not blocked_ccw]
+        
+        move_dist = min(valid_distances) if valid_distances else 0
+        total_ops += move_dist
+        
+        # Update positions
+        if h == 'L':
+            l = t
+        else:
+            r = t
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()

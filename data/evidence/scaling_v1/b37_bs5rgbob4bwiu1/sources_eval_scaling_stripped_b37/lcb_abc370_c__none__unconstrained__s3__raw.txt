@@ -1,0 +1,79 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s_str = input_data[0]
+    t_str = input_data[1]
+    
+    s = list(s_str)
+    t = list(t_str)
+    n = len(s)
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(n) if s[i] != t[i]]
+    
+    # To get the lexicographically smallest sequence of strings:
+    # 1. We must change characters at indices where S[i] > T[i] first.
+    #    For these, we want to change them as early as possible to decrease 
+    #    the string value, but the problem asks for the lexicographically 
+    #    smallest ARRAY. 
+    #    Wait, if S[i] > T[i], changing it to T[i] immediately makes the 
+    #    string smaller. To keep the array lexicographically smallest, 
+    #    we should process indices i where S[i] > T[i] in increasing order of i.
+    # 2. For indices where S[i] < T[i], changing them makes the string larger.
+    #    To keep the array lexicographically smallest, we should process 
+    #    these in decreasing order of i.
+    
+    # Indices where S[i] > T[i], sorted ascending
+    decreasing = sorted([i for i in diff_indices if s[i] > t[i]])
+    # Indices where S[i] < T[i], sorted descending
+    increasing = sorted([i for i in diff_indices if s[i] < t[i]], reverse=True)
+    
+    # The sequence of indices to change
+    change_order = decreasing + increasing
+    
+    # Generate the sequence of strings
+    # We use a list comprehension to create the state of S after each change
+    # Since we cannot mutate S inside a comprehension, we use a helper function 
+    # or a loop to generate the sequence.
+    
+    res = []
+    current_s = list(s_str)
+    for idx in change_order:
+        current_s[idx] = t[idx]
+        res.append("".join(current_s))
+        
+    # Output the number of operations
+    print(len(res))
+    # Output each string in the sequence
+    for string in res:
+        print(string)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, let me double-check the logic on the indices.**
+If $S_i > T_i$, changing $S_i \to T_i$ makes the string lexicographically smaller. To make the *array* lexicographically smallest, we want the earliest possible strings in the array to be as small as possible. Thus, we prioritize indices $i$ where $S_i > T_i$ and process them from left to right (smallest $i$ first).
+If $S_i < T_i$, changing $S_i \to T_i$ makes the string lexicographically larger. To keep the array lexicographically smallest, we want to delay these increases as much as possible, and when we must increase, we want the increase to happen at the rightmost position possible to keep the string smaller for longer. Thus, we process indices $i$ where $S_i < T_i$ from right to left (largest $i$ first).
+
+Example 1: `adbe` -> `bcbc`
+Diffs: 
+idx 0: a < b (Increasing)
+idx 1: d > c (Decreasing)
+idx 2: b < b (Same)
+idx 3: e > c (Decreasing)
+
+Decreasing indices: [1, 3] (sorted ascending)
+Increasing indices: [0] (sorted descending)
+Order: 1, 3, 0
+Strings:
+1. `acbe` (change idx 1)
+2. `acbc` (change idx 3)
+3. `bcbc` (change idx 0)
+Matches sample output.
+Final logic: `sorted([i for i in diffs if S[i] > T[i]]) + sorted([i for i in diffs if S[i] < T[i]], reverse=True)`

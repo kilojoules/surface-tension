@@ -1,0 +1,110 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N
+    line = sys.stdin.readline()
+    if not line:
+        return
+    n = int(line.strip())
+    
+    # Adjacency matrix for G
+    g_adj = [[False] * n for _ in range(n)]
+    m_g = int(sys.stdin.readline().strip())
+    for _ in range(m_g):
+        u, v = map(int, sys.stdin.readline().split())
+        g_adj[u-1][v-1] = g_adj[v-1][u-1] = True
+        
+    # Adjacency matrix for H
+    h_adj = [[False] * n for _ in range(n)]
+    m_h = int(sys.stdin.readline().strip())
+    for _ in range(m_h):
+        u, v = map(int, sys.stdin.readline().split())
+        h_adj[u-1][v-1] = h_adj[v-1][u-1] = True
+        
+    # Cost matrix A
+    # A is provided as a triangular matrix
+    a_costs = [[0] * n for _ in range(n)]
+    for i in range(n - 1):
+        row = list(map(int, sys.stdin.readline().split()))
+        for j in range(i + 1, n):
+            # The input gives A_{i+1, i+2} ... A_{i+1, N}
+            # Which corresponds to indices i and (i+1 + (j- (i+1))) = j+1
+            # Wait, the input format is A_{1,2} A_{1,3}...
+            # So for i=0, row[0] is A_{1,2}, row[1] is A_{1,3}...
+            # For i, the row contains A_{i+1, i+2} to A_{i+1, N}
+            # There are N - (i+1) elements.
+            a_costs[i][i + 1 + (j - (i + 1))] = row[j - (i + 1)]
+    
+    # Correcting the A matrix indexing
+    # The input loop above was slightly confusing. Let's rewrite it.
+    # Re-reading: A_{1,2} A_{1,3} ... A_{1,N} then A_{2,3} ...
+    # Let's just flatten all A inputs and map them.
+    # Since we already read them into a_costs, let's fix the logic.
+    # Actually, the simplest way to read A is:
+    # for i from 0 to N-2:
+    #    vals = list(map(int, sys.stdin.readline().split()))
+    #    for idx, val in enumerate(vals):
+    #        a_costs[i][i + 1 + idx] = val
+    # Let's redefine a_costs and read again if necessary, but I can't.
+    # I will use a helper to parse the A section properly.
+
+def main():
+    # Using a different approach to read A to ensure correctness
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    n = int(input_data[ptr])
+    ptr += 1
+    
+    g_adj = [[False] * n for _ in range(n)]
+    m_g = int(input_data[ptr])
+    ptr += 1
+    for _ in range(m_g):
+        u = int(input_data[ptr]) - 1
+        v = int(input_data[ptr+1]) - 1
+        g_adj[u][v] = g_adj[v][u] = True
+        ptr += 2
+        
+    h_adj = [[False] * n for _ in range(n)]
+    m_h = int(input_data[ptr])
+    ptr += 1
+    for _ in range(m_h):
+        u = int(input_data[ptr]) - 1
+        v = int(input_data[ptr+1]) - 1
+        h_adj[u][v] = h_adj[v][u] = True
+        ptr += 2
+        
+    a_costs = [[0] * n for _ in range(n)]
+    for i in range(n - 1):
+        for j in range(i + 1, n):
+            a_costs[i][j] = int(input_data[ptr])
+            a_costs[j][i] = a_costs[i][j]
+            ptr += 1
+
+    # We need to find a permutation P of {0, ..., N-1} that minimizes
+    # Sum_{i < j} cost to make (P[i], P[j]) in H match (i, j) in G.
+    # The cost to change edge (P[i], P[j]) in H is A_{P[i], P[j]} 
+    # if (P[i], P[j]) in H != (i, j) in G.
+    
+    min_total_cost = float('inf')
+    
+    # N is up to 8, so N! is 40320. This is feasible.
+    for p in permutations(range(n)):
+        current_cost = 0
+        for i in range(n):
+            for j in range(i + 1, n):
+                # Edge in G is (i, j). Corresponding edge in H is (p[i], p[j]).
+                # We need H[p[i]][p[j]] == G[i][j]
+                if h_adj[p[i]][p[j]] != g_adj[i][j]:
+                    current_cost += a_costs[p[i]][p[j]]
+        
+        if current_cost < min_total_cost:
+            min_total_cost = current_cost
+            
+    print(min_total_cost)
+
+if __name__ == "__main__":
+    main()

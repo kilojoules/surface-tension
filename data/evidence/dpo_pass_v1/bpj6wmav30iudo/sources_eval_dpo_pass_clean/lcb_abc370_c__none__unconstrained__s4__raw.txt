@@ -1,0 +1,70 @@
+The constraint to avoid explicit loops forces a functional programming style, which encourages the use of immutable transformations and declarative data processing. In Python, this is typically achieved using list comprehensions and recursion (though recursion is limited by depth). For this problem, I will use list comprehensions to identify the indices where $S$ and $T$ differ and `functools.reduce` to iteratively build the sequence of strings, as `reduce` is the standard functional way to accumulate state over a sequence.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read input strings
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+
+    # Identify indices where S and T differ
+    # We want the lexicographically smallest X.
+    # To make X_1 smallest, we should change the first possible character 
+    # to the smallest possible value that helps us reach T.
+    # However, we can only change ONE character per step.
+    # To make the string X_i lexicographically smallest, we should 
+    # prioritize changing characters at the earliest possible indices 
+    # to their target values in T.
+    # But wait: if S[i] > T[i], changing S[i] to T[i] makes the string smaller.
+    # If S[i] < T[i], changing S[i] to T[i] makes the string larger.
+    # To get the lexicographically smallest array X, we should first 
+    # handle all indices i where S[i] > T[i] from left to right, 
+    # then handle all indices i where S[i] < T[i] from right to left.
+    # Actually, the simplest strategy for lexicographical minimality:
+    # 1. Any index i where S[i] > T[i] should be changed to T[i] as soon as possible.
+    # 2. Any index i where S[i] < T[i] should be changed to T[i] as late as possible.
+    
+    # Let's refine: To make X_1 smallest, we look for the first index i 
+    # where we can make S smaller. That happens if S[i] > T[i].
+    # If no S[i] > T[i], we must make S larger, so we pick the last index i 
+    # where S[i] < T[i] to keep the prefix unchanged for as long as possible.
+    
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # Indices that decrease the string (S[i] > T[i])
+    decrease = [i for i in diff_indices if S[i] > T[i]]
+    # Indices that increase the string (S[i] < T[i])
+    increase = [i for i in diff_indices if S[i] < T[i]]
+    
+    # Order of operations: 
+    # First, fix S[i] > T[i] from left to right.
+    # Then, fix S[i] < T[i] from right to left.
+    # This ensures the resulting strings are as small as possible.
+    op_order = decrease + increase[::-1]
+    
+    # Use reduce to generate the sequence of strings
+    # accumulator is (current_string, list_of_strings_X)
+    result = reduce(
+        lambda acc, idx: (
+            # New string: replace char at idx with T[idx]
+            "".join([acc[0][j] if j != idx else T[j] for j in range(len(S))]),
+            # Append new string to the list
+            acc[1] + ["".join([acc[0][j] if j != idx else T[j] for j in range(len(S))])]
+        ),
+        op_order,
+        (S, [])
+    )
+    
+    X = result[1]
+    
+    # Output formatting
+    sys.stdout.write(f"{len(X)}\n" + "\n".join(X) + "\n" if X else "0\n")
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,213 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer to track current position in input_data
+    ptr = 0
+    
+    # N: Number of vertices
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    # M_G: Number of edges in G
+    M_G = int(input_data[ptr])
+    ptr += 1
+    
+    # G_edges: Set of edges in G (stored as sorted tuples)
+    G_edges = set()
+    for _ in range(M_G):
+        u, v = int(input_data[ptr]), int(input_data[ptr+1])
+        G_edges.add(tuple(sorted((u, v))))
+        ptr += 2
+        
+    # M_H: Number of edges in H
+    M_H = int(input_data[ptr])
+    ptr += 1
+    
+    # H_edges: Set of edges in H (stored as sorted tuples)
+    H_edges = set()
+    for _ in range(M_H):
+        a, b = int(input_data[ptr]), int(input_data[ptr+1])
+        H_edges.add(tuple(sorted((a, b))))
+        ptr += 2
+        
+    # A: Cost matrix. We map (i, j) where i < j to the cost.
+    # The input provides A_{1,2}, A_{1,3}... A_{1,N}, then A_{2,3}...
+    # We build a dictionary for easy lookup.
+    A_vals = input_data[ptr:]
+    
+    # Generate all pairs (i, j) with 1 <= i < j <= N in the order they appear in input
+    all_pairs = [ (i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1) ]
+    cost_map = {pair: int(val) for pair, val in zip(all_pairs, A_vals)}
+
+    # We need to find a permutation P of (1...N) that minimizes the cost.
+    # The cost for a permutation P is the sum of A_{P_i, P_j} for all pairs (i, j)
+    # where the edge status in G (i, j) differs from the edge status in H (P_i, P_j).
+    
+    # Pre-calculate all possible pairs (i, j) with 1 <= i < j <= N
+    vertex_pairs = all_pairs
+    
+    # We use a generator expression inside min() to find the minimum cost across all permutations.
+    # For a permutation P, the cost is sum(cost_map[sorted(P_i, P_j)] if G_edge != H_edge)
+    # Note: P is 0-indexed in itertools, so we map 0..N-1 to 1..N.
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i-1], p[j-1])))]
+            for i, j in vertex_pairs
+            if ((i, j) in G_edges) != (tuple(sorted((p[i-1], p[j-1]))) in H_edges)
+        )
+        for p in permutations(range(1, N + 1))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a logic error in the isomorphism definition application. The problem says: "an edge exists between $i$ and $j$ in $G$ if and only if an edge exists between $P_i$ and $P_j$ in $H$". 
+
+My code checks if the edge $(i, j)$ in $G$ differs from the edge $(P_i, P_j)$ in $H$. If they differ, we must toggle the edge $(P_i, P_j)$ in $H$. The cost to toggle edge $(u, v)$ in $H$ is $A_{u, v}$.
+
+Let's refine the cost calculation:
+For a fixed permutation $P$, for every pair $1 \le i < j \le N$:
+If $(\text{edge } (i, j) \in G) \neq (\text{edge } (P_i, P_j) \in H)$, we pay $A_{P_i, P_j}$.
+
+Corrected logic implemented in the final block:
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N = int(input_data[0])
+    # Use slicing to avoid loops for parsing
+    # G edges
+    M_G = int(input_data[1])
+    G_raw = input_data[2 : 2 + 2*M_G]
+    G_edges = {tuple(sorted((int(G_raw[i]), int(G_raw[i+1])))) for i in range(0, len(G_raw), 2)}
+    
+    # H edges
+    ptr = 2 + 2*M_G
+    M_H = int(input_data[ptr])
+    H_raw = input_data[ptr + 1 : ptr + 1 + 2*M_H]
+    H_edges = {tuple(sorted((int(H_raw[i]), int(H_raw[i+1])))) for i in range(0, len(H_raw), 2)}
+    
+    # Costs
+    ptr = ptr + 1 + 2*M_H
+    A_vals = input_data[ptr:]
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = {pair: int(val) for pair, val in zip(all_pairs, A_vals)}
+
+    # The cost for permutation P is:
+    # For all 1 <= i < j <= N:
+    # If (edge(i,j) in G) != (edge(P[i], P[j]) in H), add cost A_{P[i], P[j]}
+    
+    # We pre-calculate the "edge status" of H for all pairs to speed up
+    # H_status = {pair: (1 if pair in H_edges else 0) for pair in all_pairs}
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i-1], p[j-1])))]
+            for i, j in all_pairs
+            if ((i, j) in G_edges) != (tuple(sorted((p[i-1], p[j-1]))) in H_edges)
+        )
+        for p in permutations(range(1, N + 1))
+    )
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the `sorted()` inside the loop is slow. Since $P_i$ and $P_j$ are just values, and $A_{i,j}$ is defined for $i < j$, I should ensure the key is always sorted.
+
+Final check on Sample 1: $N=5$. $5! = 120$. $120 \times 10$ pairs = $1200$ operations. This is well within limits.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N = int(input_data[0])
+    M_G = int(input_data[1])
+    G_raw = input_data[2 : 2 + 2*M_G]
+    G_edges = {tuple(sorted((int(G_raw[i]), int(G_raw[i+1])))) for i in range(0, len(G_raw), 2)}
+    
+    ptr = 2 + 2*M_G
+    M_H = int(input_data[ptr])
+    H_raw = input_data[ptr + 1 : ptr + 1 + 2*M_H]
+    H_edges = {tuple(sorted((int(H_raw[i]), int(H_raw[i+1])))) for i in range(0, len(H_raw), 2)}
+    
+    ptr = ptr + 1 + 2*M_H
+    A_vals = input_data[ptr:]
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = {pair: int(val) for pair, val in zip(all_pairs, A_vals)}
+
+    # To avoid sorted() in the loop, we use a helper to get the key
+    # Since N is tiny, we can just use a fixed-size list for H_edges and cost_map
+    # but dictionaries are fine. The key is the bottleneck.
+    
+    # We can pre-calculate if (i, j) is in G_edges
+    # G_matrix[i][j] = 1 if edge else 0
+    G_mat = [[( (i, j) in G_edges ) for j in range(N + 1)] for i in range(N + 1)]
+    H_mat = [[( tuple(sorted((i, j))) in H_edges ) for j in range(N + 1)] for i in range(N + 1)]
+    C_mat = [[0] * (N + 1) for _ in range(N + 1)]
+    for (i, j), c in cost_map.items():
+        C_mat[i][j] = C_mat[j][i] = c
+
+    ans = min(
+        sum(
+            C_mat[p[i-1]][p[j-1]]
+            for i, j in all_pairs
+            if G_mat[i][j] != H_mat[p[i-1]][p[j-1]]
+        )
+        for p in permutations(range(1, N + 1))
+    )
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the logic `G_mat[i][j] != H_mat[p[i-1]][p[j-1]]` is slightly wrong because the operation is performed on $H$ to make it isomorphic to $G$. If we map vertex $i \to P_i$ and $j \to P_j$, and $G$ has an edge $(i, j)$ but $H$ does not have $(P_i, P_j)$, we must add the edge $(P_i, P_j)$ to $H$ at cost $A_{P_i, P_j}$. If $G$ has no edge but $H$ does, we remove it at cost $A_{P_i, P_j}$. This is exactly what `!=` checks.
+
+Final refined code:
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N = int(input_data[0])
+    M_G = int(input_data[1])
+    G_raw = input_data[2 : 2 + 2*M_G]
+    G_edges = {tuple(sorted((int(G_raw[i]), int(G_raw[i+1])))) for i in range(0, len(G_raw), 2)}
+    
+    ptr = 2 + 2*M_G
+    M_H = int(input_data[ptr])
+    H_raw = input_data[ptr + 1 : ptr + 1 + 2*M_H]
+    H_edges = {tuple(sorted((int(H_raw[i]), int(H_raw[i+1])))) for i in range(0, len(H_raw), 2)}
+    
+    ptr = ptr + 1 + 2*M_H
+    A_vals = input_data[ptr:]
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = {pair: int(val) for pair, val in zip(all_pairs, A_vals)}
+
+    G_mat = [[( (i, j) in G_edges ) for j in range(N + 1)] for i in range(N + 1)]
+    H_mat = [[( tuple(sorted((i, j))) in H_edges ) for j in range(N + 1)] for i in range(N + 1)]
+    C_mat = [[0] * (N + 1) for _ in range(N + 1)]
+    for (i, j), c in cost_map.items():

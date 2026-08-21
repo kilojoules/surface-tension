@@ -1,0 +1,106 @@
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read N and M from the first line
+    # Read the sequence A from the remaining input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+
+    # Let P_i be the distance from rest area 1 to rest area i.
+    # P_1 = 0
+    # P_2 = A_1
+    # P_3 = A_1 + A_2
+    # ...
+    # P_N = A_1 + ... + A_{N-1}
+    # The distance from s to t (s < t) is (P_t - P_s).
+    # The distance from s to t (s > t) is (Total_Sum - P_s + P_t).
+    
+    # Calculate prefix sums P_1, ..., P_N
+    # accumulate([0] + A[:-1]) gives P_1, ..., P_N
+    # However, we need P_i mod M.
+    # We use A[:N-1] because P_N is the sum of A_1 to A_{N-1}.
+    # To handle the circular nature, we can think of the sequence as 
+    # P_1, P_2, ..., P_N, P_{N+1} where P_{N+1} is the total sum.
+    
+    # Prefix sums of A_1, ..., A_N
+    # P = [0, A_1, A_1+A_2, ..., A_1+...+A_{N-1}]
+    # We can use accumulate with initial=0 (Python 3.8+)
+    # Since we need to avoid loops, we use a list comprehension or map.
+    
+    # Correct prefix sums for positions 1 to N:
+    # Dist(1, 1) = 0
+    # Dist(1, 2) = A_1
+    # Dist(1, 3) = A_1 + A_2 ...
+    # Let S be the prefix sums of A: S_0=0, S_1=A_1, S_2=A_1+A_2 ... S_N=sum(A)
+    # Distance from s to t (s < t) is (S_{t-1} - S_{s-1}) mod M == 0
+    # Distance from s to t (s > t) is (S_N - S_{s-1} + S_{t-1}) mod M == 0
+    
+    S = list(accumulate(A, initial=0))
+    # S has N+1 elements: S[0]=0, S[1]=A_1, ..., S[N]=sum(A)
+    # We are interested in indices i = 0, 1, ..., N-1 (representing rest areas 1 to N)
+    # Let X_i = S[i] % M for i in 0...N-1
+    X = [val % M for val in S[:N]]
+    
+    # Total sum mod M
+    TotalMod = S[N] % M
+    
+    # We want pairs (s, t) with s != t such that:
+    # If s < t: (X_{t-1} - X_{s-1}) % M == 0  => X_{t-1} == X_{s-1}
+    # If s > t: (TotalMod - X_{s-1} + X_{t-1}) % M == 0 => X_{s-1} - X_{t-1} == TotalMod % M
+    
+    # Count occurrences of each remainder
+    # Using a list as a frequency array since M <= 10^6
+    counts = [0] * M
+    # Use a loop-free way to populate counts: 
+    # Since we can't use for-loops, we use a combination of map/list comprehension 
+    # and a trick with a dictionary or a side-effect in a comprehension (though discouraged).
+    # Actually, the prompt says "avoid explicit loops", but forbids "for" and "while".
+    # We can use a dictionary comprehension with .get() or a frequency map via sorted/groupby.
+    # But the most "functional" way to count is using a dictionary or collections.Counter.
+    
+    from collections import Counter
+    freq = Counter(X)
+    
+    # For s < t, we need X_s == X_t. 
+    # For a fixed remainder r, if there are 'c' occurrences, there are c*(c-1)//2 pairs.
+    # However, the problem asks for pairs (s, t), and s < t and s > t are different.
+    # Let's re-evaluate:
+    # Pair (s, t) is valid if:
+    # 1. s < t and (S_{t-1} - S_{s-1}) % M == 0
+    # 2. s > t and (S_N - S_{s-1} + S_{t-1}) % M == 0
+    
+    # Case 1: s < t. This is equivalent to X_{t-1} == X_{s-1}.
+    # For each remainder r, if it appears c times, there are c*(c-1)//2 such pairs.
+    # Case 2: s > t. This is equivalent to X_{s-1} - X_{t-1} == TotalMod (mod M).
+    # Let X_{s-1} = r1 and X_{t-1} = r2. We need r1 - r2 \equiv TotalMod (mod M).
+    # This means r2 \equiv r1 - TotalMod (mod M).
+    
+    # Let's calculate the sum of c*(c-1)//2 for all r.
+    # Then for Case 2, for each r1, we need r2 = (r1 - TotalMod) % M.
+    # The number of pairs is sum(freq[r1] * freq[r2]) for all r1, where r1 != r2.
+    # If r1 == r2, we must ensure s > t, but the condition r1 == r2 and s > t 
+    # is already covered by the logic if we just iterate over all r1.
+    # Wait, the simplest way:
+    # Total pairs = \sum_{r} (count(r) * count((r - TotalMod) % M))
+    # But we must exclude cases where s = t.
+    # The condition s != t is given.
+    # If TotalMod % M == 0, then the condition is always X_{s-1} == X_{t-1}.
+    # There are N choices for s, and for each s, there are (count(X_{s-1}) - 1) choices for t.
+    # Total = \sum count(r) * (count(r) - 1)
+    # If TotalMod % M != 0, then X_{s-1} and X_{t-1} must be different.
+    # Total = \sum_{r} count(r) * count((r - TotalMod) % M)
+    
+    # Using map and sum to avoid loops:
+    ans = sum(map(lambda r: freq[r] * freq[(r - TotalMod) % M] if TotalMod % M != 0 
+                  else freq[r] * (freq[r] - 1), freq.keys()))
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

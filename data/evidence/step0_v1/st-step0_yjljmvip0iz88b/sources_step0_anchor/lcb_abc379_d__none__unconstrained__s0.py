@@ -1,0 +1,56 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    # State structure: (current_time, plants_birth_times, results)
+    # plants_birth_times is a sorted list of times when plants were added.
+    # A plant added at time 't' has height (current_time - t).
+    # Height >= H  =>  current_time - t >= H  =>  t <= current_time - H.
+    
+    def process_query(state, query_str):
+        current_time, plants, results = state
+        parts = list(map(int, query_str.split()))
+        q_type = parts[0]
+        
+        if q_type == 1:
+            # Plant a new plant at the current time
+            # Since we add plants chronologically, the list remains sorted
+            return (current_time, plants + [current_time], results)
+        
+        elif q_type == 2:
+            # Increase global time
+            return (current_time + parts[1], plants, results)
+        
+        else: # q_type == 3
+            H = parts[1]
+            # Plants to harvest are those with birth_time <= current_time - H
+            threshold = current_time - H
+            idx = bisect_left(plants, threshold + 1) 
+            # Note: bisect_left for threshold + 1 gives index of first element > threshold
+            # All elements from 0 to idx-1 are <= threshold.
+            
+            # Using slicing to "remove" plants. 
+            # In a production environment with 2*10^5 queries, 
+            # list slicing can be O(N), but Python's list implementation 
+            # is highly optimized. For a strict functional approach, 
+            # this is the standard way to return a new list.
+            harvested_count = idx
+            return (current_time, plants[idx:], results + [str(harvested_count)])
+
+    # Use reduce to iterate through queries and maintain state
+    final_state = reduce(process_query, queries, (0, [], []))
+    
+    # Output all results joined by newlines
+    sys.stdout.write('\n'.join(final_state[2]) + '\n')
+
+if __name__ == "__main__":
+    solve()

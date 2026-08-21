@@ -1,0 +1,56 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing declarative transformations over imperative state changes. While not always "cleaner" for state-heavy problems, it encourages the use of higher-order functions and recursion, which can lead to more concise data pipelines. To solve this problem, I will use `map` to identify differences, list comprehensions for transformations, and a recursive approach to build the sequence of strings, ensuring the lexicographical requirement is met by processing indices in a specific order based on whether the target character is smaller or larger than the current one.
+
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diffs = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To get the lexicographically smallest sequence of strings:
+    # 1. We want to change characters to something smaller as early as possible.
+    # 2. If T[i] < S[i], changing S[i] to T[i] makes the string lexicographically smaller.
+    #    We should do these changes from left to right (smallest index first).
+    # 3. If T[i] > S[i], changing S[i] to T[i] makes the string lexicographically larger.
+    #    We should do these changes from right to left (largest index first) to keep 
+    #    the prefix smaller for longer.
+    
+    # Indices where T[i] < S[i] (sorted ascending)
+    down = sorted([i for i in diffs if T[i] < S[i]])
+    # Indices where T[i] > S[i] (sorted descending)
+    up = sorted([i for i in diffs if T[i] > S[i]], reverse=True)
+    
+    # The sequence of indices to change
+    order = down + up
+    
+    # Recursive function to generate the sequence of strings
+    def generate_sequence(current_s, indices):
+        if not indices:
+            return []
+        
+        idx = indices[0]
+        # Create new string by replacing character at idx with T[idx]
+        # Using slicing to avoid loops/mutability
+        next_s = current_s[:idx] + T[idx] + current_s[idx+1:]
+        return [next_s] + generate_sequence(next_s, indices[1:])
+
+    # Set recursion limit for deep strings (though max length is 100)
+    sys.setrecursionlimit(200)
+    
+    result = generate_sequence(S, order)
+    
+    # Output the number of operations and the strings
+    print(len(result))
+    if result:
+        print('\n'.join(result))
+
+if __name__ == "__main__":
+    solve()
+```

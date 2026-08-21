@@ -1,0 +1,58 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem is to check if edit distance is <= 1
+    # We can use a helper function to check if two strings are identical
+    # and another to check if they differ by exactly one edit.
+    
+    def check_one_edit(s, t):
+        # If lengths differ by more than 1, it's impossible
+        if abs(len(s) - len(t)) > 1:
+            return False
+        
+        # Find the first index where characters differ
+        # We use a generator expression with next() to find the first mismatch
+        # without an explicit for loop.
+        mismatch_idx = next(
+            (i for i in range(min(len(s), len(t))) if s[i] != t[i]), 
+            min(len(s), len(t))
+        )
+        
+        # If no mismatch was found within the length of the shorter string,
+        # they are identical up to that point.
+        # Case 1: S and T are identical
+        if s == t:
+            return True
+        
+        # Case 2: Substitution (lengths are equal)
+        # Check if the rest of the strings after the mismatch are identical
+        if len(s) == len(t):
+            return s[mismatch_idx + 1:] == t[mismatch_idx + 1:]
+        
+        # Case 3: Insertion/Deletion (lengths differ by 1)
+        # If s is shorter, we "insert" into s (or delete from t)
+        if len(s) < len(t):
+            return s[mismatch_idx:] == t[mismatch_idx + 1:]
+        
+        # If s is longer, we "delete" from s (or insert into t)
+        if len(s) > len(t):
+            return s[mismatch_idx + 1:] == t[mismatch_idx:]
+        
+        return False
+
+    if check_one_edit(s, t):
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

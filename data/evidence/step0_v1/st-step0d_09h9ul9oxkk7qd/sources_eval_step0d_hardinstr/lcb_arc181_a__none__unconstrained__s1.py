@@ -1,0 +1,194 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # T is the first element
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # We need to group the remaining data into test cases.
+    # Each test case starts with N, followed by N elements of P.
+    # Since we cannot use loops, we use a generator or a clever way to slice.
+    # However, since the sum of N is 2*10^5, we can't easily use a 
+    # comprehension to slice if we don't know the indices.
+    # But we can use a helper function with recursion or a 
+    # flat map approach. Actually, the simplest way to handle 
+    # variable length chunks without loops is to use an iterator.
+    
+    it = iter(input_data[1:])
+    
+    def process_cases(iterator, remaining):
+        if remaining <= 0:
+            return []
+        
+        # Get N for the current case
+        try:
+            N = int(next(iterator))
+        except StopIteration:
+            return []
+            
+        # Get the permutation P
+        # We use islice to get N elements without a loop
+        from itertools import islice
+        P = list(map(int, islice(iterator, N)))
+        
+        # Logic to find minimum operations:
+        # 0 ops: P is already sorted.
+        # 1 op: There exists k such that sorting [1, k-1] and [k+1, N] sorts P.
+        #       This is possible if there is some k where P[k] is the only 
+        #       element "out of place" relative to the sorted version,
+        #       OR more simply: if we can pick k such that all elements 
+        #       {P_1...P_{k-1}} are {1...k-1} and {P_{k+1}...P_N} are {k+1...N}.
+        #       Wait, the operation sorts the ranges. So if we pick k,
+        #       the result is sorted if and only if P[k] == k and 
+        #       the set {P_1...P_{k-1}} is {1...k-1}.
+        #       Actually, the condition for 1 op is:
+        #       There exists k such that P[k] == k and 
+        #       max(P[1...k-1]) < k and min(P[k+1...N]) > k.
+        #       Which simplifies to: P[k] == k and 
+        #       the elements in the first part are all < k and second part all > k.
+        #       This is equivalent to saying the prefix [0...k-1] contains 
+        #       exactly the values {1...k} except for P[k].
+        #       Correct condition for 1 op:
+        #       There exists k (1-indexed) such that P[k-1] == k and
+        #       the set of values {P_0...P_{k-2}} is {1...k-1} 
+        #       and {P_k...P_{N-1}} is {k+1...N}.
+        #       This is true if and only if for some k, 
+        #       max(P[0...k-2]) == k-1 and min(P[k...N-1]) == k+1.
+        
+        # Let's refine: 
+        # 0 ops: P == sorted(P)
+        # 1 op: There exists k such that P[k-1] == k and 
+        #       (k==1 or max(P[:k-1]) == k-1) and (k==N or min(P[k:]) == k+1)
+        # 2 ops: Always possible for N >= 3.
+        
+        # To implement this without loops, we use list comprehensions.
+        # We need prefix maxes and suffix mins.
+        
+        # Since we can't use loops, we use a trick to get prefix/suffix arrays.
+        # But wait, we can't use a loop to build the prefix array.
+        # We can use a recursive-like structure or just realize that 
+        # for 1 op, we need P[k-1] == k and the elements are partitioned.
+        # The condition "max(P[:k-1]) == k-1" is equivalent to 
+        # "the first k-1 elements are a permutation of 1...k-1".
+        
+        # Let's use the property: 
+        # P is sorted if P[i] == i+1 for all i.
+        # 1 op is possible if there is some k such that:
+        # P[k-1] == k AND (k==1 or max(P[:k-1]) == k-1) AND (k==N or min(P[k:]) == k+1)
+        
+        # To avoid loops and recursion for prefix/suffix, we can use 
+        # the fact that we only need to check if P[k-1] == k and 
+        # the range of values is correct.
+        # Actually, the condition for 1 op is:
+        # There exists k such that P[k-1] == k and 
+        # sorted(P[:k-1]) == [1...k-1] and sorted(P[k:]) == [k+1...N].
+        # This is true if and only if:
+        # P[k-1] == k and (k==1 or max(P[:k-1]) == k-1) and (k==N or min(P[k:]) == k+1).
+        
+        # But we can't use loops to calculate prefix max. 
+        # However, we can use the property:
+        # If P[k-1] == k, then the condition for 1 op is:
+        # the number of elements P[i] < k for i < k-1 is k-1.
+        # Which is always true if P[k-1] == k and the prefix is a permutation.
+        
+        # Let's use a different approach for 1 op:
+        # P is 1-op if there is some k such that P[k-1] == k and
+        # the set of indices i where P[i] != i+1 is contained within 
+        # {0...k-2} union {k...N-1}.
+        # Wait, the operation sorts the two halves.
+        # So if we pick k, the result is sorted iff:
+        # 1. P[k-1] == k
+        # 2. All elements P[i] for i < k-1 are < k
+        # 3. All elements P[i] for i > k-1 are > k
+        
+        # This is equivalent to:
+        # P[k-1] == k and max(P[:k-1]) < k and min(P[k:]) > k.
+        
+        # To check this for all k without loops:
+        # We can use a list comprehension to check the condition for all k.
+        # But max(P[:k-1]) inside a comprehension is O(N), making it O(N^2).
+        # We need O(N). 
+        # We can use `itertools.accumulate` for prefix max and suffix min.
+        
+        from itertools import accumulate
+        
+        # Prefix max
+        pref_max = list(accumulate(P, max))
+        # Suffix min
+        # To do suffix min with accumulate, we reverse, do it, then reverse back.
+        suff_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Check 0 ops
+        is_sorted = all(P[i] == i + 1 for i in range(N))
+        if is_sorted:
+            res = 0
+        else:
+            # Check 1 op: exists k (0-indexed) such that 
+            # P[k] == k+1 and (k==0 or pref_max[k-1] == k) and (k==N-1 or suff_min[k+1] == k+2)
+            # We use a generator expression inside any()
+            can_do_1 = any(
+                P[k] == k + 1 and 
+                (k == 0 or pref_max[k-1] == k) and 
+                (k == N - 1 or suff_min[k+1] == k + 2)
+                for k in range(N)
+            )
+            res = 1 if can_do_1 else 2
+            
+        return [res] + process_cases(iterator, remaining - 1)
+
+    # Since we can't use loops or recursion (for the outer T), 
+    # we can use a list comprehension to drive the process.
+    # But the iterator is stateful. We can use a helper function 
+    # and map it over a range(T).
+    
+    # To avoid the recursion limit and loops, we'll use a 
+    # comprehension that calls a function for each case.
+    # But we need to slice the input_data correctly.
+    
+    # Let's redefine to handle the input slicing without a loop.
+    # We can use a custom class or a closure to keep track of the index.
+    
+    class InputManager:
+        def __init__(self, data):
+            self.data = data
+            self.ptr = 0
+        def next_n(self):
+            n = int(self.data[self.ptr])
+            self.ptr += 1
+            return n
+        def next_p(self, n):
+            p = list(map(int, self.data[self.ptr : self.ptr + n]))
+            self.ptr += n
+            return p
+
+    mgr = InputManager(input_data[1:])
+    
+    def solve_single():
+        try:
+            N = mgr.next_n()
+            P = mgr.next_p(N)
+            from itertools import accumulate
+            pref_max = list(accumulate(P, max))
+            suff_min = list(accumulate(P[::-1], min))[::-1]
+            
+            # 0 ops
+            if all(P[i] == i + 1 for i in range(N)):
+                return 0
+            # 1 op
+            if any(P[k] == k + 1 and (k == 0 or pref_max[k-1] == k) and (k == N - 1 or suff_min[k+1] == k + 2) for k in range(N)):
+                return 1
+            return 2
+        except:
+            return None
+
+    # Use map to apply solve_single T times
+    results = map(lambda _: solve_single(), range(T))
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

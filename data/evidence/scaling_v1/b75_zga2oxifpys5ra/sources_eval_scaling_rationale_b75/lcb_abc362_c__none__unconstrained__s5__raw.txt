@@ -1,0 +1,60 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative programming to a functional paradigm. While idiomatic Python often uses `for` loops for readability, utilizing `sum()`, `map()`, and list comprehensions allows for concise data transformations and aggregations. To solve this problem, I will calculate the minimum and maximum possible sums of the sequence, verify if zero falls within that range, and then use a greedy approach implemented via a list comprehension to distribute the remaining required sum across the elements.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    # Use an iterator to consume N and then pair the remaining values
+    it = iter(input_data)
+    N = next(it)
+    # Create list of (L, R) pairs using zip and slice-like behavior via the iterator
+    pairs = [(L := next(it), R := next(it)) for _ in range(N)]
+    
+    # Calculate the minimum and maximum possible sums
+    # Using list comprehensions to extract Ls and Rs
+    min_sum = sum([p[0] for p in pairs])
+    max_sum = sum([p[1] for p in pairs])
+    
+    # Check if 0 is reachable within the range [min_sum, max_sum]
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start with X_i = L_i. The current sum is min_sum.
+    # We need to add 'target_diff' to the elements to reach a total sum of 0.
+    target_diff = 0 - min_sum
+    
+    # To distribute target_diff without loops, we can't easily maintain a 
+    # running state of the remaining difference. 
+    # However, we can use the fact that each X_i can be increased by at most (R_i - L_i).
+    # We can calculate the prefix sums of the maximum possible increases.
+    max_increases = [p[1] - p[0] for p in pairs]
+    
+    # Since we cannot use loops or recursion, we use a trick with a mutable object 
+    # (a list containing the remaining difference) inside a list comprehension.
+    # This allows us to track state across the iteration.
+    state = [target_diff]
+    
+    # For each i, the increase is min(max_increase_i, remaining_diff)
+    # We update state[0] by subtracting the increase used.
+    # The expression (s := state[0]) is used to capture current state, 
+    # and state.__setitem__(0, s - increase) updates it.
+    # Note: we use a helper function or a clever comprehension.
+    
+    def get_val(p):
+        l, r = p
+        increase = min(r - l, state[0])
+        state[0] -= increase
+        return l + increase
+
+    # Map the helper function across all pairs
+    result = [get_val(p) for p in pairs]
+    
+    print("Yes")
+    print(*(result))
+
+if __name__ == "__main__":
+    solve()
+```

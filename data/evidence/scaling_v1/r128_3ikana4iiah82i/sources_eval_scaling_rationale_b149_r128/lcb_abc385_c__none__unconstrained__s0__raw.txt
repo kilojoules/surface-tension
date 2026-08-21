@@ -1,0 +1,179 @@
+The constraint to avoid explicit `for` and `while` loops forces a shift from imperative programming to a functional style. This encourages the use of declarative constructs that describe *what* the result should be rather than *how* to step through the process, leveraging Python's powerful comprehension syntax and built-in higher-order functions. To solve this problem, I will use nested list comprehensions to iterate over all possible starting positions and intervals, and `max()` to find the optimal result.
+
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # We need to find the maximum number of buildings that:
+    # 1. Have the same height.
+    # 2. Are spaced at equal intervals.
+    
+    # Let i be the starting index (0 to n-1)
+    # Let d be the interval (1 to n-1)
+    # For a fixed i and d, we check how many buildings at indices i, i+d, i+2d... 
+    # have the same height as building i.
+    
+    # We use a generator expression inside max() to evaluate all combinations.
+    # The inner logic: 
+    # For a starting index i and interval d, we create a sequence of indices.
+    # We count how many of those indices j have h[j] == h[i].
+    # Note: The condition "arranged at equal intervals" implies we check 
+    # the sequence i, i+d, i+2d... and they must ALL have the same height 
+    # to be part of the set, OR we are looking for the longest subsequence 
+    # with a constant difference d and constant height.
+    # Actually, the problem says "The chosen buildings are arranged at equal intervals",
+    # which means if we pick indices p1, p2, ..., pk, then p2-p1 = p3-p2 = ... = d.
+    # And h[p1] = h[p2] = ... = h[pk].
+    
+    # For a fixed start i and interval d, the number of buildings is:
+    # count = 0
+    # while i + count*d < n and h[i + count*d] == h[i]:
+    #     count += 1
+    # return count
+
+    # To implement the 'while' logic in a comprehension, we can pre-calculate 
+    # the maximum possible count for a given i and d: (n - 1 - i) // d + 1
+    # Then we check the prefix of the sequence that maintains the height.
+    
+    # However, a simpler way to think about it:
+    # For every pair of indices (i, j) where i < j and h[i] == h[j]:
+    # They define an interval d = j - i.
+    # We can then check how many subsequent buildings at interval d also have height h[i].
+    
+    # To avoid loops, we can use a recursive-like structure via a helper function 
+    # or just iterate through all i, d and use a trick to count the contiguous 
+    # matching heights.
+    
+    # Since we can't use while loops, we can use a list comprehension to 
+    # generate the sequence and then find the first index where the height differs.
+    
+    # For a fixed i and d:
+    # sequence = [h[i + k*d] for k in range((n - 1 - i) // d + 1)]
+    # The number of valid buildings is the length of the prefix consisting of h[i].
+    
+    # To find the length of the prefix of identical elements:
+    # We can use a generator to find the first index k where sequence[k] != h[i].
+    
+    # But wait, the simplest approach:
+    # For every i in 0..n-1 and every d in 1..n-1:
+    # We check the sequence h[i], h[i+d], h[i+2d]...
+    # The number of buildings is the count of elements from the start that equal h[i].
+    
+    # To implement "count prefix" without a loop:
+    # We can use a list comprehension to mark 1 if h[i+k*d] == h[i] else 0
+    # and then find the first 0.
+    
+    # Actually, the most direct way:
+    # For every i and d, the number of buildings is:
+    # sum(1 for k in range(...) if all(h[i + m*d] == h[i] for m in range(k+1)))
+    # This is O(N^4). We need something faster.
+    
+    # Let's use the property: for a fixed i and d, 
+    # the number of buildings is the largest k such that 
+    # h[i] == h[i+d] == h[i+2d] == ... == h[i+(k-1)*d].
+    
+    # We can use a helper function with recursion (though recursion is banned if it replaces loops)
+    # or just use the fact that N=3000. O(N^2) is required.
+    # For every d from 1 to N:
+    #   For every i from 0 to d-1:
+    #     We have a sequence h[i], h[i+d], h[i+2d]...
+    #     We want to find the longest run of identical values in this sequence.
+    
+    # To find the longest run of identical values in a sequence without loops:
+    # We can use groupby from itertools.
+    
+    from itertools import groupby
+    
+    # We generate all possible sequences for all d and i.
+    # Then for each sequence, we find the length of the longest group of identical elements.
+    
+    # Note: The problem says "The chosen buildings are arranged at equal intervals."
+    # This means we pick indices p, p+d, p+2d, ..., p+(k-1)d.
+    # All these must have the same height.
+    
+    # We can iterate over all d (1 to N) and all i (0 to N-1).
+    # For a fixed i and d, we check the sequence h[i], h[i+d], ...
+    # and count how many starting elements are equal to h[i].
+    
+    # To do this without loops:
+    # For a fixed i and d, the number of elements is:
+    # len([h[i + k*d] for k in range((n-1-i)//d + 1) if h[i + k*d] == h[i]])
+    # WAIT: The above is wrong because it counts ALL elements of that height, 
+    # not necessarily a contiguous run. But the problem says "arranged at equal intervals",
+    # which means the indices are p, p+d, p+2d... 
+    # It does NOT say we can't skip some. 
+    # "The chosen buildings are arranged at equal intervals" 
+    # means the distance between any two adjacent chosen buildings is the same.
+    # This implies the indices are an arithmetic progression.
+    # So if we choose k buildings, their indices are p, p+d, p+2d, ..., p+(k-1)d.
+    # All these must have the same height.
+    
+    # So for a fixed i (start) and d (interval), we want the largest k 
+    # such that h[i] == h[i+d] == ... == h[i+(k-1)d].
+    # This is exactly the length of the prefix of the sequence (h[i], h[i+d], ...) 
+    # that matches h[i].
+    
+    # To find the length of the prefix without a loop:
+    # We can use a list comprehension to find all k where the condition fails, 
+    # and take the minimum.
+    
+    # However, the most efficient way to solve this is:
+    # For every pair (i, j) with i < j and h[i] == h[j]:
+    #   d = j - i
+    #   We check if this pair can extend a previously found sequence.
+    #   But we can't use DP tables with loops.
+    
+    # Let's use the "prefix" idea.
+    # For a fixed i and d, the number of buildings is:
+    # k = (n - 1 - i) // d + 1
+    # We want the smallest m < k such that h[i + m*d] != h[i].
+    # The answer for that (i, d) is m.
+    # If no such m exists, the answer is k.
+    
+    # We can find m using:
+    # next((m for m in range(k) if h[i + m*d] != h[i]), k)
+    
+    # Now we wrap this in a max() over all i and d.
+    # i ranges from 0 to n-1, d ranges from 1 to n-1.
+    
+    # To optimize: we only need to check d if h[i] == h[i+d].
+    # If h[i] != h[i+d], the length is just 1.
+    
+    # The final expression:
+    # max(
+    #   next((m for m in range((n - 1 - i) // d + 1) if h[i + m*d] != h[i]), (n - 1 - i) // d + 1)
+    #   for i in range(n)
+    #   for d in range(1, n)
+    # )
+    # Note: if n=1, the range(1, n) is empty. We should handle that.
+    
+    if n == 0:
+        print(0)
+        return
+    if n == 1:
+        print(1)
+        return
+
+    # We use a generator expression to find the maximum.
+    # We include the case of 1 building by starting the max with 1.
+    ans = max(
+        [1] + [
+            next((m for m in range((n - 1 - i) // d + 1) if h[i + m*d] != h[i]), (n - 1 - i) // d + 1)
+            for i in range(n)
+            for d in range(1, n)
+            if i + d < n and h[i] == h[i+d]
+        ]
+    )
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

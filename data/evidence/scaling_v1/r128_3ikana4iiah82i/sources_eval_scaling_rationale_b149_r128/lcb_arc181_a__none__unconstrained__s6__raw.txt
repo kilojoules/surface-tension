@@ -1,0 +1,123 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state-mutation to a functional paradigm. While not necessarily "cleaner" for all programmers, it encourages the use of higher-order functions and declarative data transformations, leveraging Python's powerful iterator tools. To solve this problem, I will use `map` for input processing, list comprehensions for data transformation, and `functools.reduce` or `min`/`max` to evaluate the permutation's state.
+
+The core logic is to identify the range of indices $i$ where $P_i \neq i$. If the permutation is already sorted, the answer is 0. If there exists a $k$ such that sorting $[1, k-1]$ and $[k+1, N]$ results in a sorted array, the answer is 1. This happens if and only if there is some $k$ such that all elements $P_i$ for $i < k$ are less than $P_k$, and all elements $P_i$ for $i > k$ are greater than $P_k$. Otherwise, the answer is 2 (as it is proven that 2 operations are always sufficient for $N \ge 3$).
+
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # Use a generator to process test cases
+    # We use a helper function to handle the logic for each case
+    def get_answer(N, P):
+        # P is 0-indexed here, so P_i = i+1 is the target
+        # Identify indices where P_i != i+1
+        # We use a list comprehension to find mismatched indices
+        mismatches = [i for i in range(N) if P[i] != i + 1]
+        
+        if not mismatches:
+            return 0
+        
+        # The operation with index k (1-indexed) sorts [1, k-1] and [k+1, N].
+        # This results in a sorted array if and only if:
+        # 1. P[k-1] is the value k
+        # 2. All elements to the left of k-1 are < k
+        # 3. All elements to the right of k-1 are > k
+        # Actually, the condition is simpler: 
+        # The operation succeeds if there exists k such that P[k-1] = k,
+        # and the set of elements {P[0]...P[k-2]} is {1...k-1},
+        # and the set of elements {P[k]...P[N-1]} is {k+1...N}.
+        # This is equivalent to saying P[k-1] = k and 
+        # max(P[0...k-2]) < k and min(P[k...N-1]) > k.
+        
+        # Precompute prefix max and suffix min to check the condition in O(N)
+        # Using list comprehensions and slicing is allowed.
+        # However, we can't use loops. We use a trick with a running maximum.
+        # Since we can't use loops, we use a list comprehension with a 
+        # side-effect via a mutable object or use a different approach.
+        # Wait, the constraint says no for/while loops. 
+        # We can use map/reduce/filter.
+        
+        # Let's use a different observation:
+        # An operation at k works if P[k-1] == k AND 
+        # (all P[i] for i < k-1 are < k) AND (all P[i] for i > k-1 are > k).
+        # This is true if and only if P[k-1] == k and 
+        # the number of elements P[i] < k for i < k-1 is exactly k-1.
+        
+        # Let's check if any k satisfies: P[k-1] == k and 
+        # the elements {P[0]...P[k-2]} are a permutation of {1...k-1}.
+        # This is true if sum(P[i] for i < k-1) == (k-1)*k // 2.
+        
+        # To avoid loops, we use prefix sums.
+        # We can't use loops to build prefix sums, but we can use a 
+        # recursive-like structure via map or a clever comprehension.
+        # Actually, the most reliable way to get prefix sums without loops 
+        # in Python is using itertools.accumulate.
+        from itertools import accumulate
+        
+        prefix_sum = list(accumulate(P))
+        total_sum = prefix_sum[-1]
+        
+        # Check if any k (1 to N) satisfies the condition
+        # k is 1-indexed. The element is P[k-1].
+        # Condition: P[k-1] == k and 
+        # (k==1 or prefix_sum[k-2] == (k-1)*k//2) and
+        # (k==N or (total_sum - prefix_sum[k-1]) == (N*(N+1)//2 - k*(k+1)//2 + k))
+        # Simplified suffix sum: total_sum - prefix_sum[k-1] == sum of {k+1...N}
+        # Sum of {k+1...N} = N(N+1)/2 - k(k+1)/2
+        
+        # We use a generator expression inside 'any' to check the condition
+        # Note: P is 0-indexed, so P[i] is the element at position i+1.
+        # For a chosen k (1-indexed), the element is P[k-1].
+        
+        # We need to check if there's any i in 0...N-1 such that:
+        # 1. P[i] == i + 1
+        # 2. sum(P[0...i-1]) == i*(i+1)//2
+        # 3. sum(P[i+1...N-1]) == N(N+1)//2 - (i+1)(i+2)//2
+        
+        # We can pre-calculate the total sum.
+        s_total = N * (N + 1) // 2
+        
+        # Use a list comprehension to check all i
+        # We use the prefix_sum list calculated via accumulate.
+        
+        # The condition for index i (0-indexed):
+        # P[i] == i + 1 and 
+        # (i == 0 or prefix_sum[i-1] == i*(i+1)//2) and
+        # (i == N-1 or (s_total - prefix_sum[i]) == s_total - (i+1)*(i+2)//2)
+        
+        # We use 'any' with a generator expression.
+        return 1 if any(
+            P[i] == i + 1 and 
+            (i == 0 or prefix_sum[i-1] == i * (i + 1) // 2) and 
+            (i == N - 1 or (s_total - prefix_sum[i]) == s_total - (i + 1) * (i + 2) // 2)
+            for i in range(N)
+        ) else 2
+
+    # Process T cases
+    # Using map and a lambda to call get_answer
+    # We need to group the input_data into (N, P) pairs.
+    # Since N varies, we can't use a simple slice. 
+    # We use a helper function with a mutable state to consume the input list.
+    
+    def process_cases(data):
+        it = iter(data)
+        # Use map to apply a function that consumes the iterator
+        return map(lambda _: 
+            (lambda N: 
+                get_answer(N, [int(next(it)) for _ in range(N)])
+            )(int(next(it))), 
+            range(T))
+
+    # Print results
+    print('\n'.join(map(str, process_cases(input_data[1:]))))
+
+if __name__ == "__main__":
+    solve()
+```

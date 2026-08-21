@@ -1,0 +1,143 @@
+import sys
+
+def solve():
+    # Read N and M from the first line of input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # Let P_i be the prefix sum of A.
+    # P_0 = 0
+    # P_i = A_1 + ... + A_i
+    # The distance from s to t (s < t) is P_{t-1} - P_{s-1}
+    # The distance from s to t (s > t) is (P_N - P_{s-1}) + P_{t-1}
+    # We want distance % M == 0.
+    
+    # Let S_i = P_i % M.
+    # For s < t: (S_{t-1} - S_{s-1}) % M == 0  => S_{t-1} == S_{s-1}
+    # For s > t: (S_N - S_{s-1} + S_{t-1}) % M == 0 => S_{s-1} - S_{t-1} == S_N % M
+    
+    # Let's redefine indices to be 0-indexed for convenience.
+    # Rest areas are 0, 1, ..., N-1.
+    # Distance from i to j (i < j) is (P[j] - P[i]) % M
+    # Distance from i to j (i > j) is (P[N] - P[i] + P[j]) % M
+    # where P[k] = sum(A[0...k-1])
+    
+    P = [0] * (N + 1)
+    for i in range(N):
+        P[i+1] = P[i] + A[i]
+    
+    # We only care about P[i] % M for i = 0 to N-1.
+    # Note: P[N] is the total sum.
+    S = [P[i] % M for i in range(N)]
+    total_sum_mod = P[N] % M
+    
+    # Count occurrences of each remainder
+    count = {}
+    for x in S:
+        count[x] = count.get(x, 0) + 1
+        
+    ans = 0
+    
+    # Case 1: s < t
+    # We need S[t] == S[s] where s < t.
+    # For each remainder r, if it appears C times, there are C*(C-1)//2 pairs.
+    for r in count:
+        C = count[r]
+        ans += C * (C - 1) // 2
+        
+    # Case 2: s > t
+    # We need (total_sum_mod - S[s] + S[t]) % M == 0
+    # S[s] - S[t] == total_sum_mod (mod M)
+    # S[s] == (S[t] + total_sum_mod) % M
+    # We iterate over all possible S[t] and multiply by count of corresponding S[s].
+    # However, we must ensure s > t. 
+    # This is tricky. Let's use the property:
+    # Total pairs (s, t) with s != t is N*(N-1).
+    # A pair (s, t) satisfies the condition if:
+    # 1. s < t and S[t] == S[s]
+    # 2. s > t and S[s] == (S[t] + total_sum_mod) % M
+    
+    # Let's calculate Case 2 more carefully.
+    # For a fixed t, we need s > t such that S[s] == (S[t] + total_sum_mod) % M.
+    # Let target(r) = (r + total_sum_mod) % M.
+    # We want to sum count(S[s] == target(S[t])) for all s > t.
+    
+    # Instead of iterating, let's use the total counts.
+    # For each r, there are count[r] indices with S[i] == r.
+    # For each r, there are count[target(r)] indices with S[j] == target(r).
+    # The total number of pairs (t, s) such that S[s] == target(S[t]) is:
+    # sum(count[r] * count[target(r)] for r in count)
+    
+    # This sum includes pairs where s < t, s == t, and s > t.
+    # But the condition for Case 2 is specifically s > t.
+    # Let's use a different approach:
+    # For every pair (i, j) with i < j:
+    # Check if (S[j] - S[i]) % M == 0  <-- This is s=i, t=j (s < t)
+    # Check if (total_sum_mod - S[i] + S[j]) % M == 0 <-- This is s=j, t=i (s > t)
+    
+    # Let's evaluate the second condition:
+    # total_sum_mod - S[i] + S[j] \equiv 0 (mod M)
+    # S[i] - S[j] \equiv total_sum_mod (mod M)
+    
+    # Let's use the counts:
+    # For each r, let C[r] be the number of times r appears in S.
+    # The number of pairs (i, j) with i < j such that S[i] == S[j] is sum(C[r]*(C[r]-1)//2).
+    # The number of pairs (i, j) with i < j such that S[i] - S[j] \equiv total_sum_mod (mod M) is:
+    # We can iterate through the array S and keep track of counts of remainders seen so far.
+    
+    # Let's restart the calculation:
+    # Total = 0
+    # For i from 0 to N-1:
+    #   # Pair (s=i, t=j) where i < j: need S[j] == S[i]
+    #   # Pair (s=j, t=i) where i < j: need S[j] - S[i] == -total_sum_mod == (M - total_sum_mod) % M
+    #   # Wait, the condition for s > t is: (P[N] - P[s] + P[t]) % M == 0
+    #   # Let s = j, t = i (with i < j).
+    #   # (P[N] - P[j] + P[i]) % M == 0  =>  S[j] - S[i] == P[N] % M
+    
+    # Let T = P[N] % M.
+    # We want pairs (i, j) with i < j such that:
+    # 1. S[j] == S[i]  (This is s=i, t=j)
+    # 2. S[j] - S[i] == T (mod M) (This is s=j, t=i)
+    
+    # For 1: sum(C[r] * (C[r]-1) // 2)
+    # For 2: 
+    # Iterate j from 0 to N-1:
+    #   We need S[i] == (S[j] - T) % M for some i < j.
+    #   Add current_count[(S[j] - T) % M] to total.
+    #   Increment current_count[S[j]].
+    
+    # Special case: if T == 0, then condition 1 and 2 are the same (S[j] == S[i]).
+    # But the problem says s != t.
+    # If T == 0, then for any i < j, if S[i] == S[j], both (s=i, t=j) and (s=j, t=i) work.
+    # So the answer is 2 * sum(C[r] * (C[r]-1) // 2).
+    
+    # Let's implement this.
+    
+    # Re-calculating Case 1:
+    ans1 = 0
+    for r in count:
+        C = count[r]
+        ans1 += C * (C - 1) // 2
+        
+    # Re-calculating Case 2:
+    ans2 = 0
+    current_count = {}
+    T = total_sum_mod
+    for j in range(N):
+        target = (S[j] - T) % M
+        ans2 += current_count.get(target, 0)
+        current_count[S[j]] = current_count.get(S[j], 0) + 1
+        
+    # If T == 0, the logic above counts pairs (i, j) where S[i] == S[j] twice.
+    # Once in ans1 (as s=i, t=j) and once in ans2 (as s=j, t=i).
+    # This is correct because if T=0, both directions are multiples of M.
+    
+    print(ans1 + ans2)
+
+if __name__ == "__main__":
+    solve()

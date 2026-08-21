@@ -1,0 +1,84 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions are pairs of (H, T)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Function to calculate the shortest distance between two points on a ring
+    # considering that the other hand acts as a barrier.
+    # Since we can only move one hand and the other is stationary,
+    # the "barrier" divides the ring into a linear path.
+    # The distance is simply the absolute difference if we don't cross the barrier.
+    # However, the problem guarantees instructions are achievable.
+    # On a ring, the distance between a and b is min(|a-b|, N - |a-b|).
+    # But we cannot pass through the other hand.
+    # Let L be the stationary hand and R be the moving hand.
+    # The moving hand can move in two directions. One direction will hit L.
+    # The other direction is the only viable path if the target is "behind" L.
+    # Actually, since we only move one hand, the distance is the length of the 
+    # path that does not contain the other hand's position.
+    
+    calc_dist = lambda pos, target, barrier: (
+        # Distance moving clockwise
+        (target - pos) % N if (
+            # Check if barrier is in the clockwise path
+            # Clockwise path from pos to target is (pos+1, ..., target)
+            # Barrier is in path if (barrier - pos) % N < (target - pos) % N
+            # But we want the path that DOES NOT contain the barrier.
+            # If clockwise contains barrier, we must go counter-clockwise.
+            # If counter-clockwise contains barrier, we must go clockwise.
+            # Since only one path is blocked, we take the one that doesn't hit the barrier.
+            # The distance is simply the one that doesn't "jump over" the barrier.
+            # Let's use the property: the distance is the absolute difference 
+            # in a linear space where the barrier is the boundary.
+            # Easier: The two paths are (target-pos)%N and (pos-target)%N.
+            # One of these paths contains the barrier, the other doesn't.
+            # The path (target-pos)%N contains barrier if (barrier-pos)%N < (target-pos)%N.
+            # If (barrier-pos)%N < (target-pos)%N, we must use (pos-target)%N.
+            # Else, we use (target-pos)%N.
+            (barrier - pos) % N < (target - pos) % N
+        ) and (pos - target) % N or (target - pos) % N
+    )
+    
+    # However, the logic above is slightly flawed due to Python's 'and/or'.
+    # Correct logic: 
+    # Path 1: pos -> pos+1 -> ... -> target (dist: (target-pos)%N)
+    # Path 2: pos -> pos-1 -> ... -> target (dist: (pos-target)%N)
+    # Path 1 is blocked if barrier is encountered. 
+    # Barrier is encountered if (barrier-pos)%N < (target-pos)%N.
+    # Since T != barrier, exactly one path is blocked unless N=2 (but N>=3).
+    
+    get_dist = lambda p, t, b: (
+        (p - t) % N if (b - p) % N < (t - p) % N else (t - p) % N
+    )
+
+    # State: (left_pos, right_pos, total_dist)
+    # Initial state: L=1, R=2, dist=0
+    result = reduce(
+        lambda state, inst: (
+            # If H == 'L', move left hand to T, right hand stays
+            (inst[1], state[1], state[2] + get_dist(state[0], inst[1], state[1]))
+            if inst[0] == 'L' else
+            # If H == 'R', move right hand to T, left hand stays
+            (state[0], inst[1], state[2] + get_dist(state[1], inst[1], state[0]))
+        ),
+        instructions,
+        (1, 2, 0)
+    )
+
+    print(result[2])
+
+if __name__ == "__main__":
+    solve()

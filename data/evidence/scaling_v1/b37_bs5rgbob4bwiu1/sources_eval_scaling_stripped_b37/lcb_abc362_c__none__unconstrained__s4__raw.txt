@@ -1,0 +1,275 @@
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into a list of tuples (L, R)
+    pairs = [
+        (int(input_data[2*i + 1]), int(input_data[2*i + 2]))
+        for i in range(N)
+    ]
+    
+    # The minimum possible sum is the sum of all L_i
+    # The maximum possible sum is the sum of all R_i
+    min_sum = sum(L for L, R in pairs)
+    max_sum = sum(R for L, R in pairs)
+    
+    # A solution exists if and only if 0 is within the range [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        # We start by setting every X_i to its minimum value L_i.
+        # We then need to increase some X_i values to reach a total sum of 0.
+        # The total increase needed is 0 - min_sum.
+        diff = -min_sum
+        
+        # For each i, we can increase X_i by at most (R_i - L_i).
+        # We use a list comprehension to calculate the increase for each element.
+        # Since we cannot use loops, we track the remaining diff using a custom 
+        # reduction or by pre-calculating the prefix sums of the available ranges.
+        # However, a simpler way to avoid explicit loops while maintaining state 
+        # is to use a generator with a helper function or map with a mutable state.
+        
+        # Using a mutable object to track the remaining difference across the map
+        state = {'rem': diff}
+        
+        def allocate(pair):
+            L, R = pair
+            # Amount we can add to L_i is min(remaining_diff, R_i - L_i)
+            add = min(state['rem'], R - L)
+            state['rem'] -= add
+            return L + add
+
+        # Map the allocate function over all pairs
+        result = map(allocate, pairs)
+        
+        print("Yes")
+        print(*(result))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait, the prompt forbids `for` and `while` loops.** My `range(N)` inside the list comprehension is technically a generator/iterator, but some strict interpretations consider it a loop construct. Let's refine it to be purely functional using `zip` and `map`.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Use map and slice to get Ls and Rs without range()
+    # input_data[1::2] gets all L_i, input_data[2::2] gets all R_i
+    Ls = list(map(int, input_data[1::2]))
+    Rs = list(map(int, input_data[2::2]))
+    
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    if min_sum <= 0 <= max_sum:
+        diff = -min_sum
+        
+        # To distribute 'diff' across (R_i - L_i) without a loop:
+        # 1. Calculate the capacity of each slot: C_i = R_i - L_i
+        # 2. Calculate prefix sums of capacities: P_i = sum(C_1 ... C_i)
+        # 3. The amount added to X_i is: min(C_i, diff - P_{i-1}) clamped to [0, C_i]
+        # Actually, a simpler way: X_i = L_i + (amount contributed to the sum)
+        # The total increase needed is 'diff'. 
+        # For index i, the increase is min(R_i - L_i, max(0, diff - sum(R_j - L_j for j < i)))
+        
+        # Using itertools.accumulate to get prefix sums of (R_i - L_i)
+        from itertools import accumulate
+        capacities = [R - L for L, R in zip(Ls, Rs)]
+        pref_caps = list(accumulate(capacities))
+        
+        # For each i, the increase is:
+        # current_pref - prev_pref, but capped by the remaining diff.
+        # Increase for index i: min(capacities[i], max(0, diff - (pref_caps[i-1] if i>0 else 0)))
+        
+        def get_x(i):
+            # We use a helper to handle the index 0 case for prefix sums
+            prev_pref = pref_caps[i-1] if i > 0 else 0
+            increase = max(0, min(capacities[i], diff - prev_pref))
+            return Ls[i] + increase
+
+        # Use map with a range object (range is allowed as it's an iterable, not a loop)
+        # If range() is banned, we can use map(get_x, range(N))
+        # To be safe, we can use map with the index of the Ls list.
+        res = map(get_x, range(N))
+        
+        print("Yes")
+        print(*(res))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+*Self-correction:* The prompt says "Return only Python source inside a single ```python code block." and forbids `for` and `while`. `range()` is a function that returns a range object, and `map` processes it. This is the standard way to avoid explicit loops in Python.
+
+Final check on logic:
+If $\sum L_i = -10$ and $\sum R_i = 10$, then `diff = 10`.
+If capacities are $[5, 10, 5]$, prefix sums are $[5, 15, 20]$.
+$i=0: \text{inc} = \max(0, \min(5, 10 - 0)) = 5$.
+$i=1: \text{inc} = \max(0, \min(10, 10 - 5)) = 5$.
+$i=2: \text{inc} = \max(0, \min(5, 10 - 15)) = 0$.
+Total increase = 10. Correct.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Ls = list(map(int, input_data[1::2]))
+    Rs = list(map(int, input_data[2::2]))
+    
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    if min_sum <= 0 <= max_sum:
+        diff = -min_sum
+        capacities = [R - L for L, R in zip(Ls, Rs)]
+        pref_caps = list(accumulate(capacities))
+        
+        def get_x(i):
+            prev_pref = pref_caps[i-1] if i > 0 else 0
+            increase = max(0, min(capacities[i], diff - prev_pref))
+            return Ls[i] + increase
+
+        res = map(get_x, range(N))
+        print("Yes")
+        print(*(res))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the list comprehension `[R - L for L, R in zip(Ls, Rs)]` contains a `for` keyword. I must replace it with `map`.
+
+```python
+capacities = list(map(lambda p: p[1] - p[0], zip(Ls, Rs)))
+```
+And the `if i > 0` inside `get_x` is fine. The `range(N)` inside `map` is fine.
+
+Final Polish:
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Ls = list(map(int, input_data[1::2]))
+    Rs = list(map(int, input_data[2::2]))
+    
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    if min_sum <= 0 <= max_sum:
+        diff = -min_sum
+        # Use map instead of list comprehension to avoid 'for' keyword
+        capacities = list(map(lambda x: x[1] - x[0], zip(Ls, Rs)))
+        pref_caps = list(accumulate(capacities))
+        
+        def get_x(i):
+            prev_pref = pref_caps[i-1] if i > 0 else 0
+            increase = max(0, min(capacities[i], diff - prev_pref))
+            return Ls[i] + increase
+
+        res = map(get_x, range(N))
+        sys.stdout.write("Yes\n" + " ".join(map(str, res)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+One last check: `if min_sum <= 0 <= max_sum:` uses `if`, which is allowed. The only forbidden keywords are `for` and `while`. The above code uses neither.
+
+Final version:
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Ls = list(map(int, input_data[1::2]))
+    Rs = list(map(int, input_data[2::2]))
+    
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    if min_sum <= 0 <= max_sum:
+        diff = -min_sum
+        capacities = list(map(lambda x: x[1] - x[0], zip(Ls, Rs)))
+        pref_caps = list(accumulate(capacities))
+        
+        def get_x(i):
+            prev_pref = pref_caps[i-1] if i > 0 else 0
+            increase = max(0, min(capacities[i], diff - prev_pref))
+            return Ls[i] + increase
+
+        res = map(get_x, range(N))
+        sys.stdout.write("Yes\n" + " ".join(map(str, res)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used `if` in `get_x`. The prompt says "no `for` or `while` loops". `if` is a conditional, not a loop. This is allowed.
+
+One final detail: `input_data[1::2]` and `input_data[2::2]` are slices. They are allowed. `map`, `zip`, `accumulate`, `sum` are all allowed. `range(N)` is allowed.
+
+Final check on constraints: $N=2 \cdot 10^5$, values $10^9$. Python handles large integers automatically. Time complexity $O(N)$, space $O(N)$. This is optimal.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input and parse N, Ls, and Rs
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Extract L_i and R_i using slicing and map
+    Ls = list(map(int, input_data[1::2]))
+    Rs = list(map(int, input_data[2::2]))
+    
+    # Calculate the range of possible sums
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    # Check if 0 is reachable
+    if min_sum <= 0 <= max_sum:
+        # Total increase needed to reach sum 0 from the minimum sum
+        diff = -min_sum
+        # Calculate how much each X_i can be increased: R_i - L_i
+        capacities = list(map(lambda x: x[1] - x[0], zip(Ls, Rs)))
+        # Prefix sum of capacities to determine how much 'diff' is consumed
+        pref_caps = list(accumulate(capacities))
+        
+        # Function to calculate X_i based on its index
+        def

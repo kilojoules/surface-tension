@@ -1,0 +1,92 @@
+import sys
+from functools import reduce
+from math import comb
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences S is (N*K)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Since we cannot use loops, we use reduce to build the sequence.
+    # State: (current_counts, target_index)
+    # current_counts: list of remaining counts for each number 1...N
+    # target_index: the 1-based index of the sequence we are looking for
+    
+    def get_total_permutations(counts):
+        # Formula for permutations of a multiset: (sum(counts))! / product(counts[i]!)
+        # However, we can compute this iteratively or using a property.
+        # To avoid loops, we use reduce.
+        total_len = sum(counts)
+        # We can compute the multiset coefficient efficiently:
+        # C(n, k1) * C(n-k1, k2) * ...
+        return reduce(lambda acc, c: acc * comb(total_len - (sum(counts[:counts.index(c)]) if counts.index(c) > 0 else 0), c), 
+                      range(len(counts)), 1)
+    
+    # The above get_total_permutations is slightly wrong because of the index() logic.
+    # Let's redefine it using a more robust reduce.
+    def calc_multiset_perm(counts):
+        # Using the property: Permutations = product(comb(remaining_slots, count_i))
+        # We use a helper function with reduce to track remaining slots.
+        def step(state, c):
+            rem, prod = state
+            return (rem - c, prod * comb(rem, c))
+        
+        return step(reduce(step, counts, (sum(counts), 1)))[1]
+
+    # We need the floor((S+1)/2)-th sequence.
+    # S = calc_multiset_perm([k] * n)
+    # target = (S + 1) // 2
+    
+    # To avoid recursion depth issues and loops, we use reduce to determine the sequence.
+    # The state is (current_counts, target_index)
+    # We need to determine NK elements.
+    
+    def find_next_char(state, _):
+        counts, target = state
+        
+        def search_digit(digit, current_target):
+            if digit > n:
+                return None # Should not happen
+            
+            if counts[digit-1] > 0:
+                # Try placing 'digit' at the current position
+                # Calculate how many sequences start with this prefix
+                temp_counts = list(counts)
+                temp_counts[digit-1] -= 1
+                num_ways = calc_multiset_perm(temp_counts)
+                
+                if current_target <= num_ways:
+                    return (digit, current_target)
+                else:
+                    return search_digit(digit + 1, current_target - num_ways)
+            else:
+                return search_digit(digit + 1, current_target)
+
+        digit, new_target = search_digit(1, target)
+        new_counts = list(counts)
+        new_counts[digit-1] -= 1
+        return (new_counts, new_target), digit
+
+    # Initial S
+    total_s = calc_multiset_perm([k] * n)
+    target_idx = (total_s + 1) // 2
+    
+    # Use reduce to generate the sequence of length N*K
+    # The accumulator is ((counts, target), result_list)
+    initial_state = (([k] * n, target_idx), [])
+    
+    def build_sequence(state, _):
+        (counts, target), res = state
+        (next_state, digit) = find_next_char((counts, target), None)
+        return (next_state, res + [digit])
+
+    final_result = reduce(build_sequence, range(n * k), initial_state)[1]
+    print(*(final_result))
+
+if __name__ == "__main__":
+    solve()

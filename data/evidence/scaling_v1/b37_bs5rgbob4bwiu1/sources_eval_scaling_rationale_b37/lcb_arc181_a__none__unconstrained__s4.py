@@ -1,0 +1,90 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to yield chunks of data for each test case
+    def get_cases(data):
+        it = iter(data[1:])
+        for _ in range(T):
+            N = int(next(it))
+            P = [int(next(it)) for _ in range(N)]
+            yield N, P
+
+    # The core logic to determine the minimum operations:
+    # 0 operations: Already sorted.
+    # 1 operation: There exists a k such that sorting [1, k-1] and [k+1, N] 
+    #              results in [1, ..., N]. This happens if there is some k
+    #              such that {P_1, ..., P_{k-1}} = {1, ..., k-1} 
+    #              AND {P_{k+1}, ..., P_N} = {k+1, ..., N}.
+    #              This is equivalent to saying P_k = k and the sets match.
+    #              Actually, the condition for 1 op is: there exists k such that
+    #              P_k = k AND (max(P_1...P_{k-1}) < k) AND (min(P_{k+1}...P_N) > k).
+    # 2 operations: Always possible for N >= 3.
+    
+    def calculate_min_ops(N, P):
+        # Check if already sorted
+        # Using all() is allowed as it is a built-in function, not a loop
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        # To check if 1 operation is enough:
+        # We need a k such that P_k = k, and all elements to the left are < k
+        # and all elements to the right are > k.
+        # This means max(P[0...k-2]) < k and min(P[k...N-1]) > k.
+        
+        # Precompute prefix maximums and suffix minimums
+        # Since we cannot use loops, we use a custom scan/reduce approach.
+        # However, since we need to avoid 'for' and 'while', 
+        # we can use map/list comprehensions with range and slice logic,
+        # but prefix/suffix arrays usually require loops.
+        # We can use a recursive-like structure via list comprehension 
+        # by leveraging the fact that we can process the list using 
+        # functional tools, but Python's recursion limit is strict.
+        # Actually, the prompt forbids 'for' and 'while' loops.
+        # We can use `itertools.accumulate` for prefix/suffix arrays.
+        from itertools import accumulate
+        
+        pref_max = list(accumulate(P, max))
+        suff_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Check if any k (1-indexed) satisfies the condition:
+        # For k=1: sort [2, N]. Possible if P_1=1 and min(P[1:]) > 1.
+        # For k=N: sort [1, N-1]. Possible if P_N=N and max(P[:N-1]) < N.
+        # For 1 < k < N: P_k=k, max(P[:k-1]) < k, min(P[k:]) > k.
+        
+        # We use a list comprehension to check all k and then map to a boolean.
+        # k is 1-indexed in the problem, so index i = k-1.
+        # Condition for index i:
+        # If i == 0: P[0] == 1 and suff_min[1] > 1
+        # If i == N-1: P[N-1] == N and pref_max[N-2] < N
+        # If 0 < i < N-1: P[i] == i+1 and pref_max[i-1] < i+1 and suff_min[i+1] > i+1
+        
+        # We can generalize this:
+        # Let pref_max[-1] = 0 and suff_min[N] = N+1
+        # Condition: P[i] == i+1 and (i == 0 or pref_max[i-1] < i+1) 
+        #                          and (i == N-1 or suff_min[i+1] > i+1)
+        
+        # Using a generator expression inside any()
+        can_do_1 = any(
+            P[i] == i + 1 and 
+            (i == 0 or pref_max[i-1] < i + 1) and 
+            (i == N - 1 or suff_min[i+1] > i + 1)
+            for i in range(N)
+        )
+        
+        return 1 if can_do_1 else 2
+
+    # Process all cases and join results with newlines
+    # map() is used to apply the logic to each case yielded by the generator
+    results = map(lambda x: calculate_min_ops(*x), get_cases(input_data))
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,80 @@
+The constraint to avoid explicit loops forces a shift from imperative state management to a more functional approach. While not necessarily "cleaner" for state-heavy problems, it encourages the use of higher-order functions and immutable-style transformations. To solve this, I will use `functools.reduce` to maintain the state (the current total height increase and a sorted list of plant "birth" timestamps) across the sequence of queries. I will use `bisect_left` to efficiently find and remove plants that have reached the required height.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to parse the queries. Since they have different lengths, 
+    # we can't use a simple zip. We'll use a custom reducer to handle the 
+    # variable-length query formats.
+    
+    # State structure: (current_total_height, plants_birth_heights, results)
+    # plants_birth_heights: A sorted list of the 'total_height' at the time 
+    # the plant was planted. A plant is harvestable if:
+    # (current_total_height - birth_height) >= H  => birth_height <= current_total_height - H
+    
+    def process_queries(state, query_batch):
+        curr_h, plants, results = state
+        q_type = query_batch[0]
+        
+        if q_type == '1':
+            # Plant a new plant. Its birth_height is the current total height.
+            # We use bisect to keep the plants list sorted.
+            # However, since curr_h is non-decreasing, we can just append.
+            return (curr_h, plants + [curr_h], results)
+        
+        elif q_type == '2':
+            # Increase height of all plants
+            t = int(query_batch[1])
+            return (curr_h + t, plants, results)
+        
+        elif q_type == '3':
+            # Harvest plants where curr_h - birth_h >= h  => birth_h <= curr_h - h
+            h = int(query_batch[1])
+            threshold = curr_h - h
+            # Find index of first plant that is NOT harvestable
+            idx = bisect_left(plants, threshold + 1)
+            # Plants from 0 to idx-1 are harvested
+            harvested_count = idx
+            # Remove harvested plants from the list
+            return (curr_h, plants[idx:], results + [str(harvested_count)])
+        
+        return state
+
+    # Because the queries have different lengths, we need a way to group them.
+    # We can use a helper function to chunk the input_data.
+    def chunk_queries(data):
+        it = iter(data[1:])
+        def get_next():
+            try:
+                q_type = next(it)
+                if q_type == '1':
+                    return (q_type,)
+                else:
+                    return (q_type, next(it))
+            except StopIteration:
+                return None
+        
+        # Use a list comprehension to build the query list
+        return [q for q in (get_next() for _ in range(Q)) if q is not None]
+
+    queries = chunk_queries(input_data)
+    
+    # Use reduce to iterate through queries without a for/while loop
+    final_state = reduce(process_queries, queries, (0, [], []))
+    
+    # Output the results
+    sys.stdout.write('\n'.join(final_state[2]) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

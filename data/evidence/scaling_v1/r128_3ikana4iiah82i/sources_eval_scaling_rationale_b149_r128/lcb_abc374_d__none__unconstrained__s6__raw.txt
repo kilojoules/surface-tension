@@ -1,0 +1,83 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm, emphasizing data transformation over mutation. For this problem, I will use `itertools.permutations` to generate all possible sequences of line segments and `itertools.product` to evaluate both possible directions (start-to-end or end-to-start) for each segment. The final result is computed using a generator expression within `min()`, utilizing `math.dist` for Euclidean distances and `sum()` to aggregate the travel and printing times for each path.
+
+```python
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into pairs of coordinates
+    segments = [
+        ((int(input_data[3 + 4*i]), int(input_data[4 + 4*i])), 
+         (int(input_data[5 + 4*i]), int(input_data[6 + 4*i])))
+        for i in range(N)
+    ]
+    
+    # Precompute the printing time for each segment (length / T)
+    print_times = [math.dist(seg[0], seg[1]) / T for seg in segments]
+    
+    # The total printing time is constant regardless of the order
+    total_print_time = sum(print_times)
+    
+    # We need to find the minimum travel time between segments
+    # There are N! permutations of segments and 2^N combinations of directions
+    # Since N <= 6, N! * 2^N is at most 720 * 64 = 46,080, which is small.
+    
+    # Generate all permutations of segment indices
+    all_orders = permutations(range(N))
+    
+    # Generate all possible direction choices (0: start->end, 1: end->start)
+    all_directions = product([0, 1], repeat=N)
+    
+    # To avoid nested loops, we use a generator expression to find the minimum travel time
+    # We evaluate every combination of order and direction
+    
+    # We need to map the direction choice to the actual start and end points
+    # dir_map(seg, d) returns (start, end) based on direction d
+    def get_points(seg, d):
+        return (seg[0], seg[1]) if d == 0 else (seg[1], seg[0])
+
+    # We calculate the travel time for a specific order and direction set
+    # Travel time = dist(origin, first_start)/S + sum(dist(prev_end, next_start)/S)
+    
+    # Because we cannot use loops, we use a helper function and map/sum
+    def calc_travel_time(order, dirs):
+        # Create the sequence of (start, end) points for this configuration
+        path = [get_points(segments[i], dirs[i]) for i in order]
+        
+        # Distance from (0,0) to the first start point
+        start_dist = math.dist((0, 0), path[0][0])
+        
+        # Distances between segments: end of i to start of i+1
+        # We use a list comprehension to get the distances
+        mid_dists = [math.dist(path[i][1], path[i+1][0]) for i in range(N-1)]
+        
+        return (start_dist + sum(mid_dists)) / S
+
+    # We use a generator expression to iterate over all permutations and direction combinations
+    # Note: Since we can't use loops, we use a nested comprehension
+    # We must expand all_directions inside the permutation loop
+    
+    # To handle the 2^N directions without a loop, we can pre-generate them
+    dir_configs = list(all_directions)
+    
+    min_travel_time = min(
+        calc_travel_time(order, dirs)
+        for order in all_orders
+        for dirs in dir_configs
+    )
+    
+    print(f"{total_print_time + min_travel_time:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```

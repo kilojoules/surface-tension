@@ -1,0 +1,55 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing declarative transformations over imperative state updates. While not always "cleaner" for state-heavy problems, it encourages the use of higher-order functions and recursion, which can lead to more concise data transformations. To solve this problem, I will use `itertools.accumulate` to simulate the state transition of the string $S$ as it transforms into $T$, and list comprehensions to handle the logic of character changes.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To get the lexicographically smallest sequence of strings:
+    # 1. We must change characters at indices i where S[i] > T[i] first,
+    #    processing these indices from left to right (0 to N-1).
+    #    This makes the string smaller as quickly as possible.
+    # 2. Then we change characters at indices i where S[i] < T[i],
+    #    processing these indices from right to left (N-1 to 0).
+    #    This delays making the string "larger" as much as possible.
+    
+    # Indices that make the string smaller (S[i] > T[i])
+    decreasing = [i for i in diff_indices if S[i] > T[i]]
+    # Indices that make the string larger (S[i] < T[i])
+    increasing = [i for i in diff_indices if S[i] < T[i]]
+    
+    # Order of indices to change: 
+    # Decreasing indices in increasing order, then increasing indices in decreasing order.
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # We use accumulate to generate the sequence of strings.
+    # The accumulator function takes the current string and the index to change,
+    # returning a new string with the character at that index updated to T[index].
+    def apply_change(current_s, idx):
+        return current_s[:idx] + T[idx] + current_s[idx+1:]
+
+    # accumulate(iterable, function) returns the running totals/results.
+    # We map the order of indices to the transformation function.
+    X = list(accumulate(order, lambda acc, idx: apply_change(acc, idx), initial=S))
+    
+    # accumulate with initial=S includes S as the first element. 
+    # The problem asks for X which contains S after each change, so we slice [1:].
+    result = X[1:]
+    
+    # Output the number of operations and the sequence of strings.
+    print(len(result))
+    print('\n'.join(result))
+
+if __name__ == "__main__":
+    solve()
+```

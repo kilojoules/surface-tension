@@ -1,0 +1,54 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem is to check if the edit distance between S and T is <= 1.
+    # Since K=1, we can check this by comparing the strings and 
+    # verifying if removing/changing one character makes them equal.
+
+    # Find the first index where s and t differ
+    # Use a generator expression with next() to find the first mismatch
+    diff_start = next((i for i in range(min(len(s), len(t))) if s[i] != t[i]), None)
+    
+    # If no mismatch is found within the length of the shorter string
+    if diff_start is None:
+        # They are identical up to the length of the shorter string.
+        # The distance is the difference in their lengths.
+        if abs(len(s) - len(t)) <= k:
+            print("Yes")
+        else:
+            print("No")
+        return
+
+    # If a mismatch is found, we check the three possible operations:
+    # 1. Replace: s[diff_start] becomes t[diff_start]
+    # 2. Delete from s: s[diff_start] is removed
+    # 3. Insert into s: t[diff_start] is inserted before s[diff_start]
+    
+    # To check if the remaining suffixes match after the operation:
+    # Replace: s[diff_start+1:] == t[diff_start+1:]
+    # Delete: s[diff_start+1:] == t[diff_start:]
+    # Insert: s[diff_start:] == t[diff_start+1:]
+    
+    # We use a list comprehension and 'any' to check these conditions without loops.
+    results = [
+        s[diff_start + 1:] == t[diff_start + 1:], # Replace
+        s[diff_start + 1:] == t[diff_start:],     # Delete from S
+        s[diff_start:] == t[diff_start + 1:]      # Insert into S
+    ]
+    
+    if any(results):
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,36 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line of input
+    # Read S from the second line of input
+    input_data = sys.stdin.read().split()
+    N = int(input_data[0])
+    K = int(input_data[1])
+    S = input_data[2]
+
+    # A string T contains a palindrome of length K if there exists some i
+    # such that T[i:i+K] is equal to its reverse.
+    # We use a generator expression inside set() to get all unique permutations.
+    # Then we filter them based on the palindrome condition.
+    
+    # Generate all unique permutations of S
+    all_perms = set(''.join(p) for p in permutations(S))
+    
+    # Define a helper to check if a string contains a palindrome of length K
+    # We use 'any' with a generator expression to avoid explicit loops.
+    # T[i:i+K] == T[i:i+K][::-1] checks if the substring is a palindrome.
+    is_palindrome_free = lambda T: not any(
+        T[i:i+K] == T[i:i+K][::-1] 
+        for i in range(N - K + 1)
+    )
+    
+    # Filter the unique permutations and count the result
+    # We use sum() on a generator of 1s to count the valid strings.
+    result = sum(1 for T in all_perms if is_palindrome_free(T))
+    
+    # Print the final count
+    sys.stdout.write(str(result) + '\n')
+
+if __name__ == "__main__":
+    solve()

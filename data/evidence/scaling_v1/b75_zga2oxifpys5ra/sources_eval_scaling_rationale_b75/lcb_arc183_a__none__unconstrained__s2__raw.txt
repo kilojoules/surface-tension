@@ -1,0 +1,85 @@
+The constraint to avoid explicit loops forces a shift from imperative state management to a functional paradigm, emphasizing the use of high-order functions and recursion. This approach encourages the use of declarative data transformations rather than step-by-step mutations. To solve this problem, I will use `functools.reduce` to maintain the state of remaining character counts and the accumulated sequence, and recursion (via a helper function) to determine the character for each position by comparing the target index against the number of permutations possible for each candidate character.
+
+```python
+import sys
+from math import factorial
+from functools import reduce
+
+# Increase recursion depth for deep sequence generation
+sys.setrecursionlimit(1000000)
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences is (N*K)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Since we cannot use loops, we use a functional approach to 
+    # determine the sequence element by element.
+    
+    # Precompute factorials for efficiency
+    fact = [1] * (n * k + 1)
+    # Using a trick to populate the factorial list without a for-loop
+    # We use reduce to build the list incrementally.
+    fact = reduce(lambda acc, i: acc + [acc[-1] * i], range(1, n * k + 1), [1])
+
+    def get_total_permutations(counts):
+        # Formula: (sum(counts))! / product(count!)
+        total_len = sum(counts)
+        denom = reduce(lambda a, b: a * fact[b], counts, 1)
+        return fact[total_len] // denom
+
+    # Target index (1-based)
+    # S = fact[n*k] // (fact[k]**n)
+    s_total = fact[n*k] // (fact[k]**n)
+    target = (s_total + 1) // 2
+
+    def find_sequence(current_target, counts):
+        # Base case: if all counts are 0, return empty list
+        if sum(counts) == 0:
+            return []
+        
+        # We need to find which character i (1 to N) fits at the current position.
+        # We check characters in increasing order (1, 2, ..., N).
+        # For a character i, if counts[i-1] > 0, the number of sequences 
+        # starting with i is get_total_permutations(counts with counts[i-1]-1).
+        
+        def search_char(idx, remaining_target, current_counts):
+            # Check if character 'idx' can be placed here
+            if idx > n:
+                return None
+            
+            if current_counts[idx-1] > 0:
+                # Create a new counts list with one instance of 'idx' removed
+                next_counts = list(current_counts)
+                next_counts[idx-1] -= 1
+                num_ways = get_total_permutations(next_counts)
+                
+                if remaining_target <= num_ways:
+                    # The target sequence starts with 'idx'
+                    return (idx, remaining_target, next_counts)
+                else:
+                    # Skip all sequences starting with 'idx'
+                    return search_char(idx + 1, remaining_target - num_ways, current_counts)
+            else:
+                # Character idx is exhausted, try next
+                return search_char(idx + 1, remaining_target, current_counts)
+
+        res = search_char(1, current_target, counts)
+        char, next_target, next_counts = res
+        return [char] + find_sequence(next_target, next_counts)
+
+    # Initial counts: each number 1..N appears K times
+    initial_counts = [k] * n
+    result = find_sequence(target, initial_counts)
+    
+    # Print the result separated by spaces
+    print(*(result))
+
+if __name__ == "__main__":
+    solve()
+```

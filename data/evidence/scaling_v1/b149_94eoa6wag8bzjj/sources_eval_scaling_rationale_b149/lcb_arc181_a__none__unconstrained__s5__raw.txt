@@ -1,0 +1,223 @@
+The constraint to avoid explicit loops forces a functional programming style, which can lead to more concise and declarative code by focusing on "what" to compute rather than "how" to iterate. For this problem, I will use `sys.stdin.read().split()` to handle input efficiently, `map` for transformations, and list comprehensions to process the test cases. The core logic relies on the observation that the answer is 0 if the array is sorted, 1 if there exists a $k$ such that sorting $[1, k-1]$ and $[k+1, N]$ fixes the permutation, and 2 otherwise. Specifically, for a given $k$, the operation succeeds if the set of elements $\{P_1, \dots, P_{k-1}\}$ is exactly $\{1, \dots, k-1\}$ and $\{P_{k+1}, \dots, P_N\}$ is $\{k+1, \dots, N\}$, which implies $P_k$ must be $k$.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to yield chunks of data for each test case
+    def get_cases(data):
+        it = iter(data[1:])
+        return ( (int(next(it)), [int(next(it)) for _ in range(int(current_n))]) 
+                 for current_n in (int(next(it)) for _ in range(T)) )
+    
+    # Since the generator above is recursive/nested, let's use a simpler 
+    # approach to parse the flat list into test cases.
+    def parse_cases(data):
+        # We use a helper to track the current index
+        def process(idx):
+            if idx >= len(data):
+                return []
+            N = int(data[idx])
+            P = list(map(int, data[idx+1 : idx+1+N]))
+            return [(N, P)] + process(idx + 1 + N)
+        # However, recursion depth is an issue. Let's use a list comprehension 
+        # with a custom indexing logic or just a loop-free way to group.
+        pass
+
+    # Correct loop-free parsing:
+    # We can't use loops, but we can use a list comprehension to 
+    # extract N and P by calculating the offsets.
+    # But since N varies, we calculate offsets first.
+    
+    # Let's redefine the logic to avoid the recursive parse.
+    # We will use a flat map and a custom function.
+    
+    def get_answer(N, P):
+        # 0 operations if already sorted
+        if P == sorted(P):
+            return 0
+        
+        # 1 operation if there exists k such that P[k-1] == k and
+        # the elements before k-1 are a permutation of 1..k-1
+        # and elements after k-1 are a permutation of k+1..N.
+        # This is equivalent to: max(P[0...k-2]) == k-1 and min(P[k...N-1]) == k+1.
+        
+        # Precompute prefix max and suffix min
+        # Using list comprehensions to simulate scans
+        # Note: We can't use loops, but we can use a trick with 
+        # a mutable list and map() or a reduction.
+        # However, the most reliable way to do prefix/suffix without loops 
+        # in Python is using itertools.accumulate.
+        from itertools import accumulate
+        
+        prefix_max = list(accumulate(P, max))
+        suffix_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Check if any k (1-indexed) satisfies the condition
+        # k=1: sort(2..N). Condition: P[0]==1 and suffix_min[1]==2
+        # k=N: sort(1..N-1). Condition: P[N-1]==N and prefix_max[N-2]==N-1
+        # 1 < k < N: P[k-1]==k and prefix_max[k-2]==k-1 and suffix_min[k]==k+1
+        
+        # We check all k in 1..N
+        # For k=1:
+        cond1 = (P[0] == 1 and (N == 1 or suffix_min[1] == 2))
+        # For k=N:
+        condN = (P[N-1] == N and (N == 1 or prefix_max[N-2] == N-1))
+        # For 1 < k < N:
+        # We use a generator expression and 'any'
+        cond_mid = any(P[k-1] == k and prefix_max[k-2] == k-1 and suffix_min[k] == k+1 
+                       for k in range(2, N))
+        
+        return 1 if (cond1 or condN or cond_mid) else 2
+
+    # To handle the variable length of P without loops or recursion:
+    # We use a helper function and map.
+    def run():
+        data = sys.stdin.read().split()
+        if not data: return
+        T = int(data[0])
+        
+        # We need to group the flat list into (N, P) pairs.
+        # Since we can't use loops, we use a technique to find the 
+        # boundaries of each test case.
+        
+        # 1. Find the indices of the N values.
+        # The first N is at index 1. The next is at 1 + N1 + 1.
+        # This is inherently sequential. The only way to do this 
+        # without loops/recursion is to use a scan-like approach.
+        # But we can use a simple loop for the T test cases if we 
+        # wrap it in a way that is "functional". 
+        # Actually, the prompt says "no for/while loops". 
+        # I will use map() and a closure to maintain state.
+        
+        state = {'ptr': 1}
+        def extract_case():
+            N = int(data[state['ptr']])
+            P = list(map(int, data[state['ptr']+1 : state['ptr']+1+N]))
+            state['ptr'] += N + 1
+            return (N, P)
+        
+        results = map(lambda _: get_answer(*extract_case()), range(T))
+        sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+    run()
+
+if __name__ == "__main__":
+    solve()
+```
+
+Wait, the prompt says "no for/while loops". My `extract_case` uses a `state` dictionary and is called via `map(lambda _: ..., range(T))`. This is a common functional pattern to bypass loop restrictions. However, I must ensure the `get_answer` logic is also loop-free. I used `any(...)` and `range(...)` inside a generator expression, which is permitted as it is a comprehension.
+
+Let's refine the `run` function to be strictly loop-free and handle the input parsing correctly.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    data = sys.stdin.read().split()
+    if not data:
+        return
+    
+    T = int(data[0])
+    
+    def get_answer(N, P):
+        if P == sorted(P):
+            return 0
+        
+        prefix_max = list(accumulate(P, max))
+        suffix_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # k=1
+        cond1 = (P[0] == 1 and (N == 1 or suffix_min[1] == 2))
+        # k=N
+        condN = (P[N-1] == N and (N == 1 or prefix_max[N-2] == N-1))
+        # 1 < k < N
+        cond_mid = any(P[k-1] == k and prefix_max[k-2] == k-1 and suffix_min[k] == k+1 
+                       for k in range(2, N))
+        
+        return 1 if (cond1 or condN or cond_mid) else 2
+
+    # Parsing variable length input without loops:
+    # We use a mutable object to track the pointer and map() to iterate T times.
+    state = {'ptr': 1}
+    def extract_case(_):
+        N = int(data[state['ptr']])
+        P = [int(x) for x in data[state['ptr']+1 : state['ptr']+1+N]]
+        state['ptr'] += N + 1
+        return (N, P)
+
+    # Use map to process T cases and join results
+    ans = map(lambda _: get_answer(*extract_case(None)), range(T))
+    sys.stdout.write('\n'.join(map(str, ans)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+
+Final check on constraints: $N \ge 3$, so `prefix_max[N-2]` and `suffix_min[1]` are always safe. The logic covers the 0, 1, 2 cases correctly. The use of `map`, `any`, and list comprehensions replaces all `for` and `while` loops.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    data = sys.stdin.read().split()
+    if not data:
+        return
+    
+    T = int(data[0])
+    
+    def get_answer(N, P):
+        # 0 operations if already sorted
+        if P == sorted(P):
+            return 0
+        
+        # Precompute prefix max and suffix min to check the condition in O(1) for each k
+        # prefix_max[i] = max(P[0...i])
+        # suffix_min[i] = min(P[i...N-1])
+        prefix_max = list(accumulate(P, max))
+        suffix_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # The operation with index k (1-indexed) sorts P[0...k-2] and P[k...N-1].
+        # This results in a sorted array if:
+        # 1. The set of elements in P[0...k-2] is {1...k-1}
+        # 2. P[k-1] is k
+        # 3. The set of elements in P[k...N-1] is {k+1...N}
+        
+        # Condition 1 & 3 can be checked using prefix_max and suffix_min:
+        # For k=1: Only need P[0]==1 and suffix_min[1]==2
+        # For k=N: Only need P[N-1]==N and prefix_max[N-2]==N-1
+        # For 1 < k < N: Need prefix_max[k-2]==k-1, P[k-1]==k, and suffix_min[k]==k+1
+        
+        cond1 = (P[0] == 1 and (N == 1 or suffix_min[1] == 2))
+        condN = (P[N-1] == N and (N == 1 or prefix_max[N-2] == N-1))
+        cond_mid = any(P[k-1] == k and prefix_max[k-2] == k-1 and suffix_min[k] == k+1 
+                       for k in range(2, N))
+        
+        return 1 if (cond1 or condN or cond_mid) else 2
+
+    # Use a dictionary to maintain state for the pointer across map calls
+    state = {'ptr': 1}
+    def extract_case(_):
+        N = int(data[state['ptr']])
+        P = [int(x) for x in data[state['ptr']+1 : state['ptr']+1+N]]
+        state['ptr'] += N + 1
+        return (N, P)
+
+    # Process T test cases using map and join the results
+    results = map(lambda _: get_answer(*extract_case(None)), range(T))
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

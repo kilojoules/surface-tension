@@ -1,0 +1,117 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, which can lead to more concise and declarative code by describing *what* to calculate rather than *how* to iterate. To solve this problem, I will use `sum()` for totals, `zip()` for pairing, and list comprehensions for transformations. Specifically, I will calculate the minimum possible sum and the maximum possible sum to check for feasibility, and then use a greedy approach (adjusting the minimums) to reach a total sum of zero.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    # Create pairs of (L, R)
+    pairs = [ (int(input_data[i]), int(input_data[i+1])) 
+             for i in range(1, len(input_data), 2) ]
+    
+    # Calculate the range of the possible sum of X
+    # min_sum is the sum of all L_i, max_sum is the sum of all R_i
+    min_sum = sum(p[0] for p in pairs)
+    max_sum = sum(p[1] for p in pairs)
+    
+    # A solution exists if and only if 0 is within [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        # We start with X_i = L_i. The current sum is min_sum.
+        # We need to increase the sum by -min_sum to reach 0.
+        # We can increase each X_i up to R_i.
+        
+        # Calculate how much we can increase each element: R_i - L_i
+        diffs = [p[1] - p[0] for p in pairs]
+        
+        # We need to distribute the deficit (0 - min_sum) across the elements.
+        # Since we cannot use loops, we use a mathematical approach to determine
+        # how much of the deficit is covered by each element.
+        
+        # However, the deficit might be larger than any single (R_i - L_i).
+        # To avoid loops, we can use a prefix sum of the diffs to find the 
+        # "cutoff" point, but that requires binary search.
+        # Instead, we can use a generator-like logic with a running total.
+        # Wait, the constraint forbids 'for' loops for iteration. 
+        # But we can use a trick with a list and a mutable state (like a list of one element)
+        # inside a list comprehension to simulate a running sum.
+        
+        deficit = -min_sum
+        state = [deficit] # Using a list to hold the remaining deficit
+        
+        # For each element, we take the minimum of the remaining deficit 
+        # and the maximum possible increase for that element.
+        # Note: This is a technical workaround to maintain state in a comprehension.
+        res = [
+            (p[0] + (
+                # This block updates the state and returns the amount added
+                # We use a helper list to simulate the subtraction
+                # Since we can't use loops, we use the fact that 
+                # we can modify the state list in place.
+                # But wait, the prompt says no 'for' loops. 
+                # Let's use a more functional approach.
+                0 # Placeholder
+            )) 
+            for p in pairs
+        ]
+        
+        # Actually, the most robust way to do this without loops or recursion
+        # is to realize that we can just cap the values.
+        # Let S = -min_sum. We want to find X_i such that L_i <= X_i <= R_i 
+        # and sum(X_i) = 0.
+        # Let X_i = L_i + delta_i, where 0 <= delta_i <= R_i - L_i.
+        # sum(delta_i) = S.
+        
+        # To implement this without loops, we can use the fact that
+        # delta_i = min(R_i - L_i, S - sum(delta_j for j < i))
+        # This looks like a loop. Let's use a different approach.
+        
+        # We can use a mathematical trick:
+        # If we distribute S proportionally or greedily, we can use 
+        # a combination of prefix sums and a binary search to find the 
+        # index where the deficit is exhausted.
+        
+        # 1. Calculate prefix sums of (R_i - L_i)
+        # Using a list comprehension and a helper to get prefix sums
+        # Since we can't use loops, we can't use itertools.accumulate? 
+        # No, the constraint says "no for loops", it doesn't forbid imports.
+        from itertools import accumulate
+        
+        diffs = [p[1] - p[0] for p in pairs]
+        prefix_diffs = list(accumulate(diffs))
+        
+        # 2. Find the index 'k' where the deficit is covered
+        # Using binary search to find the first index k where prefix_diffs[k] >= deficit
+        import bisect
+        k = bisect.bisect_left(prefix_diffs, deficit)
+        
+        # 3. Construct the result
+        # For i < k: X_i = R_i
+        # For i == k: X_i = L_i + (deficit - prefix_diffs[k-1])
+        # For i > k: X_i = L_i
+        
+        # Handle the case where k is the first element
+        def get_val(i):
+            if i < k:
+                return pairs[i][1]
+            elif i == k and i < n:
+                prev_sum = prefix_diffs[k-1] if k > 0 else 0
+                return pairs[i][0] + (deficit - prev_sum)
+            else:
+                return pairs[i][0]
+        
+        final_x = [get_val(i) for i in range(n)]
+        
+        print("Yes")
+        print(*(final_x))
+        
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```

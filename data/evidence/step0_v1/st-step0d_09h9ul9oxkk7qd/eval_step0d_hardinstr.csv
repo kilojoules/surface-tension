@@ -1,0 +1,52 @@
+problem_id,benchmark,entry_point,constraint,condition,sample_idx,model,elapsed_s,gen_error,code_extracted,code_chars,parses,has_entry,compliant,test_passed,test_timed_out,test_error,prompt_chars,raw_chars
+lcb/abc356_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,86.27,,1,1680,1,1,1,1,0,,2605,2156
+lcb/abc356_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,88.33,,1,1725,1,1,1,1,0,,2605,2266
+lcb/abc356_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,86.88,,1,1654,1,1,1,1,0,,2605,2211
+lcb/abc359_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,421.08,no_code_block_found,0,0,0,0,0,0,0,,2278,8301
+lcb/abc359_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,422.05,no_code_block_found,0,0,0,0,0,0,0,,2278,8281
+lcb/abc359_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,367.26,,1,6268,1,1,1,0,0,wrong_output on test 7: got '3865081076768754' want '3865081076768755',2278,6812
+lcb/abc362_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,105.38,,1,2051,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1616,2616
+lcb/abc362_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,112.69,,1,2090,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1616,2634
+lcb/abc362_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,135.15,,1,2207,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1616,3372
+lcb/abc363_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,62.1,,1,1245,1,1,1,1,0,,1796,1971
+lcb/abc363_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,57.22,,1,1116,1,1,1,1,0,,1796,1646
+lcb/abc363_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,93.27,,1,2239,1,1,1,1,0,,1796,2693
+lcb/abc367_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,150.82,,1,2431,1,1,1,0,0,wrong_output on test 0: got '6' want '4',2655,2971
+lcb/abc367_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,201.83,,1,3402,1,1,1,0,0,wrong_output on test 0: got '5' want '4',2655,4008
+lcb/abc367_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,418.45,no_code_block_found,0,0,0,0,0,0,0,,2655,7649
+lcb/abc370_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,112.64,,1,2204,1,1,1,1,0,,2574,2839
+lcb/abc370_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,102.22,,1,2128,1,1,1,1,0,,2574,2665
+lcb/abc370_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,91.65,,1,1919,1,1,1,1,0,,2574,2519
+lcb/abc370_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,379.31,,1,8767,1,1,1,1,0,,2967,9641
+lcb/abc370_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,339.35,,1,5067,1,1,1,0,1,timeout on test 3,2967,8515
+lcb/abc370_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,175.08,,1,3502,1,1,1,1,0,,2967,4177
+lcb/abc371_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,138.18,,1,2356,1,1,1,1,0,,3747,2833
+lcb/abc371_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,165.2,,1,3106,1,1,1,1,0,,3747,3573
+lcb/abc371_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,122.18,,1,2157,1,1,1,1,0,,3747,2772
+lcb/abc372_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,419.38,no_code_block_found,0,0,0,0,0,0,0,,1599,9689
+lcb/abc372_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,418.85,no_code_block_found,0,0,0,0,0,0,0,,1599,10139
+lcb/abc372_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,419.0,no_code_block_found,0,0,0,0,0,0,0,,1599,10019
+lcb/abc374_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,194.31,,1,4117,1,1,1,0,0,wrong_output on test 0: got '6.44317475868633771086' want '6.44317475868633722080',3534,4726
+lcb/abc374_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,146.87,,1,3155,1,1,1,0,0,wrong_output on test 0: got '6.44317475868633771086' want '6.44317475868633722080',3534,3755
+lcb/abc374_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,118.59,,1,2434,1,1,1,0,0,wrong_output on test 0: got '6.44317475868633771086' want '6.44317475868633722080',3534,3061
+lcb/abc376_b,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,142.29,,1,3122,1,1,1,1,0,,3488,3663
+lcb/abc376_b,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,122.54,,1,2449,1,1,1,1,0,,3488,3179
+lcb/abc376_b,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,105.78,,1,2208,1,1,1,1,0,,3488,2741
+lcb/abc379_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,101.67,,1,2394,1,1,1,1,0,,2438,3012
+lcb/abc379_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,193.49,,1,4749,1,1,1,1,0,,2438,5263
+lcb/abc379_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,203.01,,1,4899,1,1,1,1,0,,2438,5532
+lcb/abc385_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,280.0,,1,6295,1,1,1,1,0,,1520,6770
+lcb/abc385_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,153.48,,1,3410,1,1,1,0,0,wrong_output on test 0: got '5' want '3',1520,3869
+lcb/abc385_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,313.03,,1,7055,1,1,1,1,0,,1520,7633
+lcb/abc386_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,83.65,,1,1529,1,1,1,1,0,,1995,2032
+lcb/abc386_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,113.65,,1,2502,1,1,1,1,0,,1995,3098
+lcb/abc386_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,103.26,,1,2097,1,1,1,1,0,,1995,2644
+lcb/arc181_a,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,208.57,,1,4556,1,1,1,0,0,wrong_output on test 2: got '2' want '3',2368,5172
+lcb/arc181_a,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,371.54,,1,8132,1,1,1,0,0,wrong_output on test 2: got '2' want '3',2368,8749
+lcb/arc181_a,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,257.26,,1,5417,1,1,1,0,0,wrong_output on test 2: got '2' want '3',2368,6251
+lcb/arc183_a,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,416.75,no_code_block_found,0,0,0,0,0,0,0,,1997,9532
+lcb/arc183_a,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,309.6,,1,7184,1,1,1,0,1,timeout on test 4,1997,7777
+lcb/arc183_a,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,418.61,no_code_block_found,0,0,0,0,0,0,0,,1997,10613
+lcb/arc189_a,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,387.83,,1,8185,1,1,1,0,0,wrong_output on test 0: got '14' want '3',2147,9058
+lcb/arc189_a,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,418.03,no_code_block_found,0,0,0,0,0,0,0,,2147,8704
+lcb/arc189_a,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+kilojoules/surface-tension-sft-rationale-r32-final,417.32,no_code_block_found,0,0,0,0,0,0,0,,2147,7934

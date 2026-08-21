@@ -1,0 +1,46 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state-mutation to a functional paradigm. While not necessarily "cleaner" for all programmers, it encourages the use of higher-order functions and declarative data transformations, leveraging Python's powerful iterator tools. To solve this problem, I will use `itertools.permutations` to generate all possible arrangements of the string, `set` to handle duplicate permutations, and a list comprehension combined with `all()` and slicing to filter out strings containing palindromes of length $K$.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line
+    # Read S from the second line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+
+    # Generate all unique permutations of the string S
+    # Using a set to remove duplicates caused by identical characters
+    all_perms = set(permutations(s))
+
+    # Helper function to check if a string contains a palindrome of length K
+    # We use a generator expression inside 'any' to check all possible substrings of length K
+    # A substring is a palindrome if it equals its reverse
+    # The condition to avoid loops forces the use of comprehensions
+    
+    # We filter the permutations:
+    # For a permutation p, it is valid if for all i from 0 to N-K, 
+    # the substring p[i:i+k] is NOT a palindrome.
+    
+    # We use a list comprehension to count how many permutations satisfy the condition.
+    # The condition 'not any(...)' replaces the loop that would normally check for palindromes.
+    
+    result = len([
+        p for p in all_perms 
+        if not any(
+            "".join(p[i : i + k]) == "".join(p[i : i + k][::-1]) 
+            for i in range(n - k + 1)
+        )
+    ])
+
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

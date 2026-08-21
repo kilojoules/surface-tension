@@ -1,0 +1,51 @@
+The constraint to avoid explicit loops forces a shift from imperative programming to a functional style, emphasizing declarative transformations over state updates. While idiomatic Python often uses `for` loops for readability, utilizing `itertools` and list comprehensions allows for concise data processing by describing *what* the result should be rather than *how* to step through the indices. To solve this problem, I will use `itertools.combinations` to iterate over all possible pairs of buildings to define potential intervals and heights, and list comprehensions to calculate the count of valid buildings for each pair, finally using `max()` to find the optimal result.
+
+```python
+import sys
+from itertools import combinations
+
+def solve():
+    # Read N and the list of heights
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # If there is only one building, the answer is always 1
+    if N == 1:
+        print(1)
+        return
+
+    # We need to check every pair of buildings (i, j) as a potential 
+    # starting point and interval for the equal-interval sequence.
+    # Let i be the first building and j be the second building.
+    # The interval is d = j - i. We count how many buildings k = i + m*d
+    # have the same height as H[i].
+    
+    # To optimize, we only consider pairs (i, j) where H[i] == H[j].
+    # We use a list comprehension to evaluate all valid pairs and 
+    # another to count the occurrences of the height at the given interval.
+    
+    # range(N) provides indices. combinations(range(N), 2) gives all pairs (i, j) with i < j.
+    # For each pair, if H[i] == H[j], we check indices i, i+d, i+2d... 
+    # where d = j - i.
+    
+    # The number of elements in the sequence is (N - 1 - i) // (j - i) + 1
+    # but we must verify each element has the same height.
+    
+    # We use a generator expression inside max() to find the best result.
+    # We start with a default of 1 because any single building satisfies the condition.
+    
+    ans = max([1] + [
+        sum(1 for k in range(i, N, j - i) if H[k] == H[i])
+        for i, j in combinations(range(N), 2)
+        if H[i] == H[j]
+    ])
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

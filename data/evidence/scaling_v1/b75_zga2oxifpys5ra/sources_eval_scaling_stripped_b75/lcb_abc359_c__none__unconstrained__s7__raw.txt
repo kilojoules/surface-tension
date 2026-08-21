@@ -1,0 +1,204 @@
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # The tiles are 2x1 blocks. 
+    # According to the rule: if i+j is even, A_{i,j} and A_{i+1,j} are one tile.
+    # This means for a fixed j, the tiles are paired as (0,1), (2,3), etc. if j is even,
+    # and (-1,0), (1,2), etc. if j is odd.
+    # Essentially, a tile is defined by the pair (floor((i + (j % 2)) / 2), j).
+    
+    # Let's transform the coordinates to a coordinate system where each unit 
+    # represents a tile boundary.
+    # For a given y, the tile index in x is x_tile = (x + (y % 2)) // 2.
+    # The y index is simply y.
+    
+    # Starting tile coordinates:
+    s_tile_x = (sx + (sy % 2)) // 2
+    s_tile_y = sy
+    
+    # Target tile coordinates:
+    t_tile_x = (tx + (ty % 2)) // 2
+    t_tile_y = ty
+    
+    # The distance in a grid where you can move any distance in one of 4 directions
+    # is the L1 distance (Manhattan distance), but the cost is based on how many
+    # tiles you enter. 
+    # Moving from (sx, sy) to (tx, ty) in the tile-grid:
+    # The cost is |s_tile_x - t_tile_x| + |s_tile_y - t_tile_y|.
+    # However, we must account for the fact that moving diagonally in the 
+    # original coordinate system might be cheaper.
+    # Actually, the problem is equivalent to finding the distance in a graph
+    # where nodes are tiles.
+    # From tile (tx, ty), you can reach:
+    # - (tx +/- 1, ty) with cost 1
+    # - (tx, ty +/- 1) with cost 1
+    # But wait, the "move n units" rule means you can jump over tiles.
+    # If you move vertically, you enter every tile in between.
+    # If you move horizontally, you might stay in the same tile or enter a new one.
+    
+    # Let's re-evaluate:
+    # To get from (s_tile_x, s_tile_y) to (t_tile_x, t_tile_y):
+    # The cost is max(|s_tile_x - t_tile_x|, |s_tile_y - t_tile_y|) 
+    # is NOT correct because we can only move in 4 cardinal directions.
+    # The cost is simply the Manhattan distance in the tile-coordinate system:
+    # cost = |s_tile_x - t_tile_x| + |s_tile_y - t_tile_y|
+    # But there is a catch: moving diagonally in the tile grid (changing both x and y)
+    # can be done by moving 1 unit horizontally and 1 unit vertically.
+    # The actual minimum cost to move between tiles in this specific tiling 
+    # is known to be:
+    # dist = max(|s_tile_x - t_tile_x|, |s_tile_y - t_tile_y|, (|s_tile_x - t_tile_x| + |s_tile_y - t_tile_y| + 1) // 2)
+    # Wait, the simplest derivation for this specific tiling problem is:
+    # The distance is max(|s_tile_x - t_tile_x|, |s_tile_y - t_tile_y|, 
+    #                     (|s_tile_x - t_tile_x| + |s_tile_y - t_tile_y| + 1) // 2)
+    # Actually, the correct formula for this specific grid is:
+    # cost = max(abs(s_tile_x - t_tile_x), abs(s_tile_y - t_tile_y), 
+    #             (abs(s_tile_x - t_tile_x) + abs(s_tile_y - t_tile_y) + 1) // 2)
+    # Let's test Sample 1: S(5,0), T(2,5)
+    # s_tile_x = (5 + 0)//2 = 2, s_tile_y = 0
+    # t_tile_x = (2 + (5%2))//2 = (2+1)//2 = 1, t_tile_y = 5
+    # dx = |2-1| = 1, dy = |0-5| = 5
+    # max(1, 5, (1+5+1)//2) = max(1, 5, 3) = 5. Correct.
+    
+    # Sample 2: S(3,1), T(4,1)
+    # s_tile_x = (3 + 1)//2 = 2, s_tile_y = 1
+    # t_tile_x = (4 + 1)//2 = 2, t_tile_y = 1
+    # dx = 0, dy = 0 -> 0. Correct.
+    
+    dx = abs(s_tile_x - t_tile_x)
+    dy = abs(s_tile_y - t_tile_y)
+    
+    print(max(dx, dy, (dx + dy + 1) // 2))
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I should double check the logic. The distance in this specific "brick-wall" tiling is indeed $\max(\Delta x, \Delta y, \lceil \frac{\Delta x + \Delta y}{2} \rceil)$ where $\Delta x, \Delta y$ are the distances in the transformed tile-coordinate system. This is a known result for this specific tiling pattern.
+
+Final check on the formula:
+For Sample 1: $\Delta x = 1, \Delta y = 5 \implies \max(1, 5, 3) = 5$.
+For Sample 2: $\Delta x = 0, \Delta y = 0 \implies 0$.
+For a case where $\Delta x = 5, \Delta y = 1 \implies \max(5, 1, 3) = 5$.
+For a case where $\Delta x = 2, \Delta y = 2 \implies \max(2, 2, 2) = 2$.
+
+The logic holds.
+One final detail: the problem says "Each time he enters a tile, he pays a toll of 1." 
+Starting tile is already entered? No, usually "enters" means moving from one to another.
+Sample 2: (3,1) and (4,1) are in the same tile. Cost 0. Correct.
+Sample 1: $S \to T$ cost 5.
+Using the formula: $\Delta x=1, \Delta y=5 \to 5$. Correct.
+The formula $\max(\Delta x, \Delta y, \lceil \frac{\Delta x + \Delta y}{2} \rceil)$ correctly calculates the minimum number of tile transitions.
+Since the starting tile is not counted as "entered", the number of transitions is exactly the toll.
+The logic is sound.
+The constraints are up to $2 \times 10^{16}$, so Python's arbitrary precision integers are required.
+
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # Transform coordinates to tile-based coordinates
+    # A tile is defined by ( (i + (j % 2)) // 2, j )
+    s_tile_x = (sx + (sy % 2)) // 2
+    s_tile_y = sy
+    t_tile_x = (tx + (ty % 2)) // 2
+    t_tile_y = ty
+    
+    dx = abs(s_tile_x - t_tile_x)
+    dy = abs(s_tile_y - t_tile_y)
+    
+    # The minimum toll is the distance in the tile graph.
+    # In this specific tiling, the distance is max(dx, dy, ceil((dx + dy) / 2))
+    print(max(dx, dy, (dx + dy + 1) // 2))
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I must provide it in a single code block.
+
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # Transform coordinates to tile-based coordinates
+    # A tile is defined by ( (i + (j % 2)) // 2, j )
+    s_tile_x = (sx + (sy % 2)) // 2
+    s_tile_y = sy
+    t_tile_x = (tx + (ty % 2)) // 2
+    t_tile_y = ty
+    
+    dx = abs(s_tile_x - t_tile_x)
+    dy = abs(s_tile_y - t_tile_y)
+    
+    # The minimum toll is the distance in the tile graph.
+    # In this specific tiling, the distance is max(dx, dy, ceil((dx + dy) / 2))
+    print(max(dx, dy, (dx + dy + 1) // 2))
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, I'll just put it in the requested format.
+Final check on the logic:
+If $\Delta x=0, \Delta y=1$, cost is $\max(0, 1, 1) = 1$.
+If $\Delta x=1, \Delta y=0$, cost is $\max(1, 0, 1) = 1$.
+If $\Delta x=1, \Delta y=1$, cost is $\max(1, 1, 1) = 1$. (Move $S \to$ shared boundary $\to T$).
+This matches the behavior of the tiling.
+The distance is indeed $\max(\Delta x, \Delta y, \lceil \frac{\Delta x + \Delta y}{2} \rceil)$.
+One last check on the "shared boundary" for $\Delta x=1, \Delta y=1$:
+$S=(0,0) \to \text{tile}(0,0)$. $T=(1,1) \to \text{tile}(1,1)$.
+$\Delta x=1, \Delta y=1$. Cost $\max(1,1,1)=1$.
+Path: $(0.5, 0.5) \to (1.5, 0.5)$ [still in tile $(0,0)$] $\to (1.5, 1.5)$ [enter tile $(1,1)$].
+Toll = 1. Correct.
+If $S=(0,0), T=(0,1) \to \text{tile}(0,0)$ and $\text{tile}(0,1)$.
+$\Delta x=0, \Delta y=1$. Cost $\max(0,1,1)=1$. Correct.
+If $S=(0,0), T=(2,0) \to \text{tile}(0,0)$ and $\text{tile}(1,0)$.
+$\Delta x=1, \Delta y=0$. Cost $\max(1,0,1)=1$. Correct.
+Everything seems correct.
+Final code structure:
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # Transform coordinates to tile-based coordinates
+    # A tile is defined by ( (i + (j % 2)) // 2, j )
+    s_tile_x = (sx + (sy % 2)) // 2
+    s_tile_y = sy
+    t_tile_x = (tx + (ty % 2)) // 2
+    t_tile_y = ty
+    
+    dx = abs(s_tile_x - t_tile_x)
+    dy = abs(s_tile_y - t_tile_y)
+    
+    # The minimum toll is the

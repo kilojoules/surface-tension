@@ -1,0 +1,65 @@
+```python
+import sys
+
+def solve():
+    # Read input strings S and T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    N = len(S)
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(N) if S[i] != T[i]]
+    M = len(diff_indices)
+    
+    # To get the lexicographically smallest array X, we want each X_j to be 
+    # as small as possible. 
+    # X_j is formed by changing one character of X_{j-1}.
+    # To make X_1 smallest, we should look for the first index i where S[i] != T[i].
+    # If T[i] < S[i], changing S[i] to T[i] immediately makes the string smaller.
+    # If T[i] > S[i], we should first process all indices k > i where T[k] < S[k]
+    # to make the string smaller before we are forced to make it larger at index i.
+    
+    # Correct Strategy for Lexicographical Minimization:
+    # 1. Change all S[i] to T[i] where T[i] < S[i] in increasing order of i.
+    # 2. Change all S[i] to T[i] where T[i] > S[i] in decreasing order of i.
+    
+    # Let's refine this: 
+    # To make X_1 smallest, we want the smallest possible character at the earliest possible position.
+    # If there is any i such that T[i] < S[i], the best first move is to change the first such i.
+    # Actually, the optimal sequence is:
+    # First, handle all indices i where T[i] < S[i] from left to right.
+    # Then, handle all indices i where T[i] > S[i] from right to left.
+    
+    # Example: S = adbe, T = bcbc. Diff indices: 0(a->b), 1(d->c), 3(e->c)
+    # T[1]<S[1] (c<d) and T[3]<S[3] (c<e).
+    # First move: S[1]=T[1] -> acbe
+    # Second move: S[3]=T[3] -> acbc
+    # Third move: S[0]=T[0] -> bcbc
+    # Result: acbe, acbc, bcbc. (Matches Sample 1)
+    
+    decreasing_indices = [i for i in diff_indices if T[i] < S[i]]
+    increasing_indices = [i for i in diff_indices if T[i] > S[i]]
+    
+    # Sort decreasing_indices ascending (left to right)
+    # Sort increasing_indices descending (right to left)
+    process_order = sorted(decreasing_indices) + sorted(increasing_indices, reverse=True)
+    
+    # Generate the sequence of strings
+    current_S = list(S)
+    X = []
+    for idx in process_order:
+        current_S[idx] = T[idx]
+        X.append("".join(current_S))
+    
+    # Output results
+    print(M)
+    for string in X:
+        print(string)
+
+if __name__ == "__main__":
+    solve()
+```

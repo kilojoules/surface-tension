@@ -1,0 +1,108 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = map(int, input_data[3:])
+    
+    # Group queries into pairs of (R, C)
+    def pair_queries(it):
+        return zip(it, it)
+    
+    # We need to track which walls exist. 
+    # Using sorted lists for each row and column allows O(log N) search.
+    # rows[i] contains sorted indices of columns that have a wall in row i.
+    # cols[j] contains sorted indices of rows that have a wall in column j.
+    # Since H*W <= 4e5, we can initialize these lists.
+    
+    # To avoid loops for initialization, use list comprehensions.
+    initial_rows = [list(range(1, W + 1)) for _ in range(H)]
+    initial_cols = [list(range(1, H + 1)) for _ in range(W)]
+    
+    # The state is (rows, cols)
+    # We use reduce to process queries one by one.
+    def process_query(state, query):
+        rows, cols = state
+        r, c = query
+        
+        # Check if wall exists at (r, c)
+        # We use bisect to check existence in the sorted list
+        idx_in_row = bisect_left(rows[r-1], c)
+        exists = idx_in_row < len(rows[r-1]) and rows[r-1][idx_in_row] == c
+        
+        if exists:
+            # Destroy wall at (r, c)
+            # Note: mutating lists inside reduce is generally frowned upon in pure FP,
+            # but necessary here for performance given the constraints.
+            # However, the prompt forbids 'for' and 'while' loops.
+            rows[r-1].pop(idx_in_row)
+            
+            # Now we must remove r from cols[c-1]. 
+            # Since cols[c-1] is sorted, we use bisect again.
+            idx_in_col = bisect_left(cols[c-1], r)
+            cols[c-1].pop(idx_in_col)
+            return (rows, cols)
+        else:
+            # Destroy 4 nearest walls
+            # 1. Up
+            idx_c = bisect_left(cols[c-1], r)
+            # Wall above is at index idx_c - 1
+            
+            # 2. Down
+            # Wall below is at index idx_c
+            
+            # 3. Left
+            idx_r = bisect_left(rows[r-1], c)
+            # Wall left is at index idx_r - 1
+            
+            # 4. Right
+            # Wall right is at index idx_r
+            
+            # We need to collect the coordinates of walls to be destroyed.
+            # We use a list comprehension to handle the 4 directions.
+            targets = [
+                (cols[c-1][idx_c - 1], c) if idx_c > 0 else None,
+                (cols[c-1][idx_c]) if idx_c < len(cols[c-1]) else None,
+                (r, rows[r-1][idx_r - 1]) if idx_r > 0 else None,
+                (r, rows[r-1][idx_r]) if idx_r < len(rows[r-1]) else None
+            ]
+            
+            # Filter out None values
+            valid_targets = list(filter(None, targets))
+            
+            # To destroy these walls, we need to remove them from both rows and cols lists.
+            # Since we can't use loops, we use a helper function with reduce.
+            def destroy_wall(s, target):
+                tr, tc = target
+                # Remove from row list
+                r_list = s[0][tr-1]
+                r_idx = bisect_left(r_list, tc)
+                if r_idx < len(r_list) and r_list[r_idx] == tc:
+                    r_list.pop(r_idx)
+                # Remove from col list
+                c_list = s[1][tc-1]
+                c_idx = bisect_left(c_list, tr)
+                if c_idx < len(c_list) and c_list[c_idx] == tr:
+                    c_list.pop(c_idx)
+                return s
+            
+            return reduce(destroy_wall, valid_targets, (rows, cols))
+
+    # Process all queries
+    final_state = reduce(process_query, pair_queries(queries), (initial_rows, initial_cols))
+    
+    # Calculate remaining walls
+    # Sum of lengths of all lists in final_state[0]
+    remaining = sum(map(len, final_state[0]))
+    print(remaining)
+
+if __name__ == "__main__":
+    solve()

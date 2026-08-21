@@ -1,0 +1,241 @@
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    ptr = 1
+    
+    # Process each test case
+    # For each case, we need N and the permutation P
+    # The operation k sorts [1, k-1] and [k+1, N].
+    # This means P_k remains in its position, and all other elements are sorted.
+    # If we can find a k such that P_k = k, and sorting the rest results in 
+    # P_i = i for all i, then 1 operation suffices.
+    # Sorting the rest results in P_i = i if and only if the set {P_i | i != k} 
+    # is exactly {1, ..., N} \ {k}. This is always true if P is a permutation.
+    # So 1 operation is enough if there exists k such that P_k = k.
+    # 0 operations are enough if P_i = i for all i.
+    # Otherwise, 2 operations are always enough (e.g., k=1 then k=N).
+    
+    # Using a list comprehension to iterate through test cases without explicit for/while loops
+    # We extract the cases by grouping the flat input list.
+    # Since N varies, we can't use a simple reshape. We use a generator to yield cases.
+    
+    def get_cases(data, t):
+        # This is a helper to group the flat list into (N, P) pairs
+        # We use a list comprehension with a trick to maintain state via a mutable object
+        state = {'p': 1}
+        def next_case():
+            n = int(data[state['p']])
+            p = data[state['p']+1 : state['p']+1+n]
+            state['p'] += 1 + n
+            return n, p
+        return [next_case() for _ in range(t)]
+
+    cases = get_cases(input_data, T)
+    
+    # For each case (N, P):
+    # Ans = 0 if all P_i == i
+    # Ans = 1 if any P_i == i
+    # Ans = 2 otherwise
+    # Note: P_i is given as strings, so we compare P[i] == str(i+1)
+    
+    results = [
+        "0" if all(P[i] == str(i + 1) for i in range(N)) else
+        "1" if any(P[i] == str(i + 1) for i in range(N)) else
+        "2"
+        for N, P in cases
+    ]
+    
+    sys.stdout.write("\n".join(results) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, the prompt forbids `for` or `while` loops. My `get_cases` used a `for` loop inside a list comprehension to call `next_case`. Let me refine it to be strictly compliant. I can use `itertools.accumulate` or a recursive-like structure via `map` and a closure, but the simplest way to handle variable-length chunks in a flat list without loops is to use a generator with `next()` inside a list comprehension, or better, use `sys.stdin.read().split()` and a custom reducer.
+
+Actually, the most robust way to handle the variable $N$ without `for` is to use a generator and `next()`.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    # Create an iterator from the input data
+    it = iter(input_data[1:])
+    
+    # Define a function to process a single case
+    # It reads N, then reads N elements from the iterator
+    def process_case():
+        try:
+            N = int(next(it))
+            # Use slice-like behavior by calling next() N times in a list comprehension
+            P = [next(it) for _ in range(N)] 
+            # Wait, 'for _ in range(N)' is a loop. 
+            # I must use map(lambda _, __: next(it), range(N))
+            # But I already called next(it) for N. Let's redefine.
+            return N, P
+        except StopIteration:
+            return None
+
+    # To avoid the loop in process_case, I'll use map.
+    # But I need to capture the P values.
+    
+    # Let's use a different approach: 
+    # Since I can't use loops, I'll use a recursive-like structure 
+    # via a list comprehension that consumes the iterator.
+    
+    # Corrected approach:
+    # Use a helper function that takes the iterator and returns the result for one case.
+    def handle_case(iterator):
+        N = int(next(iterator))
+        # Consume N elements using map and list
+        P = list(map(lambda _: next(iterator), range(N)))
+        # Check conditions
+        # 0: all P[i] == i+1
+        # 1: any P[i] == i+1
+        # 2: otherwise
+        # We use a list of booleans to avoid multiple passes
+        checks = [P[i] == str(i + 1) for i in range(N)]
+        if all(checks): return "0"
+        if any(checks): return "1"
+        return "2"
+
+    # Use map to apply handle_case T times
+    # We use a list comprehension to trigger the map, but the 'for' in 
+    # 'for _ in range(T)' is forbidden. 
+    # We can use map(lambda _: handle_case(it), range(T))
+    
+    results = map(lambda _: handle_case(it), range(T))
+    sys.stdout.write("\n".join(results) + "\n")
+
+# The prompt says "Provide a complete, working solution. Return only Python source inside a single ```python code block."
+# I will provide the final version without any forbidden keywords.
+```
+
+Final check on constraints: `for` and `while` are forbidden. `range()` is allowed. List comprehensions are allowed as long as they don't use `for`? No, list comprehensions *contain* `for`. The prompt says "without using any `for` or `while` loops". This usually implies `for` keywords are banned entirely. I will use `map`, `filter`, and `recursion` (via `functools.reduce` or similar) to avoid the `for` keyword.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    T = int(input_data[0])
+    it = iter(input_data[1:])
+    
+    def handle_case(_):
+        N = int(next(it))
+        # Use map(lambda x: next(it), range(N)) to extract P without 'for'
+        P = list(map(lambda _: next(it), range(N)))
+        # Use map/all/any to check conditions
+        # We create a list of booleans: P[i] == str(i+1)
+        # Since we can't use 'for', we use map(lambda i: P[i] == str(i+1), range(N))
+        checks = list(map(lambda i: P[i] == str(i+1), range(N)))
+        if all(checks): return "0"
+        if any(checks): return "1"
+        return "2"
+
+    # Use map to process T cases and join them
+    # Note: range(T) is allowed, but 'for' is not.
+    results = map(handle_case, range(T))
+    sys.stdout.write("\n".join(results) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, `range(N)` inside `map` is fine, but I must ensure no `for` keyword appears anywhere.
+
+Final Code:
+```python
+import sys
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    it = iter(input_data[1:])
+    
+    def handle_case(_):
+        try:
+            N = int(next(it))
+            # Extract P using map instead of list comprehension
+            P = list(map(lambda _: next(it), range(N)))
+            # Check if P_i == i using map
+            checks = list(map(lambda i: P[i] == str(i + 1), range(N)))
+            if all(checks):
+                return "0"
+            if any(checks):
+                return "1"
+            return "2"
+        except StopIteration:
+            return ""
+
+    # Use map to iterate T times and join the results
+    sys.stdout.write("\n".join(map(handle_case, range(T))) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block." I will provide exactly that.
+One last check: `range(N)` is an iterable, `map` is a function. No `for` or `while` keywords.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    it = iter(input_data[1:])
+    
+    def handle_case(_):
+        N = int(next(it))
+        P = list(map(lambda _: next(it), range(N)))
+        checks = list(map(lambda i: P[i] == str(i + 1), range(N)))
+        return "0" if all(checks) else ("1" if any(checks) else "2")
+
+    sys.stdout.write("\n".join(map(handle_case, range(T))) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used `if` in a ternary. That's allowed. The restriction is on `for` and `while` loops.
+
+Final check on the logic:
+- 0 ops: $P_i = i$ for all $i$.
+- 1 op: There exists $k$ such that $P_k = k$. If we pick this $k$, the operation sorts $1 \dots k-1$ and $k+1 \dots N$. Since the elements are a permutation of $1 \dots N$ and $P_k=k$, the remaining elements are exactly $\{1 \dots N\} \setminus \{k\}$. Sorting them will place $1$ at index 1, $2$ at index 2, etc.
+- 2 ops: Always possible. For any permutation, we can pick $k=1$ (sorts $2 \dots N$) then $k=N$ (sorts $1 \dots N-1$). Actually, the problem says it's always possible. For $N \ge 3$, 2 operations are sufficient.
+
+Example 3: `3 2 1 7 5 6 4`. 
+$P_1=3, P_2=2, P_3=1, P_4=7, P_5=5, P_6=6, P_7=4$.
+Indices where $P_i=i$: $i=2, 5, 6$.
+Wait, the sample says for Example 3 the answer is 2. Let me re-read.
+Sample 3: `3 2 1 7 5 6 4`. 
+$P_1=3, P_2=2, P_3=1, P_4=7, P_5=5, P_6=6, P_7=4$.
+Indices: 1 2 3 4 5 6 7.
+$P_2=2, P_5=5, P_6=6$.
+Wait, if $P_2=2$, then $k=2$ should sort $P_1$ and $P_3 \dots P_7$.
+$P_1$ becomes sorted (just 3), $P_3 \dots P_7$ becomes $(1, 4, 5, 6, 7)$.
+Result: $(3, 2, 1, 4, 5, 6, 7)$. Not sorted.
+My logic "1 operation if any $P_k=k$" is wrong.
+The condition for 1 operation is: there exists $k$ such that sorting $\{P_i\}_{i \neq k}$ results in $P_i=i$.
+This happens if and only if the set $\{P_i\}_{i \neq k}$ is $\{1, \dots, N\} \setminus \{k\}$.
+This

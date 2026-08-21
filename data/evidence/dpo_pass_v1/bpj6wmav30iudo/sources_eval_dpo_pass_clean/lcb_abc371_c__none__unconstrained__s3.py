@@ -1,0 +1,63 @@
+import itertools
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use an iterator to consume the input stream sequentially
+    it = iter(input_data)
+    
+    # Extract N and M_G
+    N = next(it)
+    MG = next(it)
+    
+    # Build adjacency matrix for G
+    # We use a set of frozen sets to represent edges for O(1) lookup
+    G_edges = {frozenset([next(it), next(it)]) for _ in range(MG)}
+    
+    # Extract M_H
+    MH = next(it)
+    
+    # Build adjacency matrix for H
+    H_edges = {frozenset([next(it), next(it)]) for _ in range(MH)}
+    
+    # Read the cost matrix A
+    # A[i][j] will store the cost to toggle edge (i+1, j+1)
+    # Since N is small (up to 8), we can store this in a nested list
+    A = [
+        [next(it) for _ in range(N - i)] 
+        for i in range(1, N)
+    ]
+    
+    # Helper to get cost A_{i,j} where 1 <= i < j <= N
+    # i, j are 1-indexed
+    get_cost = lambda i, j: A[min(i, j) - 1][max(i, j) - min(i, j) - 1]
+
+    # Generate all possible permutations P of (1, ..., N)
+    # P[i-1] is the vertex in H that vertex i in G maps to
+    perms = itertools.permutations(range(1, N + 1))
+    
+    # For a fixed permutation P, the cost is the sum of A_{P_i, P_j} 
+    # for all pairs (i, j) where the edge status in G (i, j) 
+    # differs from the edge status in H (P_i, P_j).
+    # We iterate through all pairs 1 <= i < j <= N.
+    
+    # Pre-calculate all pairs (i, j) to avoid redundant work in the lambda
+    pairs = list(itertools.combinations(range(1, N + 1), 2))
+    
+    # Calculate minimum cost across all permutations
+    # We use a generator expression inside min() for memory efficiency
+    result = min(
+        sum(
+            get_cost(p[i-1], p[j-1]) 
+            for i, j in pairs 
+            if (frozenset([i, j]) in G_edges) != (frozenset([p[i-1], p[j-1]]) in H_edges)
+        )
+        for p in perms
+    )
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()

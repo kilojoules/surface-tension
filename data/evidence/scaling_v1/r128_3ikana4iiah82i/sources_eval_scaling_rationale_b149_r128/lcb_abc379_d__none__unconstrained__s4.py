@@ -1,0 +1,93 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries in order. 
+    # Each query can have 1 or 2 parameters.
+    # We'll group the input into a list of queries.
+    # Since the query types dictate the number of arguments, 
+    # we can't use a simple chunk size.
+    
+    # To avoid loops, we use a generator or map to parse the queries.
+    # However, since we need to track the index to handle variable lengths,
+    # we can use a recursive-like structure via reduce or a custom iterator.
+    
+    # Let's pre-process the input into a list of tuples.
+    # We use a helper function with reduce to group the input.
+    def group_queries(acc, val):
+        # This is a trick to handle the variable length of queries
+        # without a for loop.
+        # We check the last added query to see if it needs more arguments.
+        # But since we know the types: 1 (0 args), 2 (1 arg), 3 (1 arg)
+        # we can just iterate through the list.
+        return acc # This is hard to do with reduce if we don't know the structure.
+    
+    # Actually, the simplest way to avoid loops while parsing is to use an iterator.
+    it = iter(input_data[1:])
+    
+    def get_queries():
+        # We use a list comprehension with a helper to consume the iterator.
+        # But wait, list comprehensions can't easily call next() multiple times.
+        # Let's use a different approach: 
+        # Since we can't use 'for' or 'while', we use 'reduce'.
+        pass
+
+    # Let's redefine: we will process the raw input_data using reduce.
+    # State: (current_index, current_offset, plants_list, results_list)
+    # plants_list will store the 'birth_offset' of each plant.
+    # A plant is harvested if: current_offset - birth_offset >= H
+    # Which is: birth_offset <= current_offset - H
+    
+    def process(state, _):
+        idx, offset, plants, results = state
+        q_type = input_data[idx + 1] # This is wrong because idx increments vary.
+        # Let's fix the state to track the pointer.
+        return state
+
+    # Correct approach using reduce:
+    # We use a function that determines the next index based on the query type.
+    def step(state, _):
+        idx, offset, plants, results = state
+        q_type = input_data[idx]
+        
+        if q_type == '1':
+            # Plant height 0 means its birth_offset is the current total offset.
+            # We keep plants sorted by birth_offset to use binary search.
+            # Since we always add the current offset, and offset is non-decreasing,
+            # the plants list remains sorted.
+            return (idx + 1, offset, plants + [offset], results)
+        
+        elif q_type == '2':
+            T = int(input_data[idx + 1])
+            return (idx + 2, offset + T, plants, results)
+        
+        elif q_type == '3':
+            H = int(input_data[idx + 1])
+            # Harvest if: offset - birth_offset >= H  => birth_offset <= offset - H
+            threshold = offset - H
+            # Find number of plants with birth_offset <= threshold
+            # bisect_left returns the index of the first element > threshold
+            count = bisect_left(plants, threshold + 1) 
+            # Note: since birth_offsets are integers, <= threshold is < threshold + 1
+            # However, the plants list is sorted. We can slice it.
+            return (idx + 2, offset, plants[count:], results + [count])
+            
+        return state
+
+    # To avoid the 'for' loop in the reduce, we pass a range.
+    # The state transition handles the index pointer.
+    final_state = reduce(step, range(Q), (1, 0, [], []))
+    
+    # Print results
+    sys.stdout.write('\n'.join(map(str, final_state[3])) + '\n')
+
+if __name__ == "__main__":
+    solve()

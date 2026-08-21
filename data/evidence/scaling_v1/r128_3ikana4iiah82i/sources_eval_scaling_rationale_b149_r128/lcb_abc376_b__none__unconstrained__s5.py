@@ -1,0 +1,74 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions are pairs of (H_i, T_i)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+    
+    # Initial state: (left_hand, right_hand, total_distance)
+    initial_state = (1, 2, 0)
+    
+    def calculate_dist(start, end, obstacle, n):
+        # The ring is 1-indexed. We calculate distances in both directions.
+        # Direction 1: Clockwise (increasing index)
+        # Direction 2: Counter-clockwise (decreasing index)
+        
+        # To handle the ring, we can think of it as a linear path from 1 to N.
+        # The obstacle splits the ring into one contiguous segment.
+        # Since we cannot pass the obstacle, there is only one valid path.
+        
+        # We can simulate the movement by checking if the obstacle is "between" 
+        # the start and end in either direction.
+        
+        # Normalize to 0-indexed for easier modulo arithmetic
+        s, e, o = start - 1, end - 1, obstacle - 1
+        
+        # Distance moving 'forward' (s -> s+1 -> ... -> e)
+        # The number of steps is (e - s) % n.
+        # This path is blocked if the obstacle 'o' is encountered.
+        # The obstacle is encountered if (o - s) % n < (e - s) % n.
+        
+        dist_f = (e - s) % n
+        blocked_f = (o - s) % n < dist_f
+        
+        # Distance moving 'backward' (s -> s-1 -> ... -> e)
+        # The number of steps is (s - e) % n.
+        # The obstacle is encountered if (s - o) % n < (s - e) % n.
+        
+        dist_b = (s - e) % n
+        blocked_b = (s - o) % n < dist_b
+        
+        # It is guaranteed that the instruction is achievable.
+        # Return the distance of the path that is not blocked.
+        return dist_f if not blocked_f else dist_b
+
+    def transition(state, instr):
+        l, r, total = state
+        h, t = instr
+        
+        if h == 'L':
+            # Move left hand to t, right hand r is obstacle
+            d = calculate_dist(l, t, r, N)
+            return (t, r, total + d)
+        else:
+            # Move right hand to t, left hand l is obstacle
+            d = calculate_dist(r, t, l, N)
+            return (l, t, total + d)
+
+    # Use reduce to iterate through instructions and accumulate distance
+    final_state = reduce(transition, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,168 @@
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # Calculate prefix sums of distances modulo M
+    # P[i] is the distance from rest area 1 to rest area i+1
+    # P[0] = 0, P[1] = A_1 % M, P[2] = (A_1 + A_2) % M, ...
+    # The distance from s to t (s < t) is (P[t-1] - P[s-1]) % M
+    # The distance from s to t (s > t) is (Total_Sum - P[s-1] + P[t-1]) % M
+    
+    P = list(accumulate(A, lambda x, y: (x + y) % M, initial=0))
+    # P has N+1 elements. P[0] is start, P[N] is total sum % M.
+    # We only need P[0]...P[N-1] for the starting positions.
+    P_reduced = P[:N]
+    total_sum_mod = P[N]
+    
+    # Count occurrences of each remainder modulo M
+    counts = Counter(P_reduced)
+    
+    # For a pair (s, t) with s < t:
+    # Distance is (P[t-1] - P[s-1]) % M == 0  => P[t-1] == P[s-1] (mod M)
+    # Number of pairs is sum(count * (count - 1) // 2)
+    ans_s_less_t = sum(c * (c - 1) // 2 for c in counts.values())
+    
+    # For a pair (s, t) with s > t:
+    # Distance is (total_sum_mod - P[s-1] + P[t-1]) % M == 0
+    # => P[s-1] - P[t-1] == total_sum_mod (mod M)
+    # => P[s-1] - total_sum_mod == P[t-1] (mod M)
+    # Let target = (P[s-1] - total_sum_mod) % M
+    # We need to count pairs (s, t) such that P[t-1] == target
+    
+    # We can calculate this by iterating over the counts of P[s-1]
+    # For each remainder 'r' that appears 'c' times:
+    # The required P[t-1] is (r - total_sum_mod) % M
+    # The number of pairs is c * counts[(r - total_sum_mod) % M]
+    # However, we must exclude cases where s == t (though the problem says s != t)
+    # and we must handle the case where total_sum_mod == 0 carefully.
+    
+    # If total_sum_mod == 0, then P[s-1] == P[t-1]. 
+    # This is already covered by the s < t case if we just mirror it.
+    # But the condition s > t is distinct.
+    # If total_sum_mod == 0, then for every pair (s, t) with s < t and dist 0,
+    # the pair (t, s) also has dist 0.
+    
+    # General formula for s > t:
+    # sum(counts[r] * counts[(r - total_sum_mod) % M])
+    # Then subtract cases where s == t (which happens if total_sum_mod == 0)
+    
+    ans_s_greater_t = sum(c * counts[(r - total_sum_mod) % M] 
+                          for r, c in counts.items())
+    
+    # Subtract cases where s == t (only happens if total_sum_mod % M == 0)
+    if total_sum_mod == 0:
+        ans_s_greater_t -= N
+        
+    print(ans_s_less_t + ans_s_greater_t)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a logic error in the `s > t` calculation. If `total_sum_mod == 0`, the `ans_s_greater_t` calculation `sum(c * counts[r])` becomes `sum(c^2)`, which is `N + 2 * ans_s_less_t`. Subtracting `N` gives `2 * ans_s_less_t`. This is correct because if the total loop is a multiple of $M$, then $dist(s, t) \equiv 0 \pmod M$ if and only if $dist(t, s) \equiv 0 \pmod M$.
+
+However, there is a simpler way to think about $s > t$:
+For a fixed $s$, we need $P[t-1] \equiv P[s-1] - \text{Total} \pmod M$.
+The number of such $t$ is `counts[(P[s-1] - total_sum_mod) % M]`.
+Since we need $t < s$, we cannot simply use the global counter.
+
+**Correct Logic for $s > t$:**
+The distance from $s$ to $t$ ($s > t$) is:
+$Dist(s, t) = (P[N] - P[s-1]) + P[t-1]$
+We want $(P[N] - P[s-1] + P[t-1]) \equiv 0 \pmod M$
+$\Rightarrow P[t-1] \equiv (P[s-1] - P[N]) \pmod M$
+
+Let's use the property:
+Total pairs $(s, t)$ with $s \neq t$ such that $Dist(s, t) \equiv 0 \pmod M$ is:
+$\sum_{r=0}^{M-1} \text{count}(r) \times \text{count}((r - P[N]) \pmod M)$
+Then subtract the cases where $s=t$ (which only happens if $P[N] \equiv 0 \pmod M$).
+
+Wait, the above sum counts all pairs $(s, t)$ regardless of whether $s < t$ or $s > t$.
+If $P[N] \equiv 0 \pmod M$, then $Dist(s, t) \equiv 0 \iff P[s-1] \equiv P[t-1] \pmod M$.
+The number of pairs is $N(N-1)$ if all $P$ are same, or more generally $\sum c_i(c_i-1)$.
+If $P[N] \not\equiv 0 \pmod M$, then $s < t$ and $s > t$ are mutually exclusive for the $0 \pmod M$ condition.
+
+Let's refine:
+1. Let $C$ be the frequency map of $P[0] \dots P[N-1]$.
+2. We want pairs $(s, t)$ such that:
+   - If $s < t$: $P[t-1] - P[s-1] \equiv 0 \pmod M \Rightarrow P[t-1] \equiv P[s-1] \pmod M$.
+   - If $s > t$: $P[N] - P[s-1] + P[t-1] \equiv 0 \pmod M \Rightarrow P[t-1] \equiv (P[s-1] - P[N]) \pmod M$.
+
+This is equivalent to:
+For each $s \in \{1 \dots N\}$, we need to count $t \in \{1 \dots N\}, t \neq s$ such that:
+- $t > s$ and $P[t-1] \equiv P[s-1] \pmod M$
+- $t < s$ and $P[t-1] \equiv (P[s-1] - P[N]) \pmod M$
+
+Actually, the simplest way:
+The total number of pairs $(s, t)$ with $s \neq t$ is:
+$\sum_{s=1}^N (\text{count of } t \text{ such that } Dist(s, t) \equiv 0 \pmod M) - (\text{case } s=t)$
+For a fixed $s$, $Dist(s, t) \equiv 0 \pmod M$ means:
+- If $t > s$, $P[t-1] \equiv P[s-1] \pmod M$
+- If $t < s$, $P[t-1] \equiv P[s-1] - P[N] \pmod M$
+
+This is still slightly complex. Let's use the property:
+Total pairs = (Pairs $s < t$ with $P[t-1] \equiv P[s-1]$) + (Pairs $s > t$ with $P[t-1] \equiv P[s-1] - P[N]$).
+
+Let $C$ be the counter of $P[0] \dots P[N-1]$.
+Pairs $s < t$ with $P[t-1] \equiv P[s-1]$ is $\sum \frac{c_i(c_i-1)}{2}$.
+Pairs $s > t$ with $P[t-1] \equiv P[s-1] - P[N]$ is:
+$\sum_{r=0}^{M-1} (\text{count of } s \text{ such that } P[s-1]=r) \times (\text{count of } t \text{ such that } P[t-1]=r-P[N])$
+But this includes $s=t$ if $P[N] \equiv 0 \pmod M$.
+And it doesn't enforce $s > t$.
+
+Correct approach:
+The condition $Dist(s, t) \equiv 0 \pmod M$ is:
+1. If $s < t$, $P[t-1] - P[s-1] \equiv 0 \pmod M$.
+2. If $s > t$, $P[N] - P[s-1] + P[t-1] \equiv 0 \pmod M$.
+
+Let $T = P[N] \pmod M$.
+If $T = 0$:
+Condition 1: $P[t-1] \equiv P[s-1] \pmod M$
+Condition 2: $P[t-1] \equiv P[s-1] \pmod M$
+Since $s \neq t$, for every pair $\{s, t\}$ with $P[s-1] \equiv P[t-1]$, both $(s, t)$ and $(t, s)$ work.
+Total = $\sum c_i(c_i-1)$.
+
+If $T \neq 0$:
+Condition 1: $P[t-1] \equiv P[s-1] \pmod M$ (where $s < t$)
+Condition 2: $P[t-1] \equiv P[s-1] - T \pmod M$ (where $s > t$)
+Note that if $P[t-1] \equiv P[s-1]$, then $P[t-1] \not\equiv P[s-1] - T$.
+So for any pair $\{s, t\}$, at most one of $(s, t)$ or $(t, s)$ can be a multiple of $M$.
+Total = (Pairs $s < t$ with $P[s-1] \equiv P[t-1]$) + (Pairs $s > t$ with $P[t-1] \equiv P[s-1] - T$).
+
+To calculate Pairs $s > t$ with $P[t-1] \equiv P[s-1] - T$:
+This is $\sum_{s=1}^N (\text{count of } t < s \text{ such that } P[t-1] \equiv P[s-1] - T)$.
+We can calculate this using a running counter.
+
+Final logic:
+1. $P = \text{prefix sums mod } M$
+2. $T = P[N]$
+3. If $T == 0$: ans = $\sum c_i(c_i-1)$
+4. If $T \neq 0$:
+   - Part 1: $\sum c_i(c_i-1)//2$
+   - Part 2: $\sum_{s=1}^N \text{running\_count}[(P[s-1] - T) \pmod M]$
+   - ans = Part 1 + Part 2
+
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N, M = int(input_data[0]), int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    P = list(accumulate(A, lambda x, y: (x + y) % M, initial=0))
+    T = P[N]

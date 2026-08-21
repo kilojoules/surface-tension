@@ -1,0 +1,75 @@
+import sys
+
+def solve():
+    # Read N
+    line = sys.stdin.readline()
+    if not line:
+        return
+    n = int(line.strip())
+
+    # Read Graph G
+    m_g = int(sys.stdin.readline().strip())
+    adj_g = [[0] * n for _ in range(n)]
+    for _ in range(m_g):
+        u, v = map(int, sys.stdin.readline().split())
+        adj_g[u-1][v-1] = adj_g[v-1][u-1] = 1
+
+    # Read Graph H
+    m_h = int(sys.stdin.readline().strip())
+    adj_h = [[0] * n for _ in range(n)]
+    for _ in range(m_h):
+        u, v = map(int, sys.stdin.readline().split())
+        adj_h[u-1][v-1] = adj_h[v-1][u-1] = 1
+
+    # Read Cost Matrix A
+    # A is given as A_{1,2}, A_{1,3}... A_{1,N}, then A_{2,3}...
+    # We store it in a 2D array for easy access
+    cost_matrix = [[0] * n for _ in range(n)]
+    for i in range(n - 1):
+        row_values = list(map(int, sys.stdin.readline().split()))
+        for idx, val in enumerate(row_values):
+            j = i + 1 + idx
+            cost_matrix[i][j] = cost_matrix[j][i] = val
+
+    # Generate all permutations of (0, ..., N-1) using recursion
+    all_perms = []
+    def generate_permutations(current, remaining):
+        if not remaining:
+            all_perms.append(list(current))
+            return
+        for i in range(len(remaining)):
+            current.append(remaining[i])
+            # Create a new list for remaining to avoid mutation issues
+            next_remaining = remaining[:i] + remaining[i+1:]
+            generate_permutations(current, next_remaining)
+            current.pop()
+
+    generate_permutations([], list(range(n)))
+
+    min_total_cost = float('inf')
+
+    # For each permutation P, calculate the cost to make H isomorphic to G
+    # G is the target structure. We check if edge (i, j) in G 
+    # corresponds to edge (P[i], P[j]) in H.
+    for p in all_perms:
+        current_cost = 0
+        # We only need to iterate over pairs i < j
+        for i in range(n):
+            for j in range(i + 1, n):
+                # The edge in G is between vertex i and j
+                # The corresponding edge in H is between vertex p[i] and p[j]
+                g_edge = adj_g[i][j]
+                h_edge = adj_h[p[i]][p[j]]
+                
+                # If the edge statuses differ, we must pay the cost to flip the edge in H
+                if g_edge != h_edge:
+                    # The cost is A_{p[i], p[j]}
+                    current_cost += cost_matrix[p[i]][p[j]]
+        
+        if current_cost < min_total_cost:
+            min_total_cost = current_cost
+
+    print(min_total_cost)
+
+if __name__ == "__main__":
+    solve()

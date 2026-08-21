@@ -1,0 +1,225 @@
+import sys
+from itertools import groupby
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Group indices by their height
+    # height_groups: {height: [index1, index2, ...]}
+    height_groups = {}
+    for i, height in enumerate(h):
+        height_groups.setdefault(height, []).append(i)
+    
+    # For each height group, we need to find the maximum number of indices
+    # that form an arithmetic progression.
+    # Since we need equal intervals, we are looking for indices i, i+d, i+2d...
+    # For a fixed height and a fixed starting index i and interval d,
+    # we count how many indices in that height group match the pattern.
+    
+    # We use a comprehension to iterate through all height groups.
+    # For each group, we try all pairs of indices (i, j) to determine a potential interval d = j - i.
+    # Then we check how many elements in that specific height group fit the sequence.
+    
+    # To optimize, we only check intervals d that could possibly yield a result 
+    # better than the current maximum.
+    
+    # We use a helper logic inside a comprehension:
+    # For a sorted list of indices 'indices', and a pair (i, j), 
+    # the interval is d = indices[j] - indices[i].
+    # We count k such that indices[k] = indices[i] + (k-i)*d is NOT the goal,
+    # but rather indices[k] = indices[i] + m*d.
+    
+    # Actually, the simplest way to check a specific interval d starting at index i:
+    # count = sum(1 for idx in indices if (idx - indices[i]) % d == 0)
+    # But that's only if the height at those positions is the same.
+    # Since we already filtered by height_groups, we just need to check if 
+    # (idx - start_idx) is a multiple of d AND the height is correct.
+    
+    # Correct logic for a fixed height group 'indices':
+    # For every pair of indices indices[i] and indices[j], let d = indices[j] - indices[i].
+    # The number of elements in the sequence is the count of x in 'indices' 
+    # such that (x - indices[i)) % d == 0. 
+    # Wait, that's not correct because it doesn't guarantee the elements are 
+    # at EXACT equal intervals (it allows gaps).
+    # The condition "arranged at equal intervals" means indices are i, i+d, i+2d...
+    # So we must check if indices[i] + k*d exists in the set of indices for k=0, 1, 2...
+    
+    # Let's refine:
+    # For each height group:
+    #   For each pair of indices (idx1, idx2) in the group:
+    #     d = idx2 - idx1
+    #     count = 0
+    #     curr = idx1
+    #     while curr < n:
+    #       if curr in indices_set: count += 1
+    #       else: break
+    #       curr += d
+    
+    # Since N=3000, O(N^2) is acceptable. 
+    # We can iterate through all possible intervals d from 1 to N-1.
+    # For a fixed d, we can group indices by (index % d).
+    # Within each (d, remainder) group, we look for the longest run of the same height.
+    
+    # Let's use the O(N^2) approach:
+    # For each d in 1...N-1:
+    #   For each remainder r in 0...d-1:
+    #     Extract heights at indices r, r+d, r+2d...
+    #     Find the maximum length of consecutive identical heights.
+    
+    # Using groupby to find the maximum length of identical consecutive heights:
+    # max(len(list(g)) for k, g in groupby(sequence))
+    
+    # We wrap this in a generator to avoid loops and use a single expression.
+    
+    ans = max(
+        (
+            max(
+                (
+                    sum(1 for _ in g) 
+                    for k, g in groupby(
+                        [h[i] for i in range(r, n, d)]
+                    )
+                ),
+                default=0
+            )
+            for r in range(d)
+        ),
+        default=0
+    )
+    
+    # The above logic is slightly flawed because it checks consecutive 
+    # elements in the sampled sequence. If the sampled sequence is 
+    # [5, 7, 5], groupby sees 5, then 7, then 5. The max length is 1.
+    # But the problem says "The chosen buildings all have the same height" 
+    # AND "arranged at equal intervals".
+    # This means if we pick interval d, we are looking at indices r, r+d, r+2d...
+    # We need to find the maximum number of these that have the SAME height.
+    # They don't have to be consecutive in the sampled sequence? 
+    # "The chosen buildings are arranged at equal intervals." 
+    # This implies if we pick indices i and i+d, the next must be i+2d.
+    # So they MUST be consecutive in the sampled sequence [h[r], h[r+d], h[r+2d]...].
+    
+    # Wait, if the sampled sequence is [5, 7, 5], and we pick the 5s, 
+    # the indices are 0 and 2. The interval is 2. 
+    # But the building at index 1 (height 7) is NOT chosen.
+    # The condition is: "The chosen buildings are arranged at equal intervals."
+    # This means the indices are a, a+d, a+2d, ..., a+(k-1)d.
+    # It does NOT say that all buildings between them must be the same height.
+    # It just says the ones we CHOOSE must be the same height.
+    # Therefore, in the sequence [h[r], h[r+d], h[r+2d]...], 
+    # we are looking for the most frequent height.
+    
+    # Corrected logic:
+    # For each d in 1...N-1:
+    #   For each r in 0...d-1:
+    #     Sequence S = [h[i] for i in range(r, n, d)]
+    #     Find the most frequent element in S.
+    
+    # However, the most frequent element in S might not be "at equal intervals"
+    # if we skip some. 
+    # Example: S = [5, 7, 5]. 
+    # If we pick the 5s, the indices are r and r+2d. 
+    # The interval between them is 2d, not d.
+    # So the chosen buildings are at equal intervals of 2d.
+    # This means we only need to check if the heights at r, r+d, r+2d... 
+    # are the SAME. If we have [5, 7, 5], we can't pick both 5s and say 
+    # the interval is d. We could say the interval is 2d.
+    # But we already iterate through all d.
+    # So for a fixed d, we are looking for the longest run of identical heights 
+    # in the sequence [h[r], h[r+d], h[r+2d]...].
+    
+    # Let's re-read: "The chosen buildings are arranged at equal intervals."
+    # This means indices are i, i+d, i+2d... 
+    # This is exactly what a "run" of identical heights in the sampled sequence is.
+    
+    # Final logic:
+    # For d from 1 to N:
+    #   For r from 0 to d-1:
+    #     Sample = [h[i] for i in range(r, n, d)]
+    #     Find max length of consecutive identical elements in Sample.
+    
+    # To handle the N=1 case and the "at least 1" requirement:
+    # The result is at least 1.
+    
+    # We can use a generator expression inside max().
+    # Since N=3000, O(N^2) is 9 million, which is fine for Python if written efficiently.
+    
+    # Using a list comprehension to avoid the loop:
+    # We can't use 'for' loops, so we use nested generator expressions.
+    
+    # The logic:
+    # For d in range(1, n):
+    #   For r in range(d):
+    #     seq = [h[i] for i in range(r, n, d)]
+    #     groups = [list(g) for k, g in groupby(seq)]
+    #     lengths = [len(g) for g in groups]
+    #     ...
+    
+    # Let's refine this into a single expression.
+    
+    # Note: The case d=n is covered by the fact that any single building 
+    # satisfies the condition (length 1).
+    
+    # We use a helper to get the max run length of a sequence.
+    # max((sum(1 for _ in g) for k, g in groupby(seq)), default=0)
+    
+    # To avoid loops, we use a generator:
+    # result = max(
+    #     (
+    #         max(
+    #             (
+    #                 sum(1 for _ in g) 
+    #                 for k, g in groupby([h[i] for i in range(r, n, d)])
+    #             ),
+    #             default=0
+    #         )
+    #         for d in range(1, n)
+    #         for r in range(d)
+    #     ),
+    #     default=1
+    # )
+    
+    # But wait, the range of d and r is O(N^2). 
+    # For each (d, r), we process the sequence. 
+    # Total complexity: sum_{d=1 to N} sum_{r=0 to d-1} (N/d) = sum_{d=1 to N} N = N^2.
+    # This is efficient.
+    
+    # One final check: if N=1, range(1, 1) is empty, default=1 handles it.
+    
+    # Implementation using the logic above:
+    pass
+
+# Since I must return only the code block and the logic is defined, 
+# I will write the final expression.
+
+def main():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # We use a generator expression to find the maximum run of identical heights
+    # for all possible intervals d and starting positions r.
+    print(max(
+        (
+            max(
+                (
+                    sum(1 for _ in g) 
+                    for k, g in groupby([h[i] for i in range(r, n, d)])
+                ),
+                default=0
+            )
+            for d in range(1, n)
+            for r in range(d)
+        ),
+        default=1
+    ))
+
+if __name__ == "__main__":
+    main()

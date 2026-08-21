@@ -1,0 +1,221 @@
+import sys
+from itertools import groupby
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Group indices by their building height
+    # height_groups: {height: [index1, index2, ...]}
+    height_groups = {}
+    for idx, height in enumerate(h):
+        if height not in height_groups:
+            height_groups[height] = []
+        height_groups[height].append(idx)
+    
+    # For each height group, we need to find the maximum number of indices
+    # that form an arithmetic progression.
+    # Since N is small (3000), we can iterate through all pairs of indices
+    # in a group to define a starting point and a common difference.
+    
+    # However, a more efficient way to check all equal intervals for a specific height:
+    # For a fixed height and a fixed interval 'd', we count how many buildings
+    # of that height exist at positions i, i+d, i+2d...
+    
+    # We use a comprehension to find the max for each height group.
+    # For a group of indices 'indices', and a difference 'd', 
+    # we check all possible starting indices in the group.
+    
+    # To optimize, we only check differences 'd' that are actually gaps between 
+    # indices present in the group.
+    
+    def get_max_for_group(indices):
+        if len(indices) <= 2:
+            return len(indices)
+        
+        # Try all pairs of indices to determine the interval d
+        # We use a set to avoid redundant calculations for the same d
+        differences = {indices[j] - indices[i] for i in range(len(indices)) for j in range(i + 1, len(indices))}
+        
+        # For each difference, check the maximum length of the sequence
+        # We can use a helper to count the length of the progression
+        # But since we need the maximum, we can iterate through the indices
+        # and use a dictionary to count occurrences of (index % d)
+        # Wait, (index % d) only works if the buildings are at indices 0, d, 2d...
+        # The condition is "equal intervals", meaning indices i, i+d, i+2d...
+        # This means all chosen indices must have the same remainder modulo d,
+        # AND they must be contiguous in the sequence of available indices of that height.
+        # Actually, the condition is simply: indices are i, i+d, i+2d... 
+        # and all those buildings must have the same height.
+        # It does NOT say we can't have other buildings of the same height in between.
+        # It says the CHOSEN buildings must be at equal intervals.
+        
+        # Correct approach for a fixed height and interval d:
+        # The maximum number of buildings is max(count of indices k such that 
+        # k = start + m*d for m=0, 1, 2... and H_k = height)
+        
+        # For a fixed d, we can group indices by (idx % d).
+        # For each remainder, we check if the indices form a contiguous range with step d.
+        # Actually, the simplest way: for a fixed d and a starting index s,
+        # count how many k = s, s+d, s+2d... have H_k = height.
+        
+        # Let's refine: for a fixed height and interval d, 
+        # we are looking for the longest sequence i, i+d, i+2d... 
+        # such that all have the target height.
+        
+        # Since we can't use loops, we use a trick with range and sum.
+        # For a fixed d, and each starting index s in the group:
+        # length = sum(1 for k in range(s, n, d) if H_k == height)
+        # But we can't use loops. We can use a generator inside sum().
+        
+        # To avoid O(N^3), we observe that for a fixed d, 
+        # we can just check all s in range(d).
+        # result = max(sum(1 for k in range(s, n, d) if h[k] == height) for s in range(d))
+        
+        # But we must do this for all possible d from 1 to N.
+        # Total complexity: sum_{heights} sum_{d=1 to N} d * (N/d) = sum(N * num_heights)
+        # That is O(N * num_heights), which is 300s * 3000 = 9 million. Acceptable.
+        
+        pass
+
+    # Re-evaluating the logic to fit in a comprehension:
+    # We want: max( 
+    #    sum(1 for k in range(s, n, d) if h[k] == height) 
+    #    for height in set(h) 
+    #    for d in range(1, n) 
+    #    for s in range(d)
+    # )
+    # However, the above is O(N^3). Let's optimize.
+    # For a fixed height and fixed d, the sum is over k.
+    # The total number of k's checked across all s for a fixed d is exactly N.
+    # So for each height, it's O(N^2). Total O(H * N^2). Still too slow.
+    
+    # Wait, the constraint is N=3000. O(N^2) is 9 million. 
+    # We can iterate over all pairs of indices (i, j) that have the same height.
+    # Let d = j - i. Then we check how many k = i + m*d have the same height.
+    # But that's still potentially O(N^3).
+    
+    # Let's use the property: for a fixed height and interval d,
+    # we only care about s in range(d).
+    # The total work for one height and one d is N.
+    # Total work: (number of unique heights) * N * N. Still O(H N^2).
+    
+    # Let's use the "all pairs" approach but optimize:
+    # For a fixed height, and every pair of indices (i, j) in that height group:
+    # d = j - i. The number of elements is (j - i) // gcd(j - i, ...) ? No.
+    
+    # Correct O(N^2) approach:
+    # For every pair of indices (i, j) with the same height, they could be the 
+    # first and second elements of the sequence. Then d = j - i.
+    # The number of elements is 1 + (number of k = j + m*d such that h[k] == height).
+    
+    # To keep it in a comprehension:
+    # We can iterate over all pairs (i, j) and for each, calculate the length.
+    # To avoid O(N^3), we only check pairs (i, j) and then use a mathematical 
+    # way to count or just accept that the average case is fast.
+    # Actually, the most reliable O(N^2) is:
+    # For each d from 1 to N:
+    #   For each height:
+    #     Count blocks of height with spacing d.
+    
+    # Let's use a different approach:
+    # For each pair (i, j) with h[i] == h[j], let d = j - i.
+    # We want to find the largest m such that h[i], h[i+d], ..., h[i+md] are all the same.
+    # This is still O(N^3) worst case (e.g., all heights same).
+    
+    # But if all heights are the same, we can just check all d from 1 to N.
+    # For a fixed d, the max length is N // d (if we pick the right start).
+    # Wait, if all heights are the same, the answer is N (d=1).
+    
+    # Let's use the property: for a fixed height and fixed d, 
+    # we can find the max length in O(N) by iterating through the array.
+    # Since we can't use loops, we can use a recursive-like structure or 
+    # a clever comprehension.
+    
+    # Actually, the simplest O(N^2) is:
+    # For each d in range(1, N):
+    #   Use groupby to find runs of the same height with step d.
+    #   For a fixed d, we can create a list: [h[0], h[1]...] 
+    #   But we need to do this for each offset s in 0...d-1.
+    #   For a fixed d and s, the sequence is h[s], h[s+d], h[s+2d]...
+    #   We want the longest run of identical values in this sequence.
+    
+    # The total number of elements processed for a fixed d across all s is N.
+    # So for each d, we process N elements. Total O(N^2).
+    
+    # Implementation using groupby:
+    # For d in range(1, N):
+    #   For s in range(d):
+    #     sequence = h[s::d]
+    #     groups = [list(g) for k, g in groupby(sequence)]
+    #     lengths = [len(g) for g in groups if g[0][0] == k] # Wait, groupby logic
+    
+    # Correct groupby usage:
+    # [len(list(g)) for k, g in groupby(h[s::d])]
+    
+    # Final comprehension:
+    ans = max(
+        (
+            max(
+                (
+                    len(list(g)) 
+                    for k, g in groupby(h[s::d])
+                ), 
+                default=0
+            )
+            for s in range(d)
+        ),
+        default=0
+    )
+    # This is still wrapped in a loop for d. Let's make it one big comprehension.
+    
+    final_ans = max(
+        (
+            max(
+                (
+                    len(list(g)) 
+                    for k, g in groupby(h[s::d])
+                ), 
+                default=0
+            )
+            for d in range(1, n)
+            for s in range(d)
+        ),
+        default=1
+    )
+    
+    # The above is O(N^2). For N=3000, N^2 = 9*10^6, which fits in time.
+    # However, we must handle the case where N=1.
+    
+    print(final_ans if n > 0 else 0)
+
+# To avoid the function call and keep it as a script:
+if __name__ == "__main__":
+    # Using a slightly different structure to ensure it runs without explicit loops
+    # and handles the N=1 case.
+    input_data = sys.stdin.read().split()
+    if input_data:
+        n = int(input_data[0])
+        h = list(map(int, input_data[1:]))
+        # We use a generator expression inside max()
+        # We check d from 1 up to n. For each d, we check all offsets s.
+        # For each offset, we find the longest run of identical heights.
+        print(max(
+            (
+                max(
+                    (
+                        len(list(g)) 
+                        for k, g in groupby(h[s::d])
+                    ), 
+                    default=0
+                )
+                for d in range(1, n + 1)
+                for s in range(min(d, n))
+            ),
+            default=1
+        ))

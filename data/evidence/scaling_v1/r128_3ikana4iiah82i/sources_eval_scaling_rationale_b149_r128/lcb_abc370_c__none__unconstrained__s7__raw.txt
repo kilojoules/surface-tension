@@ -1,0 +1,72 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, emphasizing the transformation of data streams over stateful iteration. In Python, this encourages the use of declarative constructs like list comprehensions and `map`, which often map more directly to the mathematical definition of the problem. For this task, I will use list comprehensions to identify the indices where $S$ and $T$ differ and `functools.reduce` to generate the sequence of intermediate strings, as `reduce` is the standard functional way to accumulate state (the evolving string) across a sequence of changes.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s = input_data[0]
+    t = input_data[1]
+
+    # Identify indices where S and T differ
+    # We need to change S to T in the minimum number of steps.
+    # The minimum number of steps is the number of positions where S[i] != T[i].
+    diff_indices = [i for i in range(len(s)) if s[i] != t[i]]
+    
+    # To make the array of strings X lexicographically smallest,
+    # we want the strings at the beginning of the array to be as small as possible.
+    # This means we should prioritize changing characters at the earliest possible 
+    # indices to their target values in T, PROVIDED that the target value T[i] 
+    # is smaller than the current value S[i].
+    # However, the problem asks for the lexicographically smallest ARRAY.
+    # This means X_1 must be as small as possible, then X_2, and so on.
+    # To make X_1 smallest, we should change the first index i where S[i] > T[i].
+    # If no S[i] > T[i], we must change the last index i where S[i] < T[i] to avoid 
+    # increasing the string's lexicographical value early on.
+    
+    # Actually, the optimal strategy for the lexicographically smallest array is:
+    # 1. Identify all indices i where S[i] != T[i].
+    # 2. In each step, we can change one character. To keep the resulting string 
+    #    lexicographically smallest, we should first process all indices i where 
+    #    T[i] < S[i] in increasing order of i.
+    # 3. Then, process all indices i where T[i] > S[i] in decreasing order of i.
+    
+    # Example: S=adbe, T=bcbc. Diff indices: 0(a->b), 1(d->c), 3(e->c)
+    # T[1] < S[1] (c < d) and T[3] < S[3] (c < e).
+    # T[0] > S[0] (b > a).
+    # Order: index 1, then index 3, then index 0.
+    # X1: acbe, X2: acbc, X3: bcbc.
+    
+    decreasing = [i for i in diff_indices if t[i] < s[i]]
+    increasing = [i for i in diff_indices if t[i] > s[i]]
+    
+    # Sort decreasing (T[i] < S[i]) in ascending order of index to reduce string value ASAP
+    # Sort increasing (T[i] > S[i]) in descending order of index to delay increasing string value
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Use reduce to generate the sequence of strings
+    # The accumulator is a list of strings, and the current value is the index to change.
+    def evolve(acc, idx):
+        current_s = acc[-1]
+        # Create new string by replacing character at idx
+        new_s = current_s[:idx] + t[idx] + current_s[idx+1:]
+        return acc + [new_s]
+
+    # Start reduce with the initial string S in the list
+    result_array = reduce(evolve, order, [s])
+    
+    # The first element of result_array is the initial S, which is not part of X.
+    x = result_array[1:]
+    
+    # Output the results
+    print(len(x))
+    if x:
+        print('\n'.join(x))
+
+if __name__ == "__main__":
+    solve()
+```

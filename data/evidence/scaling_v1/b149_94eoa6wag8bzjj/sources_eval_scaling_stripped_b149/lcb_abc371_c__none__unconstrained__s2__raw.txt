@@ -1,0 +1,224 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    # Graph G edges
+    MG = int(input_data[ptr])
+    ptr += 1
+    G_edges_list = []
+    for _ in range(MG):
+        u = int(input_data[ptr])
+        v = int(input_data[ptr+1])
+        G_edges_list.append((u, v))
+        ptr += 2
+        
+    # Graph H edges
+    MH = int(input_data[ptr])
+    ptr += 1
+    H_edges_list = []
+    for _ in range(MH):
+        u = int(input_data[ptr])
+        v = int(input_data[ptr+1])
+        H_edges_list.append((u, v))
+        ptr += 2
+        
+    # Cost matrix A
+    # The costs are provided in a flattened manner for i < j
+    # We need to map them to a structure we can access by (i, j)
+    costs_flat = list(map(int, input_data[ptr:]))
+    
+    # Create a cost lookup dictionary for pairs (i, j) where i < j
+    # The input order is A_{1,2}, A_{1,3}... A_{1,N}, A_{2,3}... A_{2,N}...
+    # We can pre-calculate the pairs in the exact order they appear in the input
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(all_pairs, costs_flat))
+
+    # Adjacency matrices for G and H (using sets of frozensets for fast lookup)
+    # We use sets of pairs (min(u,v), max(u,v))
+    G_adj = {tuple(sorted((u, v))) for u, v in G_edges_list}
+    H_adj = {tuple(sorted((u, v))) for u, v in H_edges_list}
+
+    # We need to find a permutation P of (1...N) that minimizes the cost
+    # The cost for a permutation P is the sum of A_{P_i, P_j} for all pairs (i, j)
+    # where the edge status of (i, j) in G differs from the edge status of (P_i, P_j) in H.
+    
+    # To avoid loops, we use a generator expression inside min()
+    # P is a permutation of (1...N)
+    # For every pair 1 <= i < j <= N:
+    # If (edge (i,j) in G) != (edge (P_i, P_j) in H), add cost A_{P_i, P_j}
+    
+    # Note: P is 0-indexed in the permutation tuple, so we map it to 1-indexed vertices
+    # Let P be a tuple where P[i-1] is the vertex in H corresponding to vertex i in G.
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G_adj) != (tuple(sorted((P[i-1], P[j-1]))) in H_adj)
+        )
+        for P in permutations(range(1, N + 1))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Correction on the logic inside the `min`**:
+The problem defines isomorphism as: edge $(i, j)$ exists in $G$ iff edge $(P_i, P_j)$ exists in $H$.
+The cost is paid based on the vertices in $H$ that are being toggled. If we decide that vertex $i$ in $G$ maps to vertex $P_i$ in $H$, and the edge $(i, j)$ in $G$ differs from edge $(P_i, P_j)$ in $H$, we must pay $A_{P_i, P_j}$.
+
+Wait, the cost $A_{i,j}$ is defined for the vertices of $H$. So if we change the edge between vertex $u$ and $v$ in $H$, we pay $A_{u,v}$. 
+
+My code:
+`cost_map[tuple(sorted((P[i-1], P[j-1])))]` where $P$ is the mapping from $G \to H$.
+If `(i, j)` in $G$ is different from `(P[i], P[j])` in $H$, we pay the cost to toggle the edge between $P_i$ and $P_j$ in $H$. This matches the requirement.
+
+Final check on constraints: $N \le 8$, so $8! = 40,320$. For each permutation, we check $N(N-1)/2 = 28$ pairs. Total operations $\approx 1.1$ million, which fits well within time limits for Python.
+The `G_adj` lookup uses `(i, j)` where $i < j$, which is consistent with `range(1, N+1)` and `range(i+1, N+1)`.
+
+One small detail: `G_adj` was created using `sorted`, so it contains `(min, max)`. The loop `for i in range(1, N+1) for j in range(i+1, N+1)` always provides $i < j$. Thus `(i, j) in G_adj` is correct.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    # Graph G edges
+    MG = int(input_data[ptr])
+    ptr += 1
+    G_edges_list = []
+    for _ in range(MG):
+        u = int(input_data[ptr])
+        v = int(input_data[ptr+1])
+        G_edges_list.append((u, v))
+        ptr += 2
+        
+    # Graph H edges
+    MH = int(input_data[ptr])
+    ptr += 1
+    H_edges_list = []
+    for _ in range(MH):
+        u = int(input_data[ptr])
+        v = int(input_data[ptr+1])
+        H_edges_list.append((u, v))
+        ptr += 2
+        
+    # Cost matrix A
+    costs_flat = list(map(int, input_data[ptr:]))
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(all_pairs, costs_flat))
+
+    # Adjacency sets for O(1) lookup
+    G_adj = {tuple(sorted((u, v))) for u, v in G_edges_list}
+    H_adj = {tuple(sorted((u, v))) for u, v in H_edges_list}
+
+    # We seek a permutation P of vertices {1...N} such that 
+    # the cost of transforming H to be isomorphic to G via P is minimized.
+    # Cost = Sum A_{P_i, P_j} for all i < j where (i,j) in G != (P_i, P_j) in H.
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G_adj) != (tuple(sorted((P[i-1], P[j-1]))) in H_adj)
+        )
+        for P in permutations(range(1, N + 1))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for **only** the python code block. I will provide the final version.
+One last check: `(i, j) in G_adj` works because $i < j$ is guaranteed by the loop. `tuple(sorted((P[i-1], P[j-1])))` is used for `H_adj` and `cost_map` because $P_i$ and $P_j$ can be in any order.
+
+Final Code:
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N = int(input_data[0])
+    ptr = 1
+    MG = int(input_data[ptr]); ptr += 1
+    G_adj = {tuple(sorted(map(int, input_data[ptr + 2*i : ptr + 2*i + 2]))) for i in range(MG)}
+    ptr += 2 * MG
+    MH = int(input_data[ptr]); ptr += 1
+    H_adj = {tuple(sorted(map(int, input_data[ptr + 2*i : ptr + 2*i + 2]))) for i in range(MH)}
+    ptr += 2 * MH
+    costs_flat = list(map(int, input_data[ptr:]))
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(all_pairs, costs_flat))
+
+    print(min(
+        sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G_adj) != (tuple(sorted((P[i-1], P[j-1]))) in H_adj)
+        )
+        for P in permutations(range(1, N + 1))
+    ))
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the `G_adj` construction `tuple(sorted(map(int, ...)))` is slightly wrong because it's mapping the slice. It should be `tuple(sorted((int(input_data[...]), int(input_data[...]))))`. I'll refine it to be perfectly safe.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N = int(input_data[0])
+    ptr = 1
+    MG = int(input_data[ptr]); ptr += 1
+    G_adj = {tuple(sorted((int(input_data[ptr + 2*i]), int(input_data[ptr + 2*i + 1]))) for i in range(MG)}
+    # Wait, the set comprehension above is wrong. It should be:
+    # G_adj = {tuple(sorted((int(input_data[ptr + 2*i]), int(input_data[ptr + 2*i + 1])))) for i in range(MG)}
+```
+Corrected the set comprehension. Ready.
+Final logic:
+1. Read $N$.
+2. Read $M_G$ edges, store in set `G_adj` as sorted tuples.
+3. Read $M_H$ edges, store in set `H_adj` as sorted tuples.
+4. Read costs, map to `(i, j)` where $i < j$.
+5. Iterate all permutations $P$ of $\{1 \dots N\}$.
+6. For each $P$, calculate cost: $\sum A_{P_i, P_j}$ where $\text{edge}(i, j) \in G \neq \text{edge}(P_i, P_j) \in H$.
+7. Output minimum.
+Since $N=8$, $O(N! \cdot N^2)$ is acceptable.
+The `tuple(sorted((P[i-1], P[j-1])))` is used to ensure the key is always `(smaller, larger)`.
+
+One final optimization: `tuple(sorted(...))` is slow. Since we only need to ensure $u < v$, we can use `(P[i-1], P[j-1]) if P[i-1] < P[j-1] else (P[j-1], P[i-1])`.
+
+```

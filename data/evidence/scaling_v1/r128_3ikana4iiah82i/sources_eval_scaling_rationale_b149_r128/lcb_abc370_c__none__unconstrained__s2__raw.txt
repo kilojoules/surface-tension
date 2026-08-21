@@ -1,0 +1,74 @@
+The constraint to avoid explicit loops forces a transition from imperative style to a functional paradigm, emphasizing data transformation over state mutation. To solve this problem, I will use list comprehensions for the primary logic and `functools.reduce` to simulate the sequential transformation of the string $S$ into $T$, as each step depends on the result of the previous one.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s, t = input_data[0], input_data[1]
+    
+    # Identify indices where S and T differ
+    # To minimize the number of elements in X, we must change exactly one 
+    # differing character per step.
+    # To make X lexicographically smallest, we should prioritize changing 
+    # characters at the earliest possible indices first, provided the 
+    # resulting string is smaller. However, the problem asks for the 
+    # lexicographically smallest array X. 
+    # This means at each step i, we want the string X_i to be as small as possible.
+    # To achieve this, we should change the characters of S to T from left to right.
+    # If S[i] > T[i], changing it immediately makes the string smaller.
+    # If S[i] < T[i], changing it makes the string larger.
+    # Therefore, the optimal strategy is:
+    # 1. Change all indices i where S[i] > T[i] from left to right.
+    # 2. Change all indices i where S[i] < T[i] from right to left.
+    # Wait, the above logic is for minimizing the strings. Let's re-evaluate.
+    # To make the array X lexicographically smallest, we want X_1 to be as small as possible,
+    # then X_2, and so on.
+    # At any step, we can change one character S[i] to T[i].
+    # To make the current string as small as possible, we should first perform all 
+    # operations that decrease the character value (S[i] > T[i]) starting from the 
+    # leftmost index. Then, we perform all operations that increase the character 
+    # value (S[i] < T[i]) starting from the rightmost index (because increasing 
+    # a character at the left makes the string larger sooner).
+    
+    diff_indices = [i for i in range(len(s)) if s[i] != t[i]]
+    
+    # Indices that decrease the string value
+    decrease = [i for i in diff_indices if s[i] > t[i]]
+    # Indices that increase the string value
+    increase = [i for i in diff_indices if s[i] < t[i]]
+    
+    # Order of operations: 
+    # 1. Decrease from left to right (makes string smaller as early as possible)
+    # 2. Increase from right to left (delays making the string larger as long as possible)
+    order = decrease + increase[::-1]
+    
+    # Use reduce to generate the sequence of strings
+    # acc is the current string, idx is the index to change
+    def transform(acc, idx):
+        # Strings are immutable, so we create a new one
+        return acc[:idx] + t[idx] + acc[idx+1:]
+
+    # We need the sequence of strings, so we store them in a list
+    # Since reduce only returns the final result, we use a trick with a list
+    def accumulate_strings(current_s, idx):
+        next_s = transform(current_s, idx)
+        # We use a nonlocal list to store the history
+        history.append(next_s)
+        return next_s
+
+    history = []
+    reduce(accumulate_strings, order, s)
+    
+    # Output the results
+    print(len(history))
+    if history:
+        print('\n'.join(history))
+
+if __name__ == "__main__":
+    solve()
+```

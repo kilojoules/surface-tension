@@ -1,0 +1,118 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm, emphasizing the use of higher-order functions and declarative data transformations. For this problem, which requires exploring permutations of line segments and their orientations, `itertools.permutations` and `itertools.product` are ideal for generating all possible sequences of operations, and `min()` combined with generator expressions can evaluate the total time for each scenario.
+
+```python
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input and parse N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples [(x1, y1), (x2, y2)]
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    # Helper to calculate distance between two points
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # We need to try every permutation of the N segments
+    # For each segment, we can start at either endpoint A or B
+    # There are N! permutations and 2^N orientation combinations
+    
+    # Generate all permutations of segment indices
+    all_perms = permutations(range(N))
+    
+    # Generate all possible orientations (0: A->B, 1: B->A)
+    all_orientations = product([0, 1], repeat=N)
+
+    # Function to calculate total time for a specific order and orientation
+    def calculate_time(perm, orient):
+        # Determine the start and end points for each segment based on orientation
+        # ordered_segments is a list of (start_point, end_point)
+        ordered = [
+            (segments[i][orient[p]], segments[i][1 - orient[p]])
+            if orient[p] == 0 else 
+            (segments[i][1], segments[i][0])
+            for p, i in zip(range(N), perm)
+        ]
+        
+        # To avoid loops, we use a helper logic to sum the transitions.
+        # The total time is:
+        # 1. Time to move from (0,0) to the start of the first segment (at speed S)
+        # 2. Time to print the first segment (at speed T)
+        # 3. For each subsequent segment i:
+        #    - Time to move from end of segment i-1 to start of segment i (at speed S)
+        #    - Time to print segment i (at speed T)
+        
+        # We can use a generator expression with zip to handle the pairs of (end_prev, start_curr)
+        points = [(0, 0)] + [p for seg in ordered for p in seg]
+        
+        # Printing times: indices 1-2, 3-4, 5-6... in the 'points' list
+        # Moving times: indices 0-1, 2-3, 4-5... in the 'points' list
+        
+        # Total printing time is constant regardless of order/orientation
+        # But for the sake of a single expression, we calculate it inside.
+        
+        # Move times: dist(p[2i], p[2i+1]) / S
+        # Print times: dist(p[2i+1], p[2i+2]) / T
+        
+        # We use a list comprehension to calculate all segment lengths and gaps
+        # gaps: (0,0)->S1, E1->S2, E2->S3...
+        # prints: S1->E1, S2->E2...
+        
+        # Since we cannot use loops, we use map/sum with range
+        return sum(dist(points[2*i], points[2*i+1]) / S for i in range(N)) + \
+               sum(dist(points[2*i+1], points[2*i+2]) / T for i in range(N))
+
+    # We need to iterate over all permutations and orientations.
+    # Since we can't use nested loops, we use a generator expression inside min().
+    # Note: we must handle the orientation mapping carefully. 
+    # The 'orient' tuple corresponds to the segments in the order of the permutation.
+    
+    # Corrected calculate_time to handle orientation relative to the permutation:
+    def calc_final(perm, orient):
+        # perm: order of segment indices
+        # orient: 0 means segment[perm[i]] is printed A->B, 1 means B->A
+        
+        # Get the actual points in order
+        pts = []
+        # We use a list comprehension to build the sequence of points
+        # For each index in perm, pick start and end based on orient
+        # This is slightly tricky without a loop, so we use a helper list
+        
+        # sequence of (start, end) for the chosen permutation and orientation
+        seq = [
+            (segments[perm[i]][0], segments[perm[i]][1]) if orient[i] == 0 
+            else (segments[perm[i]][1], segments[perm[i]][0])
+            for i in range(N)
+        ]
+        
+        # Flatten to a list of points starting with (0,0)
+        all_pts = [(0, 0)] + [p for seg in seq for p in seg]
+        
+        return sum(dist(all_pts[2*i], all_pts[2*i+1]) / S for i in range(N)) + \
+               sum(dist(all_pts[2*i+1], all_pts[2*i+2]) / T for i in range(N))
+
+    # Use a generator expression to find the minimum time across all permutations and orientations
+    # We use itertools.product to combine permutations and orientations
+    ans = min(
+        calc_final(p, o) 
+        for p in permutations(range(N)) 
+        for o in product([0, 1], repeat=N)
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,44 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s_str = input_data[0]
+    t_str = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(s_str)) if s_str[i] != t_str[i]]
+    
+    # To get the lexicographically smallest array X, we must change characters
+    # in a specific order. 
+    # 1. If T[i] < S[i], we want to change it as early as possible to make the string smaller.
+    # 2. If T[i] > S[i], we want to change it as late as possible to avoid making the string larger.
+    # Therefore, we process indices where T[i] < S[i] in increasing order of index,
+    # followed by indices where T[i] > S[i] in decreasing order of index.
+    
+    set1 = [i for i in diff_indices if t_str[i] < s_str[i]]
+    set2 = [i for i in diff_indices if t_str[i] > s_str[i]]
+    
+    # Order: indices in set1 (ascending), then indices in set2 (descending)
+    order = sorted(set1) + sorted(set2, reverse=True)
+    
+    # Use reduce to generate the sequence of strings.
+    # The accumulator is a tuple (current_s, history_list).
+    def evolve(acc, idx):
+        current_s, history = acc
+        # Create new string by replacing character at idx with T[idx]
+        new_s = current_s[:idx] + t_str[idx] + current_s[idx+1:]
+        return (new_s, history + [new_s])
+
+    final_state = reduce(evolve, order, (s_str, []))
+    result_array = final_state[1]
+    
+    # Output the number of elements and each string in the array
+    print(len(result_array))
+    print('\n'.join(result_array))
+
+if __name__ == "__main__":
+    solve()

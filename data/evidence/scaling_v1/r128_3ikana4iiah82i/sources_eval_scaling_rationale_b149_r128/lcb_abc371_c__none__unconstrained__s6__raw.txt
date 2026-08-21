@@ -1,0 +1,92 @@
+The constraint to avoid explicit loops forces a shift from imperative state-mutation to a functional paradigm. While not necessarily "cleaner" for all programmers, it leverages Python's powerful sequence processing capabilities, emphasizing *what* to compute over *how* to iterate. To solve this problem, I will use `itertools.permutations` to generate all possible vertex mappings, list comprehensions to calculate the cost for each mapping, and the `min` function to find the optimal result.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a generator/iterator to consume input data
+    it = iter(input_data)
+    
+    # N is the number of vertices
+    N = int(next(it))
+    
+    # Graph G edges
+    MG = int(next(it))
+    G_edges = [tuple(map(int, (next(it), next(it)))) for _ in range(MG)]
+    
+    # Graph H edges
+    MH = int(next(it))
+    H_edges = [tuple(map(int, (next(it), next(it)))) for _ in range(MH)]
+    
+    # Cost matrix A
+    # The input for A is given as a flattened triangle
+    # We store it in a dictionary with sorted tuple keys for easy access
+    # A_{i,j} where 1 <= i < j <= N
+    
+    # To parse A without loops, we can use a list comprehension 
+    # and then map it to the corresponding pairs (i, j)
+    A_values = [int(next(it)) for _ in range(N * (N - 1) // 2)]
+    
+    # Generate all pairs (i, j) such that 1 <= i < j <= N
+    all_pairs = [ (i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1) ]
+    
+    # Map each pair to its cost
+    cost_map = dict(zip(all_pairs, A_values))
+    
+    # Represent G and H as adjacency sets for O(1) lookup
+    # We use sorted tuples to ensure consistency
+    G_set = {tuple(sorted(edge)) for edge in G_edges}
+    H_set = {tuple(sorted(edge)) for edge in H_edges}
+    
+    # The core logic:
+    # For a permutation P, the cost is the sum of A_{i,j} for all pairs (i,j)
+    # where the edge status of (i,j) in G differs from the edge status of (P_i, P_j) in H.
+    
+    # We generate all permutations of (1, ..., N)
+    # P[i-1] is the vertex in H that vertex i in G is mapped to.
+    
+    def calculate_cost(P):
+        # For every pair (i, j) in G, check if the edge exists in G and if 
+        # the corresponding edge (P[i-1], P[j-1]) exists in H.
+        # If they differ, we pay the cost A_{P[i-1], P[j-1]} (sorted).
+        
+        # We iterate over all possible pairs (i, j) with 1 <= i < j <= N
+        # Note: The cost A is associated with the vertices in H.
+        # If G has an edge (i, j) and H doesn't have (P_i, P_j), we pay A_{P_i, P_j}.
+        # If G doesn't have an edge (i, j) and H does have (P_i, P_j), we pay A_{P_i, P_j}.
+        
+        return sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G_set) != (tuple(sorted((P[i-1], P[j-1]))) in H_set)
+        )
+
+    # We use a generator expression inside min() to find the minimum cost across all permutations
+    # Note: G_set is defined with sorted tuples, so (i, j) is always i < j.
+    # We must ensure the check `(i, j) in G_set` matches the sorted nature.
+    
+    # Re-defining the cost calculation slightly to ensure (i, j) is sorted
+    # since i < j is guaranteed by the range() calls.
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G_set) != (tuple(sorted((P[i-1], P[j-1]))) in H_set)
+        )
+        for P in permutations(range(1, N + 1))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,251 @@
+```python
+import sys
+from itertools import product
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    instructions = []
+    idx = 2
+    for _ in range(Q):
+        h = input_data[idx]
+        t = int(input_data[idx+1])
+        instructions.append((h, t))
+        idx += 2
+
+    # State: (left_hand, right_hand)
+    # We want to find the minimum operations to reach the final state.
+    # Since N and Q are small (100), and we only move one hand at a time,
+    # the state space is N*N. We can use DP.
+    # dp[i][l][r] = min operations after instruction i with hands at (l, r)
+    
+    # Initial state: L=1, R=2
+    # We use a dictionary to store current reachable states: {(l, r): min_ops}
+    current_states = {(1, 2): 0}
+
+    # Function to calculate shortest distance between two points on a ring of size N
+    # without passing through a forbidden point 'obstacle'.
+    # Since we can move in two directions (clockwise and counter-clockwise),
+    # we check both paths.
+    def get_dist(start, end, obstacle, n):
+        # Path 1: Increasing index (1 -> 2 -> ... -> N -> 1)
+        # Path 2: Decreasing index (1 -> N -> ... -> 2 -> 1)
+        
+        # To simplify, we can use a helper to check if a path is blocked
+        def is_blocked(s, e, obs, direction):
+            # direction 1: clockwise, -1: counter-clockwise
+            curr = s
+            while curr != e:
+                # Move curr in direction
+                curr = (curr + direction - 1) % n + 1
+                if curr == obs:
+                    return True
+            return False
+
+        # Clockwise distance
+        dist_cw = (end - start + n) % n
+        # Counter-clockwise distance
+        dist_ccw = (start - end + n) % n
+        
+        # Check if paths are blocked by the obstacle
+        # A path is blocked if the obstacle lies strictly between start and end
+        # For clockwise: start < obstacle < end (with wrap around)
+        # Easier: check if the obstacle is encountered while stepping
+        
+        blocked_cw = is_blocked(start, end, obstacle, 1)
+        blocked_ccw = is_blocked(start, end, obstacle, -1)
+        
+        res = float('inf')
+        if not blocked_cw:
+            res = min(res, dist_cw)
+        if not blocked_ccw:
+            res = min(res, dist_ccw)
+        return res
+
+    for h, t in instructions:
+        next_states = {}
+        for (l, r), cost in current_states.items():
+            if h == 'L':
+                # Move left hand from l to t, right hand r stays fixed
+                d = get_dist(l, t, r, N)
+                if d != float('inf'):
+                    new_state = (t, r)
+                    next_states[new_state] = min(next_states.get(new_state, float('inf')), cost + d)
+            else:
+                # Move right hand from r to t, left hand l stays fixed
+                d = get_dist(r, t, l, N)
+                if d != float('inf'):
+                    new_state = (l, t)
+                    next_states[new_state] = min(next_states.get(new_state, float('inf')), cost + d)
+        current_states = next_states
+
+    print(min(current_states.values()))
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a logic error in my `is_blocked` function. The problem says "you can do this only if the other hand is not on the destination part." This means the obstacle cannot be the *destination* of a single step. My `is_blocked` checks if the obstacle is hit *during* the transition. However, the prompt guarantees that $T_i \neq r_i$ when $H_i$ is $L$, so the destination itself is never the obstacle. The only thing that matters is if the obstacle blocks the path *between* the current position and the target.
+
+Let's refine the distance logic: on a ring, there are only two paths between any two points. If the obstacle is at position $X$, it blocks one of the two arcs unless $X$ is the start or end point. Since the obstacle is the *other* hand, and we are told the other hand doesn't move, the obstacle is stationary.
+
+Correct logic for `get_dist(start, end, obstacle, N)`:
+1. Clockwise distance: `(end - start) % N`. This path is blocked if the `obstacle` is encountered.
+2. Counter-clockwise distance: `(start - end) % N`. This path is blocked if the `obstacle` is encountered.
+
+A point $X$ is on the clockwise path from $S$ to $E$ if we encounter $X$ while incrementing $S$ modulo $N$ until we hit $E$.
+
+Revised code implementation:
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    instructions = []
+    for i in range(Q):
+        instructions.append((input_data[2 + 2*i], int(input_data[3 + 2*i])))
+
+    def get_dist(start, end, obs, n):
+        # Clockwise distance
+        dist_cw = (end - start) % n
+        # The clockwise path is blocked if the obstacle is "between" start and end.
+        # Using 0-indexing for easier modulo math:
+        s, e, o = start-1, end-1, obs-1
+        # Clockwise path: s -> s+1 -> ... -> e
+        # Obstacle o is on this path if (o - s) % n < (e - s) % n
+        # Wait, (o-s)%n is the distance from s to o clockwise.
+        # If this is less than the distance from s to e clockwise, it's blocked.
+        blocked_cw = (o - s) % n < (e - s) % n if s != e else False
+        # Actually, if s == e, dist is 0 and it's not blocked.
+        # If s != e, the obstacle blocks the path if it's encountered before e.
+        # Since we start at s, we check if o is reached before e.
+        
+        # Correct logic:
+        # Path CW: s, (s+1)%n, ..., e. Blocked if o is one of these.
+        # Since s is the start, the obstacle blocks if (o-s)%n < (e-s)%n.
+        # Wait, if o == s, it's not blocking the *move* to the next cell.
+        # But the problem says "other hand is not on the destination part".
+        # So if the obstacle is at s, it doesn't block the first move.
+        # If the obstacle is at o, it blocks the move to o.
+        
+        # Let's use a simpler check:
+        # The only way a path is NOT blocked is if the obstacle is NOT on it.
+        # The two paths together cover all nodes. 
+        # One path is blocked if the obstacle is on it.
+        # The obstacle is at 'o'. It is on the CW path if (o-s)%n < (e-s)%n.
+        # EXCEPT if o == s, then it's not blocking the path to e.
+        # But the problem says the other hand is at 'obs'. 
+        # So the obstacle is at 'o'.
+        
+        # Let's use a helper:
+        def check_blocked(s, e, o, direction):
+            # direction 1: CW, -1: CCW
+            # Distance to travel
+            dist = (e - s) % n if direction == 1 else (s - e) % n
+            # Distance to obstacle
+            dist_o = (o - s) % n if direction == 1 else (s - o) % n
+            return 0 < dist_o < dist
+
+        d_cw = (end - start) % n
+        d_ccw = (start - end) % n
+        
+        res = float('inf')
+        if not check_blocked(start-1, end-1, obs-1, 1):
+            res = min(res, d_cw)
+        if not check_blocked(start-1, end-1, obs-1, -1):
+            res = min(res, d_ccw)
+        return res
+
+    # Initial state
+    current_states = {(1, 2): 0}
+
+    for h, t in instructions:
+        next_states = {}
+        for (l, r), cost in current_states.items():
+            if h == 'L':
+                d = get_dist(l, t, r, N)
+                if d != float('inf'):
+                    next_states[(t, r)] = min(next_states.get((t, r), float('inf')), cost + d)
+            else:
+                d = get_dist(r, t, l, N)
+                if d != float('inf'):
+                    next_states[(l, t)] = min(next_states.get((l, t), float('inf')), cost + d)
+        current_states = next_states
+
+    print(min(current_states.values()))
+
+solve()
+```
+Final check on `check_blocked`: If $s=1, e=4, o=2$, then $(2-1)\%6 = 1$ and $(4-1)\%6 = 3$. $1 < 3$ is true, so it's blocked. If $s=1, e=4, o=1$, then $(1-1)\%6 = 0$, $0 < 3$ is false, so not blocked. This matches the rule.
+
+Final code wrapped in block:
+
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    instructions = []
+    for i in range(Q):
+        instructions.append((input_data[2 + 2*i], int(input_data[3 + 2*i])))
+
+    def get_dist(start, end, obs, n):
+        # Helper to check if the path is blocked by the obstacle
+        def check_blocked(s, e, o, direction):
+            # direction 1: Clockwise, -1: Counter-Clockwise
+            # Distance to travel to reach destination
+            dist_to_end = (e - s) % n if direction == 1 else (s - e) % n
+            # Distance to reach obstacle
+            dist_to_obs = (o - s) % n if direction == 1 else (s - o) % n
+            # Blocked if obstacle is encountered before reaching the destination
+            # and the obstacle is not the starting point itself.
+            return 0 < dist_to_obs < dist_to_end
+
+        # 0-indexed coordinates for modulo arithmetic
+        s_idx, e_idx, o_idx = start - 1, end - 1, obs - 1
+        
+        # Clockwise distance
+        d_cw = (e_idx - s_idx) % n
+        # Counter-clockwise distance
+        d_ccw = (s_idx - e_idx) % n
+        
+        res = float('inf')
+        if not check_blocked(s_idx, e_idx, o_idx, 1):
+            res = min(res, d_cw)
+        if not check_blocked(s_idx, e_idx, o_idx, -1):
+            res = min(res, d_ccw)
+        return res
+
+    # Initial state: Left hand at 1, Right hand at 2
+    # current_states mapping: (left_pos, right_pos) -> min_operations
+    current_states = {(1, 2): 0}
+
+    for h, t in instructions:
+        next_states = {}
+        for (l, r), cost in current_states.items():
+            if h == 'L':
+                # Move left hand to t, right hand r stays fixed
+                d = get_dist(l, t, r, N)
+                if d != float('inf'):
+                    state = (t, r)
+                    next_states[state] = min(next_states.get(state

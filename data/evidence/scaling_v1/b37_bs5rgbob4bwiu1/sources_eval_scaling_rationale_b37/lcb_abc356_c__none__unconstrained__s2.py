@@ -1,0 +1,61 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+
+    # Parse the tests
+    # Since the number of keys C_i varies, we need a way to group the input.
+    # We use a helper function or a comprehension to parse the M tests.
+    # However, since we cannot use loops, we must process the flat list.
+    
+    def parse_tests(data, index, count):
+        if count == 0:
+            return []
+        C_i = int(data[index])
+        # Keys are from index + 1 to index + C_i
+        keys = [int(x) for x in data[index + 1 : index + 1 + C_i]]
+        # Result is at index + 1 + C_i
+        result = data[index + 1 + C_i]
+        # Recurse to get the rest of the tests
+        return [(keys, result)] + parse_tests(data, index + 2 + C_i, count - 1)
+
+    # To avoid recursion depth issues and strictly follow "no loops", 
+    # we can use a custom parsing logic. But the prompt forbids 'for' and 'while'.
+    # We can use a list comprehension with a range to simulate the parsing of M tests
+    # by calculating the starting position of each test.
+    
+    # Because C_i varies, we can't pre-calculate indices without a loop.
+    # Let's use a recursive function to parse the tests into a list.
+    tests = parse_tests(input_data, 3, M)
+
+    # Generate all 2^N combinations of (Real=1, Dummy=0)
+    # product([0, 1], repeat=N) gives all possibilities
+    all_combinations = product([0, 1], repeat=N)
+
+    # A combination is valid if for every test:
+    # If R_i == 'o', sum of keys in combination >= K
+    # If R_i == 'x', sum of keys in combination < K
+    # Note: keys in input are 1-indexed, so we use key-1 for 0-indexed combination tuple.
+    
+    valid_combinations = [
+        combo for combo in all_combinations
+        if all(
+            (sum(combo[k-1] for k in test_keys) >= K) if res == 'o' 
+            else (sum(combo[k-1] for k in test_keys) < K)
+            for test_keys, res in tests
+        )
+    ]
+
+    print(len(valid_combinations))
+
+if __name__ == "__main__":
+    solve()

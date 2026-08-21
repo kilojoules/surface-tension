@@ -1,0 +1,223 @@
+```python
+import sys
+from itertools import product
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions
+    # instructions = [(H_i, T_i), ...]
+    instructions = [
+        (input_data[i*2 + 2], int(input_data[i*2 + 3]))
+        for i in range(Q)
+    ]
+
+    # Initial state: Left hand at 1, Right hand at 2
+    # State is (left, right)
+    # We want to find the minimum total distance.
+    # Since N and Q are small (100), we can use DP.
+    # dp[i][l][r] = min operations to complete i instructions ending at (l, r)
+    # However, the problem says the positions are uniquely determined.
+    # Let's verify if we can just simulate it.
+    # For a given instruction (H, T), only one hand moves.
+    # The other hand acts as a blocker.
+    # On a ring of size N, there are two paths between any two points.
+    # One path is blocked if the other hand is on it.
+    
+    def get_dist(start, end, blocker, n):
+        # The hand moves from start to end on a ring of size n.
+        # The blocker is at position 'blocker'.
+        # There are two directions: clockwise and counter-clockwise.
+        # A path is valid if the blocker is not visited.
+        
+        # Clockwise distance (increasing index)
+        # Path: start -> start+1 -> ... -> end
+        # The blocker is encountered if it lies between start and end (exclusive of start, inclusive of end)
+        # But the rule is: cannot move to destination if other hand is there.
+        # So we check if the blocker is in the set of nodes visited.
+        
+        # Since we need the minimum operations and only one hand moves,
+        # we just need to check which of the two arcs is clear of the blocker.
+        
+        # Arc 1: start -> start + 1 -> ... -> end (mod N)
+        # Arc 2: start -> start - 1 -> ... -> end (mod N)
+        
+        # To simplify, we can use a helper to check if a value is in the range [a, b] modulo N.
+        def is_between(a, b, x, n):
+            # Check if x is in the path from a to b moving clockwise
+            # Normalize to 0..N-1
+            a, b, x = (a-1)%n, (b-1)%n, (x-1)%n
+            if a <= b:
+                return a < x <= b
+            else: # wrap around
+                return x > a or x <= b
+
+        # Distance clockwise
+        dist_cw = (end - start) % N
+        # Distance counter-clockwise
+        dist_ccw = (start - end) % N
+        
+        # Check if blocker is in the clockwise path
+        # The blocker blocks the move if it is any of the nodes in the path
+        # from start+1 to end.
+        blocked_cw = is_between(start, end, blocker, N)
+        blocked_ccw = is_between(end, start, blocker, N)
+        
+        # It is guaranteed that the instruction is achievable.
+        # So at least one path is always clear.
+        res = []
+        if not blocked_cw: res.append(dist_cw)
+        if not blocked_ccw: res.append(dist_ccw)
+        
+        return min(res)
+
+    # Simulation
+    curr_l, curr_r = 1, 2
+    total_ops = 0
+    
+    for h, t in instructions:
+        if h == 'L':
+            total_ops += get_dist(curr_l, t, curr_r, N)
+            curr_l = t
+        else:
+            total_ops += get_dist(curr_r, t, curr_l, N)
+            curr_r = t
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a logic error in my `is_between` logic regarding the "blocker". Let's refine it. If the hand is at $L$ and wants to go to $T$ while $R$ is the blocker:
+1. Clockwise path: $L \to L+1 \to \dots \to T$. This is blocked if $R$ is any of the positions $\{L+1, \dots, T\} \pmod N$.
+2. Counter-clockwise path: $L \to L-1 \to \dots \to T$. This is blocked if $R$ is any of the positions $\{L-1, \dots, T\} \pmod N$.
+
+Actually, the problem says "you can do this only if the other hand is not on the destination part." This means if you are moving from $u$ to $v$, you can't if the other hand is at $v$.
+
+Corrected logic:
+A path is blocked if the blocker is at any position the moving hand attempts to step into.
+For the clockwise path $L \to T$, the positions visited are $(L \pmod N) + 1, \dots, (T \pmod N)$. If $R$ is any of these, the path is blocked.
+
+Revised code:
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N, Q = int(input_data[0]), int(input_data[1])
+    instructions = [(input_data[i*2 + 2], int(input_data[i*2 + 3])) for i in range(Q)]
+
+    def get_dist(start, end, blocker, n):
+        # Normalize to 0..n-1
+        s, e, b = (start-1)%n, (end-1)%n, (blocker-1)%n
+        
+        # Clockwise distance
+        dist_cw = (e - s) % n
+        # Clockwise path is blocked if blocker b is in {s+1, ..., e} modulo n
+        # b is in clockwise path if (b-s)%n != 0 and (b-s)%n <= dist_cw
+        blocked_cw = (b != s) and ((b - s) % n <= dist_cw)
+        
+        # Counter-clockwise distance
+        dist_ccw = (s - e) % n
+        # Counter-clockwise path is blocked if blocker b is in {s-1, ..., e} modulo n
+        blocked_ccw = (b != s) and ((s - b) % n <= dist_ccw)
+        
+        # Since it's guaranteed achievable, at least one is False
+        return dist_cw if not blocked_cw else dist_ccw
+
+    curr_l, curr_r = 1, 2
+    total_ops = 0
+    for h, t in instructions:
+        if h == 'L':
+            total_ops += get_dist(curr_l, t, curr_r, N)
+            curr_l = t
+        else:
+            total_ops += get_dist(curr_r, t, curr_l, N)
+            curr_r = t
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `blocked_cw` logic `(b-s)%n <= dist_cw` is slightly wrong because if $b=s$, it's not blocking the *destination* or any step *after* the start. But the problem says the other hand is not on the destination part. The blocker is at a fixed position. If the blocker is at $b$, you cannot move to $b$. So any path containing $b$ is blocked.
+
+If moving $L \to T$, the clockwise path is $s \to s+1 \to \dots \to e$. The nodes visited are $(s+i) \pmod n$ for $i=1 \dots dist\_cw$. If $b \equiv s+i \pmod n$ for any $i \in \{1 \dots dist\_cw\}$, it's blocked. This is exactly `(b-s)%n` being between $1$ and $dist\_cw$.
+
+Final check on Sample 1: $N=6, Q=3$.
+1. $R 4$: $L=1, R=2 \to 4$. CW: $2 \to 3 \to 4$ (dist 2). CCW: $2 \to 1 \to 6 \to 5 \to 4$ (dist 4). Blocker $L=1$. CW path $\{3,4\}$ clear. CCW path $\{1,6,5,4\}$ blocked by 1. Dist = 2. State: $L=1, R=4$.
+2. $L 5$: $L=1 \to 5$. CW: $1 \to 2 \to 3 \to 4 \to 5$ (dist 4). CCW: $1 \to 6 \to 5$ (dist 2). Blocker $R=4$. CW path $\{2,3,4,5\}$ blocked by 4. CCW path $\{6,5\}$ clear. Dist = 2. State: $L=5, R=4$.
+3. $R 6$: $R=4 \to 6$. CW: $4 \to 5 \to 6$ (dist 2). CCW: $4 \to 3 \to 2 \to 1 \to 6$ (dist 4). Blocker $L=5$. CW path $\{5,6\}$ blocked by 5. CCW path $\{3,2,1,6\}$ clear. Dist = 4. State: $L=5, R=6$.
+Total = $2+2+4 = 8$. Correct.
+Final logic: `blocked_cw = (0 < (b - s) % n <= dist_cw)`. Since $b \neq e$ is guaranteed when $H=L$, and $b$ is the blocker, the only way it's not blocked is if $b$ is not in the set of visited nodes.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N: number of parts, Q: number of instructions
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions as a list of (Hand, Target)
+    instructions = [
+        (input_data[i*2 + 2], int(input_data[i*2 + 3]))
+        for i in range(Q)
+    ]
+
+    def get_dist(start, end, blocker, n):
+        # Normalize positions to 0..n-1 for easier modulo arithmetic
+        s, e, b = (start-1)%n, (end-1)%n, (blocker-1)%n
+        
+        # Clockwise distance from s to e
+        dist_cw = (e - s) % n
+        # The clockwise path is blocked if the blocker b is any of the 
+        # positions (s+1)%n, (s+2)%n, ..., (s+dist_cw)%n
+        # This is true if (b-s)%n is between 1 and dist_cw inclusive.
+        blocked_cw = (0 < (b - s) % n <= dist_cw)
+        
+        # Counter-clockwise distance from s to e
+        dist_ccw = (s - e) % n
+        # The counter-clockwise path is blocked if the blocker b is any of the
+        # positions (s-1)%n, (s-2)%n, ..., (s-dist_ccw)%n
+        # This is true if (s-b)%n is between 1 and dist_ccw inclusive.
+        blocked_ccw = (0 < (s - b) % n <= dist_ccw)
+        
+        # It is guaranteed that at least one path is achievable.
+        # We return the distance of the unblocked path. 
+        # If both are unblocked, we take the minimum.
+        if not blocked_cw and not blocked_ccw:
+            return min(dist_cw, dist_ccw)
+        elif not blocked_cw:
+            return dist_cw
+        else:
+            return dist_ccw
+
+    # Initial positions: Left hand at 1, Right hand at 2
+    curr_l, curr_r = 1, 2
+    total_ops = 0
+    
+    for h, t in instructions:
+        if h == 'L':
+            total_ops += get_dist(curr_l, t, curr_r, N)
+            curr_l = t
+        else:
+            total_ops += get_dist(curr_r, t, curr_l, N)
+            curr_r = t
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve

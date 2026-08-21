@@ -1,0 +1,86 @@
+The constraint to avoid explicit loops forces a shift toward a functional programming paradigm, emphasizing declarative data transformations over imperative state updates. While not necessarily "cleaner" for complex logic, it encourages the use of higher-order functions and prevents side-effect-driven bugs. To solve this problem, I will use `itertools.permutations` to explore all possible sequences of line segments and `functools.reduce` or list comprehensions to calculate the total time for each path, finally using `min()` to find the optimal result.
+
+```python
+import sys
+import math
+from itertools import permutations
+
+def solve():
+    # Read input and parse values
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples ((x1, y1), (x2, y2))
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])), 
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # We need to try every permutation of segments
+    # For each segment, we can start at either endpoint A or B
+    # There are N! permutations and 2^N ways to choose directions
+    
+    # Generate all permutations of segment indices
+    all_perms = permutations(range(N))
+    
+    # For a specific permutation and a bitmask representing direction (0: A->B, 1: B->A)
+    # we calculate the total time.
+    # Since N is small (<= 6), we can iterate through all 2^N direction combinations
+    # using a list comprehension or map.
+    
+    def calculate_time(perm, directions):
+        # Initial position
+        curr_pos = (0, 0)
+        total_time = 0.0
+        
+        # We use a helper function to process the sequence since loops are forbidden
+        # However, we can use a recursive-like approach via reduce or a custom function
+        # to simulate the state transition across the sequence of segments.
+        
+        def folder(state, idx):
+            pos, time = state
+            seg = segments[perm[idx]]
+            # Determine start and end points based on direction bit
+            p_start, p_end = seg if directions[idx] == 0 else (seg[1], seg[0])
+            
+            # Time to move to start + time to print segment
+            move_time = dist(pos, p_start) / S
+            print_time = dist(p_start, p_end) / T
+            return (p_end, time + move_time + print_time)
+        
+        # Use range(N) to iterate through the permutation
+        final_state = __import__('functools').reduce(folder, range(N), (curr_pos, 0.0))
+        return final_state[1]
+
+    # To avoid loops, we use nested list comprehensions to evaluate all possibilities
+    # 1. All permutations of segments
+    # 2. All 2^N combinations of directions (0 or 1 for each segment)
+    
+    # Pre-calculate all possible direction tuples for N segments
+    # Using a list comprehension to generate binary strings/tuples
+    directions_options = [
+        tuple((i >> j) & 1 for j in range(N)) 
+        for i in range(1 << N)
+    ]
+    
+    # Find the minimum time across all permutations and direction combinations
+    ans = min(
+        calculate_time(p, d)
+        for p in all_perms
+        for d in directions_options
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```

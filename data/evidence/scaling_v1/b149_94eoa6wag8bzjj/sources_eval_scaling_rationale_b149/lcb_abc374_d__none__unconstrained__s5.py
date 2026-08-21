@@ -1,0 +1,78 @@
+import sys
+import math
+from itertools import permutations, product
+from functools import reduce
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((
+            (int(input_data[idx]), int(input_data[idx+1])),
+            (int(input_data[idx+2]), int(input_data[idx+3]))
+        ))
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute segment lengths and printing times
+    seg_info = [
+        (p1, p2, dist(p1, p2) / T) 
+        for p1, p2 in segments
+    ]
+
+    # We need to try all permutations of segments
+    # For each segment, we can print it in two directions (p1->p2 or p2->p1)
+    # Total complexity: N! * 2^N * N
+    
+    # Generate all possible orderings and directions
+    # Each element in 'perms' is a tuple of indices
+    # Each element in 'dirs' is a tuple of 0 or 1 (0: p1->p2, 1: p2->p1)
+    
+    all_sequences = product(
+        permutations(range(N)),
+        product([0, 1], repeat=N)
+    )
+
+    def calculate_time(state):
+        order, directions = state
+        
+        # Map the sequence to actual start and end points
+        # path is a list of (start_point, end_point, print_time)
+        path = [
+            (
+                seg_info[i][0] if directions[j] == 0 else seg_info[i][1],
+                seg_info[i][1] if directions[j] == 0 else seg_info[i][0],
+                seg_info[i][2]
+            )
+            for j, i in enumerate(order)
+        ]
+        
+        # Use reduce to calculate total time
+        # accumulator: (current_position, total_time)
+        def accumulate(acc, step):
+            curr_pos, total_t = acc
+            start_p, end_p, print_t = step
+            # Time to move to start_p + time to print to end_p
+            move_t = dist(curr_pos, start_p) / S
+            return (end_p, total_t + move_t + print_t)
+        
+        final_state = reduce(accumulate, path, ((0, 0), 0.0))
+        return final_state[1]
+
+    # Find the minimum time across all permutations and directions
+    # Using map and min to avoid explicit loops
+    ans = min(map(calculate_time, all_sequences))
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

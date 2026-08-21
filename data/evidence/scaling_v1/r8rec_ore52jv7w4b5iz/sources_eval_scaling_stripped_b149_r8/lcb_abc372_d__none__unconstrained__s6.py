@@ -1,0 +1,188 @@
+import sys
+from bisect import bisect_right
+
+def solve():
+    # Read N and the heights
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # The condition "no building taller than Building j between i and j"
+    # means Building j is a "visible" building looking right from i.
+    # A building j is visible if H[j] > max(H[i+1]...H[j-1]).
+    # This is equivalent to saying Building j is part of the 
+    # sequence of prefix maximums of the array H[i+1:].
+    
+    # However, we need to solve this for all i.
+    # Let's use a Divide and Conquer approach similar to merge sort.
+    # For a range [L, R], we count pairs (i, j) where L <= i < j <= R.
+    # We split into [L, mid] and [mid+1, R].
+    # We need to count pairs (i, j) where i is in the left and j is in the right.
+    # For a fixed i in the left, building j in the right is visible if:
+    # 1. H[j] > max(H[i+1]...H[mid])
+    # 2. H[j] > max(H[mid+1]...H[j-1])
+    
+    # Let max_right_of_i = max(H[i+1]...H[mid])
+    # Let j be a candidate in the right half if it's a prefix maximum of H[mid+1...R].
+    # Then we need to count how many such j's have H[j] > max_right_of_i.
+    
+    # Since we need to output c_i for all i, we can use a Segment Tree or 
+    # a Fenwick tree if we process queries offline, but the "prefix maximum" 
+    # constraint is tricky.
+    
+    # Alternative: Use a Monotonic Stack to find the next greater element.
+    # But the condition is about buildings between i and j.
+    # Actually, the condition "no building taller than H_j between i and j"
+    # is exactly the condition for j to be "visible" from i.
+    # This is a classic problem that can be solved by processing the array 
+    # from right to left using a data structure.
+    
+    # Let's use the property: j satisfies the condition for i if 
+    # H[j] > max(H[i+1...j-1]).
+    # This means if we maintain a monotonic stack of indices from i+1 to N,
+    # the elements that would remain in the stack are the visible ones.
+    # But we need this for all i.
+    
+    # Correct approach: 
+    # For a fixed i, we are looking for j > i such that H[j] > max(H[i+1...j-1]).
+    # This is equivalent to: j is a record-breaking height in the sequence H[i+1...N].
+    # Let's use a Segment Tree where each node stores the number of visible 
+    # buildings in its range given a height limit from the left.
+    
+    # Segment Tree Node:
+    # .max_val: maximum height in this range
+    # .count(limit): number of buildings in this range that are visible 
+    #                given that the maximum height to the left is 'limit'.
+    
+    # To avoid recursion limits and implement .count(limit) efficiently:
+    # If limit >= node.max_val, count is 0.
+    # If limit < node.left.max_val, count is node.left.count(limit) + 
+    # (total visible in right range given node.left.max_val).
+    # The second term is precomputable!
+    
+    # Since Python is slow for Segment Trees, let's use a different approach.
+    # We can use a Divide and Conquer strategy to count for all i.
+    
+    results = [0] * N
+    
+    def compute(L, R):
+        if L == R:
+            return
+        mid = (L + R) // 2
+        compute(L, mid)
+        compute(mid + 1, R)
+        
+        # Count pairs (i, j) where L <= i <= mid < j <= R
+        # j is visible from i if H[j] > max(H[i+1...mid]) AND H[j] > max(H[mid+1...j-1])
+        
+        # 1. Find all j in [mid+1, R] that are prefix maximums of H[mid+1...R]
+        # 2. For each i in [L, mid], find how many such j have H[j] > max(H[i+1...mid])
+        
+        # Prefix maximums of the right side
+        right_maxes = []
+        curr_max = -1
+        for j in range(mid + 1, R + 1):
+            if H[j] > curr_max:
+                right_maxes.append(H[j])
+                curr_max = H[j]
+        
+        # For each i, we need max(H[i+1...mid])
+        # We can precalculate this using a suffix maximum array for the left side
+        # But we need it for i from L to mid.
+        # For i = mid, max(H[mid+1...mid]) is -1.
+        # For i = L, max(H[L+1...mid]).
+        
+        # Let's use a list comprehension to update results
+        # We need the suffix maximums of H[L...mid]
+        # suffix_max[i] = max(H[i+1...mid])
+        # We can't use loops, so we use a trick with a list and a helper.
+        
+        # To get suffix maximums without a loop:
+        # We can use a recursive-like structure or map/reduce, but 
+        # the simplest is to use the fact that we can process i in reverse.
+        # Since we can't use loops, we'll use a generator/recursion for the 
+        # suffix max and then map it.
+        
+        # Wait, the constraint is no loops. I can use recursion for the 
+        # suffix max calculation.
+        
+        def get_suffix_maxes(arr):
+            # Returns a list where result[i] = max(arr[i+1:])
+            # Using a helper to avoid loops
+            def recurse(idx, current_max, acc):
+                if idx < 0: return acc
+                # For index idx, the max of elements to its right is current_max
+                return recurse(idx - 1, max(current_max, arr[idx]), [current_max] + acc)
+            return recurse(len(arr) - 1, -1, [])
+
+        # However, the recursion limit is an issue. Let's use a different way.
+        # We can use a list comprehension with a slice and max(), but that's O(N^2).
+        # The only way to do this in O(N log N) without loops is D&C and 
+        # clever use of built-ins.
+        
+        # Let's use the property that we can use 'reduce' from functools.
+        from functools import reduce
+        
+        # Suffix maximums for i in [L, mid]
+        # We need max(H[i+1...mid]) for i = L...mid
+        # For i = mid, val = -1
+        # For i = mid-1, val = H[mid]
+        # For i = mid-2, val = max(H[mid-1], H[mid])
+        
+        # We can use reduce to build the list of suffix maximums
+        # We process the range [L, mid] in reverse.
+        # The range is H[L:mid+1]
+        left_part = H[L:mid+1]
+        
+        # Build suffix maxes: [max(H[L+1...mid]), ..., max(H[mid...mid]), -1]
+        # We use reduce to accumulate (current_max, list_of_maxes)
+        _, s_maxes = reduce(
+            lambda acc, x: (max(acc[0], x), [acc[0]] + acc[1]),
+            reversed(left_part),
+            (-1, [])
+        )
+        # s_maxes is now [max(H[mid+1...mid]), max(H[mid...mid]), ..., max(H[L+1...mid])]
+        # But reduce produced them in the order of the reversed list.
+        # Let's correct:
+        # reversed(left_part) is H[mid], H[mid-1]... H[L]
+        # 1st element: x=H[mid], acc=(-1, []), result=(H[mid], [-1])
+        # 2nd element: x=H[mid-1], acc=(H[mid], [-1]), result=(max(H[mid], H[mid-1]), [-1, H[mid]])
+        # Finally, s_maxes will be [-1, H[mid], max(H[mid], H[mid-1]), ...]
+        # This corresponds to i = mid, mid-1, mid-2... L
+        
+        # Now we need to count how many right_maxes > s_maxes[k]
+        # Since right_maxes is sorted, we can use bisect_right.
+        # The number of elements in right_maxes > s_maxes[k] is:
+        # len(right_maxes) - bisect_right(right_maxes, s_maxes[k])
+        
+        # We need to add these counts to results[L...mid]
+        # s_maxes[0] is for i=mid, s_maxes[1] for i=mid-1, etc.
+        # So results[mid] += count(s_maxes[0]), results[mid-1] += count(s_maxes[1])...
+        
+        # We can use a list comprehension to calculate all counts and then 
+        # a zip/map to update the results list.
+        counts = [len(right_maxes) - bisect_right(right_maxes, sm) for sm in s_maxes]
+        
+        # Update results[L...mid]
+        # counts[0] is for i=mid, counts[1] for i=mid-1...
+        # So we map them to results[mid], results[mid-1]...
+        # We can use a slice assignment.
+        # results[L:mid+1] = [a + b for a, b in zip(results[L:mid+1], reversed(counts))]
+        
+        # To avoid the loop in slice assignment, we can use a trick:
+        # Since we can't use loops, we use a list comprehension to create the new range.
+        results[L:mid+1] = [a + b for a, b in zip(results[L:mid+1], reversed(counts))]
+
+    # To avoid recursion depth issues with the D&C, we can use an iterative 
+    # approach for the merge-sort-like structure, but that requires loops.
+    # Alternatively, we can increase the recursion limit.
+    sys.setrecursionlimit(300000)
+    compute(0, N - 1)
+    
+    print(*(results))
+
+if __name__ == "__main__":
+    solve()

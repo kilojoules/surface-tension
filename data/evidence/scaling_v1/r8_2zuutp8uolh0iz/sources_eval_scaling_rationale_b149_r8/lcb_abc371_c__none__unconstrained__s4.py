@@ -1,0 +1,87 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer-like approach via a list to simulate reading from the stream
+    # since we cannot use while loops to consume the input.
+    # However, since N is small, we can just map the flat list.
+    
+    # Parsing logic using slicing and mapping
+    N = int(input_data[0])
+    
+    # M_G and edges of G
+    MG = int(input_data[1])
+    g_edges_raw = input_data[2 : 2 + 2 * MG]
+    
+    # M_H and edges of H
+    current_idx = 2 + 2 * MG
+    MH = int(input_data[current_idx])
+    h_edges_raw = input_data[current_idx + 1 : current_idx + 1 + 2 * MH]
+    
+    # Cost matrix A
+    a_raw = input_data[current_idx + 1 + 2 * MH :]
+    
+    # Build adjacency matrices for G and H
+    # G_adj[i][j] = 1 if edge exists, else 0
+    G_adj = [[0] * N for _ in range(N)]
+    # Using a helper to fill G_adj without loops: 
+    # We can't use for loops, so we use a list comprehension to update the matrix
+    # But since we can't mutate, we'll create the adjacency set first.
+    g_edge_set = {tuple(sorted((int(g_edges_raw[i]), int(g_edges_raw[i+1])))) 
+                  for i in range(0, len(g_edges_raw), 2)}
+    
+    h_edge_set = {tuple(sorted((int(h_edges_raw[i]), int(h_edges_raw[i+1])))) 
+                  for i in range(0, len(h_edges_raw), 2)}
+    
+    # Parse A into a 2D structure A[i][j] where 1 <= i < j <= N
+    # The input for A is given as A_{1,2}, A_{1,3}... A_{1,N}, A_{2,3}...
+    # We can flatten it and index it, or reconstruct it.
+    A_flat = [int(x) for x in a_raw]
+    
+    # To get A[i][j] for 1 <= i < j <= N:
+    # The number of elements before A_{i,j} is the sum of (N-k) for k from 1 to i-1
+    # plus (j-i-1).
+    # More simply, we can pre-calculate a cost lookup table.
+    # cost_map[(i, j)] = cost to flip edge between vertex i and j (1-indexed)
+    
+    # We use a list comprehension to build the cost map
+    # The indices of A_flat correspond to pairs (i, j) in lexicographical order.
+    pairs = [ (i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1) ]
+    cost_map = {pairs[k]: A_flat[k] for k in range(len(pairs))}
+
+    # We want to find a permutation P of (1...N) such that 
+    # we minimize sum_{i<j} cost(i, j) if (edge(i, j) in G != edge(P_i, P_j) in H)
+    # Note: The problem says "make G and H isomorphic". 
+    # This means we look for a permutation P such that H is modified to match G under P.
+    # Cost = Sum_{1 <= i < j <= N} A_{P_i, P_j} if (edge(i, j) in G XOR edge(P_i, P_j) in H)
+    
+    # Generate all permutations of 1...N
+    all_perms = permutations(range(1, N + 1))
+    
+    # For a fixed permutation P, the cost is:
+    # Sum_{1 <= i < j <= N} cost_map[sorted(P_i, P_j)] if (edge(i, j) in G) != (edge(P_i, P_j) in H)
+    
+    # To avoid loops, we use nested list comprehensions and min()
+    # We pre-calculate the edges of G and H as sets for O(1) lookup
+    
+    def calculate_cost(P):
+        # P is a tuple (P1, P2, ..., PN)
+        # We iterate over all pairs (i, j) with 1 <= i < j <= N
+        return sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in g_edge_set) != (tuple(sorted((P[i-1], P[j-1]))) in h_edge_set)
+        )
+
+    # The final answer is the minimum cost over all permutations
+    # Using a generator expression inside min()
+    print(min(calculate_cost(P) for P in all_perms))
+
+if __name__ == "__main__":
+    solve()

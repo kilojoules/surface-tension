@@ -1,0 +1,82 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. While not necessarily "cleaner" for all developers, it encourages the use of declarative constructs like `itertools.permutations` and `functools.reduce`, which can express combinatorial search problems more concisely. For this problem, I will use `itertools.product` to handle the binary choice of endpoint direction for each segment and `itertools.permutations` to explore all possible sequences of segments, utilizing `min` and list comprehensions to find the optimal path.
+
+```python
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse segments into a list of tuples: ((ax, ay), (cx, cy))
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])), 
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    # Precompute lengths of each segment for printing time
+    # Printing time is length / T
+    seg_lengths = [
+        math.sqrt((s[0][0] - s[1][0])**2 + (s[0][1] - s[1][1])**2)
+        for s in segments
+    ]
+
+    # Function to calculate distance between two points
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # We need to check all permutations of segments
+    # For each segment, we can start at either endpoint A or B
+    # Let 0 mean start at A and end at C, 1 mean start at C and end at A
+    
+    # Generate all possible orderings of segments
+    all_orders = permutations(range(N))
+    
+    # Generate all possible direction choices (2^N)
+    all_directions = product([0, 1], repeat=N)
+
+    # To avoid nested loops, we use a generator expression inside min()
+    # For a fixed order and fixed directions:
+    # The total time is:
+    # Sum of (length of segment / T) + Sum of (distance between segments / S)
+    
+    # Let's define a helper to get the start and end points based on direction
+    # points[i][0] is (A, B), points[i][1] is (C, D)
+    # If dir is 0: start = points[i][0], end = points[i][1]
+    # If dir is 1: start = points[i][1], end = points[i][0]
+    
+    # We can pre-calculate the total printing time since it's constant
+    total_print_time = sum(seg_lengths) / T
+
+    # Use a list comprehension to evaluate all combinations of orders and directions
+    # We use map and lambda to handle the sequence of points
+    results = [
+        (
+            # Calculate travel time between segments
+            # Start at (0,0), then move to first segment start, 
+            # then from first segment end to second segment start, etc.
+            sum(
+                dist(
+                    (0, 0) if i == 0 else (segments[order[i-1]][1 if dirs[order[i-1]] == 0 else 0]),
+                    (segments[order[i]][0 if dirs[order[i]] == 0 else 1])
+                ) 
+                for i in range(N)
+            ) / S
+        )
+        for order in permutations(range(N))
+        for dirs in product([0, 1], repeat=N)
+    ]
+
+    # The answer is the minimum travel time + the constant printing time
+    print(f"{min(results) + total_print_time:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```

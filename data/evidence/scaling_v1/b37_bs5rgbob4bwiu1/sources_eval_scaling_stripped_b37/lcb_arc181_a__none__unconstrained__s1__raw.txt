@@ -1,0 +1,219 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Pointer to track current position in input_data list
+    ptr = 1
+    
+    # We process cases in a list comprehension to avoid explicit loops
+    # For each case:
+    # 1. Extract N and the permutation P
+    # 2. A permutation is sorted if P_i = i for all i.
+    #    The operation with index k sorts [1, k-1] and [k+1, N].
+    #    This means if we can find a k such that all elements in {1...k-1} 
+    #    are currently in positions {1...k-1} (set-wise) AND all elements 
+    #    in {k+1...N} are in positions {k+1...N} (set-wise), then 1 op suffices.
+    #    Actually, the condition for 1 operation is: 
+    #    There exists k such that {P_1, ..., P_{k-1}} = {1, ..., k-1} 
+    #    AND {P_{k+1}, ..., P_N} = {k+1, ..., N}.
+    #    This is equivalent to saying P_k = k AND 
+    #    max(P_1...P_{k-1}) = k-1 AND min(P_{k+1}...P_N) = k+1.
+    #    Wait, the simpler condition for 1 op:
+    #    There exists k such that P_k = k and the set of elements to the left 
+    #    of k are exactly {1...k-1} and to the right are {k+1...N}.
+    #    This happens if and only if max(P_1...P_{k-1}) = k-1 and P_k = k.
+    #    If the array is already sorted, 0 ops.
+    #    Otherwise, if such a k exists, 1 op.
+    #    Otherwise, 2 ops (it is proven that 2 ops always suffice for N >= 3).
+    
+    # To handle the variable N for each case, we use a generator/map logic.
+    # Since we cannot use loops, we pre-calculate the indices for each case.
+    
+    # Function to process a single case given its slice of the input list
+    def process_case(case_data):
+        N = int(case_data[0])
+        P = [int(x) for x in case_data[1:]]
+        
+        # Check if already sorted
+        # Using all() in a generator expression is allowed
+        if all(P[i] == i + 1 for i in range(N)):
+            return "0"
+        
+        # Check if 1 operation is enough:
+        # We need a k (1-indexed) such that P_k = k and 
+        # max(P_1...P_{k-1}) = k-1.
+        # Let's use prefix maximums.
+        # prefix_max[i] = max(P[0]...P[i])
+        # We need P[k-1] == k and prefix_max[k-2] == k-1.
+        # For k=1: P[0] == 1 is not enough, we need the rest to be sortable.
+        # Actually, the condition is: there exists k such that 
+        # {P_1...P_{k-1}} = {1...k-1} and {P_{k+1}...P_N} = {k+1...N}.
+        # This is true if:
+        # 1. k=1: {P_2...P_N} = {2...N}, which is always true if P_1=1.
+        # 2. k=N: {P_1...P_{N-1}} = {1...N-1}, which is always true if P_N=N.
+        # 3. 1 < k < N: max(P_1...P_{k-1}) = k-1 and P_k = k.
+        
+        # Using accumulate to get prefix maximums
+        p_max = list(accumulate(P, max))
+        
+        # Check k=1: P[0] == 1
+        # Check k=N: P[N-1] == N
+        # Check 1 < k < N: p_max[k-2] == k-1 and P[k-1] == k
+        
+        # We can check all these in one expression:
+        # For k=1: P[0] == 1
+        # For k=N: P[N-1] == N
+        # For k in 2..N-1: p_max[k-2] == k-1 and P[k-1] == k
+        
+        # Using a generator with any() to check the condition
+        can_do_1 = (
+            (P[0] == 1) or 
+            (P[N-1] == N) or 
+            any(p_max[i-1] == i and P[i] == i + 1 for i in range(1, N - 1))
+        )
+        
+        return "1" if can_do_1 else "2"
+
+    # To avoid loops, we group the flat input_data into cases.
+    # Since N varies, we can't use a simple reshape. 
+    # We use a custom function with reduce to slice the input.
+    from functools import reduce
+    
+    def group_cases(acc, current_idx):
+        if current_idx >= len(input_data):
+            return acc
+        N = int(input_data[current_idx])
+        # Append the slice for the current case
+        return reduce(
+            lambda a, _: a, 
+            [None], 
+            acc + [(input_data[current_idx : current_idx + N + 1], current_idx + N + 1)]
+        )
+    
+    # The above reduce is a hack to avoid loops. Let's use a different approach.
+    # We can use a generator to yield the slices.
+    def get_cases():
+        idx = 1
+        while idx < len(input_data):
+            N = int(input_data[idx])
+            yield input_data[idx : idx + N + 1]
+            idx += N + 1
+
+    # Map the process_case function over the generator
+    results = map(process_case, get_cases())
+    sys.stdout.write("\n".join(results) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block" and "Provide a complete, working solution." My previous logic used a `while` loop inside a generator which is technically a loop. However, the constraints on "no loops" usually apply to the logic processing the data, and `while` or `for` are often permitted if they are the only way to iterate over the input. But to be safe and strictly follow the "no explicit loops" (if that's the implied challenge), I should use recursion or `map`/`reduce`. 
+
+Actually, the prompt doesn't explicitly forbid `while` or `for` loops, it just asks for a complete program. Let me provide a clean, efficient version.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input and split into a list of strings
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # Function to process a single case
+    # case_slice: [N, P1, P2, ..., PN]
+    def process_case(case_slice):
+        N = int(case_slice[0])
+        P = [int(x) for x in case_slice[1:]]
+        
+        # 0 operations: already sorted
+        # We use a generator expression with all()
+        if all(P[i] == i + 1 for i in range(N)):
+            return "0"
+        
+        # 1 operation: exists k such that sorting [1, k-1] and [k+1, N] fixes it.
+        # This requires that the set {P_1, ..., P_{k-1}} is {1, ..., k-1}
+        # and the set {P_{k+1}, ..., P_N} is {k+1, ..., N}.
+        # This is true if:
+        # 1. k=1: P_1 = 1 (then we sort 2...N)
+        # 2. k=N: P_N = N (then we sort 1...N-1)
+        # 3. 1 < k < N: max(P_1...P_{k-1}) = k-1 AND P_k = k
+        
+        # prefix_max[i] = max(P[0]...P[i])
+        prefix_max = list(accumulate(P, max))
+        
+        # Check the three conditions for k
+        # k=1 corresponds to index 0: P[0] == 1
+        # k=N corresponds to index N-1: P[N-1] == N
+        # 1 < k < N corresponds to index i = k-1: prefix_max[i-1] == i and P[i] == i + 1
+        
+        can_do_1 = (
+            (P[0] == 1) or 
+            (P[N-1] == N) or 
+            any(prefix_max[i-1] == i and P[i] == i + 1 for i in range(1, N - 1))
+        )
+        
+        return "1" if can_do_1 else "2"
+
+    # Since N varies per test case, we cannot use a simple map.
+    # We use a generator to parse the flat input_data list into case chunks.
+    def case_generator(data):
+        # Use a state-carrying object to track the current index across yields
+        # Or more simply, use a generator function with a while loop to yield slices.
+        idx = 1
+        while idx < len(data):
+            n_val = int(data[idx])
+            yield data[idx : idx + n_val + 1]
+            idx += n_val + 1
+
+    # Map the processing function over the generator of cases
+    results = map(process_case, case_generator(input_data))
+    
+    # Print all results joined by newlines
+    sys.stdout.write("\n".join(results) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I noticed a small logic error in my `can_do_1` check. If $P_1=1$, then sorting $P_2 \dots P_N$ will definitely result in $1, 2, \dots, N$. So $P[0]==1$ is sufficient. Similarly for $P[N-1]==N$. For $1 < k < N$, we need the elements to the left to be $1 \dots k-1$ and the elements to the right to be $k+1 \dots N$. If $\max(P_1 \dots P_{k-1}) = k-1$, then the first $k-1$ elements must be a permutation of $1 \dots k-1$. If $P_k = k$, then the remaining elements must be a permutation of $k+1 \dots N$. Sorting them will fix the array. This logic is correct.
+
+Final check on constraints: $N \ge 3$ is given, so $P[0]$ and $P[N-1]$ always exist. Sum of $N \le 2 \times 10^5$, so $O(N)$ per test case is required. My solution is $O(N)$.
+
+One last detail: the prompt asks for "only Python source inside a single ```python code block".
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input and split into a list of strings
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # The number of test cases T
+    T = int(input_data[0])
+    
+    def process_case(case_slice):
+        # N is the first element, followed by the permutation P
+        N = int(case_slice[0])
+        P = [int(x) for x in case_slice[1:]]
+        
+        # 0 operations: already sorted
+        if all(P[i] == i + 1 for i in range(N)):
+            return "0"
+        
+        # 1 operation: exists k such that sorting [1, k-1] and [k+1, N] fixes it.
+        # This is possible if there exists k such that:
+        # 1. k=1: P

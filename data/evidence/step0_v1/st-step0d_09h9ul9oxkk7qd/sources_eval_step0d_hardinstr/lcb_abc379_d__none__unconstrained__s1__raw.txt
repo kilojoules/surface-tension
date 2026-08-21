@@ -1,0 +1,118 @@
+The constraint to avoid explicit loops forces a transition from imperative programming to a functional style. While not always "cleaner" for state-heavy problems, it encourages the use of high-order functions and immutable-style transformations. To solve this, I will use `functools.reduce` to maintain the state (the current time offset and a sorted list of plant "birth" times) across the sequence of queries, and `bisect_left` to efficiently count and remove plants that have reached height $H$.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    # State structure: (current_time, plants_birth_times, results)
+    # current_time: The total T accumulated so far.
+    # plants_birth_times: A sorted list of times when plants were planted.
+    # A plant planted at time 't' has height (current_time - t).
+    # Condition height >= H becomes: current_time - t >= H  =>  t <= current_time - H.
+    
+    def process_query(state, query_str):
+        current_time, plants, results = state
+        parts = list(map(int, query_str.split()))
+        q_type = parts[0]
+        
+        if q_type == 1:
+            # Plant a new plant at the current time offset
+            # We use a sorted list to keep track of birth times.
+            # Since current_time is non-decreasing, we can just append.
+            return (current_time, plants + [current_time], results)
+        
+        elif q_type == 2:
+            # Increase current time by T
+            return (current_time + parts[1], plants, results)
+        
+        elif q_type == 3:
+            # Harvest plants where birth_time <= current_time - H
+            H = parts[1]
+            threshold = current_time - H
+            # Find index of first plant birth_time > threshold
+            idx = bisect_left(plants, threshold + 1) 
+            # Wait, bisect_left(plants, threshold + 1) gives index of first element > threshold.
+            # All elements from 0 to idx-1 are <= threshold.
+            
+            # Correct logic for height >= H:
+            # height = current_time - birth_time
+            # current_time - birth_time >= H  => birth_time <= current_time - H
+            limit = current_time - H
+            # Find number of plants with birth_time <= limit
+            # bisect_right returns the insertion point after any existing entries of 'limit'
+            from bisect import bisect_right
+            idx = bisect_right(plants, limit)
+            
+            num_harvested = idx
+            # Remove the first 'idx' plants from the list
+            return (current_time, plants[idx:], results + [str(num_harvested)])
+
+    # Using a helper to avoid importing bisect_right inside the reduce function
+    from bisect import bisect_right
+    
+    def process_query_final(state, query_str):
+        current_time, plants, results = state
+        parts = list(map(int, query_str.split()))
+        if parts[0] == 1:
+            plants.append(current_time)
+            return (current_time, plants, results)
+        elif parts[0] == 2:
+            return (current_time + parts[1], plants, results)
+        else:
+            limit = current_time - parts[1]
+            idx = bisect_right(plants, limit)
+            # To avoid O(N) slice in a loop, we can't use a gerçek list 
+            # but the constraints allow a list if we manage it.
+            # However, the prompt forbids loops. 
+            # Since we must remove elements, and we can't use loops,
+            # we use the fact that we only remove from the front.
+            # But we can't use a deque easily with bisect.
+            # Given Q=2e5, we use a list and track the offset.
+            return state # This is a placeholder; see below.
+
+# The above logic needs to handle the "no loops" constraint while remaining efficient.
+# I will use a list for plants and an integer for the 'start_index' to simulate a queue.
+
+def solve_final():
+    input_data = sys.stdin.read().splitlines()
+    if not input_data: return
+    
+    # State: (current_time, plants_list, start_idx, results)
+    def reducer(state, query_str):
+        cur_t, plants, s_idx, res = state
+        p = list(map(int, query_str.split()))
+        if p[0] == 1:
+            plants.append(cur_t)
+            return (cur_t, plants, s_idx, res)
+        if p[0] == 2:
+            return (cur_t + p[1], plants, s_idx, res)
+        
+        # Type 3: Harvest height >= H  => birth_t <= cur_t - H
+        limit = cur_t - p[1]
+        # We need to search in plants[s_idx:]
+        # The absolute index in the original list is s_idx + (relative index)
+        # We search for the first index i such that plants[i] > limit
+        from bisect import bisect_right
+        idx = bisect_right(plants, limit, lo=s_idx)
+        count = idx - s_idx
+        res.append(str(count))
+        return (cur_t, plants, idx, res)
+
+    # Initialize state and run reduce
+    initial_state = (0, [], 0, [])
+    final_state = reduce(reducer, input_data[1:], initial_state)
+    sys.stdout.write("\n".join(final_state[3]) + "\n")
+
+if __name__ == "__main__":
+    solve_final()
+```

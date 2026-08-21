@@ -1,0 +1,238 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a generator/iterator to consume input sequentially
+    it = map(int, input_data)
+    
+    # N: Number of vertices
+    N = next(it)
+    
+    # M_G: Number of edges in G
+    M_G = next(it)
+    # Build adjacency matrix for G
+    # We use a list of lists (N x N)
+    adj_G = [[0] * N for _ in range(N)]
+    for _ in range(M_G):
+        u, v = next(it), next(it)
+        adj_G[u-1][v-1] = adj_G[v-1][u-1] = 1
+        
+    # M_H: Number of edges in H
+    M_H = next(it)
+    # Build adjacency matrix for H
+    adj_H = [[0] * N for _ in range(N)]
+    for _ in range(M_H):
+        a, b = next(it), next(it)
+        adj_H[a-1][b-1] = adj_H[b-1][a-1] = 1
+        
+    # A: Cost matrix for operations on H
+    # The input provides A_{i,j} for 1 <= i < j <= N
+    # We store them in a symmetric N x N matrix
+    cost_matrix = [[0] * N for _ in range(N)]
+    # We need to fill the cost matrix based on the remaining items in the iterator
+    # The number of A_{i,j} values is N*(N-1)//2
+    # We can use a helper to map the flat list of costs to the indices (i, j)
+    all_costs = list(it)
+    
+    # To map the flat list of costs to the matrix without loops, 
+    # we pre-calculate the indices of the upper triangle.
+    indices = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    
+    # Since we cannot use loops to populate the matrix, we can use a dictionary 
+    # and then a list comprehension to build the final matrix.
+    cost_map = dict(zip(indices, all_costs))
+    
+    # Build the final cost matrix using list comprehension
+    # cost_matrix[i][j] is the cost to flip edge (i, j)
+    final_costs = [
+        [cost_map.get((i, j), cost_map.get((j, i), 0)) for j in range(N)]
+        for i in range(N)
+    ]
+
+    # We need to find a permutation P of (0, ..., N-1) that minimizes:
+    # Sum_{i < j} cost(P_i, P_j) where (i, j) is an edge in G XOR (P_i, P_j) is an edge in H
+    # Note: The problem says we pay A_{i,j} to flip edge (i, j) in H.
+    # If G has edge (i, j) and H does not have edge (P_i, P_j), we pay A_{P_i, P_j}.
+    # If G does not have edge (i, j) and H has edge (P_i, P_j), we pay A_{P_i, P_j}.
+    
+    # Generate all permutations of vertices
+    all_perms = permutations(range(N))
+    
+    # For each permutation, calculate the total cost
+    # We iterate over all pairs (i, j) with i < j
+    pairs = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    
+    # The cost for a permutation P is the sum of final_costs[P[i]][P[j]] 
+    # for all pairs (i, j) where adj_G[i][j] != adj_H[P[i]][P[j]]
+    
+    # We use a generator expression inside min() to find the minimum cost
+    ans = min(
+        sum(
+            final_costs[p[i]][p[j]] 
+            for i, j in pairs 
+            if adj_G[i][j] != adj_H[p[i]][p[j]]
+        )
+        for p in all_perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I used a `for` loop in the `indices` definition.** Let me refine it to be strictly compliant with "no loops" (using comprehensions only).
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    it = map(int, input_data)
+    N = next(it)
+    M_G = next(it)
+    
+    # Use a dictionary to build adjacency for G without loops
+    edges_G = [tuple(sorted((next(it), next(it)))) for _ in range(M_G)]
+    adj_G = [[(1 if (i+1, j+1) in edges_G else 0) for j in range(N)] for i in range(N)]
+    
+    M_H = next(it)
+    edges_H = [tuple(sorted((next(it), next(it)))) for _ in range(M_H)]
+    adj_H = [[(1 if (i+1, j+1) in edges_H else 0) for j in range(N)] for i in range(N)]
+    
+    all_costs = list(it)
+    indices = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    cost_map = dict(zip(indices, all_costs))
+    
+    # Cost to flip edge between vertex u and v (1-indexed)
+    # We use a helper function logic inside the comprehension
+    # The cost is A_{u,v} where u < v.
+    
+    pairs = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i]+1, p[j]+1)))]
+            for i, j in pairs 
+            if adj_G[i][j] != adj_H[p[i]][p[j]]
+        )
+        for p in permutations(range(N))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait, I used `for _ in range(M_G)` in a list comprehension.** That is allowed as it is part of the comprehension. However, the `next(it)` calls inside the comprehension are tricky because they mutate the iterator. A safer way to handle the input without any `for` loops is to read the whole thing into a list and use slicing.
+
+Final refined version:
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    data = list(map(int, sys.stdin.read().split()))
+    if not data: return
+    
+    N = data[0]
+    M_G = data[1]
+    # G edges are from index 2 to 2 + 2*M_G - 1
+    g_part = data[2 : 2 + 2*M_G]
+    edges_G = {tuple(sorted((g_part[i], g_part[i+1]))) for i in range(0, len(g_part), 2)}
+    
+    # H edges start after G edges
+    start_H = 2 + 2*M_G
+    M_H = data[start_H]
+    h_part = data[start_H + 1 : start_H + 1 + 2*M_H]
+    edges_H = {tuple(sorted((h_part[i], h_part[i+1]))) for i in range(0, len(h_part), 2)}
+    
+    # Costs start after H edges
+    start_C = start_H + 1 + 2*M_H
+    all_costs = data[start_C:]
+    indices = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(indices, all_costs))
+    
+    # Adjacency matrices
+    adj_G = [[(1 if (i, j) in edges_G else 0) for j in range(1, N + 1)] for i in range(1, N + 1)]
+    adj_H = [[(1 if (i, j) in edges_H else 0) for j in range(1, N + 1)] for i in range(1, N + 1)]
+    
+    # We need to check if edge (i, j) in G is different from edge (P_i, P_j) in H
+    # The cost is A_{P_i, P_j}
+    pairs = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    
+    # We use a helper to get the cost of flipping edge (u, v)
+    # Since we can't define functions with loops, we use the cost_map
+    # Note: P is a permutation of 0..N-1, so we map to 1..N
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i]+1, p[j]+1)))]
+            for i, j in pairs 
+            if (i+1, j+1) in edges_G != (p[i]+1, p[j]+1) in edges_H
+        )
+        for p in permutations(range(N))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the `range(0, len(g_part), 2)` inside the set comprehension is the only way to group the input without a loop. The logic `(i+1, j+1) in edges_G != (p[i]+1, p[j]+1) in edges_H` is a concise way to write the XOR condition.
+
+Final check on constraints: $N \le 8$, so $N! = 40,320$. The number of pairs is $8 \times 7 / 2 = 28$. Total operations $\approx 1.1$ million, which fits in time.
+
+One last detail: the `edges_G` and `edges_H` sets should store sorted tuples to ensure lookup works regardless of input order.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    data = list(map(int, sys.stdin.read().split()))
+    if not data: return
+    
+    N = data[0]
+    M_G = data[1]
+    g_part = data[2 : 2 + 2*M_G]
+    edges_G = {tuple(sorted((g_part[i], g_part[i+1]))) for i in range(0, len(g_part), 2)}
+    
+    start_H = 2 + 2*M_G
+    M_H = data[start_H]
+    h_part = data[start_H + 1 : start_H + 1 + 2*M_H]
+    edges_H = {tuple(sorted((h_part[i], h_part[i+1]))) for i in range(0, len(h_part), 2)}
+    
+    start_C = start_H + 1 + 2*M_H
+    all_costs = data[start_C:]
+    indices = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(indices, all_costs))
+    
+    pairs = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i]+1, p[j]+1)))]
+            for i, j in pairs 
+            if ((i+1, j+1) in edges_G) != ((p[i]+1, p[j]+1) in edges_H)
+        )
+        for p in permutations(range(N))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `edges_H` lookup `(p[i]+1, p[j]+1) in edges_H` requires the tuple to be sorted because `edges_H` contains sorted tuples.
+
+Corrected: `tuple(sorted((p[i

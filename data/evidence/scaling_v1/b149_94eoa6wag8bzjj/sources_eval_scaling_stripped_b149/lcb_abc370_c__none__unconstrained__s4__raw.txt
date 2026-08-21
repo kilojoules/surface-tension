@@ -1,0 +1,265 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To minimize the number of elements in X, we must change exactly one 
+    # character per step. The minimum number of steps is the number of differences.
+    # To make the array X lexicographically smallest, we want the strings 
+    # appearing earlier in the array to be lexicographically smaller.
+    # This means we should prioritize changing characters at the earliest 
+    # possible indices to the target characters in T, BUT only if the 
+    # target character T[i] is smaller than the current character S[i].
+    # If T[i] > S[i], changing it makes the string lexicographically larger,
+    # so we should delay those changes as much as possible.
+    
+    # Correct strategy for lexicographical smallest array:
+    # 1. Change indices i where T[i] < S[i] first, in increasing order of i.
+    # 2. Change indices i where T[i] > S[i] last, in decreasing order of i.
+    # Wait, the rule is: we want X_1 to be as small as possible.
+    # To make X_1 small, we should change the first index i where S[i] != T[i]
+    # IF T[i] < S[i]. If T[i] > S[i], changing it makes the string larger.
+    # Actually, the simplest greedy approach to make the sequence of strings 
+    # lexicographically smallest is:
+    # Always pick the index i from the remaining diff_indices that results in 
+    # the lexicographically smallest string.
+    # The best index i is the smallest i such that T[i] < S[i].
+    # If no such i exists, pick the largest i such that T[i] > S[i].
+    
+    # Let's refine:
+    # We have a set of indices that must be changed.
+    # In each step, we choose one index i and set S[i] = T[i].
+    # To make the resulting string smallest:
+    # - We prefer changing an index i where T[i] < S[i] over T[i] > S[i].
+    # - Among indices where T[i] < S[i], we want to change the smallest index i first.
+    # - Among indices where T[i] > S[i], we want to change the largest index i first
+    #   (because changing a small index to a larger character increases the 
+    #   string's lexicographical value more than changing a large index).
+    
+    # Let's categorize indices
+    smaller = [i for i in diff_indices if T[i] < S[i]]
+    larger = [i for i in diff_indices if T[i] > S[i]]
+    
+    # Sort 'smaller' ascending to fix the leftmost characters first.
+    # Sort 'larger' descending to fix the rightmost characters first.
+    order = sorted(smaller) + sorted(larger, reverse=True)
+    
+    # Generate the sequence of strings
+    current_S = list(S)
+    X = []
+    for i in order:
+        current_S[i] = T[i]
+        X.append("".join(current_S))
+    
+    # Output the result
+    print(len(X))
+    for s in X:
+        print(s)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I must double-check the logic for `larger`. 
+If $S = \text{"abc"}$, $T = \text{"def"}$. 
+Indices are 0, 1, 2. All $T[i] > S[i]$.
+- Option A (index 0 first): "dbc" $\rightarrow$ "dec" $\rightarrow$ "def"
+- Option B (index 2 first): "abd" $\rightarrow$ "add" $\rightarrow$ "def" (Wait, "abd" is smaller than "dbc")
+So for $T[i] > S[i]$, we should indeed process indices from largest to smallest to keep the prefix as small as possible for as long as possible.
+
+Final check on Sample 1: `adbe` $\rightarrow$ `bcbc`
+Diffs: 
+idx 0: a $\rightarrow$ b (Larger)
+idx 1: d $\rightarrow$ c (Smaller)
+idx 2: b $\rightarrow$ b (Same)
+idx 3: e $\rightarrow$ c (Smaller)
+
+Smaller indices: [1, 3]. Larger indices: [0].
+Order: 1, 3, 0.
+1. `acbe`
+2. `acbc`
+3. `bcbc`
+Matches sample output.
+Sample 3: `afwgebrw` $\rightarrow$ `oarbrenq`
+Diffs:
+0: a $\rightarrow$ o (L)
+1: f $\rightarrow$ a (S)
+2: w $\rightarrow$ r (S)
+3: g $\rightarrow$ b (S)
+4: e $\rightarrow$ r (L)
+5: b $\rightarrow$ e (L)
+6: r $\rightarrow$ n (S)
+7: w $\rightarrow$ q (S)
+
+Smaller: [1, 2, 3, 6, 7]. Larger: [0, 4, 5].
+Sorted Smaller: 1, 2, 3, 6, 7.
+Sorted Larger (desc): 5, 4, 0.
+Order: 1, 2, 3, 6, 7, 5, 4, 0.
+Strings:
+1. aawgebrw
+2. aargebrw
+3. aarbebrw
+4. aarbebnw (Wait, index 6 is r $\rightarrow$ n) $\rightarrow$ aarbebnw
+5. aarbebnq (Index 7 is w $\rightarrow$ q)
+6. aarbeenq (Index 5 is b $\rightarrow$ e)
+7. aarbrenq (Index 4 is e $\rightarrow$ r)
+8. oarbrenq (Index 0 is a $\rightarrow$ o)
+Matches sample output.
+The logic is sound.
+Final code is provided in the block.
+(Self-correction: The prompt asks for ONLY the python code block).
+(Wait, I just realized I wrote the explanation inside the thought block, but the prompt says "Return only Python source inside a single ```python code block").
+
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To make the array X lexicographically smallest:
+    # 1. We prioritize indices i where T[i] < S[i] (makes the string smaller).
+    #    Among these, we process the smallest index i first.
+    # 2. Then we process indices i where T[i] > S[i] (makes the string larger).
+    #    Among these, we process the largest index i first to keep the 
+    #    lexicographically smaller prefix for as long as possible.
+    
+    smaller = [i for i in diff_indices if T[i] < S[i]]
+    larger = [i for i in diff_indices if T[i] > S[i]]
+    
+    # Order: indices that decrease the string (ascending), then indices that increase it (descending)
+    order = sorted(smaller) + sorted(larger, reverse=True)
+    
+    # Generate the sequence of strings
+    current_S = list(S)
+    X = []
+    for i in order:
+        current_S[i] = T[i]
+        X.append("".join(current_S))
+    
+    # Output the result
+    print(len(X))
+    for s in X:
+        print(s)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I cannot have comments or explanations outside the block. I will provide only the block.
+
+Final check on the "Return only Python source" constraint. I will remove the thought process from the final output.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    smaller = [i for i in diff_indices if T[i] < S[i]]
+    larger = [i for i in diff_indices if T[i] > S[i]]
+    
+    order = sorted(smaller) + sorted(larger, reverse=True)
+    
+    current_S = list(S)
+    X = ["".join(current_S[0:i] + [T[i]] + current_S[i+1:])" # This is wrong, current_S needs to update
+    # Let's use a loop and a list to store results.
+```
+Actually, I'll just use the loop logic.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S, T = input_data
+    
+    diffs = [i for i in range(len(S)) if S[i] != T[i]]
+    smaller = sorted([i for i in diffs if T[i] < S[i]])
+    larger = sorted([i for i in diffs if T[i] > S[i]], reverse=True)
+    
+    order = smaller + larger
+    
+    res = []
+    curr = list(S)
+    for i in order:
+        curr[i] = T[i]
+        res.append("".join(curr))
+        
+    print(len(res))
+    print("\n".join(res))
+
+if __name__ == "__main__":
+    solve()
+```
+This looks perfect.
+
+Final check on constraints: $S, T$ length up to 100. This $O(N^2)$ approach (due to string joining) is perfectly fine.
+
+One last detail: "If there are multiple such arrays... find the lexicographically smallest one".
+My logic:
+To make $X_1$ smallest:
+- If we can change any $S[i]$ to $T[i]$ where $T[i] < S[i]$, we should pick the smallest such $i$.
+- If we must change $S[i]$ to $T[i]$ where $T[i] > S[i]$, we should pick the largest such $i$ to minimize the impact on the string's lexicographical value.
+This is exactly what `sorted(smaller) + sorted(larger, reverse=True)` does.
+
+Example: $S = \text{"az"}$, $T = \text{"ba"}$
+Diffs: 0 (a $\rightarrow$ b, Larger), 1 (z $\rightarrow$ a, Smaller).
+Smaller: [1], Larger: [0].
+Order: [1, 0].
+$X_1$: "aa", $X_2$: "ba".
+If we did [0, 1]: $X_1$: "bz", $X_2$: "ba".
+"aa" < "bz", so [1, 0] is correct.
+
+Example: $S = \text{"aa"}$, $T = \text{"bb"}$
+Diffs: 0 (a $\rightarrow$ b, L), 1 (a $\rightarrow$ b, L).
+Smaller: [], Larger: [0, 1].
+Order: [1, 0].
+$X_1$: "ab", $X_2$: "bb".
+If we did [0, 1]: $X_1$: "ba", $X_2$: "bb".
+"ab" < "ba", so [1, 0] is correct.
+
+Logic holds.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S, T = input_data
+    
+    diffs = [i for i in range(len(S)) if S[i] != T[i]]
+    smaller = sorted([i for i in diffs if T[i] < S[i]])
+    larger = sorted([i for i in diffs if T[i] > S[i]], reverse=True)
+    
+    order = smaller + larger
+    
+    res = []
+    curr = list(S)
+    for i in order:
+        curr[i] = T[i]
+        res.append("".

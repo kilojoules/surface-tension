@@ -1,0 +1,119 @@
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    queries = []
+    for i in range(Q):
+        r = int(input_data[3 + 2*i])
+        c = int(input_data[4 + 2*i])
+        queries.append((r, c))
+
+    # We need to track existing walls for each row and each column.
+    # Since H*W is up to 4e5, we can't use a 2D array.
+    # We use a list of sorted lists ( own 'Balanced BST' via bisect/pop).
+    # Note: Python's list.pop(i) is O(N), but since we only destroy 
+    # walls and the total number of walls is H*W, the total 
+    # complexity of pops across the whole program is O(H*W).
+    # However, the search for the wall is O(log N).
+    
+    # Initialize walls for each row and column
+    # rows[r] contains sorted column indices of walls in row r
+    # cols[c] contains sorted row indices of walls in column c
+    rows = [list(range(1, W + 1)) for _ in range(H + 1)]
+    cols = [list(range(1, H + 1)) for _ in range(W + 1)]
+    
+    # To handle the "destroy" operation, we need a way to remove 
+    # an element from a sorted list. list.remove() or list.pop() 
+    # is O(N). Given the constraints and the nature of the problem,
+    # we must use a data structure that allows O(log N) removal.
+    # Since Python doesn't have a built-in SortedList, and we can't 
+    # import external libraries, we use a trick with bisect and pop.
+    # While pop(i) is O(N), the total number of removals is H*W.
+    # The bottleneck is the search.
+    
+    # Actually, the total time complexity of pop(i) over all queries 
+    # is O(Q * max(H, W)). With Q=2e5 and H,W=4e5, this is too slow.
+    # But wait, the total number of walls destroyed is at most H*W.
+    # The cost of pop(i) is proportional to the number of elements 
+    # to the right of i.
+    
+    # Let's refine: we need to find the closest wall in 4 directions.
+    # For a cell (r, c):
+    # Left: largest j in rows[r] such that j < c
+    # Right: smallest j in rows[r] such that j >= c
+    # Up: largest i in cols[c] such that i < r
+    # Down: smallest i in cols[c] such that i >= r
+
+    # Since we cannot use external libraries, we use the fact that
+    # we can't avoid O(N) pops, but we can minimize them.
+    # Actually, the only way to pass is to use a more efficient 
+    # structure or realize that the total number of walls is the 
+    # limiting factor.
+    
+    # Let's use the bisect module to find indices.
+    def destroy(r, c):
+        # Remove from row list
+        row_list = rows[r]
+        idx = bisect_left(row_list, c)
+        if idx < len(row_list) and row_list[idx] == c:
+            row_list.pop(idx)
+        
+        # Remove from col list
+        col_list = cols[c]
+        idx = bisect_left(col_list, r)
+        if idx < len(col_list) and col_list[idx] == r:
+            col_list.pop(idx)
+
+    # Process queries
+    # We need to track if a wall exists at (r, c) to decide 
+    # between the two bomb behaviors.
+    # We can use a set of destroyed walls or check the lists.
+    
+    # To avoid loops, we use a generator/map and a helper function.
+    def handle_query(q):
+        r, c = q
+        # Check if wall exists at (r, c)
+        # We check the row list because it's likely smaller or equal to col list
+        row_list = rows[r]
+        idx = bisect_left(row_list, c)
+        
+        if idx < len(row_list) and row_list[idx] == c:
+            # Wall exists, destroy it
+            destroy(r, c)
+        else:
+            # No wall, destroy 4 neighbors
+            # 1. Left
+            if idx > 0:
+                destroy(r, row_list[idx-1])
+            # 2. Right
+            if idx < len(row_list):
+                destroy(r, row_list[idx])
+            # 3. Up
+            col_list = cols[c]
+            c_idx = bisect_left(col_list, r)
+            if c_idx > 0:
+                destroy(col_list[c_idx-1], c)
+            # 4. Down
+            if c_idx < len(col_list):
+                destroy(col_list[c_idx], c)
+
+    # Use map to apply handle_query to all queries
+    # We use a list comprehension to force execution
+    [handle_query(q) for q in queries]
+    
+    # Calculate remaining walls
+    # Total walls = H * W. Remaining = Total - (sum of lengths of all row lists)
+    # Wait, the sum of lengths of row lists IS the number of remaining walls.
+    print(sum(len(rows[r]) for r in range(1, H + 1)))
+
+if __name__ == "__main__":
+    solve()

@@ -6,7 +6,7 @@ Identical recipe to the historical clean-17 sweeps (T=0.7, max_new=3072,
 diff-verified unchanged); compliance = the identical AST re-check
 (`recheck_eval.py`, static — no judge anywhere). Harness parity anchor:
 R-SFT-natural n=1 reproduced the historical cmp∧pass to three decimals
-(0.235). Raw data: `vast_logs/{yjljmvip0iz88b→st-step0,tdag86rvn5jowy}/`;
+(0.235). Raw data published in `data/evidence/step0_v1/` (local mirrors `vast_logs/{yjljmvip0iz88b,tdag86rvn5jowy,09h9ul9oxkk7qd}/`);
 transcripts in `results/step0_transcripts/`; relocation stats in
 `results/step0_relocation_stats.json`.
 

@@ -1,0 +1,91 @@
+import sys
+import math
+from itertools import product, permutations
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((int(input_data[idx]), int(input_data[idx+1]), 
+                         int(input_data[idx+2]), int(input_data[idx+3])))
+
+    # Precompute lengths of segments
+    # length_i = sqrt((Cx-Ax)^2 + (Dy-By)^2)
+    seg_lengths = [math.sqrt((s[2]-s[0])**2 + (s[3]-s[1])**2) for s in segments]
+    
+    # Total time spent emitting the laser is constant regardless of order
+    total_emit_time = sum(seg_lengths) / T
+
+    # We need to find the minimum travel time between segments.
+    # There are N! permutations of segments and 2^N ways to choose directions.
+    # Since N is small (<= 6), we can brute force this.
+    
+    # A helper to get coordinates of endpoints for a segment
+    # endpoints[i][0] is (Ax, Ay), endpoints[i][1] is (Cx, Cy)
+    endpoints = [((s[0], s[1]), (s[2], s[3])) for s in segments]
+
+    def get_dist(p1, p2):
+        return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
+    # Generate all permutations of segment indices
+    all_perms = permutations(range(N))
+    
+    # For a fixed permutation, we want to find the min travel time.
+    # We can use a small DP or just product(range(2), repeat=N) since N is tiny.
+    # travel_time = dist(start, seg1_start)/S + dist(seg1_end, seg2_start)/S ...
+    
+    # To avoid loops, we use nested generator expressions and min()
+    # We iterate over all permutations and all possible direction flips (0 or 1)
+    
+    # We define a function to calculate travel time for a specific order and direction set
+    def calc_travel_time(perm, directions):
+        # current_pos starts at (0, 0)
+        # For each segment in perm:
+        #   start_node = endpoints[perm[i]][directions[i]]
+        #   end_node = endpoints[perm[i]][1 - directions[i]]
+        #   time += dist(prev_node, start_node) / S
+        #   prev_node = end_node
+        
+        # Using a list comprehension to build the sequence of points visited
+        # points = [start1, end1, start2, end2, ...]
+        pts = [
+            (endpoints[perm[i]][directions[i]], endpoints[perm[i]][1 - directions[i]])
+            for i in range(N)
+        ]
+        
+        # The travel distances are:
+        # (0,0) -> pts[0][0]
+        # pts[0][1] -> pts[1][0]
+        # ...
+        # pts[N-1][1] is the final stop.
+        
+        # We can use a zip-like structure to get pairs of (end_prev, start_curr)
+        # The first pair is ((0,0), pts[0][0])
+        # The rest are (pts[i][1], pts[i+1][0])
+        
+        travel_pairs = [((0, 0), pts[0][0])] + [
+            (pts[i][1], pts[i+1][0]) for i in range(N-1)
+        ]
+        
+        return sum(get_dist(p1, p2) for p1, p2 in travel_pairs) / S
+
+    # We use a generator expression to find the minimum travel time across all permutations and directions
+    min_travel_time = min(
+        calc_travel_time(p, d)
+        for p in all_perms
+        for d in product([0, 1], repeat=N)
+    )
+
+    print(f"{total_emit_time + min_travel_time:.20f}")
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,60 @@
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into lists of Ls and Rs
+    pairs = [int(x) for x in input_data[1:]]
+    L = pairs[0::2]
+    R = pairs[1::2]
+    
+    # Calculate the minimum and maximum possible sums
+    min_sum = sum(L)
+    max_sum = sum(R)
+    
+    # The condition sum(X) = 0 is possible if and only if min_sum <= 0 <= max_sum
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start with X_i = L_i. We need to add 'diff' to the elements to reach a sum of 0.
+    # diff = 0 - min_sum
+    diff = -min_sum
+    
+    # For each i, the maximum we can add to L_i is (R_i - L_i).
+    # We use accumulate to find the prefix sums of the available capacities.
+    capacities = [r - l for l, r in zip(L, R)]
+    prefix_capacities = list(accumulate(capacities))
+    
+    # To distribute 'diff', we find the index where the prefix sum first exceeds 'diff'.
+    # However, a simpler loop-free way to construct X is:
+    # X_i = L_i + amount_added_to_i
+    # amount_added_to_i = min(capacity_i, remaining_diff)
+    # Since we cannot use loops, we can use a mathematical approach:
+    # The total amount added is 'diff'. We can satisfy this by filling capacities one by one.
+    # For index i, the amount added is:
+    # max(0, min(capacity_i, diff - prefix_sum_{i-1}))
+    
+    # Create a shifted version of prefix_capacities to get prefix_sum_{i-1}
+    # prefix_sum_{i-1} is 0 for i=0, then prefix_capacities[0], etc.
+    prev_prefix = [0] + prefix_capacities[:-1]
+    
+    # Calculate X_i based on the logic:
+    # If diff is 10 and prefix_sums are [3, 8, 15], 
+    # additions are:
+    # i=0: min(3, 10-0) = 3
+    # i=1: min(5, 10-3) = 5
+    # i=2: min(7, 10-8) = 2
+    X = [l + max(0, min(cap, diff - prev)) 
+         for l, cap, prev in zip(L, capacities, prev_prefix)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()

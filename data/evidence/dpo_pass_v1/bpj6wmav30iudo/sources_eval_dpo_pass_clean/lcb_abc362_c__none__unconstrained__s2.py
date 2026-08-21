@@ -1,0 +1,144 @@
+import sys
+
+def solve():
+    # Read all input at once and map to integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use an iterator to consume the input stream
+    it = iter(input_data)
+    
+    # Extract N and the pairs (L, R)
+    # Since we cannot use loops, we use a list comprehension to build the pairs
+    # We use next(it) to get N first
+    # Note: Since we need N to drive the comprehension, we handle it carefully
+    # We'll read the first element as N, then the rest as a list
+    
+    # To avoid a loop for N, we can't call next(it) inside a comprehension 
+    # if we want to be strictly "no loop". 
+    # However, we can read all data into a list first.
+    
+    # Re-evaluating input handling to fit constraints:
+    # We'll read everything into a list 'data'
+    # data[0] is N, data[1:] are the L R pairs.
+    
+    # We use a helper function to process the logic
+    # Since we can't use loops, we use map, sum, and list comprehensions.
+    pass
+
+# Because the constraints are strict about "no for/while loops", 
+# I will implement the logic inside a lambda or a function 
+# using map and list comprehensions.
+
+if __name__ == "__main__":
+    # Read all input
+    all_input = sys.stdin.read().split()
+    if not all_input:
+        sys.exit(0)
+        
+    N = int(all_input[0])
+    # Create lists of L and R using slicing and map
+    L = list(map(int, all_input[1::2]))
+    R = list(map(int, all_input[2::2]))
+    
+    # Calculate the minimum and maximum possible sums
+    sum_L = sum(L)
+    sum_R = sum(R)
+    
+    # Check if 0 is within the reachable range [sum_L, sum_R]
+    # If it is, we start with X_i = L_i and distribute the difference (0 - sum_L)
+    # The amount we can add to each X_i is (R_i - L_i)
+    
+    # To distribute the difference 'D' without a loop:
+    # We need to find X_i such that sum(X_i) = 0 and L_i <= X_i <= R_i.
+    # Let D = 0 - sum_L. We need to add D to the sum of L_i.
+    # For each i, we can add min(D_remaining, R_i - L_i).
+    # Since we can't use a loop to track 'D_remaining', we can use 
+    # a mathematical approach: 
+    # X_i = L_i + (amount contributed by index i to the total D)
+    # This is tricky without state. However, we can use 
+    # the fact that we can cap the contribution.
+    
+    # Let's use a different approach for distribution:
+    # We know sum(X) must be 0.
+    # Let' amount = 0 - sum_L.
+    # We want to find Y_i such that 0 <= Y_i <= R_i - L_i and sum(Y) = amount.
+    # We can achieve this by taking Y_i = min(R_i - L_i, amount - sum(Y_{0...i-1}))
+    # But that requires a loop.
+    
+    # Alternative: Use a linear combination or a specific formula?
+    # Actually, we can use a list comprehension with a trick:
+    # We can use a mutable object (like a list) to track the remaining sum 
+    # inside a list comprehension.
+    
+    # Define the difference needed
+    D = 0 - sum_L
+    
+    # Use a list as a closure-like state to track remaining D
+    state = [D]
+    
+    # List comprehension that updates state[0]
+    # X_i = L_i + min(R_i - L_i, state[0])
+    # Then state[0] = state[0] - min(R_i - L_i, state[0])
+    # We can do this in one expression:
+    # (lambda current_L, current_R: (
+    #     (lambda added: (state.__setitem__(0, state[0] - added) or current_L + added))(
+    #         min(current_R - current_L, state[0])
+    #     )
+    # ))
+    
+    # Since we need to print "No" if impossible:
+    # We check sum_L <= 0 <= sum_R first.
+    
+    # To execute the logic without a loop:
+    # We use map() or a list comprehension to trigger the lambda for each pair.
+    
+    # Final logic assembly:
+    # 1. Check bounds.
+    # 2. If OK, use a list comprehension to calculate X_i while updating a state list.
+    # 3. Print result.
+    
+    # We use a helper to handle the state update and return the value.
+    # Since we can't define a complex function with loops, we use a lambda.
+    
+    # The logic to distribute D:
+    # For each i:
+    #   added = min(R[i] - L[i], state[0])
+    #   X[i] = L[i] + added
+    #   state[0] -= added
+    
+    # We can implement this using a list comprehension and a helper list for state.
+    # Note: state.__setitem__ returns None, so we use 'or' to return the value.
+    
+    # We wrap this in a conditional expression.
+    
+    # Use a list to store the result of the "loop-less" calculation
+    # We use map(lambda...) or [ ... for ... ]
+    
+    # To avoid SyntaxErrors and maintain readability within constraints:
+    # We'll use a list comprehension to build the result.
+    
+    # The "state" update trick:
+    # [ (state.__setitem__(0, state[0] - (added := min(R[i]-L[i], state[0]))) or L[i] + added) for i in range(N) ]
+    # This requires Python 3.8+ for assignment expressions (:=).
+    
+    # Since we can't use 'for' in a loop, but 'for' in a comprehension is allowed:
+    # result = [ (lambda added: (state.__setitem__(0, state[0] - added) or L[i] + added))(min(R[i] - L[i], state[0])) for i in range(N) ]
+    
+    # Let's put it all together.
+    
+    # We use a conditional to print Yes/No.
+    # We use a list comprehension to generate the sequence.
+    
+    # Since we need to reference L and R by index, we use range(N).
+    
+    # The state update must happen sequentially. 
+    # List comprehensions are evaluated sequentially.
+    
+    # Final execution block:
+    (lambda L, R, sum_L, sum_R, N: 
+        (lambda state: 
+            print("Yes") or print(*( [ (lambda added: (state.__setitem__(0, state[0] - added) or L[i] + added))(min(R[i] - L[i], state[0])) for i in range(N) ] )) 
+            if sum_L <= 0 <= sum_R else 
+            print("No")
+        )([0 - sum_L])
+    )(L, R, sum_L, sum_R, N)

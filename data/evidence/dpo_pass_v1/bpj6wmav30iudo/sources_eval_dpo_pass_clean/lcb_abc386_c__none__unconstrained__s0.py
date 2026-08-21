@@ -1,0 +1,51 @@
+import sys
+from itertools import takewhile
+
+def solve():
+    # Read input using sys.stdin.read().split() to avoid loops
+    input_data = sys.stdin.read().split()
+    
+    # Handle cases where input might be empty or malformed
+    # Using a conditional expression to assign variables
+    # K is always 1 for this specific sub-problem
+    K = int(input_data[0]) if len(input_data) > 0 else 0
+    S = input_data[1] if len(input_data) > 1 else ""
+    T = input_data[2] if len(input_data) > 2 else ""
+
+    # Find the length of the common prefix
+    # takewhile returns an iterator of characters that match
+    # We use a generator expression to pair characters from S and T
+    common_prefix_len = len(list(takewhile(lambda x: x[0] == x[1], zip(S, T))))
+
+    # Suffixes after the common prefix
+    s_suffix = S[common_prefix_len:]
+    t_suffix = T[common_prefix_len:]
+
+    # The edit distance is <= 1 if:
+    # 1. S and T are identical (distance 0)
+    # 2. One character replacement: len(s_suffix) == 1 and len(t_suffix) == 1
+    # 3. One character deletion: len(s_suffix) == 1 and len(t_suffix) == 0
+    # 4. One character insertion: len(s_suffix) == 0 and len(t_suffix) == 1
+    # 5. Shifted match: S[i+1:] == T[i:] or S[i:] == T[i+1:]
+    
+    # We check if the remaining parts can be reconciled in 1 operation:
+    # Case A: Replace or Delete/Insert at the current position
+    # If we skip one char in S, does the rest match T?
+    # If we skip one char in T, does the rest match S?
+    # If we skip one char in both, does the rest match?
+    
+    is_possible = (
+        (S == T) or 
+        (len(s_suffix) == 1 and len(t_suffix) == 1) or # Replace
+        (len(s_suffix) == 1 and len(t_suffix) == 0) or # Delete
+        (len(s_suffix) == 0 and len(t_suffix) == 1) or # Insert
+        (s_suffix[1:] == t_suffix) or                 # Delete from S
+        (s_suffix == t_suffix[1:])                    # Insert into S
+    )
+
+    # Output Yes or No based on the boolean result
+    sys.stdout.write("Yes\n" if is_possible else "No\n")
+
+# Execute the solver
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,66 @@
+The constraint to avoid explicit loops forces a shift toward functional programming patterns, which can lead to more concise and declarative code by describing *what* to compute rather than *how* to iterate. For this problem, I will use `zip` to align the strings, `itertools.takewhile` to identify the first point of divergence, and slicing to analyze the remaining suffixes.
+
+```python
+import sys
+from itertools import takewhile
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem is to check if the edit distance between S and T is <= 1.
+    # We find the first index where S and T differ.
+    
+    # Use zip to pair characters and takewhile to find the matching prefix
+    # We calculate the length of the common prefix.
+    common_prefix_len = len(list(takewhile(lambda x: x[0] == x[1], zip(s, t))))
+    
+    # Suffixes after the common prefix
+    s_suffix = s[common_prefix_len:]
+    t_suffix = t[common_prefix_len:]
+    
+    # Possible scenarios for edit distance <= 1:
+    # 1. S == T (0 operations)
+    # 2. Replace one char: len(s_suffix) == 1 and len(t_suffix) == 1
+    # 3. Delete one char from S: len(s_suffix) == 1 and len(t_suffix) == 0
+    # 4. Insert one char into S: len(s_suffix) == 0 and len(t_suffix) == 1
+    # 5. One char difference, but the rest of the strings match:
+    #    - If we replace s[i] with t[i], then s[i+1:] must equal t[i+1:]
+    #    - If we delete s[i], then s[i+1:] must equal t[i:]
+    #    - If we insert t[i] into s, then s[i:] must equal t[i+1:]
+
+    # We can generalize this: 
+    # If we skip the differing character in S, does it match T?
+    # If we skip the differing character in T, does it match S?
+    # If we skip both, do they match?
+    
+    # Check if removing one char from S makes it T, or vice versa, or replacing one.
+    # Since K=1, we just need to check if:
+    # s[common_prefix_len + 1:] == t[common_prefix_len:] (Deletion from S)
+    # s[common_prefix_len:] == t[common_prefix_len + 1:] (Insertion into S)
+    # s[common_prefix_len + 1:] == t[common_prefix_len + 1:] (Replacement)
+    
+    # We use a list of booleans and 'any()' to avoid explicit loops.
+    results = [
+        s[common_prefix_len + 1:] == t[common_prefix_len:],
+        s[common_prefix_len:] == t[common_prefix_len + 1:],
+        s[common_prefix_len + 1:] == t[common_prefix_len + 1:]
+    ]
+    
+    # Special case: if strings were identical, common_prefix_len == len(s) == len(t)
+    # The slices will be empty, and the logic still holds.
+    
+    if any(results) or s == t:
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```

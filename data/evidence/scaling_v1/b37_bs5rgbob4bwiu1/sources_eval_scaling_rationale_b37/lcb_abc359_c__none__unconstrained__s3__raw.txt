@@ -1,0 +1,115 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional style, emphasizing expressions over statements. This encourages the use of declarative constructs that describe *what* the result is rather than *how* to step through the calculation. For this specific problem, which requires calculating a minimum cost based on coordinate differences and parity, the logic can be condensed into a single mathematical expression using `max` and absolute differences, removing the need for iterative convergence or conditional branching structures.
+
+```python
+import sys
+
+def solve():
+    # Read input and parse coordinates
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # The problem describes a grid of 2x1 tiles.
+    # A tile covers A_{i,j} and A_{i+1,j} if i+j is even.
+    # This means for a fixed j:
+    # If j is even, tiles are {(0,1), (2,3), (4,5)...}
+    # If j is odd, tiles are {(-1,0), (1,2), (3,4)...}
+    # Effectively, a tile is defined by (floor((x + (y % 2)) / 2), y)
+    
+    # Let's transform the coordinates to the "tile coordinate system"
+    # Tile index X = (x + (y % 2)) // 2
+    # Tile index Y = y
+    
+    # However, the cost to move is based on how many tiles you enter.
+    # Moving vertically always enters a new tile.
+    # Moving horizontally might stay in the same tile or enter a new one.
+    
+    # Let dx = |sx - tx| and dy = |sy - ty|
+    # The cost to move vertically is dy.
+    # The cost to move horizontally depends on the parity of the rows.
+    # In a row y, the boundaries between tiles are at x = k where k + y is odd.
+    # The number of boundaries crossed moving from sx to tx in row y is:
+    # count of k such that min(sx, tx) < k <= max(sx, tx) and k % 2 != y % 2.
+    
+    # This is a shortest path problem on a graph. 
+    # The optimal strategy is to move to a row that allows the cheapest 
+    # horizontal transition and then move vertically.
+    # But since we can move any n units, we only care about the start row,
+    # the end row, and potentially one intermediate row.
+    
+    # Let f(x1, x2, y) be the number of boundaries crossed between x1 and x2 in row y.
+    # f(x1, x2, y) = floor((max(x1, x2) + (y%2)) / 2) - floor((min(x1, x2) + (y%2)) / 2)
+    
+    # The total cost is min(
+    #    cost_direct(sx, tx, sy, ty),
+    #    cost_via_row(sx, tx, sy, ty, sy+1),
+    #    cost_via_row(sx, tx, sy, ty, sy-1),
+    #    cost_via_row(sx, tx, sy, ty, ty+1),
+    #    cost_via_row(sx, tx, sy, ty, ty-1)
+    # )
+    # Actually, the simplest way to express the cost to move from (sx, sy) to (tx, ty)
+    # is to realize that we can move horizontally in any row y.
+    # The cost is dy + min_{y} (f(sx, tx, y))
+    # Wait, that's not quite right because moving to row y costs |y - sy|.
+    # The cost is |sy - ty| + min(f(sx, tx, sy), f(sx, tx, ty), 
+    #                             f(sx, tx, sy+1) + 1, f(sx, tx, sy-1) + 1,
+    #                             f(sx, tx, ty+1) + 1, f(sx, tx, ty-1) + 1)
+    # But we can just check rows sy and ty, and the fact that f(x1, x2, y) 
+    # differs by at most 1 between adjacent rows.
+    
+    # Let g(x1, x2, y) = (max(x1, x2) + (y % 2)) // 2 - (min(x1, x2) + (y % 2)) // 2
+    # The answer is dy + min(g(sx, tx, sy), g(sx, tx, ty), 
+    #                       g(sx, tx, sy + 1) + 1, g(sx, tx, sy - 1) + 1,
+    #                       g(sx, tx, ty + 1) + 1, g(sx, tx, ty - 1) + 1)
+    # Actually, the most robust way is:
+    # Cost = dy + min(g(sx, tx, sy), g(sx, tx, ty), 
+    #                 g(sx, tx, sy ^ 1) + 1, g(sx, tx, ty ^ 1) + 1) 
+    # where sy ^ 1 is just a neighbor row.
+    
+    # Let's use a helper-like lambda to calculate g
+    g = lambda x1, x2, y: (max(x1, x2) + (y % 2)) // 2 - (min(x1, x2) + (y % 2)) // 2
+    
+    dx = abs(sx - tx)
+    dy = abs(sy - ty)
+    
+    # We test the current rows and their immediate neighbors
+    # to find the minimum horizontal transition cost.
+    ans = dy + min(
+        g(sx, tx, sy),
+        g(sx, tx, ty),
+        g(sx, tx, sy + 1) + 1,
+        g(sx, tx, sy - 1) + 1,
+        g(sx, tx, ty + 1) + 1,
+        g(sx, tx, ty - 1) + 1
+    )
+    
+    # Special case: if sy == ty, dy is 0, and we just need g(sx, tx, sy)
+    # The formula above handles this.
+    # However, if we move to sy+1 and back to sy, we pay 2 for vertical moves.
+    # The +1 in g(..., sy+1) + 1 is for the move from sy to sy+1.
+    # But we must also return to ty. So it's actually +2 if sy == ty.
+    # Let's refine:
+    # Option 1: Stay in row sy, move to tx, move to ty. Cost: g(sx, tx, sy) + dy
+    # Option 2: Move to row ty, move to tx, move from sx. Cost: dy + g(sx, tx, ty)
+    # Option 3: Move to row y, move to tx, move to ty. Cost: |sy-y| + g(sx, tx, y) + |y-ty|
+    
+    # For y = sy + 1: |sy - (sy+1)| + g(sx, tx, sy+1) + |(sy+1) - ty|
+    # = 1 + g(sx, tx, sy+1) + abs(sy + 1 - ty)
+    
+    res = min(
+        g(sx, tx, sy) + dy,
+        g(sx, tx, ty) + dy,
+        1 + g(sx, tx, sy + 1) + abs(sy + 1 - ty),
+        1 + g(sx, tx, sy - 1) + abs(sy - 1 - ty),
+        1 + g(sx, tx, ty + 1) + abs(sy - (ty + 1)),
+        1 + g(sx, tx, ty - 1) + abs(sy - (ty - 1))
+    )
+    
+    print(res)
+
+if __name__ == '__main__':
+    solve()
+```

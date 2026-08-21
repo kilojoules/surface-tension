@@ -1,0 +1,115 @@
+import sys
+from itertools import groupby
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to process cases without explicit for-loops
+    # We track the current index in the input_data list
+    def case_generator(data):
+        # This is a helper to chunk the flat list into (N, P) pairs
+        # Since we can't use loops, we use a recursive-like structure via map/reduce 
+        # or simply calculate offsets.
+        # However, the sum of N is 2e5, so we can use a list comprehension to 
+        # extract the cases if we know the structure.
+        # But the structure is variable. Let's use a trick with a mutable state.
+        state = [1]
+        def get_case():
+            n = int(data[state[0]])
+            p = data[state[0]+1 : state[0]+1+n]
+            state[0] += n + 1
+            return n, p
+        
+        return (get_case() for _ in range(T))
+
+    # The core logic for each case:
+    # 1. If already sorted, 0.
+    # 2. If there exists k such that sorting [1, k-1] and [k+1, N] sorts the whole array, 1.
+    #    This happens if there is some k such that all elements in P[0...k-2] are < P[k-1] 
+    #    and all elements in P[k...N-1] are > P[k-1].
+    #    Actually, the condition is simpler: the operation with index k sorts the array 
+    #    if and only if P[k-1] is the value k, and all elements to the left are <= k 
+    #    and all elements to the right are >= k.
+    #    Wait, the operation sorts the ranges. So if we pick k, the result is sorted 
+    #    if the set of elements {P_1...P_{k-1}} is {1...k-1} and {P_{k+1}...P_N} is {k+1...N}.
+    #    This is equivalent to saying P_k = k and the prefix is a permutation of 1...k-1.
+    # 3. Otherwise, 2. (It is proven that max 2 operations are needed for N >= 3).
+    
+    def calculate_ans(case):
+        n, p_str = case
+        p = [int(x) for x in p_str]
+        
+        # Check if already sorted
+        # We use all() which is allowed
+        if all(p[i] == i + 1 for i in range(n)):
+            return 0
+        
+        # Check if 1 operation suffices:
+        # We need a k (1-indexed) such that P[k-1] == k and 
+        # max(P[0...k-2]) < k and min(P[k...n-1]) > k.
+        # This is equivalent to: P[k-1] == k and the set of elements 
+        # in the prefix is {1...k-1}.
+        
+        # To avoid loops, we use prefix maximums and suffix minimums.
+        # Since we can't use loops to build these, we use a trick with a list 
+        # and a function that we can map. But wait, we can't use loops.
+        # We can use a list comprehension to check the condition for all k.
+        # But we need prefix/suffix info. 
+        # Let's use the property: P[k-1] == k and max(P[0...k-1]) == k.
+        # We can't use reduce/scan easily without loops. 
+        # Actually, the condition "P[k-1] == k and sorted(P) == [1...N]" 
+        # after the operation is simply:
+        # The elements {P_1, ..., P_{k-1}} must be {1, ..., k-1} 
+        # and {P_{k+1}, ..., P_N} must be {k+1, ..., N}.
+        # This is true if and only if P[k-1] == k and 
+        # (for all i < k-1, P[i] < k) and (for all i > k-1, P[i] > k).
+        
+        # We can check this for all k using a list comprehension.
+        # To avoid O(N^2), we need the prefix max and suffix min.
+        # In Python, we can use a list and a helper function with a closure 
+        # to simulate a scan, but that's essentially a loop.
+        # However, we can use a list comprehension that updates a list 
+        # via a side-effect (though discouraged, it's the only way without loops).
+        # Alternatively, we can use the fact that we only need to check 
+        # if there's any k where P[k-1] == k and the prefix is a permutation.
+        
+        # Let's use a different approach: 
+        # An operation k works if P[k-1] == k and 
+        # the number of elements < k in the prefix is k-1.
+        # Since we can't use loops, we can use a list comprehension to 
+        # check the condition for all k, but that's O(N^2).
+        # Wait, the constraint says sum of N is 2e5. O(N) is required.
+        # We can use `itertools.accumulate` for prefix max and suffix min!
+        
+        from itertools import accumulate
+        
+        pref_max = list(accumulate(p, max))
+        # For suffix min, we accumulate from the right
+        suff_min = list(accumulate(p[::-1], min))[::-1]
+        
+        # k is 1-indexed. The element is P[k-1].
+        # Condition: P[k-1] == k and (k==1 or pref_max[k-2] == k-1) 
+        # and (k==n or suff_min[k] == k+1)
+        
+        # We use a list comprehension to check all k and then check if any are True.
+        can_do_1 = any(
+            (p[k-1] == k and 
+             (k == 1 or pref_max[k-2] == k-1) and 
+             (k == n or suff_min[k] == k+1))
+            for k in range(1, n + 1)
+        )
+        
+        return 1 if can_do_1 else 2
+
+    # Map the calculate_ans function over the case generator
+    results = map(calculate_ans, case_generator(input_data))
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

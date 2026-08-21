@@ -1,0 +1,252 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into a list of (hand, target)
+    # instructions = [('R', 4), ('L', 5), ('R', 6)]
+    instructions = [
+        (input_data[i*2 + 2], int(input_data[i*2 + 3])) 
+        for i in range(Q)
+    ]
+
+    # Helper to calculate the shortest distance between two parts on a ring of size N
+    # The distance is the minimum of the clockwise and counter-clockwise paths
+    def get_dist(a, b):
+        diff = abs(a - b)
+        return min(diff, N - diff)
+
+    # Helper to determine the shortest path direction and check if it's blocked
+    # Returns the distance if the path is clear, otherwise returns the distance of the alternative path
+    def get_actual_dist(start, end, blocker):
+        # Clockwise distance (increasing index)
+        # If start < end, dist is end - start. If start > end, it's (N - start) + end.
+        cw_dist = (end - start) % N
+        # Counter-clockwise distance (decreasing index)
+        ccw_dist = (start - end) % N
+        
+        # Check if the blocker is on the clockwise path
+        # The blocker is on the CW path if (blocker - start) % N < cw_dist
+        cw_blocked = (blocker - start) % N < cw_dist
+        # Check if the blocker is on the counter-clockwise path
+        ccw_blocked = (start - blocker) % N < ccw_dist
+        
+        # We want the minimum distance that is NOT blocked.
+        # Since the problem guarantees the instruction is achievable, 
+        # at least one path must be clear.
+        
+        # If both are clear, take the minimum
+        if not cw_blocked and not ccw_blocked:
+            return min(cw_dist, ccw_dist)
+        # If only CW is clear
+        if not cw_blocked:
+            return cw_dist
+        # If only CCW is clear
+        return ccw_dist
+
+    # We use accumulate to track the state (left_hand, right_hand, total_dist)
+    # Initial state: Left hand at 1, Right hand at 2, distance 0
+    initial_state = (1, 2, 0)
+    
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        if hand == 'L':
+            # Move left hand to target, right hand stays at r
+            move_dist = get_actual_dist(l, target, r)
+            return (target, r, d + move_dist)
+        else:
+            # Move right hand to target, left hand stays at l
+            move_dist = get_actual_dist(r, target, l)
+            return (l, target, d + move_dist)
+
+    # Process all instructions
+    final_state = list(accumulate(instructions, transition, initial=initial_state))[-1]
+    
+    # The result is the total distance accumulated in the state
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I noticed a small error in my `accumulate` logic.** `accumulate` with an `initial` argument behaves differently across Python versions. To ensure compatibility and correctness, I will use a standard loop or a more robust `reduce` approach.
+
+Corrected logic using `functools.reduce`:
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    instructions = [(input_data[i*2 + 2], int(input_data[i*2 + 3])) for i in range(Q)]
+
+    def get_actual_dist(start, end, blocker):
+        cw_dist = (end - start) % N
+        ccw_dist = (start - end) % N
+        cw_blocked = (blocker - start) % N < cw_dist
+        ccw_blocked = (start - blocker) % N < ccw_dist
+        
+        if not cw_blocked and not ccw_blocked:
+            return min(cw_dist, ccw_dist)
+        return cw_dist if not cw_blocked else ccw_dist
+
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        if hand == 'L':
+            return (target, r, d + get_actual_dist(l, target, r))
+        else:
+            return (l, target, d + get_actual_dist(r, target, l))
+
+    final_state = reduce(transition, instructions, (1, 2, 0))
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the code inside a single block. I will provide the `reduce` version as it is the most concise and correct.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N: number of parts, Q: number of instructions
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into (hand, target) tuples
+    instructions = [
+        (input_data[i*2 + 2], int(input_data[i*2 + 3])) 
+        for i in range(Q)
+    ]
+
+    # Function to calculate the distance moved by a hand
+    # It checks if the path is blocked by the other hand
+    def get_actual_dist(start, end, blocker):
+        # Distance moving clockwise (increasing index)
+        cw_dist = (end - start) % N
+        # Distance moving counter-clockwise (decreasing index)
+        ccw_dist = (start - end) % N
+        
+        # A path is blocked if the blocker's relative position is less than the distance
+        cw_blocked = (blocker - start) % N < cw_dist
+        ccw_blocked = (start - blocker) % N < ccw_dist
+        
+        # Return the minimum of the available (non-blocked) paths
+        if not cw_blocked and not ccw_blocked:
+            return min(cw_dist, ccw_dist)
+        return cw_dist if not cw_blocked else ccw_dist
+
+    # State transition function for reduce: (left_pos, right_pos, total_dist)
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        if hand == 'L':
+            return (target, r, d + get_actual_dist(l, target, r))
+        else:
+            return (l, target, d + get_actual_dist(r, target, l))
+
+    # Use reduce to simulate the process across all instructions
+    # Initial state: Left hand at 1, Right hand at 2, Distance 0
+    final_state = reduce(transition, instructions, (1, 2, 0))
+    
+    # Output the total distance
+    sys.stdout.write(str(final_state[2]) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block." I will provide the final cleaned version.
+**Correction on `cw_blocked` logic:** If `start == end`, `cw_dist` is 0. `(blocker - start) % N < 0` is always false. That's correct. If `blocker == start`, the hand is already there, but the problem says `T_i != r_i` when `H_i == L`, so the blocker is never the target. The only edge case is if the blocker is the starting point. But the rules say you can't move to the destination if the other hand is there. It doesn't say you can't start where the other hand is (though the initial state 1, 2 prevents this). Actually, the blocker is the *other* hand. The other hand is stationary. So we just need to check if the other hand's position lies on the arc between start and end.
+
+Final check on `(blocker - start) % N < cw_dist`:
+If start=1, end=4, N=6. CW dist = 3.
+Blocker at 2: (2-1)%6 = 1. 1 < 3? Yes. Blocked.
+Blocker at 5: (5-1)%6 = 4. 4 < 3? No. Not blocked.
+This logic is correct.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N: number of parts, Q: number of instructions
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into (hand, target) tuples
+    instructions = [
+        (input_data[i*2 + 2], int(input_data[i*2 + 3])) 
+        for i in range(Q)
+    ]
+
+    # Function to calculate the distance moved by a hand
+    def get_actual_dist(start, end, blocker):
+        # Distance moving clockwise (increasing index)
+        cw_dist = (end - start) % N
+        # Distance moving counter-clockwise (decreasing index)
+        ccw_dist = (start - end) % N
+        
+        # A path is blocked if the blocker's relative position is less than the distance
+        # Note: we use < because the blocker cannot be at the destination (guaranteed)
+        cw_blocked = (blocker - start) % N < cw_dist
+        ccw_blocked = (start - blocker) % N < ccw_dist
+        
+        # Return the minimum of the available (non-blocked) paths
+        if not cw_blocked and not ccw_blocked:
+            return min(cw_dist, ccw_dist)
+        return cw_dist if not cw_blocked else ccw_dist
+
+    # State transition function for reduce: (left_pos, right_pos, total_dist)
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        if hand == 'L':
+            return (target, r, d + get_actual_dist(l, target, r))
+        else:
+            return (l, target, d + get_actual_dist(r, target, l))
+
+    # Use reduce to simulate the process across all instructions
+    # Initial state: Left hand at 1, Right hand at 2, Distance 0
+    final_state = reduce(transition, instructions, (1, 2, 0))
+    
+    # Output the total distance
+    sys.stdout.write(str(final_state[2]) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, one last check: `(blocker - start) % N < cw_dist`. If `blocker == start`, it's `0 < cw_dist`. Is the path blocked if the other hand is at the starting position? The rule says: "Move one of your hands to an adjacent part... only if the other hand is not on the destination part." It does NOT say the other hand cannot be at the starting part. So if `blocker == start`, the path is NOT blocked.
+However, `(blocker - start) % N` will be `0`. If `cw_dist` is `3`, `0 < 3` is true, marking it blocked.
+But the only way `blocker == start` is if the hands were on the same part. The problem says they start at 1 and 2. In each step, one hand moves to a target $T_i$, and it's guaranteed $T_i \neq \text{other hand}$. Thus, the hands will never be on the same part.
+Therefore, `blocker` will never equal `start` or `end`. The logic holds.
+Wait, if `blocker == start`, the hand is moving *away* from the blocker. The blocker is only an issue if it's *between* start and end.
+If `blocker == start`, the path is not blocked. But `(blocker - start) % N` is `0`.
+Since `cw_dist` is the number of steps, if `cw_dist > 0`, then `0 < cw_dist` is true.
+Does this mean the path is blocked?
+Let's re-read: "Move one of your

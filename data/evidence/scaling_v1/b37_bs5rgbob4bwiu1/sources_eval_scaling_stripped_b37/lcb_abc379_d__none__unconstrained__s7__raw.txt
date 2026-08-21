@@ -1,0 +1,267 @@
+```python
+import sys
+from functools import reduce
+from itertools import accumulate
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process the queries to extract the ones we care about.
+    # Since we cannot use loops, we use a generator/map to parse the input.
+    # The input format is irregular (1, 2 T, 3 H), so we use a custom 
+    # function to group the flat list into queries.
+    
+    def group_queries(data):
+        it = iter(data[1:])
+        def next_query():
+            try:
+                q_type = next(it)
+                if q_type == '1':
+                    return (1, 0)
+                elif q_type == '2':
+                    return (2, int(next(it)))
+                else:
+                    return (3, int(next(it)))
+            except StopIteration:
+                return None
+        
+        # Use map to create a sequence of queries until None is encountered
+        # Since map doesn't have a 'while' condition, we use a range and 
+        # a helper function to maintain state via a list/closure.
+        return map(lambda _: next_query(), range(Q))
+
+    # To avoid loops and maintain state, we use reduce.
+    # State structure: (current_total_time, sorted_list_of_planting_times, results_list)
+    # A plant planted at time 't' has height (current_total_time - t) at the current moment.
+    # Condition: height >= H  =>  current_total_time - t >= H  =>  t <= current_total_time - H.
+    
+    def process(state, query):
+        current_time, planting_times, results = state
+        q_type, val = query
+        
+        if q_type == 1:
+            # Plant a new seed at the current timestamp
+            # We use sorted() to keep the list of planting times sorted
+            # Since we only add one element, we can use bisect or just sorted()
+            # But for efficiency in reduce, we maintain the sorted property.
+            # We use a list comprehension to insert the value in the correct spot.
+            # Actually, since current_time is non-decreasing, new plants are always 
+            # added to the end.
+            return (current_time, planting_times + [current_time], results)
+        
+        elif q_type == 2:
+            # Increase global time
+            return (current_time + val, planting_times, results)
+        
+        else:
+            # Harvest plants where planting_time <= current_time - val
+            threshold = current_time - val
+            # Find index of first plant that is NOT harvested
+            idx = bisect_left(planting_times, threshold + 1)
+            # Wait, the condition is height >= H, so planting_time <= current_time - H.
+            # Plants at indices [0, idx-1] are harvested.
+            # Correct index for bisect: find first element > (current_time - val)
+            # Actually, bisect_right finds the index after the last element <= threshold.
+            import bisect
+            idx = bisect.bisect_right(planting_times, threshold)
+            
+            harvested_count = idx
+            remaining_plants = planting_times[idx:]
+            return (current_time, remaining_plants, results + [harvested_count])
+
+    # Initialize state: (total_time, planting_times_list, results_list)
+    initial_state = (0, [], [])
+    
+    # We wrap the query grouping in a list to ensure it's fully consumed by reduce
+    queries = list(group_queries(input_data))
+    
+    final_state = reduce(process, queries, initial_state)
+    
+    # Print all results joined by newlines
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I noticed a small logic error in my `bisect` usage inside the `reduce` function (I imported it inside, which is allowed, but I should be careful). Let me refine the logic to be strictly compliant and efficient. I will use `bisect_right` to find how many plants have a planting time $\le \text{current\_time} - H$.
+
+```python
+import sys
+from functools import reduce
+from bisect import bisect_right
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    def get_queries(data):
+        # Use a generator to parse the variable-length queries
+        def gen(it):
+            for x in it:
+                if x == '1':
+                    yield (1, 0)
+                elif x == '2':
+                    # This is tricky without a loop, but we can use a 
+                    # custom iterator handle. 
+                    pass
+        pass
+
+    # Since the above generator logic is complex without loops, 
+    # let's use a different approach to parse the input.
+    # We can use a helper function with a mutable state to consume the iterator.
+    
+    it = iter(input_data[1:])
+    def next_q(_):
+        t = next(it)
+        if t == '1': return (1, 0)
+        if t == '2': return (2, int(next(it)))
+        if t == '3': return (3, int(next(it)))
+
+    # Create the query list using map
+    queries = map(next_q, range(Q))
+    
+    def process(state, query):
+        current_time, planting_times, results = state
+        q_type, val = query
+        
+        if q_type == 1:
+            # New plant at current_time. Since current_time only increases,
+            # planting_times remains sorted.
+            return (current_time, planting_times + [current_time], results)
+        elif q_type == 2:
+            return (current_time + val, planting_times, results)
+        else:
+            # Height = current_time - planting_time >= H 
+            # => planting_time <= current_time - H
+            threshold = current_time - val
+            idx = bisect_right(planting_times, threshold)
+            return (current_time, planting_times[idx:], results + [idx])
+
+    final_state = reduce(process, queries, (0, [], []))
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Final check: The `map(next_q, range(Q))` consumes the iterator `it` exactly as needed. The `reduce` handles the state transitions. The time complexity is $O(Q \log Q)$ due to `bisect_right` and $O(Q)$ for list slicing (though slicing can be $O(Q)$, in the worst case of many harvests it averages out, but actually, slicing `planting_times[idx:]` is the only linear operation. Given $Q=2 \cdot 10^5$, this is acceptable in Python).
+
+One final correction: `range(Q)` might be too many if the input is shorter than expected, but the constraints say $Q$ queries. The `next_q` function will be called exactly $Q$ times.
+
+```python
+import sys
+from functools import reduce
+from bisect import bisect_right
+
+def solve():
+    # Read all input and create an iterator for efficient consumption
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    it = iter(input_data[1:])
+    
+    # Helper to parse queries from the iterator
+    def next_q(_):
+        q_type = next(it)
+        if q_type == '1':
+            return (1, 0)
+        elif q_type == '2':
+            return (2, int(next(it)))
+        else:
+            return (3, int(next(it)))
+
+    # Generate the query sequence
+    queries = map(next_q, range(Q))
+    
+    # State: (current_total_time, sorted_planting_times, results_list)
+    def process(state, query):
+        current_time, planting_times, results = state
+        q_type, val = query
+        
+        if q_type == 1:
+            # Plant height 0 at current_time. 
+            # Since current_time is non-decreasing, list stays sorted.
+            return (current_time, planting_times + [current_time], results)
+        elif q_type == 2:
+            # Increase age of all plants
+            return (current_time + val, planting_times, results)
+        else:
+            # Harvest if current_time - planting_time >= H
+            # planting_time <= current_time - H
+            threshold = current_time - val
+            idx = bisect_right(planting_times, threshold)
+            # Number of harvested is idx. Remaining are those from idx onwards.
+            return (current_time, planting_times[idx:], results + [idx])
+
+    # Execute the simulation
+    final_state = reduce(process, queries, (0, [], []))
+    
+    # Output all harvested counts
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `range(Q)` in `map` will only work if the number of items consumed by `next(it)` matches the structure. Since type 2 and 3 consume 2 items and type 1 consumes 1, the total items in `input_data[1:]` is not necessarily $Q$. The `range(Q)` is correct because it triggers the `next_q` function exactly $Q$ times, and `next_q` consumes the appropriate number of tokens from the iterator.
+
+Final check on complexity: `planting_times + [current_time]` creates a new list $O(N)$. `planting_times[idx:]` creates a new list $O(N)$. With $Q=2 \cdot 10^5$, $O(Q^2)$ is too slow. I must use a `deque` or avoid list recreation. However, the prompt forbids loops. I can use a `collections.deque` and `itertools.islice` or similar, but `bisect` doesn't work on `deque`. 
+
+Actually, the only way to keep it $O(Q \log Q)$ without loops is to use a data structure that supports efficient deletion from the left. A `deque` doesn't support `bisect`. But I can use a `deque` and `popleft()` in a `reduce` by using a helper function that pops until a condition is met.
+
+Wait, I can use `reduce` to pop elements:
+`reduce(lambda dq, _: dq.popleft() if dq and dq[0] <= threshold else dq, range(idx), dq)`
+But `idx` is the number of elements to remove.
+
+Correct approach for $O(Q)$:
+Use a `deque` for `planting_times`. For query 3, use a `reduce` to `popleft()` exactly `idx` times.
+
+```python
+import sys
+from functools import reduce
+from bisect import bis_right # Not possible, deque doesn't support bisect
+```
+Actually, `bisect` works on lists. To avoid $O(N)$ slicing, I can maintain a pointer (index) of the first active plant.
+
+```python
+# State: (current_time, planting_times_list, first_active_idx, results_list)
+# Query 3: 
+# idx = bisect_right(planting_times, threshold, lo=first_active_idx)
+# harvested = idx - first_active_idx
+# return (current_time, planting_times, idx, results + [harvested])
+```
+This keeps everything $O(Q \log Q)$ and avoids $O(N)$ slicing.
+
+```python
+import sys
+from functools import reduce
+from bisect import bisect_right
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    it = iter(input_data[1:])
+    
+    def next_q(_):
+        q_type = next(it)
+        if q_type == '1': return (1, 0)
+        if q_type == '2': return (2, int(next(it)))
+        return (3, int(next(it)))
+
+    queries = map(next_q, range(Q))
+    
+    # State: (current_time, planting_times, first_active_idx, results)
+    def process(state, query):
+        current_time, planting_

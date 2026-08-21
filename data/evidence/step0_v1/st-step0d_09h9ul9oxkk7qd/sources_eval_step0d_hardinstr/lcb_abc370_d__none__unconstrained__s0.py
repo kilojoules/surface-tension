@@ -1,0 +1,197 @@
+import sys
+from bisect import bisect_left
+
+# Increase recursion depth for deep reduce calls if necessary, 
+# though reduce is iterative in Python.
+sys.setrecursionlimit(10**6)
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    queries = list(map(int, input_data[3:]))
+    # Group queries into pairs (R, C)
+    query_pairs = list(zip(queries[0::2], queries[1::2]))
+
+    # We need to track which walls exist.
+    # rows[r] = sorted list of columns that have a wall in row r
+    # cols[c] = sorted list of rows that have a wall in column c
+    # Using lists and bisect.insort is O(N), but since we only remove,
+    # we can't easily use bisect for removal without a loop.
+    # However, the constraint is to avoid loops. 
+    # We can use a dictionary of sets for existence and 
+    # a custom state object passed through reduce.
+    
+    # Given the constraints and the "no loop" rule, 
+    # we will use a dictionary of sets to track walls.
+    # To find the nearest wall without a loop, we can't iterate.
+    # But we can use sorted lists and bisect.
+    # Since we need to remove elements from sorted lists, 
+    # and we can't use loops, we will use a dictionary of sets 
+    # and accept that finding the nearest wall requires 
+    # a way to query the range.
+    
+    # Wait, if I can't use loops, I can't use while/for.
+    # I can use list comprehensions, map, filter, reduce.
+    # To find the nearest wall in a set:
+    # For a row, we need the largest c < C_q and smallest c > C_q.
+    # Since we can't use loops, we can't binary search a list 
+    # if we have to mutate it (removing elements).
+    # Actually, we can use a SortedList-like structure or 
+    # just use the fact that H*W is 4e5 and Q is 2e5.
+    # A simple way to find nearest neighbors in a set without loops 
+    # is impossible unless the set is sorted.
+    # We can use a dictionary of sorted lists and use 
+    # list.pop(index) which is O(N). But O(N) per query is O(Q*W), too slow.
+    
+    # Let's use a different approach: 
+    # We can use a Fenwick tree or Segment tree, but those require loops.
+    # Actually, the constraint to avoid loops is a challenge to use 
+    # functional programming. 
+    # I will use a dictionary of sets to track walls and 
+    # use a helper function with bisect on sorted lists.
+    # To handle removals without loops, I'll use a technique 
+    # where I rebuild the sorted list only when necessary 
+    # or use a data structure that supports O(log N) removal.
+    # Since I can't use external libraries, I'll use 
+    # the 'bisect' module and 'list.pop'. 
+    # While list.pop(i) is O(N), for many test cases it passes.
+    # But to be safe, I'll use a dictionary of sets and 
+    # filter/min/max to find neighbors. 
+    # But min/max over a set is O(N).
+    
+    # Let's use the "SortedList" pattern implemented via 
+    # a dictionary of sorted lists and use `bisect` and `pop`.
+    # To avoid loops, I will use `functools.reduce`.
+
+    from functools import reduce
+
+    # Initial state: 
+    # row_walls: dict mapping row -> sorted list of columns
+    # col_walls: dict mapping col -> sorted list of rows
+    # total_walls: H * W
+    
+    # To avoid the O(N) pop, I'll use a dictionary of sets 
+    # and for the "nearest" search, I'll use a trick.
+    # Actually, the only way to find the nearest element in a 
+    # dynamic set without loops is to use a balanced BST.
+    # Since I can't implement a BST without loops/recursion 
+    # (and recursion is allowed), I will use recursion.
+    
+    # However, the simplest way to satisfy "no loops" 
+    # is to use a dictionary of sets and 
+    # use a recursive function to find the nearest wall.
+    # But that's just a loop in disguise.
+    
+    # Let's use the most efficient "no-loop" constructs:
+    # reduce for the query loop, and for the wall search,
+    # since we need to find the nearest existing wall,
+    # we can use a sorted list and bisect. 
+    # Even though pop(i) is O(N), it's often fast enough in Python.
+    
+    def get_nearest(sorted_list, val, direction):
+        # direction: -1 for left/up, 1 for right/down
+        idx = bisect_left(sorted_list, val)
+        if direction == 1: # Right/Down
+            # If val is in list, the first wall "after" is at idx + 1
+            # But the problem says if wall at (R, C) exists, destroy it and end.
+            # If no wall at (R, C), look for others.
+            # So we only call this when wall at (R, C) is already gone.
+            return sorted_list[idx] if idx < len(sorted_list) else None
+        else: # Left/Up
+            return sorted_list[idx - 1] if idx > 0 else None
+
+    def process_query(state, query):
+        r, c = query
+        row_walls, col_walls, wall_count = state
+        
+        # Check if wall exists at (r, c)
+        # We use a set for O(1) check
+        # state is (row_walls, col_s, col_walls, wall_count)
+        # To avoid loops, we use a helper function.
+        
+        # We need to track existence. Let's use a set of (r, c)
+        # But we can't use a set of all walls (too large).
+        # We'll use the sorted lists.
+        
+        # Check if c is in row_walls[r]
+        # Since row_walls[r] is sorted, we use bisect.
+        idx = bisect_left(row_walls[r], c)
+        exists = (idx < len(row_walls[r]) and row_walls[r][idx] == c)
+        
+        if exists:
+            # Destroy wall at (r, c)
+            row_walls[r].pop(idx)
+            # Find and remove c from col_walls[c]
+            c_idx = bisect_left(col_walls[c], r)
+            col_walls[c].pop(c_idx)
+            return (row_walls, col_walls, wall_count - 1)
+        else:
+            # Destroy 4 nearest walls
+            # Up, Down, Left, Right
+            # We need to find them, then remove them.
+            # Since we must remove 4 different walls, 
+            # we find them first, then remove.
+            
+            # Find targets
+            up = get_nearest(col_walls[c], r, -1)
+            down = get_nearest(col_walls[c], r, 1)
+            left = get_nearest(row_walls[r], c, -1)
+            right = get_nearest(row_walls[r], c, 1)
+            
+            targets = filter(lambda x: x is not None, [
+                (up, c) if up else None,
+                (down, c) if down else None,
+                (r, left) if left else None,
+                (r, right) if right else None
+            ])
+            # Remove None values from the list
+            targets = [t for t in targets if t]
+            
+            # To remove these walls without a loop, we use reduce
+            def remove_wall(s, target):
+                tr, tc = target
+                # Remove from row_walls
+                r_idx = bisect_left(s[0][tr], tc)
+                if r_idx < len(s[0][tr]) and s[0][tr][r_idx] == tc:
+                    s[0][tr].pop(r_idx)
+                # Remove from col_walls
+                c_idx = bisect_left(s[1][tc], tr)
+                if c_idx < len(s[1][tc]) and s[1][tc][c_idx] == tr:
+                    s[1][tc].pop(c_idx)
+                return s
+
+            # Update wall count based on how many targets were actually removed
+            # Note: targets might overlap (e.g., the same wall is both 'up' and 'left')
+            # But the problem says "simultaneously", and the 4 directions are distinct.
+            # However, a wall at (r, c) could be the target for both.
+            # But we already checked that (r, c) has no wall.
+            # The only way targets overlap is if the same wall is hit by two directions.
+            # That only happens if the wall is at the same location.
+            # Since we look Up, Down, Left, Right, the only overlap is if 
+            # the target is the same cell. But Up/Down are different, Left/Right are different.
+            # Up/Left could be the same cell only if r_up == r and c_left == c, 
+            # but r_up < r and c_left < c. So targets are distinct.
+            
+            # We use a set to count unique targets
+            unique_targets = set(targets)
+            
+            # Update the state
+            new_state = reduce(remove_wall, targets, (row_walls, col_walls, wall_count))
+            return (new_state[0], new_state[1], wall_count - len(unique_targets))
+
+    # Initialize row_walls and col_walls
+    # Using list comprehensions to avoid loops
+    initial_row_walls = {r: list(range(1, W + 1)) for r in range(1, H + 1)}
+    initial_col_walls = {c: list(range(1, H + 1)) for c in range(1, W + 1)}
+    
+    final_state = reduce(process_query, query_pairs, (initial_row_walls, initial_col_walls, H * W))
+    print(final_state[2])
+
+solve()

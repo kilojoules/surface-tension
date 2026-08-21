@@ -1,0 +1,86 @@
+import sys
+import math
+from itertools import permutations, product
+from functools import reduce
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((
+            (int(input_data[idx]), int(input_data[idx+1])),
+            (int(input_data[idx+2]), int(input_data[idx+3]))
+        ))
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Pre-calculate lengths of segments
+    seg_lengths = [dist(s[0], s[1]) for s in segments]
+
+    # We need to try all permutations of segments
+    # For each segment, we can start at either endpoint
+    # There are N! permutations and 2^N direction combinations
+    
+    # Generate all permutations of indices
+    all_perms = permutations(range(N))
+    
+    # Generate all possible direction combinations (0: start->end, 1: end->start)
+    all_dirs = product([0, 1], repeat=N)
+    
+    # To avoid explicit loops, we use a generator expression inside min()
+    # We calculate the cost for a specific permutation and direction set
+    def calculate_cost(perm, dirs):
+        # Create the sequence of segments based on the permutation and directions
+        # Each element is (start_point, end_point)
+        ordered_segs = [
+            (segments[perm[i]][0], segments[perm[i]][1]) if dirs[i] == 0 
+            else (segments[perm[i]][1], segments[perm[i]][0])
+            for i in range(N)
+        ]
+        
+        # Calculate travel times
+        # 1. From (0,0) to the start of the first segment
+        start_travel = dist((0, 0), ordered_segs[0][0]) / S
+        
+        # 2. Printing times for all segments
+        print_time = sum(seg_lengths) / T
+        
+        # 3. Travel times between segments
+        # Use a list comprehension to find distance between end of seg i and start of seg i+1
+        between_travel = sum(
+            dist(ordered_segs[i][1], ordered_segs[i+1][0]) / S
+            for i in range(N - 1)
+        )
+        
+        return start_travel + print_time + between_travel
+
+    # Since we cannot use loops, we use a nested generator expression
+    # We iterate over all permutations and all direction combinations
+    # Note: The directions are tied to the index of the segment in the permutation
+    
+    # To optimize, we can observe that the 'dirs' can be mapped to the permutation
+    # But the search space is small enough (6! * 2^6 = 720 * 64 = 46,080)
+    
+    # We use a list comprehension to evaluate all possibilities and then take the min
+    # We use a helper to map the directions to the permuted segments
+    
+    ans = min(
+        calculate_cost(p, d) 
+        for p in all_perms 
+        for d in product([0, 1], repeat=N)
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

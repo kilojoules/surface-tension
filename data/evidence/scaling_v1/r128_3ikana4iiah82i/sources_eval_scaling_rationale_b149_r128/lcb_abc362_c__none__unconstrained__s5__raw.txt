@@ -1,0 +1,113 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, which can lead to more concise and declarative code by focusing on "what" to compute rather than "how" to iterate. To solve this problem, I will use `sum()` for totals, `zip()` for pairing, and list comprehensions for transformations. The core logic involves starting all $X_i$ at their lower bounds $L_i$ and greedily increasing them toward $R_i$ using a calculated "remaining" sum.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = list(map(int, sys.stdin.read().split()))
+    
+    # N is the first element
+    n = input_data[0]
+    
+    # Pair the remaining elements into (L, R) tuples
+    # Using slice [1:] and a list comprehension to create pairs
+    pairs = [ (input_data[i], input_data[i+1]) for i in range(1, len(input_data), 2) ]
+    
+    # Calculate the minimum and maximum possible sums
+    # Using generator expressions inside sum() for efficiency
+    min_sum = sum(p[0] for p in pairs)
+    max_sum = sum(p[1] for p in pairs)
+    
+    # The condition for a solution to exist is that 0 must fall within [min_sum, max_sum]
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start by setting each X_i to L_i.
+    # We need to add a total of 'deficit' to the sum to reach 0.
+    deficit = 0 - min_sum
+    
+    # To distribute the deficit, we calculate how much each X_i can be increased: (R_i - L_i).
+    # We use a greedy approach: increase X_i by min(deficit, R_i - L_i).
+    # Since we cannot use loops, we must handle the 'deficit' update carefully.
+    # However, the deficit changes as we iterate. To avoid a loop, we can use a 
+    # mathematical trick with prefix sums of the capacities.
+    
+    capacities = [p[1] - p[0] for p in pairs]
+    prefix_capacities = [0] + [sum(capacities[:i+1]) for i in range(n)] # This is O(N^2), too slow.
+    
+    # Correction: To avoid O(N^2) and loops, we can use a list comprehension 
+    # combined with a helper function or a more clever approach.
+    # Actually, the most idiomatic way to handle state in a comprehension 
+    # is using a mutable object (like a list) to track the remaining deficit.
+    
+    state = [deficit]
+    
+    def allocate(cap):
+        # Calculate how much we can take from the current deficit
+        taken = min(state[0], cap)
+        state[0] -= taken
+        return taken
+
+    # Use map or list comprehension to apply the allocate function
+    # X_i = L_i + amount_allocated
+    results = [p[0] + allocate(p[1] - p[0]) for p in pairs]
+    
+    print("Yes")
+    print(*(results))
+
+# Using a wrapper to call solve()
+if __name__ == "__main__":
+    # Increase recursion depth just in case, though not needed for this approach
+    sys.setrecursionlimit(300000)
+    solve()
+```
+
+**Wait**, the prompt says "Avoid explicit `for` or `while` loops." My `range(1, len(input_data), 2)` inside the list comprehension is technically a loop construct. To be strictly compliant with a functional style, I should use `zip` and slicing. Also, the `allocate` function uses a mutable list to track state across the comprehension.
+
+Here is the refined version:
+
+```python
+import sys
+
+def solve():
+    # Read input
+    data = list(map(int, sys.stdin.read().split()))
+    n = data[0]
+    
+    # Create pairs using zip and slicing
+    # L values are at indices 1, 3, 5... R values are at 2, 4, 6...
+    ls = data[1::2]
+    rs = data[2::2]
+    
+    min_sum = sum(ls)
+    max_sum = sum(rs)
+    
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We need to add 'deficit' to the min_sum to reach 0
+    deficit = -min_sum
+    
+    # To distribute the deficit without a loop, we use a mutable state container
+    # and a list comprehension.
+    state = [deficit]
+    
+    def get_val(l, r):
+        # Calculate amount to add to l
+        add = min(state[0], r - l)
+        state[0] -= add
+        return l + add
+
+    # Generate the sequence X
+    # zip(ls, rs) creates the pairs, and the list comprehension processes them
+    x = [get_val(l, r) for l, r in zip(ls, rs)]
+    
+    print("Yes")
+    print(*x)
+
+if __name__ == "__main__":
+    solve()
+```

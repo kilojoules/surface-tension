@@ -1,0 +1,259 @@
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to track the "birth time" of plants relative to a global clock.
+    # Let 'current_time' be the total T accumulated since the start.
+    # A plant planted at 'current_time' has an initial height of 0.
+    # Its height at time 't' is (t - birth_time).
+    # It is harvested if (t - birth_time) >= H, which means birth_time <= (t - H).
+    
+    # We use a sorted list of birth_times to efficiently find and remove plants.
+    # Since we cannot use a Fenwick tree or Segment tree easily without coordinate 
+    # compression (which requires knowing all queries), and we need to remove 
+    # elements, a sorted list with bisect is used. 
+    # However, removing from the middle of a list is O(N). 
+    # Given Q=2e5, O(N^2) will TLE. 
+    # But wait, the problem allows a specific structure: we only remove from the 
+    # start of the sorted birth_times list.
+    
+    # Let's refine: 
+    # Plants are added at 'current_time'. Since 'current_time' is non-decreasing,
+    # the list of birth_times is naturally sorted.
+    # Harvesting plants with height >= H means birth_time <= (current_time - H).
+    # This is a prefix of the birth_times list.
+    
+    # To avoid O(N) deletions, we can use a deque or 그냥 track an index, 
+    # but plants are added at the end and removed from the front.
+    # Actually, the birth_times are added in increasing order.
+    # So we can use a list and a pointer, or a deque.
+    
+    # Wait, the plants are added at different times. 
+    # Example: 1, 2 10, 1, 3 5.
+    # Plant 1: birth=0. Plant 2: birth=10.
+    # At t=10, Plant 1 height=10, Plant 2 height=0.
+    # Harvest H=5: Plant 1 is harvested.
+    # The birth_times will always be added in non-decreasing order.
+    # Therefore, the plants that satisfy birth_time <= (current_time - H)
+    # will always be a contiguous prefix of the existing plants.
+    
+    # We can use a collections.deque to pop from the left.
+    from collections import deque
+    
+    # Using a generator to process queries without loops
+    def process_queries(data):
+        # State: (current_time, plants_deque, output_list)
+        # We use a reduction-like approach via a custom class or a closure
+        # But since we can't use loops, we'll use a recursive-like structure 
+        # via map/reduce or a generator.
+        
+        # Actually, the simplest way to "loop" without 'for/while' is 
+        # using a recursive function with a helper, but Python's recursion 
+        # limit is an issue. Let's use a generator and next().
+        
+        # Since I must avoid for/while, I will use a list comprehension 
+        # to drive the state changes and a helper class to maintain state.
+        
+        class State:
+            def __init__(self):
+                self.current_time = 0
+                self.plants = deque()
+                self.results = []
+            
+            def handle(self, q_type, *args):
+                if q_type == '1':
+                    self.plants.append(self.current_time)
+                    return None
+                elif q_type == '2':
+                    self.current_time += int(args[0])
+                    return None
+                elif q_type == '3':
+                    h = int(args[0])
+                    threshold = self.current_time - h
+                    # Count how many plants have birth_time <= threshold
+                    # Since plants is sorted, we find the split point.
+                    # We can't use a loop to pop, so we calculate the number 
+                    # of plants to remove and then slice/reconstruct the deque.
+                    # But wait, bisect works on lists.
+                    
+                    # Convert deque to list for bisect, then slice.
+                    # To keep it O(1) or O(log N) removal is hard without a loop.
+                    # However, we can use the fact that we only remove from the left.
+                    # We can use a list and a pointer.
+                    pass
+
+        # Let's redefine State to use a list and a pointer.
+        class FastState:
+            def __init__(self):
+                self.t = 0
+                self.plants = []
+                self.start_idx = 0
+                self.ans = []
+            
+            def run(self, q):
+                q_type = q[0]
+                if q_type == '1':
+                    self.plants.append(self.t)
+                elif q_type == '2':
+                    self.t += int(q[1])
+                else:
+                    h = int(q[1])
+                    limit = self.t - h
+                    # Find index of first plant with birth_time > limit
+                    # We search in the range [start_idx, len(plants))
+                    idx = bisect_left(self.plants, limit, lo=self.start_idx)
+                    count = idx - self.start_idx
+                    self.ans.append(str(count))
+                    self.start_idx = idx
+                return self
+
+        # Parse queries into lists of strings
+        # This is tricky without loops. We can use a generator.
+        def query_gen(data):
+            it = iter(data[1:])
+            def get_next():
+                try:
+                    q_type = next(it)
+                    if q_type == '1':
+                        return [q_type]
+                    else:
+                        return [q_type, next(it)]
+                except StopIteration:
+                    return None
+            
+            # Use a list comprehension to consume the generator
+            # We need to call get_next until it returns None.
+            # Since we can't use while, we can use a recursive-like 
+            # structure via a list comprehension and a sentinel.
+            pass
+
+    # Correcting the approach: 
+    # The only way to process Q queries without for/while is using 
+    # map(), reduce(), or recursion (with sys.setrecursionlimit).
+    # Let's use reduce().
+    
+    from functools import reduce
+    
+    # We need to group the input into queries first.
+    # Since query types have different lengths, we can't use zip(range(0, len, k)).
+    # We can use a custom iterator.
+    
+    def group_queries(data):
+        it = iter(data)
+        # Use a helper to yield queries
+        def produce():
+            # This is still a loop if I use 'for'
+            # But I can use map/recursion.
+            pass
+            
+    # Actually, the most reliable way to group variable length queries 
+    # without for/while is to use a recursive function.
+    sys.setrecursionlimit(300000)
+    
+    def parse_and_run(data, state):
+        if not data:
+            return state.ans
+        
+        q_type = data[0]
+        if q_type == '1':
+            state.plants.append(state.t)
+            return parse_and_run(data[1:], state)
+        elif q_type == '2':
+            state.t += int(data[1])
+            return parse_and_run(data[2:], state)
+        elif q_type == '3':
+            h = int(data[1])
+            limit = state.t - h
+            idx = bisect_left(state.plants, limit, lo=state.start_idx)
+            state.ans.append(str(idx - state.start_idx))
+            state.start_idx = idx
+            return parse_and_run(data[2:], state)
+
+    class State:
+        def __init__(self):
+            self.t = 0
+            self.plants = []
+            self.start_idx = 0
+            self.ans = []
+
+    # To avoid recursion depth and loops, we can use a generator 
+    # and a list comprehension to drive it, but the grouping is the hard part.
+    # Let's use a more clever way to group:
+    # We can use a state-machine inside reduce.
+    
+    def reducer(acc, item):
+        state, rem = acc
+        if not rem: # Should not happen with correct logic
+            return (state, [])
+        
+        q_type = rem[0]
+        if q_type == '1':
+            state.plants.append(state.t)
+            return (state, rem[1:])
+        elif q_type == '2':
+            state.t += int(rem[1])
+            return (state, rem[2:])
+        elif q_type == '3':
+            h = int(rem[1])
+            limit = state.t - h
+            idx = bisect_left(state.plants, limit, lo=state.start_idx)
+            state.ans.append(str(idx - state.start_idx))
+            state.start_idx = idx
+            return (state, rem[2:])
+        return (state, rem)
+
+    # Since reduce requires a sequence of a fixed length, 
+    # and we are consuming 'rem' at different rates, 
+    # we can't use reduce on the raw data directly.
+    # However, we can use a recursive function with sys.setrecursionlimit.
+    
+    # Final attempt structure:
+    # 1. Read input.
+    # 2. Use a recursive function to process.
+    # 3. Print results.
+    
+    # To avoid "RecursionError: maximum recursion depth exceeded", 
+    # we must be careful. Q=2e5, so 3e5 limit is enough.
+    
+    # Using a list comprehension to call the function is not possible.
+    # But we can use a helper function and call it.
+    
+    def run_all():
+        input_data = sys.stdin.read().split()
+        if not input_data: return
+        
+        # Use a list to simulate the state to avoid class overhead in recursion
+        # state = [current_time, start_idx, plants_list, answers_list]
+        def recurse(data, state):
+            if not data:
+                return state[3]
+            
+            q_type = data[0]
+            if q_type == '1':
+                state[2].append(state[0])
+                return recurse(data[1:], state)
+            elif q_type == '2':
+                state[0] += int(data[1])
+                return recurse(data[2:], state)
+            else: # q_type == '3'
+                h = int(data[1])
+                limit = state[0] - h
+                idx = bisect_left(state[2], limit, lo=state[1])
+                state[3].append(str(idx - state[1]))
+                state[1] = idx
+                return recurse(data[2:], state)
+
+        result = recurse(input_data[1:], [0, 0, [], []])
+        sys.stdout.write('\n'.join(result) + '\n')
+
+    run_all()
+
+if __name__ == "__main__":
+    solve()

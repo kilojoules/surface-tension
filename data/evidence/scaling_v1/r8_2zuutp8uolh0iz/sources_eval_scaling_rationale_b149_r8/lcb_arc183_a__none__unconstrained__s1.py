@@ -1,0 +1,96 @@
+import sys
+from functools import reduce
+from math import comb
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N, K = map(int, input_data)
+
+    # The total number of good sequences S is (NK)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Let target = (S + 1) // 2.
+    
+    # To calculate S, we can use the formula for permutations of a multiset.
+    # S = comb(N*K, K) * comb((N-1)*K, K) * ... * comb(K, K)
+    # However, S can be very large, so we handle it with Python's arbitrary precision integers.
+    
+    # Precompute the total number of sequences S
+    # S = (N*K)! / (K!)^N
+    # We use a reduce to calculate the product of combinations.
+    total_s = reduce(lambda acc, i: acc * comb(i * K, K), range(1, N + 1), 1)
+    target = (total_s + 1) // 2
+
+    # We need to determine the sequence element by element.
+    # At each position, we try candidates v = 1, 2, ..., N.
+    # If we place v, the number of ways to complete the sequence is:
+    # (Remaining Total Slots)! / Product(Remaining counts of each number!)
+    
+    # state: (current_counts, current_target, result_sequence)
+    # current_counts: list of remaining counts for each number 1..N
+    # current_target: the rank we are looking for among remaining sequences
+    
+    def get_ways(counts):
+        # Ways to arrange the remaining elements
+        # Total remaining = sum(counts)
+        # Ways = Total! / (c1! * c2! ... * cN!)
+        # This can be computed as comb(sum, c1) * comb(sum-c1, c2) ...
+        rem_total = sum(counts)
+        return reduce(lambda acc, c: acc * comb(rem_total - (sum(counts[:counts.index(c)] if counts.index(c) != -1 else 0)), c), 
+                      range(len(counts)), 1)
+    
+    # The above get_ways is slightly wrong because of the reduce logic. 
+    # Let's use a more robust way to calculate multiset permutations.
+    def calc_multiset_perm(counts):
+        rem_total = sum(counts)
+        # Using the property: Ways = Product(comb(rem_total - prefix_sum, count))
+        # We use a helper to track the prefix sum.
+        def step(state, c):
+            s, res = state
+            return (s - c, res * comb(s, c))
+        return reduce(step, counts, (rem_total, 1))[1]
+
+    # Since we cannot use loops, we use reduce to iterate over the length of the sequence (N*K).
+    # The state is (counts, target, sequence)
+    initial_counts = [K] * N
+    
+    def find_char(state, _):
+        counts, target, seq = state
+        
+        # We need to find the smallest v such that the sum of ways for 1..v-1 < target
+        # and target <= sum of ways for 1..v.
+        
+        def evaluate_v(state_v, v):
+            curr_counts, curr_target, curr_seq = state_v
+            # Try placing value v+1 (1-indexed)
+            if curr_counts[v] > 0:
+                # Create a copy of counts to calculate ways
+                temp_counts = list(curr_counts)
+                temp_counts[v] -= 1
+                ways = calc_multiset_perm(temp_counts)
+                
+                if curr_target <= ways:
+                    # The target sequence starts with v+1
+                    new_counts = list(curr_counts)
+                    new_counts[v] -= 1
+                    return (new_counts, curr_target, curr_seq + [v + 1])
+                else:
+                    # Skip all sequences starting with v+1
+                    return (curr_counts, curr_target - ways, curr_seq)
+            else:
+                return (curr_counts, curr_target, curr_seq)
+
+        # For each position, we check v from 0 to N-1
+        # We use reduce to iterate through possible values of v
+        final_state_for_pos = reduce(evaluate_v, range(N), (counts, target, seq))
+        return final_state_for_pos
+
+    final_result = reduce(find_char, range(N * K), (initial_counts, target, []))
+    
+    # Print the result sequence
+    print(*(final_result[2]))
+
+if __name__ == "__main__":
+    solve()

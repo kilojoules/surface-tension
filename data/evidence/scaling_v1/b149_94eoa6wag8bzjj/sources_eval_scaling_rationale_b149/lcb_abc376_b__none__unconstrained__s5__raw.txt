@@ -1,0 +1,78 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. While not necessarily "cleaner" for state-heavy simulations, it encourages the use of higher-order functions and immutable-style transformations, reducing side-effect bugs. For this problem, I will use `functools.reduce` to maintain the state of the hand positions and the total distance across the sequence of instructions.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions as list of (H, T)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Helper to calculate shortest distance between two points on a ring of size N
+    # given that a certain point (the other hand) is blocking the path.
+    # Since we can only move one hand, the other hand acts as a wall.
+    # The ring becomes a linear path.
+    def get_dist(start, end, blocker, n):
+        # The distance is the minimum of clockwise and counter-clockwise
+        # BUT we cannot pass through the blocker.
+        # We check if the blocker is "between" start and end in either direction.
+        
+        # Normalize coordinates to 0..N-1
+        s, e, b = start - 1, end - 1, blocker - 1
+        
+        # Clockwise distance (s -> s+1 -> ... -> e)
+        # The blocker is in the way if b is encountered during the traversal.
+        # Clockwise steps: (e - s) % n
+        cw_dist = (e - s) % n
+        # Blocker is in the way if (b - s) % n < cw_dist
+        cw_blocked = (b - s) % n < cw_dist
+        
+        # Counter-clockwise distance (s -> s-1 -> ... -> e)
+        # CCW steps: (s - e) % n
+        ccw_dist = (s - e) % n
+        # Blocker is in the way if (s - b) % n < ccw_dist
+        ccw_blocked = (s - b) % n < ccw_dist
+        
+        # We are guaranteed the move is possible.
+        # If clockwise is blocked, we must go CCW. If CCW is blocked, we go CW.
+        # If neither is blocked, we take the minimum.
+        # If both are blocked, it's impossible (but guaranteed not to happen).
+        
+        res = []
+        if not cw_blocked: res.append(cw_dist)
+        if not ccw_blocked: res.append(ccw_dist)
+        return min(res)
+
+    # State: (left_hand, right_hand, total_distance)
+    # Initial state: L=1, R=2, dist=0
+    initial_state = (1, 2, 0)
+
+    def step(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            # Move left hand to t, right hand r is blocker
+            d = get_dist(l, t, r, N)
+            return (t, r, total + d)
+        else:
+            # Move right hand to t, left hand l is blocker
+            d = get_dist(r, t, l, N)
+            return (l, t, total + d)
+
+    final_state = reduce(step, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```

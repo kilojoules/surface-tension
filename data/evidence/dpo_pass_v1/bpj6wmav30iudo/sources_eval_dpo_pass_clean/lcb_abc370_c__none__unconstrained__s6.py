@@ -1,0 +1,64 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+
+    # Identify indices where S and T differ
+    # We need to change S[i] to T[i] for all i where S[i] != T[i]
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To make the array X lexicographically smallest, we want the strings 
+    # at the beginning of X to be as small as possible.
+    # This means we should prioritize changing characters at the 
+    # leftmost positions to their target values T[i] ONLY IF T[i] < S[i].
+    # However, the problem asks for the lexicographically smallest ARRAY X.
+    # X_1 is the first string. To make X_1 smallest, we should change the 
+    # first possible character that makes the string smaller.
+    # Actually, the optimal strategy to make the sequence X lexicographically 
+    # smallest is:
+    # 1. Identify all indices i where S[i] != T[i].
+    # 2. To make X_1 smallest, we want to change the leftmost index i 
+    #    such that T[i] < S[i]. If no such i exists, we change the 
+    #    rightmost index i such that T[i] > S[i] (to delay the increase).
+    # Wait, the simplest greedy approach for the lexicographically smallest X:
+    # We must change all diff_indices. To make X_1 smallest, we look at the 
+    # first index i in S. If T[i] < S[i], changing it immediately is best.
+    # If T[i] > S[i], we want to postpone changing it as long as possible.
+    
+    # Correct Greedy Strategy:
+    # Let indices be those where S[i] != T[i].
+    # We want to process indices in an order that makes the resulting 
+    # strings lexicographically smallest.
+    # For any index i, if T[i] < S[i], changing it makes the string smaller.
+    # If T[i] > S[i], changing it makes the string larger.
+    # Therefore, we should first process all i where T[i] < S[i] from 
+    # left to right. Then, process all i where T[i] > S[i] from 
+    # right to left.
+    
+    left_to_right = [i for i in diff_indices if T[i] < S[i]]
+    right_to_left = [i for i in diff_indices if T[i] > S[i]][::-1]
+    order = left_to_right + right_to_left
+
+    # Use reduce to generate the sequence of strings.
+    # accumulator is (current_string, list_of_strings_X)
+    result = reduce(
+        lambda acc, i: (
+            "".join([acc[0][j] if j != i else T[j] for j in range(len(S))]),
+            acc[1] + ["".join([acc[0][j] if j != i else T[j] for j in range(len(S))])]
+        ),
+        order,
+        (S, [])
+    )
+
+    # Output the number of elements and the elements themselves
+    # Using print with * to avoid loops
+    sys.stdout.write(f"{len(result[1])}\n" + "\n".join(result[1]) + ("\n" if result[1] else ""))
+
+if __name__ == "__main__":
+    solve()

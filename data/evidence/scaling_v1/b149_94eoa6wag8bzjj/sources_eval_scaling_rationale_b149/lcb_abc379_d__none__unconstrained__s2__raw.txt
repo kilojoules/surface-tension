@@ -1,0 +1,200 @@
+The constraint to avoid explicit loops forces a functional programming style, which can lead to more concise code but is often less idiomatic in Python, as Python is designed to be multi-paradigm. To solve this problem without loops or recursion, I will use `functools.reduce` to maintain the state (the current total height offset and a sorted list of plant "birth" offsets) across the sequence of queries, and `bisect_left` to efficiently count and remove plants that have reached height $H$.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries one by one. 
+    # Since we cannot use loops, we use reduce to maintain state.
+    # State: (current_total_height, sorted_list_of_birth_offsets, results_list)
+    # A plant planted at total_height 'S' has current height: current_total_height - S.
+    # Condition: current_total_height - S >= H  =>  S <= current_total_height - H.
+    
+    # To handle the queries, we group the input into a list of query tuples.
+    # Because queries have different lengths, we process the flat list using a custom 
+    # iterator-based approach within reduce, but since we can't use loops, 
+    # we'll pre-process the queries into a structured list using a 
+    # comprehension (which is allowed as it's an expression).
+    
+    # Since we can't use loops to parse the variable-length queries, 
+    # we use a helper function with a generator and next() inside reduce.
+    
+    it = iter(input_data[1:])
+    
+    def get_queries():
+        # This is a generator, but we will consume it inside reduce.
+        # However, the prompt forbids loops. Generator expressions are okay.
+        # But wait, the prompt says "no for/while loops". 
+        # Let's use a more robust way to parse.
+        pass
+
+    # Let's redefine: we use a recursive-like structure via reduce.
+    # To parse variable length queries without loops:
+    # We can use a trick with a list and a pointer, but we can't use while.
+    # Instead, let's use a recursive-like approach with a mapping function.
+    
+    # Actually, the simplest way to parse this without loops is to 
+    # process the flat list by maintaining an index in the state.
+    
+    def process(state, _):
+        idx, total_h, plants, results = state
+        if idx >= len(input_data) - 1:
+            return state
+        
+        q_type = input_data[idx + 1]
+        
+        if q_type == '1':
+            # Plant height 0. Birth offset is current total_h.
+            # We use bisect to keep the plants list sorted.
+            # Since we only add 'total_h' and total_h is non-decreasing, 
+            # we can just append.
+            return (idx + 1, total_h, plants + [total_h], results)
+        
+        elif q_type == '2':
+            t = int(input_data[idx + 2])
+            return (idx + 3, total_h + t, plants, results)
+        
+        elif q_type == '3':
+            h = int(input_data[idx + 2])
+            # Condition: S <= total_h - h
+            threshold = total_h - h
+            # Find number of plants with birth_offset <= threshold
+            count = bisect_left(plants, threshold + 0.1) # Using 0.1 to simulate <=
+            # Wait, bisect_left finds the first index where element is >= threshold.
+            # For S <= threshold, we want bisect_right.
+            # Let's use bisect_right.
+            from bisect import bisect_right
+            count = bisect_right(plants, threshold)
+            # Remove the first 'count' plants.
+            return (idx + 3, total_h, plants[count:], results + [count])
+            
+    # The above logic has a flaw: it uses if/elif. That's fine.
+    # But the 'reduce' needs to run Q times? No, the index handles it.
+    # But we don't know how many steps to run reduce because queries have different lengths.
+    # We can run it len(input_data) times, and the idx check will handle it.
+    
+    # Let's refine the state and the reducer to be perfectly loop-free.
+    # We use a helper to handle the different query types.
+    
+    def reducer(state, _):
+        idx, total_h, plants, results = state
+        if idx >= len(input_data):
+            return state
+        
+        q_type = input_data[idx]
+        if q_type == '1':
+            return (idx + 1, total_h, plants + [total_h], results)
+        elif q_type == '2':
+            return (idx + 2, total_h + int(input_data[idx+1]), plants, results)
+        elif q_type == '3':
+            h = int(input_data[idx+1])
+            from bisect import bisect_right
+            threshold = total_h - h
+            count = bisect_right(plants, threshold)
+            return (idx + 2, total_h, plants[count:], results + [count])
+        return state
+
+    # Start reduce from index 1 (after Q)
+    final_state = reduce(reducer, range(len(input_data)), (1, 0, [], []))
+    
+    # Print results
+    sys.stdout.write('\n'.join(map(str, final_state[3])) + '\n')
+
+# To avoid the 'from bisect import bisect_right' inside the reducer 
+# (which is slow and slightly messy), I'll move it to the top.
+# Also, using list concatenation (plants + [total_h]) is O(N), 
+# making the total complexity O(Q^2). I must use a more efficient way.
+# Since I cannot use loops, I can't use .append().
+# But I can use a deque or a similar structure? No, deque still needs append.
+# Wait, the constraint is "no for/while loops". 
+# List comprehensions and map/reduce are allowed.
+# To keep it O(Q log Q), I need a data structure that supports 
+# efficient appending and slicing. 
+# Actually, plants[count:] is O(N). 
+# Given Q=2e5, O(Q^2) will TLE.
+# However, the only way to avoid loops and recursion is to use 
+# high-order functions. But Python's immutable-style 
+# transformations on lists are slow.
+# Let's use a mutable list and .append() inside the reducer.
+# The prompt says "no for/while loops", it doesn't say "no mutation".
+
+def solve_final():
+    import sys
+    from bisect import bisect_right
+    from functools import reduce
+
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # State: (idx, total_h, plants_list, results_list)
+    def reducer(state, _):
+        idx, total_h, plants, results = state
+        if idx >= len(input_data):
+            return state
+        
+        q_type = input_data[idx]
+        if q_type == '1':
+            plants.append(total_h)
+            return (idx + 1, total_h, plants, results)
+        elif q_type == '2':
+            t = int(input_data[idx+1])
+            return (idx + 2, total_h + t, plants, results)
+        elif q_type == '3':
+            h = int(input_data[idx+1])
+            threshold = total_h - h
+            count = bisect_right(plants, threshold)
+            # To avoid O(N) slicing, we can't easily remove from the front of a list.
+            # But we can maintain a 'start_index' in the state.
+            return state # This is a placeholder, see below.
+
+    # Revised state to handle O(1) removal from front:
+    # (idx, total_h, plants_list, start_idx, results_list)
+    def reducer_v2(state, _):
+        idx, total_h, plants, start_idx, results = state
+        if idx >= len(input_data):
+            return state
+        
+        q_type = input_data[idx]
+        if q_type == '1':
+            plants.append(total_h)
+            return (idx + 1, total_h, plants, start_idx, results)
+        elif q_type == '2':
+            t = int(input_data[idx+1])
+            return (idx + 2, total_h + t, plants, start_idx, results)
+        elif q_type == '3':
+            h = int(input_data[idx+1])
+            threshold = total_h - h
+            # We need to search in plants[start_idx:]
+            # bisect_right works on the whole list, so we find the index 
+            # and subtract start_idx.
+            # Note: plants is always sorted because total_h is non-decreasing.
+            # We search for the first index i where plants[i] > threshold.
+            # The number of harvested plants is i - start_idx.
+            # But we only care about plants from start_idx onwards.
+            # Since plants is sorted, we can just bisect the whole thing.
+            # However, plants before start_idx were already harvested.
+            # So we search in the range [start_idx, len(plants)).
+            
+            # Using bisect_right on the whole list:
+            i = bisect_right(plants, threshold, lo=start_idx)
+            count = i - start_idx
+            results.append(count)
+            return (idx + 2, total_h, plants, i, results)
+        return state
+
+    final_state = reduce(reducer_v2, range(len(input_data)), (1, 0, [], 0, []))
+    sys.stdout.write('\n'.join(map(str, final_state[4])) + '\n')
+
+if __name__ == "__main__":
+    solve_final()
+```

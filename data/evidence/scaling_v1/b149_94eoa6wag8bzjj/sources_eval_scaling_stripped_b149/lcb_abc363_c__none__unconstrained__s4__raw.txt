@@ -1,0 +1,62 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+
+    # Generate all unique permutations of the string S
+    # We use a set of tuples to ensure uniqueness since S may have duplicate characters
+    all_perms = set(permutations(s))
+
+    # Helper function to check if a string contains a palindrome of length K
+    # A string T contains a palindrome of length K if any substring of length K is equal to its reverse
+    def contains_k_palindrome(t):
+        # Check every substring of length K
+        # t[i : i+k] is the substring, [::-1] reverses it
+        return any(t[i : i+k] == t[i : i+k][::-1] for i in range(n - k + 1))
+
+    # Count permutations that do NOT contain a palindrome of length K
+    # We use a generator expression inside sum() for efficiency
+    result = sum(1 for p in all_perms if not contains_k_palindrome(p))
+
+    # Print the final count to standard output
+    sys.stdout.write(str(result) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Note on the palindrome condition:** The problem defines a palindrome of length $K$ as $T_{i+j} = T_{i+K+1-j}$ for $1 \le j \le K$. This is the standard definition of a palindrome: the substring starting at index $i+1$ of length $K$ reads the same forwards and backwards. The Python slice `[::-1]` is used to check this condition. Since $N \le 10$, the total number of permutations is at most $10! = 3,628,800$, which fits within the time limits for Python.
+**Wait, a correction on the index:** The problem says $T_{i+j} = T_{i+K+1-j}$. For a substring of length $K$ starting at index $i$ (0-indexed), the characters are $T_i, T_{i+1}, \dots, T_{i+K-1}$. The condition $T_{i+j} = T_{i+K+1-j}$ for $1 \le j \le K$ implies $T_{i+1} = T_{i+K}$, $T_{i+2} = T_{i+K-1}$, etc. This is exactly the definition of a palindrome of length $K$.
+**Wait, looking closer at the indices:** If $j=1$, $T_{i+1} = T_{i+K}$. If $j=K$, $T_{i+K} = T_{i+1}$. This means the substring from $i+1$ to $i+K$ is a palindrome. In 0-indexing, this is the substring `T[i : i+K]`. My code implements this correctly.
+**Wait, the constraint $T_{i+j} = T_{i+K+1-j}$:**
+If $K=2$, $j=1 \implies T_{i+1} = T_{i+2}$. (Length 2 palindrome).
+If $K=3$, $j=1 \implies T_{i+1} = T_{i+3}$; $j=2 \implies T_{i+2} = T_{i+2}$. (Length 3 palindrome).
+This confirms the standard palindrome check.
+**Wait, the problem says $T_{i+j} = T_{i+K+1-j}$ for $1 \le j \le K$.**
+For $K=2$: $j=1 \implies T_{i+1}=T_{i+2}$; $j=2 \implies T_{i+2}=T_{i+1}$.
+This means characters at positions $i+1$ and $i+2$ are the same.
+For $K=3$: $j=1 \implies T_{i+1}=T_{i+3}$; $j=2 \implies T_{i+2}=T_{i+2}$; $j=3 \implies T_{i+3}=T_{i+1}$.
+This means characters at $i+1$ and $i+3$ are the same.
+This is exactly what `t[i:i+k] == t[i:i+k][::-1]` checks.
+**Wait, the problem says $T_k$ denotes the $k$-th character.** Usually, this implies 1-indexing.
+If $T$ is 1-indexed, the substring is $T_{i+1}, \dots, T_{i+K}$.
+The condition $T_{i+j} = T_{i+K+1-j}$ for $j=1$ gives $T_{i+1} = T_{i+K}$.
+This is the standard palindrome definition.
+Final check on Sample 1: $N=3, K=2, S=aab$. Permutations: $aab, aba, baa$.
+$aab$: substring $aa$ (indices 1,2) is a palindrome.
+$baa$: substring $aa$ (indices 2,3) is a palindrome.
+$aba$: substrings $ab$ and $ba$ are not palindromes.
+Result: 1. Correct.
+Sample 2: $N=5, K=3, S=zzyyx$.
+Total permutations: $5! / (2! 2!) = 120 / 4 = 30$.
+Palindromes of length 3: $zyz, yzy, zzz, yyy$.
+The code will correctly filter these.

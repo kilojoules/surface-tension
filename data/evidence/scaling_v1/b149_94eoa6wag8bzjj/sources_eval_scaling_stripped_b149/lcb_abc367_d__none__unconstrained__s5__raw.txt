@@ -1,0 +1,221 @@
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # Calculate prefix sums modulo M
+    # P[i] = (A_1 + ... + A_i) % M
+    # The distance from s to t (s < t) is (P[t-1] - P[s-1]) % M
+    # The distance from s to t (s > t) is (TotalSum - P[s-1] + P[t-1]) % M
+    
+    # Use reduce to create the prefix sum list without loops
+    # P will have N elements: P[0] is sum of first 0 elements (0), P[1] is A[0], etc.
+    # To avoid loops, we can use a list comprehension or reduce.
+    # However, since we need P[i] based on P[i-1], reduce is appropriate.
+    
+    # We generate the prefix sums: [0, A1%M, (A1+A2)%M, ..., (A1+...+AN)%M]
+    # Note: we only need the first N prefix sums for the starting points.
+    # The total sum is needed for the wrap-around cases.
+    
+    def accumulate_sums(acc, x):
+        return acc + [ (acc[-1] + x) % M ]
+    
+    P = reduce(accumulate_sums, A, [0])
+    # P now contains [0, P1, P2, ..., PN]
+    # Total sum modulo M is P[-1]
+    total_sum_mod = P[-1]
+    
+    # We are looking for pairs (s, t) such that distance is 0 mod M.
+    # For s < t: (P[t-1] - P[s-1]) % M == 0  => P[t-1] == P[s-1]
+    # For s > t: (total_sum_mod - P[s-1] + P[t-1]) % M == 0 => P[s-1] == (P[t-1] + total_sum_mod) % M
+    
+    # Let's count occurrences of each remainder in P[0...N-1]
+    # We use a dictionary to count frequencies of P[i] for i in 0...N-1
+    # Since we can't use loops, we use a dictionary with reduce or a Counter
+    from collections import Counter
+    counts = Counter(P[:-1])
+    
+    # For a fixed s, we want to find t != s such that:
+    # If t > s: P[t-1] == P[s-1]
+    # If t < s: P[t-1] == (P[s-1] - total_sum_mod) % M
+    
+    # Total pairs = Sum over all r in counts:
+    # count(r) * (count(r) - 1)  <-- This covers s < t where P[s-1] == P[t-1]
+    # PLUS
+    # count(r) * count((r - total_sum_mod) % M) <-- This covers s > t
+    # BUT we must subtract the cases where s > t and (r - total_sum_mod) % M == r
+    # because that would imply total_sum_mod == 0, and we already counted s < t.
+    # Actually, the simplest way:
+    # For every s, the number of t's is:
+    # (number of t > s with P[t-1] == P[s-1]) + (number of t < s with P[t-1] == (P[s-1] - total_sum_mod) % M)
+    
+    # Let's use the property:
+    # Total = Sum_{r=0 to M-1} [ count(r) * count((r + total_sum_mod) % M) ]
+    # Then subtract the cases where s == t (which happens when r == (r + total_sum_mod) % M)
+    # Wait, the condition s != t is strict.
+    # If total_sum_mod == 0, then (r + total_sum_mod) % M == r.
+    # The formula becomes Sum [ count(r) * count(r) ], then subtract N (for s=t).
+    # If total_sum_mod != 0, then (r + total_sum_mod) % M != r.
+    # The formula is Sum [ count(r) * count((r + total_sum_mod) % M) ].
+    
+    # To implement the sum without a loop, we use map and sum.
+    # We iterate over the unique remainders present in the Counter.
+    
+    ans = sum(map(lambda r: counts[r] * counts[(r + total_sum_mod) % M], counts.keys()))
+    
+    # If total_sum_mod % M == 0, we have counted pairs (s, s) which are not allowed.
+    # There are N such pairs.
+    final_ans = ans - N if total_sum_mod % M == 0 else ans
+    
+    print(final_ans)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a logic error in my `reduce` for prefix sums. `acc + [x]` creates a new list every time, leading to $O(N^2)$ time complexity. I must use a more efficient way to generate prefix sums. In Python, `itertools.accumulate` is the standard tool for this.
+
+Corrected logic:
+1. Use `itertools.accumulate` to get prefix sums in $O(N)$.
+2. Use `collections.Counter` to count frequencies of $P_i \pmod M$.
+3. Use the mathematical derivation: $\text{Pairs} = \sum_{r=0}^{M-1} \text{count}(r) \times \text{count}((r + \text{total\_sum}) \pmod M)$, subtracting $N$ if $\text{total\_sum} \equiv 0 \pmod M$.
+
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = map(int, input_data[2:])
+    
+    # P[i] = (A_1 + ... + A_i) % M
+    # We need P[0]...P[N-1]. 
+    # accumulate provides P[1]...P[N]. We prepend 0 for P[0].
+    # We use a generator expression inside Counter to keep it O(N).
+    
+    # total_sum is the sum of all A_i
+    # We can get it by summing A, but we need A for accumulate too.
+    # Let's convert A to a list once.
+    A_list = list(A)
+    total_sum_mod = sum(A_list) % M
+    
+    # Prefix sums modulo M: P_0=0, P_1=A_1%M, P_2=(A_1+A_2)%M...
+    # We only need the first N prefix sums (from index 0 to N-1)
+    # The distance from s to t (s < t) is (P[t-1] - P[s-1]) % M
+    # The distance from s to t (s > t) is (Total - P[s-1] + P[t-1]) % M
+    
+    # Generate P_0, ..., P_{N-1}
+    # accumulate(A_list, lambda x, y: (x + y) % M, initial=0) 
+    # Note: initial argument is available in Python 3.8+
+    P_gen = accumulate(A_list, lambda x, y: (x + y) % M, initial=0)
+    
+    # We need the first N elements of the accumulation
+    # Since we can't use loops, we use islice to take N elements
+    from itertools import islice
+    counts = Counter(islice(P_gen, N))
+    
+    # Result is Sum_{r} count(r) * count((r + total_sum_mod) % M)
+    # Subtract N if total_sum_mod == 0 because s != t
+    ans = sum(counts[r] * counts[(r + total_sum_mod) % M] for r in counts)
+    
+    if total_sum_mod == 0:
+        ans -= N
+        
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+Final check on constraints: $N=2 \cdot 10^5$, $M=10^6$. The $O(N)$ approach is required. The use of `accumulate`, `Counter`, and `sum()` with a generator expression satisfies the "no loop" constraint and the time complexity.
+
+```python
+import sys
+from itertools import accumulate, islice
+from collections import Counter
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A_list = list(map(int, input_data[2:]))
+    
+    total_sum_mod = sum(A_list) % M
+    
+    # P_gen provides 0, (A1)%M, (A1+A2)%M, ...
+    P_gen = accumulate(A_list, lambda x, y: (x + y) % M, initial=0)
+    
+    # Count frequencies of the first N prefix sums
+    counts = Counter(islice(P_gen, N))
+    
+    # Calculate the number of pairs (s, t)
+    # For each s, we need t such that dist(s, t) % M == 0
+    # This is equivalent to P[t-1] == (P[s-1] + total_sum_mod) % M if s > t
+    # or P[t-1] == P[s-1] if s < t.
+    # The combined logic is: for a fixed P[s-1] = r, 
+    # we look for P[t-1] = (r + total_sum_mod) % M.
+    # If total_sum_mod == 0, then r == (r + total_sum_mod) % M, 
+    # and we must exclude the case s == t.
+    
+    ans = sum(counts[r] * counts[(r + total_sum_mod) % M] for r in counts)
+    
+    if total_sum_mod == 0:
+        ans -= N
+        
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `initial` argument in `accumulate` was added in Python 3.8. Most competitive programming environments use 3.8+, but to be safe, I can use `itertools.chain([0], accumulate(...))`.
+
+```python
+import sys
+from itertools import accumulate, islice, chain
+from collections import Counter
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N, M = int(input_data[0]), int(input_data[1])
+    A_list = list(map(int, input_data[2:]))
+    
+    total_sum_mod = sum(A_list) % M
+    
+    # P_gen: 0, A1%M, (A1+A2)%M, ...
+    P_gen = chain([0], accumulate(A_list, lambda x, y: (x + y) % M))
+    counts = Counter(islice(P_gen, N))
+    
+    ans = sum(counts[r] * counts[(r + total_sum_mod) % M] for r in counts)
+    if total_sum_mod == 0:
+        ans -= N
+        
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+One last check: if $s < t$, distance is $P_{t-1} - P_{s-1}$. If $s > t$, distance is $(Total - P_{s-1}) + P_{t-1}$.
+Both are $0 \pmod M$ if $P_{t-1} \equiv P_{s-1} + Total \pmod M$ is NOT the correct general form.
+Let's re-evaluate:
+1. $s < t$: $P_{t-1} - P_{s-1}

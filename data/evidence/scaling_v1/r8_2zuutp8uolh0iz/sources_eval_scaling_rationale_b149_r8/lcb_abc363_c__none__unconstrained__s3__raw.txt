@@ -1,0 +1,42 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative programming to a functional style. While idiomatic Python often uses `for` loops for readability, utilizing `itertools` and list comprehensions allows for concise, declarative data processing. For this problem, I will use `itertools.permutations` to generate all possible arrangements of the string, a set comprehension to handle duplicate permutations, and a list comprehension combined with `all()` and slicing to filter out strings containing palindromes of length $K$.
+
+```python
+import itertools
+import sys
+
+def solve():
+    # Read N and K from the first line, and S from the second line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+
+    # Generate all unique permutations of the string S
+    # itertools.permutations returns tuples, so we join them into strings
+    # Using a set removes duplicate permutations resulting from duplicate characters in S
+    all_permutations = {''.join(p) for p in itertools.permutations(s)}
+
+    # Function to check if a string contains a palindrome of length K
+    # A string T contains a palindrome of length K if there exists an index i
+    # such that the substring T[i:i+K] is equal to its reverse.
+    # We use a list comprehension to check all possible substrings of length K.
+    # The condition "do not contain" means we want the negation of "any substring is a palindrome".
+    
+    # We filter the set of permutations and count how many satisfy the condition.
+    # A string is valid if for all i from 0 to N-K, the substring is not a palindrome.
+    result = len([
+        t for t in all_permutations 
+        if not any(
+            t[i:i+k] == t[i:i+k][::-1] 
+            for i in range(n - k + 1)
+        )
+    ])
+
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,102 @@
+import sys
+from bisect import bisect_left, bisect_right
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    # Queries as a list of (r, c) tuples
+    queries = [
+        (int(input_data[i]), int(input_data[i+1])) 
+        for i in range(3, len(input_data), 2)
+    ]
+
+    # We maintain the state of walls using sorted lists for each row and column.
+    # rows[r] contains sorted column indices of walls in row r.
+    # cols[c] contains sorted row indices of walls in column c.
+    # Using lists allows binary search via bisect.
+    initial_rows = [sorted(range(1, W + 1)) for _ in range(H + 1)]
+    initial_cols = [sorted(range(1, H + 1)) for _ in range(W + 1)]
+    
+    # The state is (rows, cols)
+    # Since we cannot use loops, we use reduce to process queries.
+    # To "destroy" a wall, we must remove it from both the row list and the column list.
+    # However, removing from a list is O(N). Given the constraints, 
+    # we need a more efficient way. 
+    # Wait, the constraint to avoid loops makes using mutable data structures 
+    # inside reduce tricky if we want to stay "pure", but the prompt allows 
+    # mutating objects as long as there are no 'for' or 'while' loops.
+    
+    def process_query(state, query):
+        rows, cols = state
+        r, c = query
+        
+        # Check if wall exists at (r, c)
+        # We use bisect to check existence in O(log N)
+        idx_in_row = bisect_left(rows[r], c)
+        exists = idx_in_row < len(rows[r]) and rows[r][idx_in_row] == c
+        
+        if exists:
+            # Destroy wall at (r, c)
+            rows[r].pop(idx_in_row)
+            # Find and remove r from cols[c]
+            idx_in_col = bisect_left(cols[c], r)
+            cols[c].pop(idx_in_col)
+        else:
+            # Destroy 4 nearest walls
+            # 1. Left
+            idx_l = bisect_left(rows[r], c) - 1
+            # 2. Right
+            idx_r = bisect_right(rows[r], c)
+            # 3. Up
+            idx_u = bisect_left(cols[c], r) - 1
+            # 4. Down
+            idx_d = bisect_right(cols[c], r)
+            
+            # Identify walls to be destroyed
+            # We use a list of coordinates to avoid mutating during the search
+            to_destroy = [
+                (r, rows[r][idx_l]) if idx_l >= 0 else None,
+                (r, rows[r][idx_r]) if idx_r < len(rows[r]) else None,
+                (cols[c][idx_u], c) if idx_u >= 0 else None,
+                (cols[c][idx_d], c) if idx_d < len(cols[c]) else None
+            ]
+            
+            # Filter None and remove duplicates
+            targets = set(filter(None, to_destroy))
+            
+            # Remove each target wall
+            # Since we can't use loops, we use a nested reduce or map
+            # to perform the deletions.
+            def remove_wall(s, wall):
+                wr, wc = wall
+                # Remove from row list
+                r_idx = bisect_left(rows[wr], wc)
+                if r_idx < len(rows[wr]) and rows[wr][r_idx] == wc:
+                    rows[wr].pop(r_idx)
+                # Remove from col list
+                c_idx = bisect_left(cols[wc], wr)
+                if c_idx < len(cols[wc]) and cols[wc][c_idx] == wr:
+                    cols[wc].pop(c_idx)
+                return s
+
+            reduce(remove_wall, targets, None)
+            
+        return state
+
+    final_state = reduce(process_query, queries, (initial_rows, initial_cols))
+    
+    # Calculate remaining walls
+    # Sum of lengths of all lists in final_state[0]
+    total_remaining = sum(map(len, final_state[0]))
+    print(total_remaining)
+
+if __name__ == "__main__":
+    solve()

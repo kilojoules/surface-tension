@@ -1,0 +1,249 @@
+```python
+import sys
+from bisect import bisect_left
+from itertools import accumulate
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    # We need to track the "global time" (total T elapsed) to determine 
+    # the height of a plant based on when it was planted.
+    # Let G(i) be the total T elapsed after query i.
+    # A plant planted at query i has height H = G(current) - G(i).
+    # It is harvested if G(current) - G(i) >= H_threshold, 
+    # which is equivalent to G(i) <= G(current) - H_threshold.
+
+    # Parse queries into a structured format
+    parsed_queries = [
+        (1,) if q.startswith('1') else 
+        (2, int(q.split()[1])) if q.startswith('2') else 
+        (3, int(q.split()[1])) 
+        for q in queries
+    ]
+
+    # Calculate the prefix sum of T for all queries to get G(i)
+    # G[i] is the total time elapsed BEFORE query i+1 is executed.
+    G = list(accumulate(
+        (q[1] if q[0] == 2 else 0 for q in parsed_queries), 
+        initial=0
+    ))
+
+    # We only care about the G values of queries of type 1 (when plants were born)
+    # birth_times will store G[i] for every query i of type 1.
+    birth_times = [G[i] for i, q in enumerate(parsed_queries) if q[0] == 1]
+    
+    # To efficiently count plants with G[i] <= threshold, we keep birth_times sorted.
+    # Since G is non-decreasing, birth_times is already sorted.
+    
+    # We need to track which plants have already been harvested.
+    # Instead of removing from a list, we can maintain a pointer or use 
+    # a data structure. However, the condition is G[i] <= G[current] - H.
+    # Since G[current] increases, the threshold G[current] - H doesn't 
+    # necessarily increase monotonically. 
+    # But we can use a Fenwick tree or Segment tree to count active plants.
+    # Wait, the number of plants is up to 2*10^5. We can use a sorted list 
+    # of birth times and a way to mark them as "removed".
+    
+    # Let's redefine: we need to count indices i in birth_times such that:
+    # 1. Plant was born at G[i]
+    # 2. G[current] - G[i] >= H  => G[i] <= G[current] - H
+    # 3. Plant has not been harvested yet.
+    
+    # Since we need to output the count for each type 3 query, and plants 
+    # are removed, we can use a SortedList from a library, but we must use 
+    # standard Python. We can use a Fenwick tree over the indices of birth_times.
+    
+    # 1. Identify all type 1 queries and their G values.
+    # 2. For each type 3 query, find the range of indices in birth_times 
+    #    that satisfy G[i] <= G[current] - H.
+    # 3. Use a Fenwick tree to count how many in that range are still active.
+    # 4. Mark those as inactive in the Fenwick tree.
+
+    # Re-evaluating: the condition G[i] <= G[current] - H means all plants 
+    # born before a certain time are candidates. 
+    # Because G is non-decreasing, the set of plants satisfying the 
+    # height condition is always a prefix of the current active plants.
+    
+    # Let's use a simple list and bisect. Since we remove elements, 
+    # a standard list is O(N). But we can use a Fenwick tree to manage 
+    # active status and binary search to find the prefix boundary.
+    
+    # However, the simplest way to implement a "removable" sorted set in 
+    # Python without external libs is using a Fenwick tree over the 
+    # initial positions of plants.
+    
+    # Total plants
+    N_plants = len(birth_times)
+    # Fenwick tree to track active plants (1 if active, 0 if harvested)
+    # Using a list for the tree.
+    bit = [0] * (N_plants + 1)
+    
+    def update(idx, val):
+        idx += 1
+        while idx <= N_plants:
+            bit[idx] += val
+            idx += idx & (-idx)
+            
+    def query_bit(idx):
+        idx += 1
+        s = 0
+        while idx > 0:
+            s += bit[idx]
+            idx -= idx & (-idx)
+        return s
+
+    # Initialize all plants as active
+    for i in range(N_plants):
+        update(i, 1)
+
+    # To handle removals, we need to know which plants were harvested.
+    # For a type 3 query at index 'curr' with height H:
+    # Threshold = G[curr] - H
+    # We need to harvest all active plants with birth_time <= Threshold.
+    # The plants are sorted by birth_time. We can find the rightmost 
+    # index 'r' such that birth_times[r] <= Threshold.
+    # All active plants in range [0, r] are harvested.
+    
+    # To avoid loops, we can use a generator to process type 3 queries.
+    # But we need to update the BIT. We can use a helper function.
+    
+    def process_harvest(q_info):
+        q_type, h = q_info
+        curr_g = G[q_info[2]] # Using a tuple (type, h, index)
+        threshold = curr_g - h
+        # Find range [0, r]
+        r = bisect_left(birth_times, threshold + 1) - 1
+        if r < 0:
+            return 0
+        
+        # Count active plants in [0, r]
+        count = query_bit(r)
+        
+        # This is the tricky part: updating the BIT for all plants in [0, r].
+        # We can't use a loop. But we only need to update plants that 
+        # are actually still active.
+        # Actually, we can just track the "last harvested index" L.
+        # Since the threshold G[curr] - H is not necessarily monotonic,
+        # we can't just move a pointer. 
+        # Wait, if we harvest all plants with height >= H, and G increases,
+        # the plants that are harvested are those born earliest.
+        # The "boundary" of harvested plants moves to the right.
+        # Let L be the index of the last plant harvested.
+        # For the next query, we only check plants from L+1 to r.
+        
+        # Since we need to avoid loops, we can use a recursive-like 
+        # structure or a generator, but the constraint is on the 
+        # update logic. Let's use a global-like state via a closure.
+        
+        return count
+
+    # Correcting the logic: 
+    # The plants harvested are those in the range [0, r] that are still active.
+    # Since we always harvest from the start of the list, we can just 
+    # maintain a pointer to the first active plant.
+    
+    # Let's use a state object to keep track of the first active plant index.
+    class State:
+        def __init__(self):
+            self.first_active = 0
+            
+    state = State()
+    
+    def handle_type3(q_tuple):
+        # q_tuple: (index, h)
+        idx, h = q_tuple
+        curr_g = G[idx]
+        threshold = curr_g - h
+        r = bisect_left(birth_times, threshold + 1) - 1
+        
+        # The number of plants harvested is the number of plants 
+        # in the range [state.first_active, r].
+        # If r < state.first_active, then 0.
+        res = max(0, r - state.first_active + 1)
+        state.first_active = max(state.first_active, r + 1)
+        return res
+
+    # Extract type 3 queries with their indices
+    type3_queries = [
+        (i, parsed_queries[i][1]) 
+        for i in range(Q) 
+        if parsed_queries[i][0] == 3
+    ]
+    
+    # Map the handle function over the queries
+    results = list(map(handle_type3, type3_queries))
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a logic error in my `handle_type3`. I assumed that the threshold $G[current] - H$ is non-decreasing. Let's check: $G$ is non-decreasing, but $H$ can be anything. If $H$ is very large, the threshold is small. If $H$ is small, the threshold is large. 
+
+Actually, the problem says "Harvest all plants with a height of at least $H$". 
+Height is $G[current] - G[birth]$. 
+Condition: $G[current] - G[birth] \ge H \implies G[birth] \le G[current] - H$.
+
+If $G[current] - H$ decreases, we might not harvest any plants. But we can never "un-harvest" a plant. The set of harvested plants is the union of all plants $i$ such that $G[birth_i] \le G[current_j] - H_j$ for any query $j$ of type 3.
+
+However, the plants are removed. This means for a specific query $j$, we only harvest plants that were not harvested by any query $k < j$.
+The condition for plant $i$ to be harvested at query $j$ is:
+$G[birth_i] \le G[current_j] - H_j$ AND for all $k < j$, $G[birth_i] > G[current_k] - H_k$.
+
+This means for a fixed $j$, we harvest all plants $i$ whose $G[birth_i]$ is in the range:
+$(\max_{k < j} (G[current_k] - H_k), \quad G[current_j] - H_j]$.
+
+If $G[current_j] - H_j \le \max_{k < j} (G[current_k] - H_k)$, then no plants are harvested.
+Otherwise, the number of plants harvested is the number of $G[birth_i]$ in that range.
+
+Since $G[birth_i]$ is sorted, we can use `bisect_right` to find the number of elements $\le$ a value.
+
+Revised logic:
+1. $G$ is the prefix sum of $T$.
+2. $B$ is the list of $G[i]$ for all type 1 queries.
+3. For each type 3 query $(G_{curr}, H)$:
+   - $Threshold = G_{curr} - H$
+   - $PrevMax = \max(0, \text{all previous thresholds})$
+   - If $Threshold > PrevMax$:
+     - Count $B[i]$ in range $(PrevMax, Threshold]$.
+     - This is `bisect_right(B, Threshold) - bisect_right(B, PrevMax)`.
+   - Else:
+     - Count is 0.
+   - Update $PrevMax = \max(PrevMax, Threshold)$.
+
+This logic is $O(Q \log Q)$ and uses no loops.
+
+```python
+import sys
+from bisect import bisect_right
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().splitlines()
+    if not input_data: return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    # Parse queries
+    parsed = [
+        (1,) if q.startswith('1') else 
+        (2, int(q.split()[1])) if q.startswith('2') else 
+        (3, int(q.split()[1])) 
+        for q in queries
+    ]
+
+    # G[i] is total time elapsed before query i+1
+    G = list(accumulate((q[1] if q[0] == 2 else 0 for q in parsed), initial=0))
+
+    # B is the sorted list of birth times for all plants
+    B = [G[i] for i, q in enumerate(parsed) if q[0] == 1]
+    
+    # Process type 3 queries
+    # We need to track the running maximum of (G[curr

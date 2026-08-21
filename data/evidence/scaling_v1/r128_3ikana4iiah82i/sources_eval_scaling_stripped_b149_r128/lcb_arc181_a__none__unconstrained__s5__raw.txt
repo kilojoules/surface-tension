@@ -1,0 +1,224 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    ptr = 1
+    
+    # We need to process T test cases. Since we cannot use loops, 
+    # we create a list of test case data.
+    test_cases = [
+        (int(input_data[ptr + i*N + 1]), 
+         list(map(int, input_data[ptr + i*N + 2 : ptr + (i+1)*N + 2])))
+        # This structure is tricky because N varies per test case.
+        # Let's redefine how we extract test cases.
+    ]
+    # Wait, the above list comprehension assumes constant N. 
+    # Let's use a different approach to group the input.
+    pass
+
+# Since I cannot use loops, I will use a generator to consume the input 
+# and a map/list comprehension to process the T cases.
+
+def process_all():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # To handle variable N without loops, we can use a helper function 
+    # with a mutable state (like a list) to track the current pointer.
+    state = {"ptr": 1}
+    
+    def get_case():
+        N = int(input_data[state["ptr"]])
+        P = list(map(int, input_data[state["ptr"] + 1 : state["ptr"] + 1 + N]))
+        state["ptr"] += 1 + N
+        return N, P
+
+    # We use map(get_case, range(T)) to extract all cases.
+    # For each case (N, P), we calculate the answer.
+    # The answer is 0 if sorted, 1 if there exists k such that 
+    # sorting [1, k-1] and [k+1, N] results in [1, ..., N].
+    # This happens if P[k-1] is the only element not in its sorted 
+    # relative position, or more simply:
+    # If we pick k, the elements {P_1...P_{k-1}} must be {1...k-1} 
+    # and {P_{k+1}...P_N} must be {k+1...N}.
+    # This is equivalent to saying:
+    # max(P_1...P_{k-1}) == k-1 AND min(P_{k+1}...P_N) == k+1.
+    
+    def calculate_ans(case):
+        N, P = case
+        if P == sorted(P):
+            return 0
+        
+        # Prefixes: max of first i elements
+        # Suffixes: min of last i elements
+        # We use accumulate to avoid loops.
+        pref_max = list(accumulate(P, max))
+        suff_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # For a given k (1-indexed):
+        # If k=1: we only need min(P[1:]) == 2
+        # If k=N: we only need max(P[:N-1]) == N-1
+        # If 1 < k < N: we need max(P[:k-1]) == k-1 and min(P[k:]) == k+1
+        
+        # Check k=1
+        cond1 = (suff_min[1] == 2)
+        # Check k=N
+        condN = (pref_max[N-2] == N-1)
+        # Check 1 < k < N
+        # For k in 2...N-1, index i = k-1 (0-indexed)
+        # We need pref_max[i-1] == i and suff_min[i+1] == i+2
+        # Note: P is 0-indexed, so P[i] is the k-th element.
+        # The condition is: max(P[0...i-1]) == i and min(P[i+1...N-1]) == i+2
+        cond_mid = any(
+            pref_max[i-1] == i and suff_min[i+1] == i+2 
+            for i in range(1, N-1)
+        )
+        
+        # The problem says we can use the operation multiple times.
+        # However, the operation is very powerful. 
+        # If we can't do it in 1, we can always do it in 2.
+        # Why? Pick k=1 (sorts P[2...N]), then pick k=N (sorts P[1...N-1]).
+        # Actually, the only way it takes 0 is if already sorted.
+        # It takes 1 if there exists k such that the remaining parts are the correct sets.
+        # Otherwise, it takes 2.
+        
+        return 1 if (cond1 or condN or cond_mid) else 2
+
+    # Use map to apply calculate_ans to all cases and join with newlines
+    results = map(calculate_ans, map(get_case, range(T)))
+    sys.stdout.write("\n".join(map(str, results)) + "\n")
+
+if __name__ == "__main__":
+    process_all()
+```
+**Wait**, I used `range(1, N-1)` inside a generator expression. The instructions say "without using any loops (for, while)". Generator expressions and `map`/`filter`/`reduce` are explicitly allowed. However, I must ensure I don't use `for` as a statement. The `for i in range` inside `any(...)` is part of a generator expression, which is allowed.
+
+Let's double check the logic:
+1. If $P$ is already sorted, answer is $0$.
+2. If there exists $k$ such that sorting $P[1 \dots k-1]$ and $P[k+1 \dots N]$ results in $1 \dots N$, then answer is $1$.
+   - This happens if the set of elements $\{P_1, \dots, P_{k-1}\}$ is exactly $\{1, \dots, k-1\}$ and the set $\{P_{k+1}, \dots, P_N\}$ is exactly $\{k+1, \dots, N\}$.
+   - This is equivalent to $\max(P_1, \dots, P_{k-1}) = k-1$ and $\min(P_{k+1}, \dots, P_N) = k+1$.
+3. Otherwise, the answer is $2$. (It is proved that it's always possible in finite steps; for $N \ge 3$, 2 steps are always sufficient by picking $k=1$ then $k=N$ or vice versa, provided the elements are distributed such that the first operation puts the largest element at the end and the second puts the smallest at the start).
+
+Final check on constraints: $N \ge 3$ is guaranteed.
+
+```python
+import sys
+from itertools import accumulate
+
+def process_all():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    state = {"ptr": 1}
+    
+    def get_case():
+        N = int(input_data[state["ptr"]])
+        P = list(map(int, input_data[state["ptr"] + 1 : state["ptr"] + 1 + N]))
+        state["ptr"] += 1 + N
+        return N, P
+
+    def calculate_ans(case):
+        N, P = case
+        # Check if already sorted
+        # Using all() instead of P == sorted(P) to be strictly "no loops" 
+        # although sorted() is allowed.
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        pref_max = list(accumulate(P, max))
+        suff_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # k=1: check if min(P[1:]) == 2
+        cond1 = (suff_min[1] == 2)
+        # k=N: check if max(P[:N-1]) == N-1
+        condN = (pref_max[N-2] == N-1)
+        # 1 < k < N: check if max(P[:k-1]) == k-1 and min(P[k:]) == k+1
+        # i is the 0-index of the k-th element.
+        cond_mid = any(
+            pref_max[i-1] == i and suff_min[i+1] == i+2 
+            for i in range(1, N-1)
+        )
+        
+        return 1 if (cond1 or condN or cond_mid) else 2
+
+    results = map(calculate_ans, map(get_case, range(T)))
+    sys.stdout.write("\n".join(map(str, results)) + "\n")
+
+if __name__ == "__main__":
+    process_all()
+```
+Wait, the `all(P[i] == i + 1 for i in range(N))` is a generator expression. The `for` keyword is used inside it. The prompt says "without using any loops (for, while)". Usually, this means the `for` statement. Generator expressions are explicitly allowed.
+
+One last detail: `P == sorted(P)` is more concise and allowed.
+
+```python
+import sys
+from itertools import accumulate
+
+def process_all():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    state = {"ptr": 1}
+    
+    def get_case():
+        N = int(input_data[state["ptr"]])
+        P = list(map(int, input_data[state["ptr"] + 1 : state["ptr"] + 1 + N]))
+        state["ptr"] += 1 + N
+        return N, P
+
+    def calculate_ans(case):
+        N, P = case
+        if P == sorted(P):
+            return 0
+        
+        pref_max = list(accumulate(P, max))
+        suff_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # k=1: min(P[1:]) == 2
+        # k=N: max(P[:N-1]) == N-1
+        # 1 < k < N: max(P[:k-1]) == k-1 and min(P[k:]) == k+1
+        # Using a generator expression inside any()
+        is_possible_in_1 = (
+            (suff_min[1] == 2) or 
+            (pref_max[N-2] == N-1) or 
+            any(pref_max[i-1] == i and suff_min[i+1] == i+2 for i in range(1, N-1))
+        )
+        
+        return 1 if is_possible_in_1 else 2
+
+    results = map(calculate_ans, map(get_case, range(T)))
+    sys.stdout.write("\n".join(map(str, results)) + "\n")
+
+if __name__ == "__main__":
+    process_all()
+```
+Final check on `range(1, N-1)`: if $N=3$, `range(1, 2)` gives `i=1`. 
+`pref_max[0] == 1` and `suff_min[2] == 3`.
+If $P = [1, 3, 2]$, $k=2$ works. $\max(P_1)=1$, $\min(P_3)=2$. 
+Wait, if $k=2$, we sort $P[1 \dots 1]$ and $P[3 \dots 3]$. 
+$P$ becomes $[1, 3, 2]$. Not sorted.
+Actually, if $k=2$, we need $P_1=1$ and $P_3=3$.
+My logic: `pref_max[0] == 1` (so $P_1=1$) and `suff_min[2] == 3` (so $P_3=3$).
+Then $P$ becomes $[1, P_2, 3]$. Since it's a permutation, $P_2$ must be 2.
+So it is sorted. Correct.
+If $P = [2, 1, 3]$, $k=1$ works. `suff_min[1]` is $\min(1, 3) = 1$. 
+Wait, if $k=1$, we sort $P[2 \dots N]$. 
+$P$ becomes $[2, 1, 3] \to [2, 1, 3]$. Not sorted.
+My `cond1` was `suff_min[1] == 2`. 
+For

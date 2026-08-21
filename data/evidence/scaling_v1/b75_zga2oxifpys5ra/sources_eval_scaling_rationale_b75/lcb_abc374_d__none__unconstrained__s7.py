@@ -1,0 +1,76 @@
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input and parse values
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of pairs of points
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])), 
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # We need to try all permutations of the N segments
+    # For each segment, we can start at either endpoint A or B
+    # There are N! permutations and 2^N direction combinations
+    
+    # Generate all permutations of segment indices
+    all_perms = permutations(range(N))
+    
+    # For a given permutation and a given choice of directions (0 or 1)
+    # direction 0: start at segment[i][0], end at segment[i][1]
+    # direction 1: start at segment[i][1], end at segment[i][0]
+    
+    def calculate_time(perm, directions):
+        # Create the sequence of (start_point, end_point) based on directions
+        ordered_segments = [
+            (segments[perm[i]][0], segments[perm[i]][1]) if directions[i] == 0 
+            else (segments[perm[i]][1], segments[perm[i]][0])
+            for i in range(N)
+        ]
+        
+        # The path starts at (0, 0)
+        points = [(0, 0)] + [p for seg in ordered_segments for p in seg]
+        
+        # Total time = sum of (move to start / S) + (print segment / T)
+        # Move times: (0,0)->p0, p1->p2, p3->p4 ...
+        # Print times: p0->p1, p2->p3, p4->p5 ...
+        
+        # Move times (non-emitting)
+        move_times = [
+            dist(points[2*i], points[2*i+1]) / S 
+            for i in range(N)
+        ]
+        
+        # Print times (emitting)
+        print_times = [
+            dist(points[2*i+1], points[2*i+2]) / T 
+            for i in range(N)
+        ]
+        
+        return sum(move_times) + sum(print_times)
+
+    # Use a generator expression inside min() to find the global minimum
+    # We iterate over all permutations and all 2^N direction combinations
+    result = min(
+        calculate_time(perm, dirs)
+        for perm in all_perms
+        for dirs in product([0, 1], repeat=N)
+    )
+    
+    print(f"{result:.20f}")
+
+if __name__ == "__main__":
+    solve()

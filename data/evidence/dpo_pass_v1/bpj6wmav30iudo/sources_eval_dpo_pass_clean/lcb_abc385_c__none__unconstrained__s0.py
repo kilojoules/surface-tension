@@ -1,0 +1,178 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read N and the list of heights
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # We need to check every possible starting building 'i' 
+    # and every possible interval 'd'.
+    # i ranges from 0 to N-1
+    # d ranges from 1 to N-1
+    
+    # For a fixed start i and interval d, the sequence of indices is:
+    # i, i+d, i+2d, ... such that index < N.
+    # The number of elements is (N - 1 - i) // d + 1.
+    
+    # We only care about sequences where all H[index] are the same.
+    # Let's generate all pairs of (i, d) and calculate the count if the 
+    # condition holds.
+    
+    # To avoid explicit loops, we use itertools.product and a list comprehension.
+    # We only consider d such that we can actually pick at least 2 buildings;
+    # otherwise, the answer is at least 1.
+    
+    # For a fixed i and d, the buildings are at indices [i + k*d for k in range(...)].
+    # They satisfy the condition if all H[i + k*d] == H[i].
+    
+    # Since N is 3000, O(N^2) is acceptable. 
+    # We can iterate through all pairs (i, d).
+    # However, we can optimize: for a fixed i and d, we check how many 
+    # consecutive elements match H[i].
+    
+    # Using a list comprehension to find the max count:
+    # For each i and d, we find the length of the arithmetic progression 
+    # starting at i with difference d where all elements have height H[i].
+    
+    # Because we cannot use loops, we can't easily "stop" when H[i+kd] != H[i].
+    # But we can use a trick: for a fixed i and d, we check k=0, 1, 2...
+    # and use a generator to count how many match before the first mismatch.
+    
+    # Actually, a simpler way: 
+    # For every pair (i, j) where i < j and H[i] == H[j], 
+    # they define an interval d = j - i.
+    # We then check how many k exist such that H[i + k*d] == H[i].
+    
+    # To strictly avoid loops, we use max() on a generator expression.
+    # We iterate through all possible starts i and intervals d.
+    
+    # result = max(
+    #    count_matching(i, d, h, n) 
+    #    for i in range(n) 
+    #    for d in range(1, n)
+    # )
+    
+    # To implement count_matching without loops:
+    # We can use a list comprehension to get all H values at the interval,
+    # then find the first index where the value changes.
+    
+    # Since we need the MAXIMUM number of buildings:
+    # For a fixed i and d, the buildings are H[i], H[i+d], H[i+2d]...
+    # We want the length of the prefix that is identical to H[i].
+    
+    # Using map and lambda to process the logic:
+    ans = max([
+        # For a fixed i and d, we create the sequence of heights.
+        # Then we find how many of them match H[i] starting from the beginning.
+        # Since we can't use a loop to break, we can use a 
+        # mathematical approach or a helper.
+        # But wait, the condition is: "The chosen buildings are arranged at equal intervals."
+        # It does NOT say they must be consecutive in the sequence H[i], H[i+d]...
+        # It says "The chosen buildings". This means we can pick ANY subset 
+        # that forms an arithmetic progression.
+        # BUT, the condition "equal intervals" usually implies the gap between 
+        # any two adjacent chosen buildings is the same.
+        # So if we pick indices p_1, p_2, ..., p_k, then p_{j+1} - p_j = d.
+        # This means they ARE consecutive in the sequence H[i], H[i+d], H[i+2d]...
+        
+        # Let',s use a helper to count the prefix of identical elements.
+        # Since we can't define a function with a loop, we can use 
+        # a list comprehension and then find the first index of a different element.
+        
+        # For a fixed i and d:
+        # sequence = [H[j] for j in range(i, n, d)]
+        # we want the length of the prefix where all elements == H[i].
+        
+        # We can use: 
+        # len(sequence) - (index of first element != H[i])
+        # Or more simply: 
+        # sum(1 for k in range(len(sequence)) if all(sequence[m] == sequence[0] for m in range(k+1)))
+        # But that's O(N^3).
+        
+        # Correct approach: 
+        # For a fixed i and d, the number of buildings is:
+        # k such that H[i] == H[i+d] == H[i+2d] == ... == H[i+(k-1)d]
+        
+        # We can use a list comprehension to get the sequence, 
+        # then use a trick to find the first mismatch.
+        # Since we can't use loops, we can use `itertools.takewhile`.
+        
+        # However, the simplest O(N^2) is:
+        # For every pair (i, j) with H[i] == H[j], let d = j - i.
+        # Then check H[j + d], H[j + 2d]...
+        
+        # Let's use a comprehension that calculates the length for all i, d.
+        # To handle the "prefix" without a loop, we can use 
+        # a recursive-like structure via map/reduce, but that's banned.
+        # We can use a list comprehension to get the sequence and 
+        # then find the first index where the value differs.
+        
+        # Let's use:
+        # For each i, d:
+        # seq = [H[j] for j in range(i, n, d)]
+        # match_len = (something that counts the prefix)
+        
+        # Actually, we can just iterate through all possible lengths L, 
+        # and all i, d and check if the condition holds.
+        # But that's O(N^3).
+        
+        # Let's use the property: 
+        # For a fixed i and d, the number of buildings is 
+        # the number of k's such that H[i + k*d] == H[i] 
+        # AND for all m < k, H[i + m*d] == H[i].
+        
+        # We can use a list comprehension to find the first index 
+        # where H[i + k*d] != H[i].
+        # first_mismatch = next((k for k in range(len(seq)) if seq[k] != seq[0]), len(seq))
+        
+        # Since we can't use 'next' in a way that looks like a loop? 
+        # No, 'next' is a function.
+        
+        # Let's build the final expression:
+        max(
+            [
+                # For each starting point i and interval d
+                # we find the length of the identical prefix.
+                # We use a generator to avoid creating huge lists.
+                # The 'next' function is perfect here.
+                next(
+                    (k for k, val in enumerate([h[j] for j in range(i, n, d)]) if val != h[i]),
+                    (n - i - 1) // d + 1
+                )
+                for i in range(n)
+                for d in range(1, n)
+            ] + [1] # Ensure at least 1 is returned
+        )
+    ])
+    
+    # The logic above is slightly flawed because of the way I structured the list.
+    # Let's rewrite it clearly.
+    pass
+
+# Redefining solve to be a single expression output
+if __name__ == "__main__":
+    # Read input
+    input_data = sys.stdin.read().split()
+    if input_data:
+        N = int(input_data[0])
+        H = list(map(int, input_data[1:]))
+        
+        # We use a generator expression inside max()
+        # For every starting index i and every interval d:
+        # 1. Create the sequence H[i], H[i+d], H[i+2d]...
+        # 2. Find the index of the first element that is not equal to H[i].
+        # 3. That index is exactly the count of buildings that satisfy the condition.
+        
+        print(max([
+            next(
+                (k for k, val in enumerate([H[j] for j in range(i, N, d)]) if val != H[i]),
+                (N - 1 - i) // d + 1
+            )
+            for i in range(N)
+            for d in range(1, N)
+        ] + [1]))

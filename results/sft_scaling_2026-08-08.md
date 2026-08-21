@@ -7,8 +7,8 @@ https://gist.github.com/kilojoules/38fd6e9009940b77bb104de434682223.
 load-bearing" claim **survives de-confounding from token count**.
 Committed convention throughout: /136 (17 clean problems × n=8;
 gen-errors, truncations, and no-code outputs count as non-compliant; AST
-re-checked from saved sources via `recheck_eval.py`). Raw evidence synced
-in `vast_logs/{bs5rgbob4bwiu1,zga2oxifpys5ra,94eoa6wag8bzjj}/`; adapters:
+re-checked from saved sources via `recheck_eval.py`). Raw evidence published in
+`data/evidence/scaling_v1/` (local mirrors `vast_logs/{bs5rgbob4bwiu1,zga2oxifpys5ra,94eoa6wag8bzjj}/`); adapters:
 `kilojoules/surface-tension-scaling-{rationale,stripped}-{b37,b75,b149}-final`.
 Cost: 3 pods ≈ $105 total (~23–25 h each).
 

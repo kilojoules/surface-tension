@@ -1,0 +1,182 @@
+import sys
+from math import comb
+from functools import reduce
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences S is (N*K)! / (K!^N)
+    # We need the floor((S+1)/2)-th sequence.
+    # Let's calculate S first.
+    # S = comb(N*K, K) * comb((N-1)*K, K) * ... * comb(K, K)
+    
+    def get_total_permutations(counts):
+        # Total permutations of a multiset: (sum(counts))! / product(counts_i!)
+        # This can be computed as product of comb(remaining_slots, count_i)
+        return reduce(lambda acc, c: acc * comb(sum(counts[counts.index(c):]), c), 
+                      counts, 1)
+
+    # However, the above reduce is slightly wrong because of duplicate counts.
+    # Correct way to compute multiset permutations:
+    def get_multiset_perm(counts):
+        total_len = sum(counts)
+        # Using the formula: (n+m+...)! / (n!m!...)
+        # We can compute this as comb(total, c1) * comb(total-c1, c2) ...
+        def step(state, c):
+            rem, res = state
+            return (rem - c, res * comb(rem, c))
+        
+        return step(total_len, 0) # This is a placeholder, see below
+    
+    # Since we need to avoid loops, we use a helper to compute the product of combinations
+    def calc_s(counts):
+        def folder(acc, i):
+            current_total = sum(counts[i:])
+            return acc * comb(current_total, counts[i])
+        return reduce(folder, range(len(counts)), 1)
+
+    # Target index (1-based)
+    # S = calc_s([k] * n)
+    # target = (S + 1) // 2
+    
+    # To find the sequence, we determine one character at a time.
+    # For the current position, try candidates v = 1, 2, ..., N.
+    # If we place v, the number of ways to complete the sequence is calc_s(updated_counts).
+    
+    def get_target_rank(n, k):
+        s = calc_s([k] * n)
+        return (s + 1) // 2
+
+    target = get_target_rank(n, k)
+
+    def find_sequence(state, rank):
+        # state: (current_counts, current_index)
+        # rank: the rank we are looking for
+        counts, idx = state
+        if idx == n * k:
+            return []
+        
+        # We need to find which value v (1 to N) fits at this position.
+        # We use a helper function to iterate through v and subtract counts.
+        def find_v(v, current_rank):
+            if v > n:
+                return None # Should not happen
+            
+            if counts[v-1] > 0:
+                # Try placing v
+                new_counts = list(counts)
+                new_counts[v-1] -= 1
+                num_ways = calc_s(new_counts)
+                
+                if current_rank <= num_ways:
+                    return (v, current_rank, new_counts)
+                else:
+                    return find_v(v + 1, current_rank - num_ways)
+            else:
+                return find_v(v + 1, current_rank)
+
+        v, new_rank, next_counts = find_v(1, rank)
+        return [v] + find_sequence((tuple(next_counts), idx + 1), new_rank)
+
+    # Since recursion depth might be an issue for N*K = 250,000, 
+    # but the constraint is N, K <= 500 (total 250,000), 
+    # we must use reduce to simulate the sequence generation to avoid RecursionError.
+    
+    def sequence_reducer(state, _):
+        counts, rank, result = state
+        
+        def find_v_reduce(v_range, current_rank):
+            # Use reduce to find the first v that satisfies the rank
+            def v_folder(acc, v):
+                if acc[0] is not None: return acc
+                if counts[v-1] > 0:
+                    new_counts = list(counts)
+                    new_counts[v-1] -= 1
+                    num_ways = calc_s(new_counts)
+                    if current_rank <= num_ways:
+                        return (v, current_rank, tuple(new_counts))
+                    return (None, current_rank - num_ways, None)
+                return (None, current_rank, None)
+            
+            # We need to pass the rank through the reduce
+            # This is tricky. Let's use a different approach for find_v.
+            pass
+
+    # Redefining the logic to fit reduce perfectly:
+    def solve_iterative(n, k, target_rank):
+        def step(state, _):
+            counts, rank, res = state
+            
+            # Find v by iterating 1..N
+            def v_search(v, r):
+                if v > n: return None
+                if counts[v-1] > 0:
+                    # Calculate ways if we pick v
+                    # Ways = (sum(counts)-1)! / product(c_i!) where c_v is decremented
+                    # Ways = calc_s(counts with v-1)
+                    # Optimization: calc_s is slow. 
+                    # Total ways W = (sum(counts)-1)! / ( (counts[v-1]-1)! * product(others!) )
+                    # W = [ (sum(counts)-1)! / product(counts_i!) ] * counts[v-1]
+                    # Let TotalPerms = (sum(counts))! / product(counts_i!)
+                    # W = TotalPerms * counts[v-1] / sum(counts)
+                    
+                    # But we can't use loops, so we use a small reduce to find v
+                    pass
+            
+            return state
+
+    # Given the constraints and the "no loop" rule, the most reliable way 
+    # to implement this is using a recursive-like structure via reduce 
+    # and a helper function to determine the character.
+    
+    def final_solve():
+        # Precompute total permutations for the current state to speed up
+        # Current ways to arrange: W = (sum(counts))! / prod(counts!)
+        # If we pick v: W_v = W * counts[v-1] / sum(counts)
+        
+        def get_next_char(counts, rank):
+            total_len = sum(counts)
+            # Use reduce to find v and the remaining rank
+            def search(acc, v):
+                curr_v, curr_rank = acc
+                if curr_v is not None: return acc
+                if counts[v-1] > 0:
+                    # Calculate W_v
+                    # W = calc_s(counts)
+                    # W_v = W * counts[v-1] // total_len
+                    # To avoid recalculating calc_s, we can use the property:
+                    # The number of ways to complete the sequence is 
+                    # (total_len - 1)! / ( (counts[0])! ... (counts[v-1]-1)! ... )
+                    # which is comb(total_len-1, counts[0]) * comb(total_len-1-counts[0], counts[1]) ...
+                    
+                    # We can use a helper to compute this
+                    temp_counts = list(counts)
+                    temp_counts[v-1] -= 1
+                    num_ways = calc_s(temp_counts)
+                    
+                    if curr_rank <= num_ways:
+                        return (v, curr_rank)
+                    return (None, curr_rank - num_ways)
+                return (None, curr_rank)
+            
+            return reduce(search, range(1, n + 1), (None, rank))
+
+        def build_seq(state, _):
+            counts, rank, res = state
+            v, new_rank = get_next_char(counts, rank)
+            new_counts = list(counts)
+            new_counts[v-1] -= 1
+            return (tuple(new_counts), new_rank, res + [v])
+
+        initial_state = (tuple([k] * n), target, [])
+        final_state = reduce(build_seq, range(n * k), initial_state)
+        print(*(final_state[2]))
+
+    final_solve()
+
+solve()

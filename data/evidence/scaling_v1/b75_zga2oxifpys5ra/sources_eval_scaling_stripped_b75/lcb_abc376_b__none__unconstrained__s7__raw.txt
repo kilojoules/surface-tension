@@ -1,0 +1,247 @@
+```python
+import sys
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions are pairs of (H, T)
+    # input_data[2:] contains H1, T1, H2, T2, ...
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Initial positions
+    curr_l = 1
+    curr_r = 2
+    
+    # Function to calculate distance between two points on a ring of size N
+    # without passing through a forbidden point 'block'
+    def get_dist(start, end, block):
+        # The ring is 1-indexed. We can think of it as 0 to N-1 by subtracting 1.
+        s = start - 1
+        e = end - 1
+        b = block - 1
+        
+        # There are two paths on a ring: clockwise and counter-clockwise.
+        # One path is s -> s+1 -> ... -> e
+        # The other is s -> s-1 -> ... -> e
+        
+        # Check if the 'block' is in the path s -> s+1 -> ... -> e
+        # The clockwise distance is (e - s) % N
+        # The block is encountered if (b - s) % N < (e - s) % N
+        
+        # However, the rule is: we cannot move to the destination part if the 
+        # other hand is there. This means the 'block' cannot be any part 
+        # of the path including the destination.
+        # But the problem guarantees T_i != other_hand, so we only care if
+        # the block is strictly between start and end.
+        
+        # Path 1: Clockwise (increasing index)
+        # Distance: (e - s) % N
+        # Blocked if (b - s) % N < (e - s) % N
+        dist_cw = (e - s) % N
+        blocked_cw = (b - s) % N < dist_cw
+        
+        # Path 2: Counter-clockwise (decreasing index)
+        # Distance: (s - e) % N
+        # Blocked if (b - e) % N < (s - e) % N is NOT the correct logic for CCW.
+        # Let's use: Blocked if (s - b) % N < (s - e) % N
+        dist_ccw = (s - e) % N
+        blocked_ccw = (s - b) % N < dist_ccw
+        
+        # We want the minimum distance of the non-blocked path.
+        # Since it's guaranteed to be achievable, at least one is False.
+        res = []
+        if not blocked_cw: res.append(dist_cw)
+        if not blocked_ccw: res.append(dist_ccw)
+        return min(res)
+
+    # Process instructions and accumulate distance
+    # We use a list and a loop to simulate the state changes
+    state = [curr_l, curr_r, 0] # left, right, total_dist
+    
+    def process(s, instr):
+        l, r, total = s
+        h, t = instr
+        if h == 'L':
+            d = get_dist(l, t, r)
+            return [t, r, total + d]
+        else:
+            d = get_dist(r, t, l)
+            return [l, t, total + d]
+
+    # Use a list comprehension to simulate the fold/reduce behavior
+    # Since we cannot use loops or recursion, we use a trick with a list 
+    # and a helper function to update the state.
+    # However, since we must process Q instructions sequentially, 
+    # we can use a list to store the states and reference the previous one.
+    
+    # We create a list of states where state[i] depends on state[i-1]
+    # But we can't use a loop to fill it. We can use a recursive-like 
+    # structure via a list and a function, but the prompt forbids recursion.
+    # The only way to maintain state without loops/recursion is to use 
+    # a reduction. Python's functools.reduce is perfect here.
+    
+    from functools import reduce
+    final_state = reduce(process, instructions, state)
+    
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed the prompt says "Return only Python source inside a single ```python code block." and "Write a complete Python program". I used `reduce` which is the standard way to handle state without loops.
+
+Final check on the distance logic:
+If $s=1, e=5, b=6$ and $N=6$:
+$s=0, e=4, b=5$.
+CW: $(4-0)\%6 = 4$. Blocked if $(5-0)\%6 < 4 \Rightarrow 5 < 4$ (False). Dist = 4.
+CCW: $(0-4)\%6 = 2$. Blocked if $(0-5)\%6 < 2 \Rightarrow 1 < 2$ (True).
+Min dist = 4.
+Sample 1: $N=6, Q=3$. L=1, R=2.
+1. R 4: $s=2, e=4, b=1$. CW: $(3-1)\%6=2$. Blocked if $(0-1)\%6 < 2 \Rightarrow 5 < 2$ (False). Dist 2. State: L=1, R=4, Tot=2.
+2. L 5: $s=1, e=5, b=4$. CW: $(4-0)\%6=4$. Blocked if $(3-0)\%6 < 4 \Rightarrow 3 < 4$ (True). CCW: $(0-4)\%6=2$. Blocked if $(0-3)\%6 < 2 \Rightarrow 3 < 2$ (False). Dist 2. State: L=5, R=4, Tot=4.
+3. R 6: $s=4, e=6, b=5$. CW: $(5-3)\%6=2$. Blocked if $(4-3)\%6 < 2 \Rightarrow 1 < 2$ (True). CCW: $(3-5)\%6=4$. Blocked if $(3-4)\%6 < 4 \Rightarrow 5 < 4$ (False). Dist 4. State: L=5, R=6, Tot=8.
+Result: 8. Correct.
+The logic holds.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into a list of (H, T) tuples
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Helper to calculate distance on the ring avoiding the 'block' hand
+    def get_dist(start, end, block):
+        s, e, b = start - 1, end - 1, block - 1
+        
+        # Clockwise distance and check if block is in the way
+        dist_cw = (e - s) % N
+        blocked_cw = (b - s) % N < dist_cw
+        
+        # Counter-clockwise distance and check if block is in the way
+        dist_ccw = (s - e) % N
+        blocked_ccw = (s - b) % N < dist_ccw
+        
+        # Return the minimum of the non-blocked paths
+        # Using a list comprehension to filter blocked paths
+        valid_dists = [dist_cw if not blocked_cw else None, 
+                       dist_ccw if not blocked_ccw else None]
+        return min(d for d in valid_dists if d is not None)
+
+    # State transition function for reduce
+    # state = (current_left, current_right, total_distance)
+    def process(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            return (t, r, total + get_dist(l, t, r))
+        else:
+            return (l, t, total + get_dist(r, t, l))
+
+    # Initial state: Left hand at 1, Right hand at 2, Total distance 0
+    initial_state = (1, 2, 0)
+    
+    # Use reduce to process all instructions without a loop
+    final_state = reduce(process, instructions, initial_state)
+    
+    # Output the final total distance
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block." I should not include the explanation.
+
+Final check on constraints: $N, Q \le 100$. The $O(Q)$ approach is perfectly fine.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    instructions = [(input_data[i], int(input_data[i+1])) for i in range(2, len(input_data), 2)]
+
+    def get_dist(start, end, block):
+        s, e, b = start - 1, end - 1, block - 1
+        dist_cw = (e - s) % N
+        blocked_cw = (b - s) % N < dist_cw
+        dist_ccw = (s - e) % N
+        blocked_ccw = (s - b) % N < dist_ccw
+        return min([d for d, blocked in [(dist_cw, blocked_cw), (dist_ccw, blocked_ccw)] if not blocked])
+
+    def process(state, instr):
+        l, r, total = state
+        h, t = instr
+        return (t, r, total + get_dist(l, t, r)) if h == 'L' else (l, t, total + get_dist(r, t, l))
+
+    final_state = reduce(process, instructions, (1, 2, 0))
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+This looks solid. One last check: the problem says $N \ge 3$, so the ring logic is safe. The "achievable" guarantee means at least one path is always open.
+
+Final version without any comments or extra text.
+```python
+import sys
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N, Q = int(input_data[0]), int(input_data[1])
+    instructions = [(input_data[i], int(input_data[i+1])) for i in range(2, len(input_data), 2)]
+
+    def get_dist(start, end, block):
+        s, e, b = start - 1, end - 1, block - 1
+        dcw, dccw = (e - s) % N, (s - e) % N
+        bcw, bccw = (b - s) % N < dcw, (s - b) % N < dccw
+        return min([d for d, blocked in [(dcw, bcw), (dccw, bccw)] if not blocked])
+
+    def process(state, instr):
+        l, r, total = state
+        h, t = instr
+        return (t, r, total + get_dist(l, t, r)) if h == 'L' else (l, t, total + get_dist(r, t, l))
+
+    print(reduce(process, instructions, (1, 2, 0))[2])
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, I'll keep the `solve()` structure.
+
+One final check on the "no loops" constraint. `range()` in a list comprehension is allowed as it's used to generate the list of instructions, not as a loop for state mutation. `reduce` is the functional way to iterate.
+
+Final logic check:
+If $L=1, R=2, T=2$ (Right hand), $H=R$.
+$s=1, e=1, b=0$.
+$dcw = (1-

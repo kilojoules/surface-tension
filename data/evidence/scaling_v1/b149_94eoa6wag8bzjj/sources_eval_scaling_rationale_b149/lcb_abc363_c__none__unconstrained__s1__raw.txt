@@ -1,0 +1,44 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. While not necessarily "cleaner" for all programmers, it encourages the use of high-level abstractions and prevents side-effect-driven bugs. For this problem, I will use `itertools.permutations` to generate all possible arrangements, `set` comprehensions to handle uniqueness, and a helper function combined with slicing to check for palindromes.
+
+```python
+import itertools
+import sys
+
+def solve():
+    # Read N and K from the first line
+    # Read S from the second line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+
+    # Helper function to check if a string contains a palindrome of length K
+    # We use a generator expression inside 'any' to avoid explicit loops
+    def contains_palindrome(t, k):
+        return any(
+            t[i : i + k] == t[i : i + k][::-1]
+            for i in range(n - k + 1)
+        )
+
+    # 1. Generate all unique permutations of the string S
+    # 2. Filter out those that contain a palindrome of length K
+    # 3. Count the remaining strings
+    # We use a set comprehension to get unique permutations and 
+    # a generator expression within sum() to count valid ones.
+    
+    all_permutations = set(itertools.permutations(s))
+    
+    # Convert tuples back to strings and check the palindrome condition
+    result = sum(
+        1 for p in all_permutations 
+        if not contains_palindrome("".join(p), k)
+    )
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

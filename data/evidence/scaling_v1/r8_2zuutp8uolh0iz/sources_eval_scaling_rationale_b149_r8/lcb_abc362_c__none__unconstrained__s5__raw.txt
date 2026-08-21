@@ -1,0 +1,72 @@
+The constraint to avoid explicit loops forces a shift from imperative style to a functional paradigm, emphasizing data transformation over state mutation. In idiomatic Python, this encourages the use of high-order functions and comprehensions which are often more concise and can be more performant. To solve this problem, I will use `sum()` for aggregations, list comprehensions for the final construction of the sequence, and `map()` for input processing. The core logic relies on calculating the minimum and maximum possible sums of the ranges; if 0 falls within this interval, a solution exists. I will then distribute the remaining required sum across the elements by capping each $X_i$ at $R_i$.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and map to integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use an iterator to consume N and then the pairs
+    it = iter(input_data)
+    try:
+        n = next(it)
+    except StopIteration:
+        return
+
+    # Group the remaining input into pairs of (L, R)
+    # Using zip(it, it) is a idiomatic way to group items in pairs without loops
+    pairs = list(zip(it, it))
+    
+    # Calculate the minimum and maximum possible sums
+    # L_sum is the sum of all lower bounds, R_sum is the sum of all upper bounds
+    l_sum = sum(p[0] for p in pairs)
+    r_sum = sum(p[1] for p in pairs)
+    
+    # A solution exists if and only if 0 is within [l_sum, r_sum]
+    if l_sum <= 0 <= r_sum:
+        # We start by setting every X_i to L_i.
+        # The current sum is l_sum. We need to add 'diff' to reach 0.
+        diff = 0 - l_sum
+        
+        # We need to distribute 'diff' across the X_i values.
+        # For each i, we can increase X_i by at most (R_i - L_i).
+        # We use a helper function or a logic that tracks the remaining diff.
+        # Since we cannot use loops or recursion (for state), 
+        # we can pre-calculate the prefix sums of the available slack (R_i - L_i).
+        
+        slacks = [p[1] - p[0] for p in pairs]
+        
+        # To avoid loops, we calculate how much of the diff is absorbed by each element.
+        # The amount added to X_i is min(slack_i, diff - sum(slacks[0...i-1]))
+        # We can use a list comprehension combined with a trick to track the running sum.
+        # However, since we can't use loops, we can't easily maintain a running 'diff'.
+        # Instead, we can use the fact that X_i = L_i + amount_added.
+        # The total amount added is 'diff'. 
+        # We can use a generator or a list comprehension with a side-effect 
+        # (though side-effects in comprehensions are discouraged, they are the only 
+        # way to maintain state without loops/recursion).
+        # A cleaner way: use a list to store the running total of slacks.
+        
+        # Using a list to simulate a mutable variable for the remaining diff
+        # We wrap the diff in a list so it can be modified inside a list comprehension.
+        state = [diff]
+        
+        def get_val(p):
+            l, r = p
+            slack = r - l
+            added = min(slack, state[0])
+            state[0] -= added
+            return l + added
+        
+        # Map the get_val function across all pairs
+        result = list(map(get_val, pairs))
+        
+        print("Yes")
+        print(*(result))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```

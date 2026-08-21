@@ -1,0 +1,105 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    # Queries as a list of (r, c) tuples
+    queries = []
+    for i in range(Q):
+        queries.append((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])))
+
+    # We need to track which walls exist in each row and each column.
+    # rows[r] is a sorted list of column indices that have walls.
+    # cols[c] is a sorted list of row indices that have walls.
+    # Using lists and bisect/pop allows O(log N) search and O(N) deletion.
+    # Given H*W <= 4e5, O(N) deletion in the worst case might be slow, 
+    # but since we only delete each wall once, the total time is manageable.
+    
+    initial_state = {
+        'rows': [list(range(1, W + 1)) for _ in range(H + 1)],
+        'cols': [list(range(1, H + 1)) for _ in range(W + 1)],
+        'wall_count': H * W
+    }
+
+    def process_query(state, query):
+        r, c = query
+        rows = state['rows']
+        cols = state['cols']
+        count = state['wall_count']
+        
+        # Check if wall exists at (r, c)
+        # We check if c is in rows[r] using binary search
+        row_walls = rows[r]
+        idx = bisect_left(row_walls, c)
+        
+        if idx < len(row_walls) and row_walls[idx] == c:
+            # Wall exists: destroy it
+            row_walls.pop(idx)
+            # Must also remove r from cols[c]
+            col_walls = cols[c]
+            c_idx = bisect_left(col_walls, r)
+            col_walls.pop(c_idx)
+            return {'rows': rows, 'cols': cols, 'wall_count': count - 1}
+        else:
+            # No wall: destroy 4 nearest neighbors
+            # 1. Up (same column, smaller row index)
+            col_walls = cols[c]
+            c_idx = bisect_left(col_walls, r)
+            
+            # Targets to destroy
+            targets = []
+            
+            # Up
+            if c_idx > 0:
+                targets.append((col_walls[c_idx-1], c))
+            # Down
+            if c_idx < len(col_walls):
+                targets.append((col_walls[c_idx], c))
+            
+            # 2. Left/Right (same row, different column index)
+            row_walls = rows[r]
+            r_idx = bisect_left(row_walls, c)
+            
+            # Left
+            if r_idx > 0:
+                targets.append((r, row_walls[r_idx-1]))
+            # Right
+            if r_idx < len(row_walls):
+                targets.append((r, row_walls[r_idx]))
+            
+            # To avoid deleting the same wall twice in one query (e.g. if it's both the 
+            # nearest vertical and nearest horizontal), we use a set.
+            unique_targets = set(targets)
+            
+            # We cannot use a loop to delete, so we use a helper function or 
+            # a reduction to handle the deletions of the targets.
+            def delete_wall(s, target):
+                tr, tc = target
+                # Verify wall still exists (might have been deleted by previous target in this query)
+                # Check row_walls for tc
+                r_list = s['rows'][tr]
+                r_i = bisect_left(r_list, tc)
+                if r_i < len(r_list) and r_list[r_i] == tc:
+                    r_list.pop(r_i)
+                    c_list = s['cols'][tc]
+                    c_i = bisect_left(c_list, tr)
+                    c_list.pop(c_i)
+                    return {'rows': s['rows'], 'cols': s['cols'], 'wall_count': s['wall_count'] - 1}
+                return s
+
+            return reduce(delete_wall, unique_targets, state)
+
+    final_state = reduce(process_query, queries, initial_state)
+    print(final_state['wall_count'])
+
+if __name__ == "__main__":
+    solve()

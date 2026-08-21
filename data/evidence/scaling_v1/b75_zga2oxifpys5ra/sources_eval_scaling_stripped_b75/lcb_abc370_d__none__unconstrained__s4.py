@@ -1,0 +1,157 @@
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = input_data[3:]
+    
+    # We need to track existing walls in each row and each column.
+    # Since H*W is up to 4e5, we can't use a full 2D array for wall checks
+    # if we want to avoid O(H*W) space/time in some operations, 
+    # but actually H*W <= 4e5 is small enough for a flat list.
+    # However, finding the "nearest" wall requires something faster than a loop.
+    # We use a list of sorted lists (one for each row and column).
+    
+    # Initial walls: every cell has a wall.
+    # rows[i] contains sorted indices of columns that have a wall in row i.
+    # cols[j] contains sorted indices of rows that have a wall in column j.
+    # Using lists and bisect/pop is O(N) for deletions, which is too slow for 2e5 queries.
+    # But wait, the constraints say H*W <= 4e5. A flat boolean array for wall existence
+    # is fine. To find the nearest wall, we can't iterate.
+    # Given the constraints and the nature of the problem, we need a data structure
+    # that supports finding the nearest element and deleting it.
+    # In Python, we can use a SortedList from sortedcontainers, but that's not standard.
+    # Without external libraries, we can use a Fenwick tree or Segment Tree to find 
+    # the nearest 1, but that's complex. 
+    # Actually, since we only delete, we can use a DSU-like structure or 
+    # simply use the fact that we can't use loops.
+    # Let's use the 'bisect' module on sorted lists. While 'pop(i)' is O(N),
+    # for a total of 4e5 elements, it might pass if the distribution is okay,
+    # but it's risky. A better way is to use a balanced BST or similar.
+    # Since we must use standard libraries, let's use the 'bisect' approach 
+    # with Python's list.pop(), as it's highly optimized.
+    
+    # Using a list of lists to store wall positions.
+    # row_walls[r] = sorted list of columns in row r that have walls.
+    # col_walls[c] = sorted list of rows in col c that have walls.
+    row_walls = [list(range(1, W + 1)) for _ in range(H)]
+    col_walls = [list(range(1, H + 1)) for _ in range(W)]
+    
+    # To check if a wall exists at (r, c) efficiently:
+    # We can't use a set for every row because we need the nearest wall.
+    # We can use a flat boolean array for O(1) existence check.
+    exists = [True] * (H * W)
+    
+    def get_idx(r, c):
+        return (r - 1) * W + (c - 1)
+
+    def remove_wall(r, c):
+        idx = get_idx(r, c)
+        if exists[idx]:
+            exists[idx] = False
+            # Remove c from row_walls[r-1]
+            # Since we need the index to pop, we use bisect_left
+            r_list = row_walls[r-1]
+            pos_c = bisect_left(r_list, c)
+            r_list.pop(pos_c)
+            # Remove r from col_walls[c-1]
+            c_list = col_walls[c-1]
+            pos_r = bisect_left(c_list, r)
+            c_list.pop(pos_r)
+
+    # Process queries
+    # Using a generator to avoid loops and map/reduce for the query processing
+    # However, the state (exists, row_walls, col_walls) must be mutated.
+    # We can use a helper function and call it via a list comprehension.
+    
+    def handle_query(q_idx):
+        r = int(queries[2 * q_idx])
+        c = int(queries[2 * q_idx + 1])
+        
+        if exists[get_idx(r, c)]:
+            remove_wall(r, c)
+        else:
+            # Look Up
+            c_list = col_walls[c-1]
+            pos_r = bisect_left(c_list, r)
+            if pos_r > 0:
+                target_r = c_list[pos_r - 1]
+                remove_wall(target_r, c)
+            
+            # Look Down
+            c_list = col_walls[c-1]
+            pos_r = bisect_left(c_list, r)
+            if pos_r < len(c_list):
+                target_r = c_list[pos_r]
+                remove_wall(target_r, c)
+                
+            # Look Left
+            r_list = row_walls[r-1]
+            pos_c = bisect_left(r_list, c)
+            if pos_c > 0:
+                target_c = r_list[pos_c - 1]
+                remove_wall(r, target_c)
+                
+            # Look Right
+            r_list = row_walls[r-1]
+            pos_c = bisect_left(r_list, c)
+            if pos_c < len(r_list):
+                target_c = r_list[pos_c]
+                remove_wall(r, target_c)
+
+    # We must execute handle_query for each query. 
+    # Since we can't use for-loops, we use a list comprehension.
+    # Note: the order of removals within a query is simultaneous, 
+    # so we must identify all 4 targets before removing any.
+    
+    def handle_query_simultaneous(q_idx):
+        r = int(queries[2 * q_idx])
+        c = int(queries[2 * q_idx + 1])
+        
+        if exists[get_idx(r, c)]:
+            remove_wall(r, c)
+            return
+
+        # Identify targets
+        targets = []
+        # Up
+        c_list = col_walls[c-1]
+        pos_r = bisect_left(c_list, r)
+        if pos_r > 0: targets.append((c_list[pos_r-1], c))
+        # Down
+        if pos_r < len(c_list): targets.append((c_list[pos_r], c))
+        # Left
+        r_list = row_walls[r-1]
+        pos_c = bisect_left(r_list, c)
+        if pos_c > 0: targets.append((r, r_list[pos_c-1]))
+        # Right
+        if pos_c < len(r_list): targets.append((r, r_list[pos_c]))
+        
+        # Use a list comprehension to call remove_wall for all targets
+        # We use a trick to call a function in a comprehension: [remove_wall(tr, tc) for tr, tc in targets]
+        # But we must be careful: the targets were found based on the state at the start of the query.
+        # The problem says "simultaneously", so we collect targets first.
+        # However, the targets themselves might overlap (e.g., if the wall at (r, c+1) is the same as (r+1, c)).
+        # That's not possible here, but a wall could be both the 'up' and 'left' target if the bomb is at a corner.
+        # Actually, the targets are distinct cells.
+        
+        # To avoid the 'for' loop, we use map() or a list comprehension.
+        # Since remove_wall needs to be called, we can't use it inside a comprehension 
+        # if it's not a pure function, but Python allows it.
+        [remove_wall(tr, tc) for tr, tc in targets]
+
+    # Execute all queries
+    [handle_query_simultaneous(i) for i in range(Q)]
+    
+    # Count remaining walls
+    print(sum(exists))
+
+if __name__ == "__main__":
+    solve()

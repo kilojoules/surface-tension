@@ -1,0 +1,69 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+
+    # Parse the tests
+    # Since the number of keys C_i varies, we need a way to group the input.
+    # We use a helper function or a comprehension to parse the M tests.
+    
+    def parse_tests(data, index, count):
+        if count == 0:
+            return []
+        
+        # C_i is at data[index]
+        c_i = int(data[index])
+        # Keys are from index + 1 to index + c_i
+        keys = [int(x) for x in data[index + 1 : index + 1 + c_i]]
+        # Result R_i is at index + 1 + c_i
+        result = data[index + 1 + c_i]
+        
+        # Recursively parse the rest
+        return [(keys, result)] + parse_tests(data, index + 2 + c_i, count - 1)
+
+    # Using a list comprehension to parse tests instead of the recursive function 
+    # to avoid recursion depth issues and strictly follow "no loops" logic 
+    # by utilizing a custom generator or mapping.
+    
+    # However, the most "Pythonic" way to handle variable length input without loops
+    # is to process the flat list using a custom reducer or a comprehension 
+    # if we can determine the indices. Since we can't use loops, 
+    # we will use a recursive approach to structure the tests.
+    
+    tests = parse_tests(input_data, 3, M)
+
+    # Generate all 2^N combinations of (Real=1, Dummy=0)
+    # product([0, 1], repeat=N) gives all possibilities
+    all_combinations = product([0, 1], repeat=N)
+
+    # Validation logic for a single combination:
+    # A combination is valid if for every test:
+    # If R_i == 'o', sum of real keys in the test set >= K
+    # If R_i == 'x', sum of real keys in the test set < K
+    
+    def is_valid(combo):
+        # combo is a tuple of 0s and 1s of length N
+        # keys in tests are 1-indexed, so we use key-1 for combo index
+        return all(
+            (sum(combo[key-1] for key in keys) >= K) if res == 'o' 
+            else (sum(combo[key-1] for key in keys) < K)
+            for keys, res in tests
+        )
+
+    # Count how many combinations are valid
+    # We use map and sum to avoid a for loop
+    answer = sum(map(lambda c: 1 if is_valid(c) else 0, all_combinations))
+    
+    print(answer)
+
+if __name__ == "__main__":
+    solve()

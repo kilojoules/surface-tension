@@ -1,0 +1,199 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and the sequence A
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    A = list(map(int, input_data[1:]))
+    MOD = 998244353
+
+    # The initial state is X_i = i % 2.
+    # The operation allows replacing [l+1, r-1] with X_l if X_l == X_r 
+    # and all X_i (l < i < r) are different from X_l.
+    # This implies we can only overwrite blocks of the opposite value.
+    # A block of k identical values in the target A that differs from the 
+    # initial state's alternating pattern can be formed in Catalan(k-1) ways.
+    # However, the problem simplifies to: 
+    # Any contiguous block of identical values of length k in A 
+    # contributes a factor to the total ways.
+    # Specifically, if we have a block of length k, the number of ways 
+    # to form it via these operations is the (k-1)-th Catalan number.
+    # But we must first check if the target A is reachable.
+    
+    # Initial state: X_i = i % 2 (for i=1 to N)
+    # Note: The problem says cell i has i % 2. 
+    # So X = [1%2, 2%2, 3%2, ...] = [1, 0, 1, 0, ...]
+    
+    # A target A is reachable if and only if A_i == X_i whenever 
+    # A_i is the start or end of a monochromatic block.
+    # Actually, the simpler condition is: we can only change a value 
+    # if it's surrounded by the target value.
+    # The only way to change the parity of a segment is if the endpoints 
+    # already match the target.
+    
+    # Let's group A into blocks of identical consecutive values.
+    # Example: 1 1 1 1 1 0 -> blocks: (1, 5), (0, 1)
+    # For a block of value v and length k starting at index i:
+    # If the initial values at the boundaries of the block 
+    # (or the boundaries of the array) don't match v, it's impossible.
+    # But the operation requires l and r to be the same.
+    # The only way to get a block of k identical values is if the 
+    # original alternating sequence was "overwritten".
+    # The number of ways to reduce a sequence of length k to a single value
+    # using this specific operation is Catalan(k-1) if the 
+    # original sequence was alternating.
+    
+    # Precompute factorials for Catalan numbers
+    MAX = N + 1
+    fact = [1] * (2 * MAX)
+    inv = [1] * (2 * MAX)
+    
+    # Using a loop-free way to compute factorials is hard, 
+    # but the constraint allows list comprehensions and reduce.
+    # We can use a trick with a list and a function to simulate the factorial.
+    # However, since we need to avoid loops, we use the property that 
+    # we can precompute using a list and a map/reduce.
+    
+    # To avoid loops for factorial, we can use a recursive-like 
+    # structure via a list comprehension and a helper.
+    # But wait, the constraint says "no for/while loops". 
+    # We can use map() and a mutable list to store factorials.
+    
+    f = [1] * (2 * MAX)
+    def compute_fact(i, arr):
+        if i < 2 * MAX:
+            arr[i] = (arr[i-1] * i) % MOD
+            compute_fact(i + 1, arr)
+        return arr
+    
+    # Since recursion is banned, we use a trick with reduce to fill the list.
+    # We can't use a loop to fill the list, but we can use a list comprehension
+    # that references a mutable object.
+    
+    # Actually, the most reliable way to get factorials without loops/recursion
+    # is to use a mathematical approach or a very large list comprehension.
+    # But we can use reduce to generate the factorial list.
+    
+    def get_facts(n):
+        return reduce(lambda acc, x: acc + [ (acc[-1] * x) % MOD ], range(1, 2 * n), [1])
+
+    fact = get_facts(MAX)
+    
+    def power(a, b):
+        return pow(a, b, MOD)
+
+    def nCr_mod(n, r):
+        if r < 0 or r > n:
+            return 0
+        num = fact[n]
+        den = (pow(fact[r], MOD - 2, MOD) * pow(fact[n - r], MOD - 2, MOD)) % MOD
+        return (num * den) % MOD
+
+    def catalan(n):
+        if n < 0: return 0
+        return nCr_mod(2 * n, n) // (n + 1) # This is for standard Catalan
+    
+    # Correct Catalan mod MOD:
+    def catalan_mod(n):
+        if n < 0: return 0
+        # C_n = (1/(n+1)) * comb(2n, n)
+        return (nCr_mod(2 * n, n) * pow(n + 1, MOD - 2, MOD)) % MOD
+
+    # Group A into (value, length)
+    # Use a trick to group: find indices where A[i] != A[i-1]
+    indices = [i for i in range(1, N) if A[i] != A[i-1]]
+    lengths = [indices[0]] + [indices[i] - indices[i-1] for i in range(1, len(indices))] + [N - (indices[-1] if indices else 0)]
+    # Handle case where all A are same
+    if not indices:
+        lengths = [N]
+    
+    # The condition to be reachable:
+    # For each block of length k and value v, it must be that the 
+    # original values at the boundaries of the block (if they exist) 
+    # are equal to v.
+    # Original X: X_i = i % 2.
+    # A block from index L to R (0-indexed) has value v.
+    # It can be formed if X_L == v and X_R == v.
+    # Note: X_i = (i+1) % 2.
+    
+    # Let's find the boundaries of each block.
+    # blocks = [(start, end, val), ...]
+    def get_blocks(A):
+        # Use reduce to group
+        return reduce(lambda acc, x: acc + [ [x] ] if not acc or acc[-1][0] != x[0] else (acc[-1].append(x), acc)[1], 
+                      enumerate(A), [])
+
+    # The above reduce uses append which is a mutation. 
+    # Let's use a cleaner way to get block lengths and their values.
+    # We can use groupby from itertools, but the prompt doesn't forbid imports.
+    from itertools import groupby
+    groups = [(val, len(list(g))) for val, g in groupby(A)]
+    
+    # For each group (val, length), the number of ways is Catalan(length - 1)
+    # IF the group is "compatible" with the original X.
+    # A group of length k and value v is compatible if:
+    # 1. It's the only group (N=k), then it must match X at both ends? 
+    #    No, the operation requires l and r. If we want the whole array to be v,
+    #    we need X_1 == v and X_N == v.
+    # 2. It's at the start, it needs X_{end+1} == v.
+    # 3. It's at the end, it needs X_{start} == v.
+    # 4. It's in the middle, it needs X_{start} == v and X_{end+1} == v.
+    
+    # Wait, the rule is: replace [l+1, r-1] with X_l if X_l == X_r.
+    # This means to turn a segment into value v, the boundaries must be v.
+    # For a block of length k, it takes (k-1) "units" of alternating values.
+    # The number of ways to clear a segment of length k-1 is Catalan(k-1).
+    # But this is only possible if the boundaries are already v.
+    # In the original X, X_i = i % 2.
+    # For a block A[L...R] of value v:
+    # It is possible to form this block if X_L == v and X_R == v.
+    # (Using 1-based indexing for X as per problem).
+    
+    # Let's check compatibility for all blocks.
+    # Block j: start index L_j, end index R_j, value v_j.
+    # Condition: X_{L_j} == v_j AND X_{R_j} == v_j.
+    # Note: X_i = i % 2.
+    
+    # Calculate L_j and R_j
+    block_info = []
+    def build_info(acc, group):
+        L = acc[0] if not acc else acc[-1][1] + 1
+        R = L + group[1] - 1
+        acc.append((L, R, group[0]))
+        return acc
+    
+    # Use a list to store block info
+    info = [None] * len(groups)
+    def fill_info(idx, current_L):
+        if idx < len(groups):
+            val, length = groups[idx]
+            R = current_L + length - 1
+            info[idx] = (current_L, R, val)
+            fill_info(idx + 1, R + 1)
+            
+    # Since recursion is banned, use a loop-free way to get L, R.
+    # We can use map/reduce.
+    def get_l_r(groups):
+        return reduce(lambda acc, g: acc + [(acc[-1][1] + 1 if acc else 1, 
+                                            (acc[-1][1] + 1 if acc else 1) + g[1] - 1, 
+                                            g[0])], groups, [])
+
+    detailed_blocks = get_l_r(groups)
+    
+    # Check if all blocks are compatible: X_L == v and X_R == v
+    # X_i = i % 2
+    checks = [ ( (L % 2 == v) and (R % 2 == v) ) for L, R, v in detailed_blocks ]
+    
+    if not all(checks):
+        print(0)
+        return
+
+    # If all compatible, answer is product of Catalan(length - 1)
+    ans = reduce(lambda acc, g: (acc * catalan_mod(g[1] - 1)) % MOD, groups, 1)
+    print(ans)
+
+solve()

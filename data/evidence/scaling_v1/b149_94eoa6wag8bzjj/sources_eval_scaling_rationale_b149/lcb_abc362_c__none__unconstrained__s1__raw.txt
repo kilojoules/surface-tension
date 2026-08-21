@@ -1,0 +1,65 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. While idiomatic Python often uses `for` loops for readability, utilizing `map`, `zip`, and list comprehensions allows for concise data transformations and leverages Python's internal optimizations. For this problem, I will use `sum()` to calculate the total range boundaries and a list comprehension combined with `min` and `max` to distribute the remaining required sum across the sequence.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into lists of Ls and Rs
+    # Using slicing and map to avoid explicit loops
+    L = list(map(int, input_data[1::2]))
+    R = list(map(int, input_data[2::2]))
+    
+    # Calculate the minimum and maximum possible sums
+    min_sum = sum(L)
+    max_sum = sum(R)
+    
+    # The condition to satisfy sum(X) = 0 is that 0 must fall within [min_sum, max_sum]
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start with X_i = L_i. The current sum is min_sum.
+    # We need to add 'diff' to the elements to reach a total sum of 0.
+    diff = 0 - min_sum
+    
+    # To distribute 'diff' across X_i without exceeding R_i:
+    # For each i, we can add at most (R_i - L_i).
+    # We use a greedy approach: X_i = L_i + min(diff_remaining, R_i - L_i).
+    # Since we cannot use loops to maintain a running 'diff_remaining', 
+    # we can use the prefix sums of the available capacities (R_i - L_i).
+    
+    capacities = [r - l for l, r in zip(L, R)]
+    # Compute prefix sums of capacities to determine how much of 'diff' 
+    # is absorbed by the first i elements.
+    # Note: itertools.accumulate is perfect here.
+    from itertools import accumulate
+    prefix_capacities = list(accumulate(capacities))
+    
+    # For element i, the amount added is:
+    # (prefix_capacities[i] - prefix_capacities[i-1]) 
+    # BUT capped by the remaining diff at that step.
+    # More simply: the amount added to X_i is:
+    # min(capacity_i, max(0, diff - prefix_capacities[i-1]))
+    
+    # We handle the i=0 case by prepending 0 to prefix_capacities
+    pc = [0] + prefix_capacities
+    
+    # X_i = L_i + amount_contributed
+    # The amount contributed by index i is the intersection of 
+    # [pc[i], pc[i+1]] and [0, diff]
+    # Which is max(0, min(pc[i+1], diff) - pc[i])
+    
+    X = [L[i] + max(0, min(pc[i+1], diff) - pc[i]) for i in range(N)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()
+```

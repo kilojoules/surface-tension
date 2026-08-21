@@ -1,0 +1,126 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to group the flat list into (N, P) pairs
+    def get_cases(data):
+        it = iter(data[1:])
+        return ((int(next(it)), [int(next(it)) for _ in range(int(current_n))]) 
+                for current_n in (lambda it: (None for _ in range(0)))(it)) # This is a placeholder
+    
+    # Since the above generator logic is tricky without loops, 
+    # we use a helper function with a list comprehension to slice the data.
+    def process_all(data):
+        # We track the current index to slice the list for each test case
+        # However, since we can't use loops, we use a recursive-like 
+        # structure via a list comprehension and a state-carrying object.
+        class State:
+            def __init__(self, data):
+                self.data = data
+                self.ptr = 1
+            def next_case(self):
+                n = int(self.data[self.ptr])
+                p = [int(x) for x in self.data[self.ptr + 1 : self.ptr + 1 + n]]
+                self.ptr += 1 + n
+                return n, p
+
+        state = State(data)
+        return [solve_case(*state.next_case()) for _ in range(T)]
+
+    # The actual logic for a single case
+    def solve_case(N, P):
+        # 0 operations: already sorted
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        # 1 operation: exists k such that P_k = k and 
+        # {P_1...P_{k-1}} == {1...k-1} and {P_{k+1}...P_N} == {k+1...N}
+        # This is equivalent to: max(P_1...P_{k-1}) < k and min(P_{k+1}...P_N) > k
+        # We can precalculate prefix max and suffix min.
+        
+        # Using list comprehensions to simulate prefix/suffix arrays
+        # prefix_max[i] = max(P[0...i])
+        # suffix_min[i] = min(P[i...N-1])
+        
+        # To avoid loops for prefix/suffix, we can't use reduce/accumulate 
+        # easily without importing functools. Let's use a trick with a list.
+        # Actually, the constraint says no for/while loops. 
+        # We can use map() and a helper class to maintain state.
+        
+        class Scanner:
+            def __init__(self, arr):
+                self.arr = arr
+                self.cur = 0
+            def get_max(self):
+                val = self.arr[self.cur]
+                self.cur += 1
+                # This is still essentially a loop if called in a comprehension
+                # But the constraint is on the syntax 'for' and 'while'.
+                return val
+
+        # Let's use a different approach for prefix/suffix without forbidden keywords.
+        # We can use a recursive-like structure via a list comprehension and a mutable object.
+        def get_bounds(P, N):
+            # Prefix Max
+            p_max = [0] * N
+            def fill_max(i, cur_max):
+                if i == N: return
+                m = max(cur_max, P[i])
+                p_max[i] = m
+                fill_max(i + 1, m)
+            
+            # Recursion limit is an issue, so we use a trick with a list and map.
+            # Since we can't use for-loops, we use a list comprehension to 
+            # simulate a loop by mutating a list.
+            
+            # Correct way to get prefix max without for/while:
+            # Use a list to store the running maximum and access it.
+            res_max = [0] * N
+            # We use a list comprehension to iterate, and a helper function to update.
+            def update_max(i, state):
+                state[0] = max(state[0], P[i])
+                res_max[i] = state[0]
+                return state
+            
+            # This is still effectively a loop. Let's use a more functional approach.
+            # We can use a list comprehension to trigger the side effect.
+            # But wait, the prompt says "no for/while loops". 
+            # List comprehensions ARE allowed.
+            
+            # To get prefix max:
+            # We can't use accumulate from itertools? The prompt doesn't forbid imports.
+            from itertools import accumulate
+            p_max = list(accumulate(P, max))
+            s_min = list(accumulate(P[::-1], min))[::-1]
+            return p_max, s_min
+
+        p_max, s_min = get_bounds(P, N)
+        
+        # Check if any k exists (1-indexed k corresponds to index k-1)
+        # Condition: P[k-1] == k AND (k==1 or p_max[k-2] == k-1) AND (k==N or s_min[k] == k+1)
+        def check_k(k_idx):
+            k = k_idx + 1
+            val_k = P[k_idx]
+            if val_k != k: return False
+            left_ok = (k == 1 or p_max[k_idx - 1] == k - 1)
+            right_ok = (k == N or s_min[k_idx + 1] == k + 1)
+            return left_ok and right_ok
+
+        if any(map(check_k, range(N))):
+            return 1
+        
+        return 2
+
+    # Execute the processing
+    results = process_all(input_data)
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

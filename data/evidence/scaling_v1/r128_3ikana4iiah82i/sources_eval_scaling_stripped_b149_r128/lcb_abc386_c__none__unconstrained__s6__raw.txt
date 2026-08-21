@@ -1,0 +1,227 @@
+```python
+import sys
+
+def solve():
+    # Read K, S, and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem is to check if the Edit Distance between S and T is <= K.
+    # Since K is small (specifically K=1 for this sub-problem), 
+    # we can check the three possible operations.
+
+    # Case 0: S is already identical to T
+    if s == t:
+        print("Yes")
+        return
+
+    # Case 1: Replace one character
+    # S and T must have the same length and differ by exactly one character.
+    if len(s) == len(t):
+        diffs = [i for i in range(len(s)) if s[i] != t[i]]
+        if len(diffs) == 1:
+            print("Yes")
+            return
+
+    # Case 2: Delete one character from S (or insert one into T)
+    # S must be longer than T by 1.
+    if len(s) == len(t) + 1:
+        # Find the first index where they differ
+        # We can use a generator to find the first mismatch
+        # But since we can't use loops, we use a trick with slicing.
+        # We check if removing one char from S makes it T.
+        # However, we don't know which char to remove.
+        # We can find the first mismatch index 'i' and check if S[:i] + S[i+1:] == T.
+        
+        # To find the first mismatch without a loop:
+        # We can use a list comprehension to find all indices where they differ
+        # and check if the remaining parts match.
+        # But the simplest way for K=1 is to check if T is a subsequence of S.
+        # Since len(S) = len(T) + 1, if T is a subsequence, the edit distance is 1.
+        
+        # Checking subsequence for K=1:
+        # We find the first index i where S[i] != T[i].
+        # Then we check if S[i+1:] == T[i:].
+        # To do this without loops, we can use a helper logic.
+        pass
+
+    # Let's redefine the logic to be more "functional" to avoid loops.
+    # For K=1, the distance is 1 if:
+    # 1. len(S) == len(T) and they differ by 1 char.
+    # 2. len(S) == len(T) + 1 and T is a subsequence of S.
+    # 3. len(T) == len(S) + 1 and S is a subsequence of T.
+
+    # Helper to check if short is a subsequence of long when len(long) == len(short) + 1
+    def check_sub(short, long):
+        # Find first mismatch
+        # We use a list comprehension to find the first index where they differ.
+        # Since we can't use a loop, we can use a trick with 'next' and a generator.
+        try:
+            i = next(i for i in range(len(short)) if short[i] != long[i])
+            return long[:i] + long[i+1:] == short
+        except StopIteration:
+            # They matched up to the end of 'short', so the extra char is at the end of 'long'
+            return True
+
+    # We can't use 'for' or 'while', but we can use 'next' with a generator expression.
+    # The constraints allow list comprehensions and generator expressions.
+    
+    # Re-evaluating the logic inside a single print statement using a conditional expression.
+    # We need to handle the subsequence check carefully.
+    
+    # For the subsequence check:
+    # If len(S) == len(T) + 1, we check if S[i+1:] == T[i:] at the first mismatch.
+    # We can use a helper function defined inside solve() using def.
+    
+    # Let's use the logic:
+    # Result is "Yes" if:
+    # (len(S) == len(T) and sum(1 for a, b in zip(S, T) if a != b) == 1) OR
+    # (len(S) == len(T) + 1 and check_sub(T, S)) OR
+    # (len(T) == len(S) + 1 and check_sub(S, T))
+    
+    # Since I cannot use loops, I will use the 'next' function to find the mismatch.
+    # I'll wrap the logic in a way that it executes.
+    
+    # To avoid the 'def' inside 'print', I'll just use the logic directly.
+    # For the subsequence check: 
+    # if len(S) == len(T) + 1:
+    #    mismatch_idx = next((i for i in range(len(T)) if S[i] != T[i]), len(T))
+    #    is_sub = (S[:mismatch_idx] + S[mismatch_idx+1:] == T)
+    
+    # Putting it all together:
+    
+    res = (
+        (len(s) == len(t) and sum(1 for a, b in zip(s, t) if a != b) == 1) or
+        (len(s) == len(t) + 1 and (lambda s, t: (lambda i: s[:i] + s[i+1:] == t)(next((i for i in range(len(t)) if s[i] != t[i]), len(t))))(s, t)) or
+        (len(t) == len(s) + 1 and (lambda s, t: (lambda i: t[:i] + t[i+1:] == s)(next((i for i in range(len(s)) if t[i] != s[i]), len(s))))(s, t))
+    )
+    
+    print("Yes" if res else "No")
+
+if __name__ == "__main__":
+    solve()
+```
+
+Wait, the prompt says "Return only Python source inside a single ```python code block". I should provide the code without the explanation.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    if s == t:
+        print("Yes")
+        return
+
+    # Check if edit distance is 1
+    # 1. Substitution: lengths equal, one char differs
+    # 2. Deletion: len(s) = len(t) + 1, t is subsequence of s
+    # 3. Insertion: len(t) = len(s) + 1, s is subsequence of t
+    
+    res = (
+        (len(s) == len(t) and sum(1 for a, b in zip(s, t) if a != b) == 1) or
+        (len(s) == len(t) + 1 and (lambda s, t: (lambda i: s[:i] + s[i+1:] == t)(next((i for i in range(len(t)) if s[i] != t[i]), len(t))))(s, t)) or
+        (len(t) == len(s) + 1 and (lambda s, t: (lambda i: t[:i] + t[i+1:] == s)(next((i for i in range(len(s)) if t[i] != s[i]), len(s))))(s, t))
+    )
+    
+    print("Yes" if res else "No")
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the prompt says "Return only Python source". I will provide the final code block.
+Wait, the prompt says "Write a complete Python program... Return only Python source inside a single ```python code block."
+
+Final check on the logic:
+- If `s == t`, distance is 0. `0 <= 1` is True. (Handled by `if s == t`)
+- If `len(s) == len(t)`, distance is 1 if they differ by 1 char.
+- If `len(s) == len(t) + 1`, distance is 1 if removing one char from `s` makes it `t`. We find the first index `i` where `s[i] != t[i]`. If we remove `s[i]`, the rest must match.
+- If `len(t) == len(s) + 1`, distance is 1 if removing one char from `t` makes it `s`.
+
+The `next((i for i in range(len(t)) if s[i] != t[i]), len(t))` correctly finds the first mismatch or returns the length of the shorter string if they match until the end.
+
+One final detail: the constraints say $S$ and $T$ are between 1 and 500,000. `sum(1 for ...)` and `next(...)` are efficient. Slicing `s[:i] + s[i+1:]` creates new strings, which might be slow/memory-intensive for 500k characters. However, in Python, this is the standard way to "remove" a character. Given the $K=1$ constraint, this is the only way to check without loops.
+
+Actually, a more memory-efficient way to check the subsequence for $K=1$ without slicing the whole string is to check if the remaining suffixes match. But since I can't use loops, I'll stick to the slice.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    data = sys.stdin.read().split()
+    if len(data) < 3:
+        return
+    
+    k = int(data[0])
+    s = data[1]
+    t = data[2]
+
+    # The problem asks if edit distance is <= K.
+    # For K=1, we check 0 changes or 1 change.
+    # 0 changes: s == t
+    # 1 change: 
+    #   - Same length: exactly one character differs.
+    #   - s is 1 char longer: removing one char from s makes it t.
+    #   - t is 1 char longer: removing one char from t makes it s.
+
+    # We use a helper logic inside a conditional expression.
+    # To avoid loops, we use generator expressions and 'next'.
+    
+    result = (
+        (s == t) or
+        (len(s) == len(t) and sum(1 for a, b in zip(s, t) if a != b) == 1) or
+        (len(s) == len(t) + 1 and (lambda s, t: (lambda i: s[:i] + s[i+1:] == t)(next((i for i in range(len(t)) if s[i] != t[i]), len(t))))(s, t)) or
+        (len(t) == len(s) + 1 and (lambda s, t: (lambda i: t[:i] + t[i+1:] == s)(next((i for i in range(len(s)) if t[i] != s[i]), len(s))))(s, t))
+    )
+    
+    sys.stdout.write("Yes\n" if result else "No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block." I will remove the explanation.
+
+Final check on the logic:
+If `s = "abc"`, `t = "ac"`.
+`len(s) == len(t) + 1` is True.
+`next((i for i in range(2) if "abc"[i] != "ac"[i]), 2)`:
+i=0: 'a' == 'a'
+i=1: 'b' != 'c' -> returns 1.
+`s[:1] + s[2:]` is `"a" + "c"` which is `"ac"`.
+`"ac" == t` is True.
+Result: "Yes". Correct.
+
+If `s = "abc"`, `t = "abd"`.
+`len(s) == len(t)` is True.
+`sum(1 for a, b in zip("abc", "abd") if a != b)` is 1.
+Result: "Yes". Correct.
+
+If `s = "abc"`, `t = "def"`.
+`len(s) == len(t)` is True.
+`sum(...)` is 3.
+Result: "No". Correct.
+
+The logic is sound.
+
+```python
+import sys
+
+def solve():
+    data = sys.stdin.read().split()
+    if len(data) < 3:
+        return
+    
+    k, s, t = int(data[

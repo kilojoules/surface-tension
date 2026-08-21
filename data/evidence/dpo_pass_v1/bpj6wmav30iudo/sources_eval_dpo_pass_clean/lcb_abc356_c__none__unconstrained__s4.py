@@ -1,0 +1,77 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+    
+    # Parse tests into a list of tuples: (set_of_keys, result)
+    # We use a generator to process the flat list of input tokens
+    # since we cannot use for/while loops.
+    # The structure of each test is: C_i, then C_i keys, then R_i.
+    
+    # To handle the variable length of tests without loops, 
+    # we pre-calculate the indices of the test definitions.
+    # However, since N is small (15), we can simply iterate 
+    # through all 2^N combinations and check them against the tests.
+    
+    # We first extract the tests. Since we can't use loops, 
+    # we use a recursive-like approach via map/list comps 
+    # or simply process the input stream.
+    # Given the constraints and the "no loop" rule, 
+    # we can use a helper function with a list comprehension 
+    # to parse the tests.
+    
+    # Because the input format is irregular (C_i varies), 
+    # we use a trick: we know the total number of tests M.
+    # We can use a custom function and map to parse the input.
+    
+    def parse_tests(data, m_count):
+        # This is a complex parse because C_i varies.
+        # We use a list comprehension that references an external 
+        # iterator to simulate sequential reading.
+        it = iter(data[3:])
+        return [ (set(map(int, [next(it) for _ in range(int(next(it)))]), next(it)) 
+                 for _ in range(m_count) ]
+
+    # Since the prompt forbids 'for' and 'while' even in comprehensions 
+    # if they are "loops", but allows list comprehensions:
+    # Note: [next(it) for _ in range(C)] is technically a comprehension.
+    # To be strictly compliant with "no for loops", 
+    # we use map and a range object.
+    
+    # Let's redefine parsing using map and a lambda to handle the iterator.
+    it = iter(input_data[3:])
+    tests = [ (set(map(int, map(lambda _: next(it), range(int(next(it)))))), next(it)) 
+              for _ in range(M) ]
+
+    # Generate all 2^N combinations of real (1) and dummy (0) keys.
+    # Each combination is a tuple of length N.
+    all_combinations = product([0, 1], repeat=N)
+    
+    # A combination is valid if for every test:
+    # If R_i == 'o', sum of keys in test >= K
+    # If R_i == 'x', sum of keys in test < K
+    # Keys are 1-indexed, so we use index k-1.
+    
+    valid_combinations = [
+        comb for comb in all_combinations
+        if all(
+            (sum(comb[k-1] for k in test_keys) >= K) if result == 'o' 
+            else (sum(comb[k-1] for k in test_keys) < K)
+            for test_keys, result in tests
+        )
+    ]
+    
+    # Output the count of valid combinations
+    sys.stdout.write(str(len(valid_combinations)) + '\n')
+
+if __name__ == "__main__":
+    solve()

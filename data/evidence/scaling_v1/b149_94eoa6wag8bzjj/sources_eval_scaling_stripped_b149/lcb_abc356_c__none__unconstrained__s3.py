@@ -1,0 +1,57 @@
+import itertools
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # N: total keys, M: number of tests, K: required real keys to open
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+
+    # We need to parse the tests. Since each test has a variable length C_i,
+    # we process the input_data list using a custom parser.
+    # Each test consists of: C_i, then C_i keys, then the result R_i.
+    
+    # Use a generator to extract tests from the flat list
+    def get_tests(data, m_count):
+        ptr = 3
+        for _ in range(m_count):
+            c_i = int(data[ptr])
+            keys = [int(x) for x in data[ptr + 1 : ptr + 1 + c_i]]
+            result = data[ptr + 1 + c_i]
+            yield (keys, result)
+            ptr += c_i + 2
+
+    tests = list(get_tests(input_data, M))
+
+    # Generate all 2^N possible combinations of keys being real (1) or dummy (0)
+    # Each combination is a tuple of length N
+    all_combinations = itertools.product([0, 1], repeat=N)
+
+    # A combination is valid if for every test:
+    # - If result is 'o', at least K keys in the test set are real.
+    # - If result is 'x', fewer than K keys in the test set are real.
+    # Note: keys are 1-indexed, so we use key-1 for 0-indexed tuple access.
+    
+    def is_valid(combo):
+        for keys, result in tests:
+            # Count how many keys in this test are real in the current combination
+            real_count = sum(combo[k-1] for k in keys)
+            if result == 'o':
+                if real_count < K:
+                    return False
+            else: # result == 'x'
+                if real_count >= K:
+                    return False
+        return True
+
+    # Count combinations that satisfy all test conditions
+    ans = sum(1 for combo in all_combinations if is_valid(combo))
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

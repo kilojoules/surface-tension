@@ -1,0 +1,194 @@
+import sys
+from itertools import groupby
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # Use a generator to process test cases without explicit for/while loops
+    # We track the current index in the input_data list using a helper function or 
+    # by restructuring the data into a list of cases.
+    
+    # Since we cannot use loops, we calculate the offsets for each test case.
+    # Each case starts with N, followed by N elements.
+    # We can use a custom function with a list of indices to extract cases.
+    
+    def get_cases(data):
+        # This is a tricky part without loops. We can use a recursive-like 
+        # structure via a list comprehension if we know the structure, 
+        # but N varies. Instead, we can use a generator that yields 
+        # (N, P) pairs by consuming the iterator.
+        it = iter(data[1:])
+        def produce():
+            try:
+                n_val = next(it)
+                # Consume n_val elements for P
+                p_vals = [next(it) for _ in range(int(n_val))]
+                return (int(n_val), p_vals)
+            except StopIteration:
+                return None
+        
+        # To avoid recursion limits and loops, we use a trick to 
+        # generate the sequence of cases. Since sum of N is 2e5,
+        # we can't use recursion. But we can use a list comprehension
+        # if we pre-calculate the split points.
+        return it
+
+    # Actually, the simplest way to handle variable N without loops 
+    # is to use a generator function with 'yield' and 'next'.
+    # Even though 'for' is forbidden, 'list comprehensions' are allowed.
+    # But list comprehensions cannot easily maintain state (like the iterator).
+    # Wait, the constraint says "no for or while loops". 
+    # It does NOT forbid 'for' inside a list comprehension.
+    # "You cannot use for or while loops" usually implies the keyword 'for' 
+    # as a statement, but 'for' in comprehensions is often allowed.
+    # Let's double check: "Provide a complete, working solution... 
+    # without using any for or while loops."
+    # If 'for' in comprehensions is banned, we use map/filter/reduce.
+    
+    # Let's use a approach that avoids 'for' entirely, even in comprehensions.
+    # We can use a recursive function with a decorator to handle the 
+    # recursion limit or just use a very high limit.
+    
+    sys.setrecursionlimit(300000)
+    
+    def process_all(it):
+        try:
+            n_str = next(it)
+            n = int(n_str)
+            # Extract P using slice-like behavior via islice
+            from itertools import islice
+            p = list(islice(it, n))
+            
+            # Logic to find minimum operations:
+            # 0 ops: Already sorted.
+            # 1 op: There exists k such that sorting [1, k-1] and [k+1, N] sorts the whole array.
+            # This happens if there is some k where P[k] is the only element 
+            # that is not in its sorted position relative to the two blocks.
+            # More simply: 1 op is possible if there is a k such that 
+            # sorted(P[0:k]) + [P[k]] + sorted(P[k+1:]) == [1, 2, ..., N].
+            # This is equivalent to: P[k] must be the value (k+1), and 
+            # the set of elements in P[0:k] must be {1, ..., k} and 
+            # the set of elements in P[k+1:] must be {k+2, ..., N}.
+            
+            # However, the operation is: sort 1 to k-1, and k+1 to N.
+            # The element P[k] stays at index k.
+            # For the result to be 1, 2, ..., N:
+            # 1. P[k] must be k+1 (1-indexed).
+            # 2. The elements {P[0]...P[k-1]} must be {1...k}.
+            # 3. The elements {P[k+1]...P[N-1]} must be {k+2...N}.
+            
+            # Let's check if 0 operations are needed:
+            is_sorted = (p == sorted(p))
+            
+            # To check if 1 operation is enough:
+            # We need to find if there's a k such that:
+            # max(P[0...k-1]) == k and min(P[k+1...N-1]) == k+2 and P[k] == k+1.
+            # We can precompute prefix maxes and suffix mins.
+            
+            # Using map/list/zip to avoid loops:
+            # p_ints = list(map(int, p))
+            # prefix_max = ...
+            # suffix_min = ...
+            
+            # But wait, the condition for 1 op is simpler:
+            # There exists k such that sorting the two halves results in 1...N.
+            # This is true if and only if there is exactly one index k where P[k] != k+1,
+            # AND the elements are just permutations of the correct blocks.
+            # Actually, the only way 1 op works is if there is some k such that
+            # P[k] == k+1, and the remaining elements are partitioned correctly.
+            # If P is not sorted, we can always do it in 2 ops (k=1 then k=N).
+            # So the answer is 0, 1, or 2.
+            
+            # Let's refine the "1 op" condition:
+            # We need k such that:
+            # {P[0], ..., P[k-1]} == {1, ..., k} AND
+            # {P[k+1], ..., P[N-1]} == {k+2, ..., N} AND
+            # P[k] == k+1.
+            # This is equivalent to:
+            # P[k] == k+1 AND max(P[0...k-1]) == k AND min(P[k+1...N-1]) == k+2.
+            
+            # Since we can't use loops, we use a helper to check this.
+            # We can use a list comprehension to check all k, but the prompt says no 'for'.
+            # I will use 'map' and a lambda.
+            
+            p_ints = list(map(int, p))
+            
+            # To avoid 'for' in comprehensions, we use map/filter.
+            # We need prefix max and suffix min. 
+            # We can use itertools.accumulate.
+            from itertools import accumulate
+            pref_max = list(accumulate(p_ints, max))
+            suff_min = list(accumulate(p_ints[::-1], min))[::-1]
+            
+            # Check if any k satisfies the condition.
+            # k is 0-indexed.
+            # For k=0: P[0]==1 and min(P[1:])==2
+            # For k=N-1: P[N-1]==N and max(P[0:N-2])==N-1
+            # For 0 < k < N-1: P[k]==k+1 and pref_max[k-1]==k and suff_min[k+1]==k+2
+            
+            def check_k(k):
+                if k == 0:
+                    return p_ints[0] == 1 and (N < 2 or suff_min[1] == 2)
+                if k == N - 1:
+                    return p_ints[N-1] == N and (N < 2 or pref_max[N-2] == N - 1)
+                return p_ints[k] == k + 1 and pref_max[k-1] == k and suff_min[k+1] == k + 2
+
+            # Use map to apply check_k to all indices and any() to see if any are True.
+            can_do_1 = any(map(check_k, range(N)))
+            
+            result = 0 if is_sorted else (1 if can_do_1 else 2)
+            
+            return str(result), process_all(it)
+        except StopIteration:
+            return "", None
+
+    # The recursive function returns (result, next_call). 
+    # We can use a trick to flatten this into a list of results.
+    # But since we can't use loops, we'll use a recursive function 
+    # that builds the list of results.
+    
+    def run_all(it):
+        # Using a list comprehension to drive the recursion is forbidden.
+        # But we can use a recursive function.
+        def recurse(it):
+            try:
+                # We need to extract N and P.
+                # Since we can't use loops, we use islice.
+                from itertools import islice
+                n_val = int(next(it))
+                p_vals = list(islice(it, n_val))
+                
+                # Logic inside recurse
+                p_ints = p_vals
+                is_sorted = (p_ints == sorted(p_ints))
+                from itertools import accumulate
+                pref_max = list(accumulate(p_ints, max))
+                suff_min = list(accumulate(p_ints[::-1], min))[::-1]
+                
+                def check_k(k):
+                    if k == 0:
+                        return p_ints[0] == 1 and (n_val < 2 or suff_min[1] == 2)
+                    if k == n_val - 1:
+                        return p_ints[n_val-1] == n_val and (n_val < 2 or pref_max[n_val-2] == n_val - 1)
+                    return p_ints[k] == k + 1 and pref_max[k-1] == k and suff_min[k+1] == k + 2
+                
+                can_do_1 = any(map(check_k, range(n_val)))
+                res = 0 if is_sorted else (1 if can_do_1 else 2)
+                
+                return [str(res)] + recurse(it)
+            except StopIteration:
+                return []
+        
+        return recurse(it)
+
+    # Execute and print
+    it = iter(input_data[1:])
+    print("\n".join(run_all(it)))
+
+if __name__ == "__main__":
+    solve()

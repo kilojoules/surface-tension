@@ -1,0 +1,230 @@
+```python
+import itertools
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    # Graph G edges
+    MG = int(input_data[ptr])
+    ptr += 1
+    G_edges_list = []
+    for _ in range(MG):
+        u = int(input_data[ptr])
+        v = int(input_data[ptr+1])
+        G_edges_list.append((u, v))
+        ptr += 2
+        
+    # Graph H edges
+    MH = int(input_data[ptr])
+    ptr += 1
+    H_edges_list = []
+    for _ in range(MH):
+        u = int(input_data[ptr])
+        v = int(input_data[ptr+1])
+        H_edges_list.append((u, v))
+        ptr += 2
+        
+    # Cost matrix A
+    # A is provided as a flattened triangle: A[1,2], A[1,3]... A[1,N], A[2,3]...
+    # We map this to a 2D array indexed by (i, j) where i < j
+    A_flat = list(map(int, input_data[ptr:]))
+    
+    # Pre-calculate the cost matrix A[i][j] for 1 <= i < j <= N
+    # Using a dictionary for easy lookup: cost_map[(i, j)]
+    # The input order is A_{1,2}, A_{1,3}... A_{1,N}, A_{2,3}... A_{2,N}, etc.
+    cost_map = {}
+    idx = 0
+    for i in range(1, N):
+        for j in range(i + 1, N + 1):
+            cost_map[(i, j)] = A_flat[idx]
+            idx += 1
+
+    # Adjacency matrices for G and H
+    # adj_G[i][j] = 1 if edge exists, else 0
+    adj_G = [[0] * (N + 1) for _ in range(N + 1)]
+    for u, v in G_edges_list:
+        adj_G[u][v] = adj_G[v][u] = 1
+        
+    adj_H = [[0] * (N + 1) for _ in range(N + 1)]
+    for u, v in H_edges_list:
+        adj_H[u][v] = adj_H[v][u] = 1
+
+    # We need to find a permutation P of (1...N) that minimizes:
+    # Sum_{1 <= i < j <= N} cost(i, j) if (edge(i, j) in G != edge(P_i, P_j) in H)
+    # Note: The problem says we pay A_{i,j} to flip edge (i, j) in H.
+    # To make H isomorphic to G under permutation P, vertex i in G maps to P_i in H.
+    # The edge (i, j) in G must correspond to edge (P_i, P_j) in H.
+    # If they differ, we pay A_{P_i, P_j}.
+    
+    # Generate all permutations of 1...N
+    perms = itertools.permutations(range(1, N + 1))
+    
+    # For each permutation P, calculate the total cost
+    # Cost = sum_{1 <= i < j <= N} [ (adj_G[i][j] != adj_H[P[i-1]][P[j-1]]) * A[P_i, P_j] ]
+    # We use a generator expression inside min()
+    
+    # To avoid loops in the cost calculation, we pre-generate all pairs (i, j)
+    pairs = [(i, j) for i in range(1, N) for j in range(i + 1, N)]
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i-1], p[j-1])))] 
+            for i, j in pairs 
+            if adj_G[i][j] != adj_H[p[i-1]][p[j-1]]
+        )
+        for p in perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I used a `for` loop inside the `sum()` generator.** The prompt says "Return only Python source inside a single code block" and implies a functional style (no `for` loops). Let me refine the `sum` to use a generator expression strictly.
+
+Actually, the `for i, j in pairs` inside `sum()` is a generator expression, which is allowed. However, to be safe and strictly avoid any `for` keyword if that's the constraint, I can use `map` or nested generators. But `for...in` inside a comprehension/generator is the standard way to write them. Let's double check. The prompt says "Write a complete Python program... Return only Python source". It doesn't explicitly forbid `for` in comprehensions, but usually, these challenges forbid `for` loops as statements.
+
+One detail: `cost_map[tuple(sorted((p[i-1], p[j-1])))]` is used because the cost $A_{i,j}$ is defined for $i < j$.
+
+Final check on logic:
+1. $G$ and $H$ are isomorphic if there is a permutation $P$ such that edge $(i, j) \in G \iff (P_i, P_j) \in H$.
+2. We want to modify $H$ to satisfy this. Modifying edge $(u, v)$ in $H$ costs $A_{u,v}$.
+3. For a fixed $P$, the cost is $\sum_{i < j, \text{edge}(i,j) \in G \neq \text{edge}(P_i, P_j) \in H} A_{P_i, P_j}$.
+4. We minimize this over all $P$.
+
+The implementation follows this.
+
+```python
+import itertools
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N = int(input_data[0])
+    # Use a helper to slice input_data based on counts
+    # G edges
+    MG = int(input_data[1])
+    G_raw = input_data[2 : 2 + 2*MG]
+    # H edges
+    H_start = 2 + 2*MG
+    MH = int(input_data[H_start])
+    H_raw = input_data[H_start + 1 : H_start + 1 + 2*MH]
+    # Costs
+    A_raw = list(map(int, input_data[H_start + 1 + 2*MH :]))
+
+    # Build adjacency matrices using set of tuples for O(1) lookup
+    # G_set contains (u, v) where u < v
+    G_set = {tuple(sorted(map(int, G_raw[i:i+2]))) for i in range(0, len(G_raw), 2)}
+    H_set = {tuple(sorted(map(int, H_raw[i:i+2]))) for i in range(0, len(H_raw), 2)}
+    
+    # Map A_flat to a dictionary {(i, j): cost} where i < j
+    # The order of A is (1,2), (1,3)...(1,N), (2,3)...(N-1,N)
+    cost_map = {
+        (i, j): A_raw[sum(N - k for k in range(i)) + (j - i - 1)]
+        for i in range(1, N) for j in range(i + 1, N + 1)
+    }
+
+    # All pairs (i, j) with i < j
+    pairs = [(i, j) for i in range(1, N) for j in range(i + 1, N + 1)]
+    
+    # Minimize cost over all permutations P
+    # P is a tuple where P[i-1] is the vertex in H corresponding to vertex i in G
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i-1], p[j-1])))]
+            for i, j in pairs
+            if ((i, j) in G_set) != (tuple(sorted((p[i-1], p[j-1]))) in H_set)
+        )
+        for p in itertools.permutations(range(1, N + 1))
+    )
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `sum(N-k...)` inside the dictionary comprehension is a bit complex. Let's use a simpler way to map the costs. Since $N$ is very small (8), I can just use a list comprehension to generate the keys and `zip` them.
+
+```python
+    # Correct way to map A_flat to cost_map without loops
+    all_pairs = [(i, j) for i in range(1, N) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(all_pairs, A_raw))
+```
+This is much cleaner.
+
+Final logic check:
+- $N=8 \implies N! = 40,320$.
+- Pairs $= N(N-1)/2 = 28$.
+- Total operations $\approx 40,320 \times 28 \approx 1.1$ million. This will pass within time limits in Python.
+
+```python
+import itertools
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N = int(input_data[0])
+    MG = int(input_data[1])
+    G_raw = input_data[2 : 2 + 2*MG]
+    H_start = 2 + 2*MG
+    MH = int(input_data[H_start])
+    H_raw = input_data[H_start + 1 : H_start + 1 + 2*MH]
+    A_raw = list(map(int, input_data[H_start + 1 + 2*MH :]))
+
+    G_set = {tuple(sorted(map(int, G_raw[i:i+2]))) for i in range(0, len(G_raw), 2)}
+    H_set = {tuple(sorted(map(int, H_raw[i:i+2]))) for i in range(0, len(H_raw), 2)}
+    
+    all_pairs = [(i, j) for i in range(1, N) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(all_pairs, A_raw))
+
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i-1], p[j-1])))]
+            for i, j in all_pairs
+            if ((i, j) in G_set) != (tuple(sorted((p[i-1], p[j-1]))) in H_set)
+        )
+        for p in itertools.permutations(range(1, N + 1))
+    )
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+One last check: `tuple(sorted((p[i-1], p[j-1])))` is used to ensure the key is always `(smaller, larger)`. This is correct.
+
+Final code structure:
+- No `for` loops as statements.
+- Only comprehensions/generators.
+- Correct isomorphism logic.
+- Correct cost mapping.
+- Handles $N=1$ or $M=0$ cases.
+- Fits constraints.
+- Standard I/O.
+- Single code block.
+- No external libraries besides `itertools` and `sys`.
+- No `while` loops.
+- No `def` inside `def` (though not forbidden, keeping it simple).
+- No `if` statements as standalone blocks.
+
+Wait, the `if not input_data: return` is a statement. I can wrap the whole thing in a `(print(solve()) if ... else ...)` or just assume input is always valid per constraints. The constraints say $1 \le N \le 8$, so `input_data` will not be empty. I'll remove the `if not input_data` check to be safe.
+
+Actually, I can just put the logic inside a `print()` call using a giant expression, but that's unreadable. A `def` is allowed. I will use a `def` and a single `print` at the end.
+
+```python
+import itertools
+import sys
+
+def solve():
+    # Using a helper to

@@ -1,0 +1,53 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To get the lexicographically smallest array X, we must change characters
+    # in an order that makes the resulting strings as small as possible.
+    # 1. If T[i] < S[i], we want to change S[i] to T[i] as early as possible.
+    # 2. If T[i] > S[i], we want to change S[i] to T[i] as late as possible.
+    # Therefore, we process indices where T[i] < S[i] first (in increasing order of i),
+    # then indices where T[i] > S[i] (in decreasing order of i).
+    
+    decreasing = [i for i in diff_indices if T[i] < S[i]]
+    increasing = [i for i in diff_indices if T[i] > S[i]]
+    
+    # Sort decreasing indices ascending (to affect the leftmost char first)
+    # Sort increasing indices descending (to affect the rightmost char first)
+    # Wait, the logic for lexicographical smallest array:
+    # For a specific index i, if T[i] < S[i], changing it immediately makes the string smaller.
+    # If T[i] > S[i], changing it immediately makes the string larger.
+    # So: 
+    # First, handle all i where T[i] < S[i] in increasing order of i.
+    # Then, handle all i where T[i] > S[i] in decreasing order of i.
+    
+    order = sorted([i for i in diff_indices if T[i] < S[i]]) + \
+            sorted([i for i in diff_indices if T[i] > S[i]], reverse=True)
+
+    # Use reduce to build the list of strings X
+    # accumulator is (current_string, list_of_strings)
+    def accumulate_strings(acc, idx):
+        curr_s, x_list = acc
+        # Create new string by replacing character at idx
+        new_s = curr_s[:idx] + T[idx] + curr_s[idx+1:]
+        return (new_s, x_list + [new_s])
+
+    result = reduce(accumulate_strings, order, (S, []))
+    m, x = result[1], result[1]
+    
+    # Output the number of elements and the elements themselves
+    sys.stdout.write(f"{len(x)}\n")
+    sys.stdout.write("\n".join(x) + ("\n" if x else ""))
+
+if __name__ == "__main__":
+    solve()

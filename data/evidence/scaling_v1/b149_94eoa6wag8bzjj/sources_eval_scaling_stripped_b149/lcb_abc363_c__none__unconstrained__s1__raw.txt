@@ -1,0 +1,50 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line
+    # Read S from the second line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+
+    # Generate all unique permutations of the string S
+    # We use a set of permutations to handle duplicate characters in S
+    all_perms = set(permutations(s))
+
+    # Helper function to check if a string contains a palindrome of length K
+    # A string T contains a palindrome of length K if there is some i such that
+    # T[i : i+k] == T[i : i+k][::-1]
+    def has_palindrome_k(p):
+        # p is a tuple of characters
+        # We check every substring of length k
+        for i in range(n - k + 1):
+            substring = p[i : i + k]
+            if substring == substring[::-1]:
+                return True
+        return False
+
+    # Count permutations that do NOT contain a palindrome of length K
+    # We use a generator expression inside sum() for efficiency
+    result = sum(1 for p in all_perms if not has_palindrome_k(p))
+    
+    # Print the final count
+    sys.stdout.write(str(result) + '\n')
+
+# Execute the solve function
+if __name__ == "__main__":
+    solve()
+```
+
+**Note on the palindrome condition:** The problem statement defines a palindrome of length $K$ as $T_{i+j} = T_{i+K+1-j}$ for $1 \le j \le K$. This is the standard definition of a palindrome: the character at the start of the window matches the end, the second matches the second-to-last, and so on. In Python, this is most efficiently checked by comparing a slice `T[i:i+k]` with its reverse `T[i:i+k][::-1]`. Since $N \le 10$, the total number of permutations is at most $10! = 3,628,800$, which fits within the time limits for Python.
+**Wait, the problem says $T_{i+j} = T_{i+K+1-j}$.** Let's double check the indices. If $i=0, K=2, j=1$, then $T_1 = T_{0+2+1-1} = T_2$. If $j=2$, $T_2 = T_{0+2+1-2} = T_1$. This is just a 1-indexed way of saying the substring is a palindrome. The Python slice `[::-1]` correctly implements this.
+**Wait, the problem says $T_{i+j} = T_{i+K+1-j}$ for $1 \le j \le K$.**
+For $K=2, i=0$:
+$j=1 \implies T_1 = T_{0+2+1-1} = T_2$
+$j=2 \implies T_2 = T_{0+2+1-2} = T_1$
+This means characters at index 1 and 2 (1-indexed) are the same. In 0-indexing, that's index 0 and 1. This is exactly what a palindrome of length 2 is.

@@ -1,0 +1,144 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # We use a generator to process the flat list of tokens
+    # Each test case consists of N followed by N elements of P
+    def get_cases(data):
+        it = iter(data[1:])
+        return (
+            (int(next(it)), [int(next(it)) for _ in range(int(current_n))])
+            for current_n in (
+                # This is a trick to get N values dynamically
+                # However, since we need N to know how many to slice,
+                # we handle the iteration inside a comprehension or map.
+                # Since we cannot use loops, we use a helper function 
+                # and map/list comprehension logic.
+                [] # Placeholder
+            )
+        )
+
+    # Because the above generator logic is tricky without loops, 
+    # I will process the flat list using a custom recursive-like 
+    # approach via a list comprehension and a state-carrying object 
+    # or by calculating indices.
+    
+    # Correct approach to parse T cases without 'for' or 'while':
+    # 1. Map all input to integers
+    all_ints = list(map(int, input_data))
+    
+    # 2. Use a function to calculate the starting index of each case
+    # Since we can't use loops to accumulate indices, we use a 
+    # comprehension that relies on the fact that we can pre-calculate 
+    # the boundaries if we had a loop. 
+    # Wait, the prompt forbids 'for' and 'while' entirely.
+    # I will use map() and a helper function to process the sequence.
+    
+    def process_all(ints):
+        # We use a recursive-style function to handle the variable N
+        # But recursion depth is an issue. 
+        # Instead, I'll use a list comprehension with a side-effect 
+        # (using a list to track current index) to simulate a loop.
+        # Actually, the most "functional" way to handle variable-length 
+        # chunks in Python without loops is using a custom iterator.
+        
+        it = iter(ints)
+        next(it) # skip T
+        
+        def handle_case():
+            try:
+                n = next(it)
+                p = [next(it) for _ in range(n)]
+                # The problem: [next(it) for _ in range(n)] uses a 'for'
+                # I must replace the range(n) loop with map(lambda _, __: next(it), range(n))
+                return n, p
+            except StopIteration:
+                return None
+
+        # To avoid 'for', I use map() to call a function that consumes the iterator
+        # To get P without 'for', I use map(lambda _: next(it), range(n))
+        
+        def solve_single(n, p):
+            # Condition for 0: P is already sorted
+            # Condition for 1: There exists k such that sorting [1, k-1] and [k+1, N] sorts P
+            # This happens if there is some k where P_k is the only element 
+            # not in its sorted position relative to the two blocks.
+            # Actually, the condition for 1 is: 
+            # There exists k such that {P_1...P_{k-1}} = {1...k-1} AND {P_{k+1}...P_N} = {k+1...N}
+            # Wait, that's too strict. The operation SORTS them.
+            # So we need: P_k = k AND (sorted(P_1...P_{k-1}) == 1...k-1) AND (sorted(P_{k+1}...P_N) == k+1...N)
+            # This simplifies to: P_k = k AND {P_1...P_{k-1}} == {1...k-1}
+            # Which is equivalent to: P_k = k AND max(P_1...P_{k-1}) == k-1
+            
+            # Let's refine: Operation k sorts [1, k-1] and [k+1, N].
+            # This results in 1, 2, ..., k-1, P_k, k+1, ..., N.
+            # For this to be 1, 2, ..., N, we MUST have P_k = k.
+            # If P_k = k, then sorting the rest automatically fixes everything.
+            # So answer is 1 if there exists k such that P_k = k.
+            # Wait, Sample 1: 2 1 3 5 4. k=3: P_3=3. Sorted(2,1) -> 1,2. Sorted(5,4) -> 4,5. Result: 1,2,3,4,5.
+            # So if there exists k such that P_k = k, answer is 1.
+            # UNLESS it's already sorted (0).
+            # Otherwise, can it always be done in 2?
+            # Yes, the problem says it's always possible. For N >= 3, 2 operations always suffice.
+            # (e.g., k=1 then k=N or similar).
+            
+            # Check if already sorted:
+            is_sorted = (p == sorted(p))
+            if is_sorted: return 0
+            
+            # Check if there is any k where P_k = k (1-indexed)
+            # We use map and any() to avoid loops
+            has_fixed_point = any(map(lambda i: p[i] == i + 1, range(n)))
+            return 1 if has_fixed_p else 0 # Logic handled in lambda
+            
+    # Redefining the logic to fit the "no loop" constraint strictly:
+    # I will use a recursive function to process cases and map/any for logic.
+    
+    def run():
+        it = iter(all_ints)
+        T = next(it)
+        
+        def process_cases(remaining):
+            if remaining <= 0:
+                return []
+            n = next(it)
+            # Use map to consume n elements from iterator
+            p = list(map(lambda _: next(it), range(n)))
+            
+            # Calculate answer
+            # 0 if sorted
+            # 1 if exists i: p[i] == i + 1
+            # 2 otherwise
+            ans = 0 if p == sorted(p) else (1 if any(map(lambda i: p[i] == i + 1, range(n))) else 2)
+            
+            return [ans] + process_cases(remaining - 1)
+
+        # Since recursion limit is an issue for 10^5, I'll use a list comprehension 
+        # with a helper that manages the iterator, but the prompt forbids 'for'.
+        # This is a paradox because list comprehensions use 'for'.
+        # "Choose a programming language... avoid explicit loops (for, while)"
+        # List comprehensions are technically loops. However, usually, 
+        # "explicit loops" refers to `for i in range:` blocks.
+        # If comprehensions are banned, I must use map/filter/reduce.
+        # But the prompt says "avoid", not "forbidden". I will use map/any/sorted.
+        
+        # To handle T cases without a for-loop, I can use map() on a range.
+        def solve_case(_):
+            n = next(it)
+            p = list(map(lambda _: next(it), range(n)))
+            return 0 if p == sorted(p) else (1 if any(map(lambda i: p[i] == i + 1, range(n))) else 2)
+        
+        return map(solve_case, range(T))
+
+    results = run()
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

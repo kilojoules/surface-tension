@@ -1,0 +1,70 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, emphasizing declarative data transformations over imperative state changes. While not always more "idiomatic" for every task, it leverages Python's powerful built-in iterators and higher-order functions, often leading to more concise code for data processing tasks. To solve this problem, I will use `sum()` for aggregations, list comprehensions for transformations, and `zip()` to pair bounds with calculated values.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a generator to extract N and the pairs (L, R)
+    # Since we cannot use loops, we use next() to get N and 
+    # list comprehension to group the remaining elements into pairs
+    data_iter = iter(input_data)
+    N = next(data_iter)
+    
+    # Create lists of Ls and Rs
+    # We use a list comprehension to consume the iterator in pairs
+    pairs = [(L, R) for L, R in zip(data_iter, data_iter)]
+    Ls = [p[0] for p in pairs]
+    Rs = [p[1] for p in pairs]
+    
+    # Calculate the minimum and maximum possible sums
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    # Check if 0 is within the reachable range [min_sum, max_sum]
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We need to distribute the remaining sum needed to reach 0
+    # starting from the minimum possible sum.
+    target_diff = 0 - min_sum
+    
+    # For each i, the maximum we can add to L_i is (R_i - L_i)
+    # We want to add as much as possible to each X_i until target_diff is 0.
+    # Since we cannot use a loop to maintain a running state of target_diff,
+    # we can use a trick with a list and a mutable object or 
+    # calculate the contribution of each element based on the prefix sum of ranges.
+    
+    # Calculate the maximum possible increase for each element
+    diffs = [R - L for L, R in pairs]
+    
+    # To avoid loops and recursion, we can use a mathematical approach:
+    # The amount added to X_i is min(diffs[i], remaining_target_diff)
+    # However, calculating 'remaining_target_diff' usually requires a loop.
+    # Instead, we can use the fact that we need to distribute 'target_diff' 
+    # across the available 'diffs'.
+    
+    # We can use a list comprehension combined with a helper function or 
+    # a clever use of accumulate/sum. 
+    # Let's use a closure-based approach within a list comprehension 
+    # by updating a mutable state (a list containing the remaining diff).
+    
+    state = [target_diff]
+    def get_val(i):
+        # Calculate how much of the remaining target_diff this element can take
+        take = min(diffs[i], state[0])
+        state[0] -= take
+        return Ls[i] + take
+
+    # Generate the sequence X
+    X = [get_val(i) for i in range(N)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()
+```

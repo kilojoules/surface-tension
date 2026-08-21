@@ -1,0 +1,73 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries in order. 
+    # State: (current_height_offset, sorted_list_of_planting_times, results)
+    # A plant planted at time 't' has height: current_height_offset - t
+    # Condition height >= H becomes: current_height_offset - t >= H  => t <= current_height_offset - H
+    
+    # Parse queries into a list of tuples
+    # Since queries have different lengths, we use an iterator to consume the input
+    it = iter(input_data[1:])
+    
+    def parse_queries(count):
+        if count == 0:
+            return []
+        # This is a trick to avoid loops while parsing variable length queries
+        # We use a recursive-like structure via a list comprehension and a helper
+        def get_next():
+            q_type = next(it)
+            if q_type == '1':
+                return (1, 0)
+            elif q_type == '2':
+                return (2, int(next(it)))
+            else:
+                return (3, int(next(it)))
+        
+        # Using map/range to simulate the loop for parsing
+        return [get_next() for _ in range(Q)]
+
+    queries = parse_queries(Q)
+
+    def process(state, query):
+        offset, plants, results = state
+        q_type, val = query
+        
+        if q_type == 1:
+            # Plant height 0 means its 'planting time' is the current offset
+            # We maintain the plants list sorted to use binary search
+            # Since offset only increases, new plants are always added to the end
+            return (offset, plants + [offset], results)
+        
+        elif q_type == 2:
+            # Increase height of all plants by T
+            return (offset + val, plants, results)
+        
+        else: # q_type == 3
+            # Harvest plants where height >= H
+            # height = offset - planting_time >= H  => planting_time <= offset - H
+            threshold = offset - val
+            # Find index of first plant with planting_time > threshold
+            idx = bisect_left(plants, threshold + 1)
+            # Plants from 0 to idx-1 are harvested
+            harvested_count = idx
+            # Remaining plants are from idx onwards
+            return (offset, plants[idx:], results + [harvested_count])
+
+    # Use reduce to simulate the state machine across all queries
+    final_state = reduce(process, queries, (0, [], []))
+    
+    # Output all results joined by newlines
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()

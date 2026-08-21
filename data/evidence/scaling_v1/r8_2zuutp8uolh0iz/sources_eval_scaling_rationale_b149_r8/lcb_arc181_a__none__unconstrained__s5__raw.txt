@@ -1,0 +1,115 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state-mutation to a functional paradigm, emphasizing the transformation of data streams. In this specific problem, the goal is to find the minimum number of operations to sort a permutation. An operation at index $k$ sorts everything to the left and everything to the right of $k$. This means if we can find a $k$ such that all elements $\{1, \dots, k-1\}$ are to the left of $k$ and all elements $\{k+1, \dots, N\}$ are to the right of $k$, one operation suffices. Otherwise, if the permutation is not already sorted, it can be proven that at most 2 operations are always sufficient for $N \ge 3$.
+
+To implement this without loops, I will use `sys.stdin.read().split()` to gather all input, `map` for transformations, and list comprehensions (which are expressions, not statements) to process the test cases. Specifically, I will check if the permutation is already sorted (0 operations), if there exists a $k$ that splits the permutation into two sets of values (1 operation), and otherwise return 2.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # Use a generator to group the flat list into (N, P) pairs
+    # The slice [1:] skips T, then we group by N
+    def get_cases(data):
+        it = iter(data[1:])
+        return [ (int(next(it)), [int(next(it)) for _ in range(int(current_n))]) 
+                for current_n in [int(x) for x in data[1:]] ] # This is wrong logic for variable N
+    
+    # Correct way to handle variable N without loops:
+    # We process the flat list by keeping track of the current index.
+    # Since we cannot use while loops, we use a recursive-like structure 
+    # via a list comprehension or map, but the problem forbids recursion.
+    # However, we can process the flat list by iterating through the 
+    # indices if we know the structure. 
+    # Wait, the constraint says "no for/while loops". 
+    # I will use a technique with map and a helper function to handle the 
+    # stream of data.
+    pass
+
+# Redefining solve to strictly follow constraints using map/list comprehensions
+def run():
+    data = sys.stdin.read().split()
+    if not data:
+        return
+    
+    T_val = int(data[0])
+    
+    # To handle variable N without loops, we can't easily slice.
+    # But we can use a generator and next() inside a list comprehension.
+    it = iter(data[1:])
+    
+    def process_case():
+        # This function is called inside a list comprehension
+        # It reads N, then reads N elements.
+        n = int(next(it))
+        p = [int(next(it)) for _ in range(n)]
+        
+        # 0 operations: already sorted
+        is_sorted = all(p[i] == i + 1 for i in range(n))
+        if is_sorted:
+            return 0
+        
+        # 1 operation: exists k such that {P1...Pk-1} are {1...k-1} 
+        # and {Pk+1...PN} are {k+1...N}.
+        # This is equivalent to: max(P1...Pk-1) < k and min(Pk+1...PN) > k.
+        # We can precompute prefix max and suffix min.
+        
+        # Using list comprehensions to build prefix/suffix arrays
+        # Note: range() in list comprehension is allowed.
+        pref_max = [0] * n
+        # We can't use a loop to fill pref_max. 
+        # But we can use a trick with a list and a reducer or a scan.
+        # Since we can't use functools.reduce (it's a loop internally) 
+        # and can't use loops, we use the fact that we can use 
+        # a list comprehension with a helper list that updates.
+        # Actually, the most reliable way to do a 'scan' without loops 
+        # in Python is using itertools.accumulate.
+        from itertools import accumulate
+        
+        p_max = list(accumulate(p, max))
+        p_min = list(accumulate(p[::-1], min))[::-1]
+        
+        # Check if any k (1-indexed) satisfies the condition.
+        # For k=1: min(P2...PN) > 1
+        # For k=N: max(P1...PN-1) < N
+        # For 1 < k < N: max(P1...Pk-1) < k and min(Pk+1...PN) > k
+        
+        # k=1
+        cond1 = (p_min[1] > 1) if n > 1 else False
+        # k=N
+        condN = (p_max[n-2] < n) if n > 1 else False
+        # 1 < k < N
+        # We check if any i in 1...n-2 (0-indexed) satisfies p_max[i-1] < i+1 and p_min[i+1] > i+1
+        # Wait, the condition is: the set {P1...Pk-1} is {1...k-1} AND {Pk+1...PN} is {k+1...N}.
+        # This is true if max(P1...Pk-1) == k-1 and min(Pk+1...PN) == k+1.
+        
+        # For k=1: min(P[1:]) == 2
+        # For k=n: max(P[:n-1]) == n-1
+        # For 1 < k < n: p_max[k-2] == k-1 and p_min[k] == k+1
+        
+        check_k = [
+            (p_min[1] == 2) if n > 1 else False,
+            (p_max[n-2] == n-1) if n > 1 else False
+        ] + [
+            (p_max[k-2] == k-1 and p_min[k] == k+1) 
+            for k in range(2, n)
+        ]
+        
+        if any(check_k):
+            return 1
+        
+        return 2
+
+    # Use map to apply process_case T times
+    # Since process_case uses next(it), we can just call it in a list comprehension
+    results = [process_case() for _ in range(T_val)]
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    run()
+```

@@ -1,0 +1,189 @@
+```python
+import sys
+from itertools import product
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    instructions = []
+    idx = 2
+    for _ in range(Q):
+        h = input_data[idx]
+        t = int(input_data[idx+1])
+        instructions.append((h, t))
+        idx += 2
+
+    # State: (left_hand, right_hand)
+    # Initial state: (1, 2)
+    # We want to find the minimum operations to satisfy Q instructions.
+    # Since N and Q are small (100), and the other hand must remain stationary,
+    # the movement of the active hand is constrained to the arc not containing the other hand.
+    
+    # Function to calculate shortest distance between a and b on a ring of size N
+    # without passing through point c.
+    # The ring is 1-indexed.
+    def get_dist(start, end, obstacle):
+        # We can move clockwise or counter-clockwise.
+        # One direction is blocked by the obstacle.
+        # Let's check both directions.
+        
+        # Clockwise distance (increasing index)
+        # To go from start to end clockwise:
+        # If we don't cross the obstacle, the distance is (end - start) % N
+        # But we must check if the obstacle lies on the path.
+        
+        # A simpler way: 
+        # There are only two paths between any two points on a ring.
+        # Path 1: start -> start+1 -> ... -> end
+        # Path 2: start -> start-1 -> ... -> end
+        
+        # We check if the obstacle is "inside" the range.
+        # Since we can't jump over the obstacle, we check if the path is clear.
+        
+        # Distance clockwise
+        cw_dist = (end - start) % N
+        # The nodes visited clockwise are (start + i) % N
+        # The obstacle is at 'obstacle'. 
+        # The obstacle is hit if (obstacle - start) % N < cw_dist
+        # Wait, the above is for 0-indexed. Let's use 0-indexed internally.
+        return None
+
+    # Let's redefine using 0-indexing
+    # start, end, obs are 0...N-1
+    def dist_without(s, e, obs):
+        if s == e:
+            return 0
+        # Clockwise distance
+        cw_dist = (e - s) % N
+        # Obstacle is hit if (obs - s) % N < cw_dist
+        # Actually, the only way to get from s to e is clockwise or counter-clockwise.
+        # If the obstacle is in the way clockwise, we MUST go counter-clockwise.
+        # If it's in the way counter-clockwise, we MUST go clockwise.
+        # It is guaranteed that the instruction is achievable, so one path is always clear.
+        
+        # Check if clockwise path is clear:
+        # The clockwise path consists of nodes { (s + i) % N for i in 1..cw_dist }
+        # The obstacle is hit if (obs - s) % N is between 1 and cw_dist-1.
+        # Wait, the rule is "destination part". So we can't move TO the obstacle.
+        # So if (obs - s) % N < cw_dist, the clockwise path is blocked.
+        
+        if (obs - s) % N < cw_dist:
+            # Clockwise is blocked, must go counter-clockwise
+            return (s - e) % N
+        else:
+            # Clockwise is clear
+            return cw_dist
+
+    # Initial state
+    curr_l, curr_r = 0, 1 # 0-indexed (1, 2)
+    total_ops = 0
+    
+    for h, t in instructions:
+        target = t - 1 # 0-indexed
+        if h == 'L':
+            total_ops += dist_without(curr_l, target, curr_r)
+            curr_l = target
+        else:
+            total_ops += dist_without(curr_r, target, curr_l)
+            curr_r = target
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a logic error in my `dist_without` function regarding the obstacle. If the obstacle is at the destination, the problem says $T_i \neq r_i$ (for $H_i=L$), so the destination itself is never the obstacle. The obstacle blocks the path if it is any of the nodes *between* the start and the destination.
+
+Let's refine:
+Clockwise distance is $d = (e - s) \pmod N$.
+The nodes visited are $(s+1)\pmod N, \dots, (s+d)\pmod N$.
+The obstacle $obs$ is encountered if $(obs - s) \pmod N \in \{1, \dots, d-1\}$.
+Actually, the rule is: "you can do this only if the other hand is not on the destination part."
+So if we want to move from $s$ to $e$, and the obstacle is at $obs$, we cannot step on $obs$.
+If $(obs - s) \pmod N < d$, then the clockwise path is blocked because we would hit $obs$ before or at the destination. Since $obs \neq e$, we hit it *before*.
+
+Correct logic:
+Clockwise distance $d_{cw} = (e - s) \pmod N$.
+Counter-clockwise distance $d_{ccw} = (s - e) \pmod N$.
+Clockwise path is blocked if $(obs - s) \pmod N < d_{cw}$.
+Otherwise, clockwise is clear.
+Since it's guaranteed to be achievable, if clockwise is blocked, counter-clockwise must be clear.
+
+Final check on Sample 1:
+N=6, Q=3. Start (0, 1).
+1. R 4: target=3, obs=0. $d_{cw}=(3-1)\%6=2$. $(0-1)\%6=5$. $5 < 2$ is False. Dist=2. State (0, 3).
+2. L 5: target=4, obs=3. $d_{cw}=(4-0)\%6=4$. $(3-0)\%6=3$. $3 < 4$ is True. Blocked. Dist=$(0-4)\%6=2$. State (4, 3).
+3. R 6: target=5, obs=4. $d_{cw}=(5-3)\%6=2$. $(4-3)\%6=1$. $1 < 2$ is True. Blocked. Dist=$(3-5)\%6=4$. State (4, 5).
+Total = 2 + 2 + 4 = 8. Correct.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into a list of (H, T)
+    # Using a list comprehension to process the flat input_data list
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Initial state: left hand at 1, right hand at 2 (0-indexed: 0, 1)
+    curr_l, curr_r = 0, 1
+    total_ops = 0
+    
+    for h, t in instructions:
+        target = t - 1 # Convert to 0-indexed
+        
+        # Identify which hand is moving and which is the obstacle
+        s = curr_l if h == 'L' else curr_r
+        obs = curr_r if h == 'L' else curr_l
+        e = target
+        
+        # Calculate distances on the ring
+        # Clockwise distance from s to e
+        d_cw = (e - s) % N
+        # Check if the obstacle is encountered on the clockwise path
+        # The obstacle is hit if its relative position from s is less than the distance to e
+        if (obs - s) % N < d_cw:
+            # Clockwise is blocked, must go counter-clockwise
+            dist = (s - e) % N
+        else:
+            # Clockwise is clear
+            dist = d_cw
+            
+        total_ops += dist
+        
+        # Update the position of the hand that moved
+        if h == 'L':
+            curr_l = target
+        else:
+            curr_r = target
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the code in a single block. I will provide the final version.
+One last check: $N, Q \le 100$, so this $O(Q)$ approach is perfectly efficient.
+
+Final logic for `dist`:
+If we move clockwise, we visit $(s+1)\%N, (s+2)\%N, \dots, (s+d_{cw})\%N$.
+The obstacle $obs$ is hit if $(obs-s)\%N \in \{1, \dots, d_{cw}\}$.
+Since $obs \neq e$, the condition is simply $(obs-s)\%N < d_{cw}$.
+If this is true, we must go counter-clockwise, distance $(s-e)\%N$.
+Otherwise, we go clockwise, distance $(e-s)\%N$.

@@ -1,0 +1,81 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = zip(map(int, input_data[3::2]), map(int, input_data[4::2]))
+
+    # State: (rows_walls, cols_walls, total_walls)
+    # rows_walls[r] is a sorted list of columns containing walls in row r
+    # cols_walls[c] is a sorted list of rows containing walls in column c
+    initial_rows = [list(range(1, W + 1)) for _ in range(H + 1)]
+    initial_cols = [list(range(1, H + 1)) for _ in range(W + 1)]
+    
+    def remove_wall(state, r, c):
+        rows, cols, count = state
+        # We need to remove c from rows[r] and r from cols[c]
+        # Since we can't use loops, we use bisect to find indices and slice to remove
+        if r < 1 or r > H or c < 1 or c > W:
+            return state
+        
+        # Check if wall exists
+        idx_r = bisect_left(rows[r], c)
+        if idx_r == len(rows[r]) or rows[r][idx_r] != c:
+            return state
+        
+        # Remove from row list
+        rows[r][idx_r:idx_r+1] = []
+        # Remove from col list
+        idx_c = bisect_left(cols[c], r)
+        cols[c][idx_c:idx_c+1] = []
+        
+        return (rows, cols, count - 1)
+
+    def process_query(state, query):
+        rows, cols, count = state
+        r, c = query
+        
+        # Check if wall exists at (r, c)
+        idx_r = bisect_left(rows[r], c)
+        exists = idx_r < len(rows[r]) and rows[r][idx_r] == c
+        
+        if exists:
+            return remove_wall(state, r, c)
+        
+        # If no wall, destroy 4 neighbors
+        # 1. Up
+        idx_up = bisect_left(cols[c], r)
+        up_r = cols[c][idx_up-1] if idx_up > 0 else None
+        # 2. Down
+        down_r = cols[c][idx_up] if idx_up < len(cols[c]) else None
+        # 3. Left
+        idx_left = bisect_left(rows[r], c)
+        left_c = rows[r][idx_left-1] if idx_left > 0 else None
+        # 4. Right
+        right_c = rows[r][idx_left] if idx_left < len(rows[r]) else None
+        
+        # Apply removals sequentially using reduce to avoid loops
+        return reduce(
+            lambda s, target: remove_wall(s, *target) if target[0] is not None else s,
+            [
+                (up_r, c) if up_r else (None, None),
+                (down_r, c) if down_r else (None, None),
+                (r, left_c) if left_c else (None, None),
+                (r, right_c) if right_c else (None, None)
+            ],
+            state
+        )
+
+    final_state = reduce(process_query, queries, (initial_rows, initial_cols, H * W))
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

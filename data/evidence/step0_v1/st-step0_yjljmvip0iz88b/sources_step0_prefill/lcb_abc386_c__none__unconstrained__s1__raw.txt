@@ -1,0 +1,66 @@
+```python
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    # The constraint to avoid explicit loops forces a functional programming style,
+    # which can be cleaner for simple transformations but is generally less idiomatic 
+    # for complex logic in Python. For this problem, we need to check if the 
+    # edit distance is <= 1.
+    
+    # 1. Check if strings are identical
+    if s == t:
+        print("Yes")
+        return
+
+    # Since K=1, we only need to check if one operation suffices.
+    # The length difference must be at most 1.
+    if abs(len(s) - len(t)) > 1:
+        print("No")
+        return
+
+    # Helper to check if two strings are identical after ignoring one character
+    # This covers deletion from S or insertion into S.
+    def check_one_diff(s1, s2):
+        # s1 is the longer string, s2 is the shorter string
+        # We find the first mismatch
+        # Using a generator to find the first index where characters differ
+        mismatch_idx = next((i for i in range(len(s2)) if s1[i] != s2[i]), len(s2))
+        # If we remove the character at mismatch_idx from s1, does it match s2?
+        return s1[:mismatch_idx] + s1[mismatch_idx+1:] == s2
+
+    # Case 1: Lengths are equal (Possible Replace operation)
+    if len(s) == len(t):
+        # Count mismatches
+        mismatches = sum(1 for a, b in zip(s, t) if a != b)
+        if mismatches <= 1:
+            print("Yes")
+        else:
+            print("No")
+        return
+
+    # Case 2: Lengths differ by 1 (Possible Insert or Delete operation)
+    if len(s) > len(t):
+        # Try deleting one char from S
+        if check_one_diff(s, t):
+            print("Yes")
+        else:
+            print("No")
+    else:
+        # Try inserting one char into S (which is deleting one from T)
+        if check_one_diff(t, s):
+            print("Yes")
+        else:
+            print("No")
+
+if __name__ == "__main__":
+    solve()
+```

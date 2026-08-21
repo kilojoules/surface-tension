@@ -1,0 +1,189 @@
+```python
+import itertools
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a generator/iterator to consume input sequentially
+    it = iter(map(int, input_data))
+    
+    N = next(it)
+    
+    # Read Graph G
+    M_G = next(it)
+    # Create a set of edges for G. Each edge is a sorted tuple (u, v)
+    # We use a list comprehension to consume 2*M_G elements from the iterator
+    g_edges_list = [next(it) for _ in range(2 * M_G)]
+    G = {tuple(sorted((g_edges_list[i], g_edges_list[i+1]))) 
+         for i in range(0, 2 * M_G, 2)}
+    
+    # Read Graph H
+    M_H = next(it)
+    h_edges_list = [next(it) for _ in range(2 * M_H)]
+    H = {tuple(sorted((h_edges_list[i], h_edges_list[i+1]))) 
+         for i in range(0, 2 * M_H, 2)}
+    
+    # Read Cost Matrix A
+    # A[i][j] will store the cost to flip edge (i+1, j+1)
+    # The input provides A_{1,2}, A_{1,3}... A_{1,N}, then A_{2,3}...
+    # We read the remaining items into a list
+    flat_A = list(it)
+    
+    # To map (i, j) to the index in flat_A:
+    # The number of elements before A_{i,j} (1 <= i < j <= N) is:
+    # Sum_{k=1}^{i-1} (N - k)  + (j - i - 1)
+    # Sum_{k=1}^{i-1} (N - k) = (i-1)*N - (i-1)*i/2
+    
+    # We pre-calculate the cost for every possible pair (i, j) 1 <= i < j <= N
+    # cost_map[(i, j)] = cost
+    # We can use a list comprehension to build the map
+    # The total number of pairs is N*(N-1)//2
+    pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = {pairs[idx]: flat_A[idx] for idx in range(len(pairs))}
+
+    # We need to find a permutation P of (1...N) that minimizes:
+    # Sum_{1 <= i < j <= N} cost(P_i, P_j) if (edge(i,j) in G != edge(P_i, P_j) in H)
+    
+    # Generate all permutations of (1...N)
+    perms = itertools.permutations(range(1, N + 1))
+    
+    # For a fixed permutation P, the cost is the sum over all pairs (i, j)
+    # where the adjacency in G(i, j) differs from adjacency in H(P_i, P_j)
+    # Note: i and j are indices 1...N
+    
+    # To avoid loops, we use a generator expression inside min()
+    # We iterate over all permutations P
+    # For each P, we calculate the sum of costs for all pairs (i, j)
+    
+    # We define the cost for a specific permutation P
+    # P is a tuple where P[i-1] is the image of vertex i
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G) != (tuple(sorted((P[i-1], P[j-1]))) in H)
+        )
+        for P in perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+**Correction on the logic inside the `min`**:
+The isomorphism definition says: edge $(i, j)$ exists in $G$ iff edge $(P_i, P_j)$ exists in $H$.
+If this condition is violated, we must pay $A_{P_i, P_j}$ to flip the edge in $H$ to match $G$.
+
+Wait, the cost $A_{i,j}$ is associated with the vertices of $H$. If we map vertex $i$ of $G$ to $P_i$ of $H$, and the edge status differs, we pay $A_{P_i, P_j}$.
+
+Let's refine the `min` block:
+```python
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G) != (tuple(sorted((P[i-1], P[j-1]))) in H)
+        )
+        for P in perms
+    )
+```
+This correctly checks if the edge $(i, j)$ in $G$ matches the edge $(P_i, P_j)$ in $H$. If they differ, it adds the cost of toggling the edge between vertices $P_i$ and $P_j$ in $H$.
+
+Final check on constraints: $N=8$ means $8! = 40,320$ permutations. For each, we check $8 \times 7 / 2 = 28$ pairs. Total operations $\approx 1.1$ million, which fits well within time limits for Python.
+The `tuple(sorted((i, j)))` in the `if` is slightly redundant since $i < j$ is guaranteed by the range, but $P_i$ and $P_j$ can be in any order, so `sorted` is needed for the $H$ lookup.
+
+One final detail: the input $A_{i,j}$ is given for $1 \le i < j \le N$. My `pairs` list generates them in exactly that order, so `flat_A[idx]` maps correctly.
+
+```python
+import itertools
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    it = iter(map(int, input_data))
+    N = next(it)
+    M_G = next(it)
+    g_edges_list = [next(it) for _ in range(2 * M_G)]
+    G = {tuple(sorted((g_edges_list[i], g_edges_list[i+1]))) for i in range(0, 2 * M_G, 2)}
+    M_H = next(it)
+    h_edges_list = [next(it) for _ in range(2 * M_H)]
+    H = {tuple(sorted((h_edges_list[i], h_edges_list[i+1]))) for i in range(0, 2 * M_H, 2)}
+    flat_A = list(it)
+    pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = {pairs[idx]: flat_A[idx] for idx in range(len(pairs))}
+    perms = itertools.permutations(range(1, N + 1))
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G) != (tuple(sorted((P[i-1], P[j-1]))) in H)
+        )
+        for P in perms
+    )
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `(i, j) in G` check assumes $i < j$. Since my loop is `for i in range(1, N+1)` and `for j in range(i+1, N+1)`, $i$ is always less than $j$. This is correct.
+
+Final refined code block:
+```python
+import itertools
+import sys
+
+def solve():
+    # Read all input and parse into a flat list of integers
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    it = iter(map(int, input_data))
+    
+    # N is the number of vertices
+    N = next(it)
+    
+    # Graph G: store edges as sorted tuples in a set for O(1) lookup
+    M_G = next(it)
+    g_coords = [next(it) for _ in range(2 * M_G)]
+    G = {tuple(sorted((g_coords[i], g_coords[i+1]))) for i in range(0, 2 * M_G, 2)}
+    
+    # Graph H: store edges as sorted tuples in a set for O(1) lookup
+    M_H = next(it)
+    h_coords = [next(it) for _ in range(2 * M_H)]
+    H = {tuple(sorted((h_coords[i], h_coords[i+1]))) for i in range(0, 2 * M_H, 2)}
+    
+    # Cost Matrix A: map (i, j) where i < j to the cost A_{i,j}
+    flat_A = list(it)
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = {all_pairs[idx]: flat_A[idx] for idx in range(len(all_pairs))}
+    
+    # Try all N! permutations P of vertices 1...N
+    # For each permutation, calculate the total cost to make H isomorphic to G
+    # The cost is the sum of A_{P_i, P_j} for all pairs (i, j) where 
+    # the edge existence in G differs from that in H.
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G) != (tuple(sorted((P[i-1], P[j-1]))) in H)
+        )
+        for P in itertools.permutations(range(1, N + 1))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+One last check: `(i, j) in G` works because $i < j$ and $G$ contains sorted tuples. `tuple(sorted((P[i-1], P[j-1]))) in H` works because $H$ contains sorted tuples. `cost_map` uses sorted tuples. Everything is consistent.

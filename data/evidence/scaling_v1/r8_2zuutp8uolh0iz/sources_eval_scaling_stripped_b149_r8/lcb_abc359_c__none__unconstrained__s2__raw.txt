@@ -1,0 +1,168 @@
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[0:2])
+    tx, ty = map(int, input_data[2:4])
+
+    # The tiling pattern is a brick-like layout.
+    # A tile covers A_{i,j} and A_{i+1,j} if i+j is even.
+    # This means for a fixed j, the tiles are {(0,j), (1,j)}, {(2,j), (3,j)} if j is even,
+    # and {(1,j), (2,j)}, {(3,j), (4,j)} if j is odd.
+    
+    # Let's normalize the coordinates.
+    # The cost to move between (sx, sy) and (tx, ty) depends on the Manhattan distance
+    # and the relative alignment of the tiles.
+    
+    # The distance in y is simply |sy - ty| because every vertical move 
+    # necessarily enters a new tile.
+    dy = abs(sy - ty)
+    
+    # The distance in x is |sx - tx|.
+    # However, moving horizontally within a tile costs 0.
+    # In any row j, tiles are pairs of squares. 
+    # If j is even, pairs are (0,1), (2,3), ...
+    # If j is odd, pairs are (1,2), (3,4), ...
+    
+    # Let's transform the coordinates to a simpler space.
+    # We can think of this as a graph problem on a grid where some edges have weight 0.
+    # The cost is equivalent to:
+    # cost = max(dy, (dx + dy + 1) // 2) if we consider the parity shifts.
+    # More accurately, the distance is dy + max(0, (dx - dy + 1) // 2) 
+    # but adjusted for the starting parity.
+    
+    # A known formula for this specific tiling problem (often found in competitive programming)
+    # is based on the observation that you can move diagonally (1 unit right, 1 unit up)
+    # and potentially stay in the same tile or enter only one new tile.
+    
+    # Let's use the coordinate transformation:
+    # The cost to move from (sx, sy) to (tx, ty) is:
+    # Let dx = tx - sx, dy = ty - sy.
+    # The distance is max(abs(dy), (abs(dx) + abs(dy) + 1) // 2) 
+    # if the parity of the start and end allows "free" horizontal moves.
+    
+    # Correct logic for this specific tiling:
+    # The cost is dy + max(0, (dx_needed_after_dy_moves + 1) // 2)
+    # But since we can move in any direction, we use absolute differences.
+    
+    # Let's refine:
+    # In each step of dy, we can move 1 unit horizontally for "free" (cost 1 for the vertical move).
+    # So we can cover 2 * dy distance horizontally using dy vertical moves and 
+    # strategically picking the parity of the rows.
+    
+    # The actual minimum cost is:
+    # Let X = sx + sy, Y = tx + ty
+    # Let X' = sx - sy, Y' = tx - ty
+    # The distance is max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty) + 1) // 2)
+    # Wait, the parity of sx+sy matters.
+    
+    # Let's use the property: 
+    # Cost = max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty) + (1 if (sx+sy)%2 != (tx+ty)%2 else 0)) // 2)
+    # Actually, the simplest correct formula for this tiling is:
+    # ans = max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty) + 1) // 2)
+    # But we must check if the start and end are in the same tile.
+    
+    # If they are in the same tile, cost is 0.
+    # They are in the same tile if sy == ty and ((sx + sy) % 2 == 0 and (tx == sx + 1))
+    # or ((sx + sy) % 2 != 0 and (tx == sx - 1)) ... this is getting complex.
+    
+    # Let's use the parity-based distance:
+    # The distance is max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty) + 1) // 2)
+    # However, if (sx + sy) % 2 == 0 and tx == sx + 1 and sy == ty, cost is 0.
+    # If (sx + sy) % 2 != 0 and tx == sx - 1 and sy == ty, cost is 0.
+    
+    # The general formula for this problem is:
+    # Let dx = abs(sx - tx), dy = abs(sy - ty)
+    # If dy == 0:
+    #    If they are in the same tile, 0. Else, (dx + 1) // 2.
+    #    Wait, if dy == 0 and they are in the same tile, it's 0.
+    #    If dy == 0 and they are in different tiles, it's (dx + 1) // 2? 
+    #    No, if dx=1 and they are in the same tile, 0. If dx=1 and different, 1.
+    #    If dx=2, always 1 (move up, move right, move down).
+    
+    # Correct general formula:
+    # The cost is max(dy, (dx + dy + 1) // 2)
+    # But we must handle the "same tile" case for dx=1, dy=0.
+    
+    dx = abs(sx - tx)
+    dy = abs(sy - ty)
+    
+    # Check if they are in the same tile
+    # Same tile if sy == ty and:
+    # (sx + sy) % 2 == 0 and tx == sx + 1
+    # OR (sx + sy) % 2 != 0 and tx == sx - 1
+    # This is only possible if dx == 1 and dy == 0.
+    
+    # To avoid conditionals, we can use a logic that naturally results in 0.
+    # The only case where max(dy, (dx + dy + 1) // 2) is 1 but the answer is 0
+    # is when dx=1, dy=0 and they are in the same tile.
+    
+    # Let's use the property: they are in the same tile if:
+    # sy == ty and (sx // 2 == tx // 2) if sy % 2 == 0
+    # sy == ty and ((sx-1) // 2 == (tx-1) // 2) if sy % 2 != 0
+    
+    # A more robust way:
+    # The cost is 0 if they are in the same tile.
+    # Otherwise, it's max(dy, (dx + dy + 1) // 2).
+    # But wait, if dx=2, dy=0, the formula gives max(0, 1) = 1. Correct.
+    # If dx=1, dy=0, the formula gives max(0, 1) = 1. 
+    # But if they are in the same tile, it should be 0.
+    
+    # How to check if in same tile without 'if'?
+    # They are in the same tile if:
+    # dy == 0 and (
+    #    (sy % 2 == 0 and sx // 2 == tx // 2) or 
+    #    (sy % 2 != 0 and (sx - 1) // 2 == (tx - 1) // 2)
+    # )
+    
+    # We can use a helper function for the "same tile" check and a ternary.
+    # The constraints allow a simple expression.
+    
+    is_same = (dy == 0) and (
+        (sy % 2 == 0 and sx // 2 == tx // 2) or 
+        (sy % 2 != 0 and (sx - 1) // 2 == (tx - 1) // 2)
+    )
+    
+    ans = 0 if is_same else max(dy, (dx + dy + 1) // 2)
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+*(Self-correction: The prompt asks for a complete Python program. I have implemented the logic using the mathematical property of the tiling. The "same tile" check handles the $dx=1, dy=0$ case, and the $\max(dy, \lceil(dx+dy)/2\rceil)$ handles the general movement cost.)*
+*(Wait, the "same tile" check is only for $dx=1, dy=0$. If $dx=0, dy=0$, it's also 0. The formula $\max(0, (0+0+1)//2)$ would give 0. Let's double check $dx=0, dy=0$: $is\_same$ is true, $ans=0$. Correct.)*
+*(Wait, if $dx=0, dy=0$, $is\_same$ is true, $ans=0$. If $dx=1, dy=0$ and same tile, $is\_same$ is true, $ans=0$. If $dx=1, dy=0$ and different tile, $is\_same$ is false, $ans=\max(0, 1)=1$. All correct.)*
+
+Final check on the formula $\max(dy, (dx+dy+1)//2)$:
+If $dx=5, dy=0 \implies \max(0, 3) = 3$.
+If $dx=2, dy=5 \implies \max(5, (7+1)//2) = 5$.
+Sample 1: $sx=5, sy=0, tx=2, ty=5 \implies dx=3, dy=5 \implies \max(5, (8+1)//2) = 5$. Correct.
+Sample 2: $sx=3, sy=1, tx=4, ty=1 \implies dx=1, dy=0$. $sy=1$ (odd), $(3-1)//2 = 1, (4-1)//2 = 1$. Same tile. $ans=0$. Correct.
+Sample 3: $dx=1774352206309567, dy=1800000000000000 \implies \max(1.8e15, (3.57e15+1)//2) \approx 1.79e15$. Correct.
+*(Wait, Sample 3: $dx = |2552608206527595 - 771856005518028| = 1780752200995767$, $dy = |5411232866732612 - 7206210729152763| = 1794977862420151$. $\max(1794977862420151, (1780752200995767 + 1794977862420151 + 1)//2) = \max(1794977862420151, 1787865031707959) = 1794977862420151$. Correct.)*
+*(Wait, the logic `(sx-1)//2 == (tx-1)//2` for odd `sy` is correct because it shifts the boundary to the left by 1, effectively making the tiles start at index 1.)*
+
+Final code structure:
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    sx, sy, tx, ty = map(int, input_data)
+    dx, dy = abs(sx - tx), abs(sy - ty)
+    is_same = (dy == 0) and (
+        (sy % 2 == 0 and sx // 2 == tx // 2) or 
+        (sy % 2 != 0 and (sx - 1) // 2 == (tx - 1) // 2)
+    )
+    print(0 if is_same else max(dy, (dx + dy + 1) // 2))
+
+if __name__ == "__main__":
+    solve()
+```
+*(Wait, the prompt says "Return only Python

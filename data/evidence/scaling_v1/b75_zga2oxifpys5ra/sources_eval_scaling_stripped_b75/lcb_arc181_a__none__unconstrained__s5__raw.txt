@@ -1,0 +1,188 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to group the input into test cases
+    # Each case has N followed by N elements of P
+    def get_cases(data):
+        it = iter(data[1:])
+        for _ in range(T):
+            N = int(next(it))
+            P = [int(next(it)) for _ in range(N)]
+            yield N, P
+
+    # Process each case
+    # The core logic:
+    # 0 ops: Already sorted.
+    # 1 op: There exists k such that sorting [1, k-1] and [k+1, N] sorts the whole array.
+    #       This is possible if there is some k such that:
+    #       {P_1, ..., P_{k-1}, P_{k+1}, ..., P_N} = {1, ..., N} \ {k}
+    #       AND the set of values in positions 1 to k-1 are all < k, 
+    #       and values in positions k+1 to N are all > k.
+    #       Actually, the condition for 1 op is simpler:
+    #       There exists k such that P_k = k, and 
+    #       max(P_1...P_{k-1}) < k and min(P_{k+1}...P_N) > k.
+    #       Wait, the operation sorts the two partitions. 
+    #       After sorting, P_i = i for all i if and only if:
+    #       The set of values {P_1, ..., P_{k-1}} is exactly {1, ..., k-1}
+    #       AND P_k = k
+    #       AND the set of values {P_{k+1}, ..., P_N} is exactly {k+1, ..., N}.
+    # 2 ops: Always possible for N >= 3.
+    
+    def check_0(N, P):
+        # Check if already sorted
+        # Using a generator to avoid loops, though 'all' is efficient
+        return all(P[i] == i + 1 for i in range(N))
+
+    def check_1(N, P):
+        # We need to find if there is a k (1-indexed) such that:
+        # P_k = k AND {P_1...P_{k-1}} = {1...k-1} AND {P_{k+1}...P_N} = {k+1...N}
+        # This is equivalent to:
+        # For some i (0-indexed), P[i] == i + 1 AND
+        # max(P[0...i-1]) <= i AND min(P[i+1...N-1]) >= i + 2
+        
+        # Precompute prefix maximums and suffix minimums
+        # P is 0-indexed, so value k is P[i] == i + 1
+        prefix_max = list(accumulate(P, max))
+        suffix_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Check the condition for each i
+        # For i=0: P[0]==1 and suffix_min[1] >= 2
+        # For i=N-1: P[N-1]==N and prefix_max[N-2] <= N-1
+        # For 0 < i < N-1: P[i]==i+1 and prefix_max[i-1] <= i and suffix_min[i+1] >= i+2
+        
+        # Using a list comprehension to check all i and 'any' to reduce to boolean
+        return any(
+            (P[i] == i + 1 and 
+             (i == 0 or prefix_max[i-1] <= i) and 
+             (i == N-1 or suffix_min[i+1] >= i + 2))
+            for i in range(N)
+        )
+
+    # Map the logic across all cases
+    results = [
+        0 if check_0(N, P) else (1 if check_1(N, P) else 2)
+        for N, P in get_cases(input_data)
+    ]
+    
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a small logic error in my `check_1` regarding the indices. Let me refine the `check_1` logic:
+If we choose index $k$ (1-indexed), the elements at positions $1 \dots k-1$ are sorted and elements at $k+1 \dots N$ are sorted. For the final array to be $1 \dots N$, we must have:
+1. The set of values $\{P_1, \dots, P_{k-1}\}$ must be $\{1, \dots, k-1\}$.
+2. $P_k$ must be $k$.
+3. The set of values $\{P_{k+1}, \dots, P_N\}$ must be $\{k+1, \dots, N\}$.
+
+Condition 1 is true if $\max(P_1, \dots, P_{k-1}) = k-1$.
+Condition 3 is true if $\min(P_{k+1}, \dots, P_N) = k+1$.
+
+Corrected logic in the code:
+- For $i=0$ (which is $k=1$): $P[0]=1$ and $\min(P[1 \dots N-1]) = 2$.
+- For $i=N-1$ (which is $k=N$): $P[N-1]=N$ and $\max(P[0 \dots N-2]) = N-1$.
+- For $0 < i < N-1$: $P[i]=i+1$ and $\max(P[0 \dots i-1]) = i$ and $\min(P[i+1 \dots N-1]) = i+2$.
+
+Actually, since $P$ is a permutation, $\max(P[0 \dots i-1]) \le i$ automatically implies the set is $\{1 \dots i\}$.
+
+Final check on the logic:
+Sample 1: `2 1 3 5 4`, $N=5$.
+$i=2$ ($k=3$): $P[2]=3$. $\max(2,1)=2 \le 2$. $\min(5,4)=4 \ge 4$. Correct. Result: 1.
+Sample 3: `3 2 1 7 5 6 4`, $N=7$.
+$i=0: P[0]=3 \neq 1$.
+$i=1: P[1]=2$. $\max(3)=3 \not\le 1$.
+$i=2: P[2]=1 \neq 3$.
+$i=3: P[3]=7 \neq 4$.
+... none work. Result: 2.
+
+The provided code implements this logic.
+(Note: The `accumulate` and `all/any` approach avoids explicit for-loops as requested by the "functional" style of some competitive programming constraints, although `all` and `any` are technically loops under the hood).
+The time complexity is $O(\sum N)$ and space complexity is $O(\sum N)$.
+The constraints are $N \le 2 \cdot 10^5$, so this is optimal.
+One final detail: the problem says $N \ge 3$, so the 2-operation upper bound is always guaranteed.
+The logic `0 if check_0 else (1 if check_1 else 2)` is correct.
+The `sys.stdin.read().split()` handles all whitespace.
+The `get_cases` generator handles the $T$ test cases.
+The `prefix_max` and `suffix_min` handle the range queries in $O(1)$ after $O(N)$ preprocessing.
+The `any(...)` handles the search for $k$ in $O(N)$.
+Everything is within limits.
+Final code structure is provided.
+(Self-correction: Ensure the `prefix_max` and `suffix_min` indices are handled safely).
+For $i=0$, `prefix_max[i-1]` would be `prefix_max[-1]`, which is the last element. I added explicit `i == 0` and `i == N-1` checks to avoid this.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # Use a generator to group the input into test cases
+    def get_cases(data):
+        it = iter(data[1:])
+        for _ in range(T):
+            N = int(next(it))
+            P = [int(next(it)) for _ in range(N)]
+            yield N, P
+
+    def check_0(N, P):
+        return all(P[i] == i + 1 for i in range(N))
+
+    def check_1(N, P):
+        prefix_max = list(accumulate(P, max))
+        suffix_min = list(accumulate(P[::-1], min))[::-1]
+        
+        return any(
+            (P[i] == i + 1 and 
+             (i == 0 or prefix_max[i-1] <= i) and 
+             (i == N-1 or suffix_min[i+1] >= i + 2))
+            for i in range(N)
+        )
+
+    results = [
+        0 if check_0(N, P) else (1 if check_1(N, P) else 2)
+        for N, P in get_cases(input_data)
+    ]
+    
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the code inside a single block. I will provide the final version.
+One last check: if $N=3$ and $P=(3,2,1)$, $k=2$ gives $\text{sort}(3), 2, \text{sort}(1) \rightarrow (3,2,1)$. $k=1$ gives $3, \text{sort}(2,1) \rightarrow (3,1,2)$. $k=3$ gives $\text{sort}(3,2), 1 \rightarrow (2,3,1)$. None of these are $(1,2,3)$. So 2 operations are needed. My code would return 2. Correct.
+If $P=(1,3,2)$, $k=1$ gives $1, \text{sort}(3,2) \rightarrow (1,2,3)$. My code: $i=0, P[0]=1, \text{suffix\_min}[1]=\min(3,2)=2 \ge 2$. True. Result: 1. Correct.
+If $P=(2,1,3)$, $k=3$ gives $\text{sort}(2,1), 3 \rightarrow (1,2,3)$. My code: $i=2, P[2]=3, \text{prefix\_max}[1]=\max(2,1)=2 \le 2$. True. Result: 1. Correct.
+If $P=(1,2,3)$, result 0. Correct.
+The logic holds.
+Final code block below.
+(Note: I used `sys.stdin.read().split()` which is very fast for large inputs).
+(Note: `accumulate` is in `itertools`).
+(Note: `P[::-1]` creates a copy, which is fine for $N=2 \cdot 10^5$).
+(Note: `list(accumulate(...))` is $O(N)$).
+(Note: The `any(...)` is $O(N)$).
+Total time $O(\sum N)$, total space $O(\sum N)$.
+This fits the constraints.
+Final check on the $k$ definition: "sort 1st through $(k-1)$-th... sort $(k+1)$-th through $N$-th".
+If $k=1$, we sort $P_2 \dots P_N$.
+If $k=N$, we sort $P_1 \dots P_{N-1}$.
+If $1 < k < N$, we sort both.
+This matches my $i=0, i=N-1, 0 < i < N-1$ logic.
+The condition for 1 op is that there exists $k$ such that after sorting the two blocks, the whole thing is sorted. This happens if and only if the element at position $k$ is already $k$, and all elements to terms $1 \dots k-1$ are $\le k-1$ and all elements to terms $k+1 \dots N$ are $\ge k+1$.
+Since it's a permutation, $\max(P_1 \dots P_{k-1})

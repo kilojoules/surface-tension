@@ -1,0 +1,190 @@
+The constraint to avoid explicit loops forces a functional programming style, shifting the focus from "how to iterate" to "what to transform." While not necessarily "cleaner" for all developers, it encourages the use of high-level abstractions and prevents side-effect-driven state mutation, leveraging Python's powerful built-in iterators. To solve this problem, I will use `functools.reduce` to maintain the state of remaining counts and the current index, and list comprehensions to handle the selection of the next element based on the combinatorial count of permutations of a multiset.
+
+```python
+import sys
+from math import factorial
+from functools import reduce
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n, k = map(int, input_data)
+
+    # The total number of good sequences is S = (N*K)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Let target = (S + 1) // 2.
+    
+    # Precompute factorials for multiset permutation formula:
+    # Count = (sum(counts))! / product(counts!)
+    # Since we only need to compare the target rank with the number of sequences
+    # starting with a certain digit, we can maintain the current rank.
+    
+    # To avoid massive integer division and multiplication in every step,
+    # we observe that the number of sequences starting with digit 'i' is:
+    # Total_Permutations(remaining_counts) * (count[i] / sum(remaining_counts))
+    
+    # We use reduce to simulate the process of filling NK positions.
+    # State: (current_rank, current_counts)
+    # current_counts is a list of remaining occurrences for each number 1..N.
+    
+    def get_multiset_coeff(counts):
+        # This is not used directly to avoid O(N) factorial calls; 
+        # we use the ratio instead.
+        pass
+
+    # Initial total S
+    # S = factorial(n * k) // (factorial(k) ** n)
+    # target = (S + 1) // 2
+    
+    # However, S can be enormous. We need to handle the rank carefully.
+    # Let's use a helper to calculate the number of permutations given counts.
+    def count_permutations(counts):
+        total = sum(counts)
+        res = factorial(total)
+        # Using a generator expression inside reduce to compute product of factorials
+        denom = reduce(lambda x, y: x * factorial(y), counts, 1)
+        return res // denom
+
+    # We need the target rank.
+    # Since we need the middle sequence, we can use the symmetry of lexicographical order.
+    # The "middle" of all permutations of a multiset is the sequence that is 
+    # "half-way" through. 
+    # A key observation: the lexicographical middle of all permutations of a multiset
+    # is the sequence obtained by reversing the elements and then finding the 
+    # "complementary" rank. 
+    # Actually, the simplest way to find the floor((S+1)/2)-th sequence is to
+    # realize that the set of all good sequences is symmetric.
+    # If a sequence is the i-th, its "dual" (replacing x with N-x+1 and reversing)
+    # is the (S-i+1)-th.
+    # The middle sequence is the one where we effectively try to place the 
+    # "middle" available digits.
+    
+    # For a multiset, the sequence at rank (S+1)//2 is the one that 
+    # would be the "median".
+    # Because we cannot use loops, we use reduce to determine each character.
+    
+    # To handle the large rank, we can't precompute S. 
+    # But we can maintain the rank as a fraction or use the property that
+    # we want the 0.5 quantile.
+    
+    # Let's use the property: the target rank is (S+1)//2.
+    # At each position, we check digits d = 1, 2, ..., N.
+    # The number of sequences starting with d is:
+    # Ways(counts - {d}) = (Total-1)! / (k1! ... (kd-1)! ... kN!)
+    # = [Total! / (k1! ... kN!)] * (kd / Total)
+    
+    # We maintain the 'target_rank' and 'current_total_permutations'.
+    # Initial target_rank = (count_permutations([k]*n) + 1) // 2
+    
+    s_total = count_permutations([k] * n)
+    initial_rank = (s_total + 1) // 2
+    
+    def step(state, _):
+        rank, counts = state
+        total_rem = sum(counts)
+        if total_rem == 0:
+            return (rank, counts, [])
+        
+        # We need to find the smallest d such that 
+        # sum_{i=1}^{d-1} Ways(counts - {i}) < rank
+        # Let W(counts) be the total permutations of the current multiset.
+        # Ways(counts - {d}) = W(counts) * counts[d-1] / total_rem
+        
+        # We find d by iterating through 1..N. Since we can't loop, 
+        # we use reduce to find the digit and the remaining rank.
+        def find_digit(acc):
+            # acc = (current_d, current_rank, found)
+            # We use a list/tuple to simulate the loop over N
+            return acc
+
+        # To avoid loops, we use a nested reduce to find the digit d.
+        # inner_state: (digit, remaining_rank, ways_accumulated)
+        def get_d(counts, rank, total_rem):
+            # Calculate W(counts)
+            w_total = count_permutations(counts)
+            
+            def search(acc, d_idx):
+                d_val, r_rank, _ = acc
+                if d_val != -1: return acc
+                
+                # Ways to start with digit d_idx + 1
+                if counts[d_idx] > 0:
+                    ways_d = (w_total * counts[d_idx]) // total_rem
+                    if r_rank <= ways_d:
+                        return (d_idx + 1, r_rank, True)
+                    else:
+                        return (-1, r_rank - ways_d, False)
+                return acc
+            
+            # Reduce over range(N) to find the digit
+            result = reduce(search, range(n), (-1, rank, False))
+            return result[0], result[1]
+
+        d, next_rank = get_d(counts, rank, total_rem)
+        new_counts = [c - (1 if i == d-1 else 0) for i, c in enumerate(counts)]
+        return (next_rank, new_counts, [d])
+
+    # We need to run 'step' NK times.
+    # Since we need to accumulate the digits, we use a custom reduce.
+    # State: (rank, counts, result_list)
+    def final_reduce(state, _):
+        rank, counts, res = state
+        if len(res) == n * k:
+            return state
+        
+        # Logic from step() integrated here
+        total_rem = sum(counts)
+        w_total = count_permutations(counts)
+        
+        def search(acc, d_idx):
+            d_val, r_rank, _ = acc
+            if d_val != -1: return acc
+            if counts[d_idx] > 0:
+                ways_d = (w_total * counts[d_idx]) // total_rem
+                if r_rank <= ways_d:
+                    return (d_idx + 1, r_rank, True)
+                else:
+                    return (-1, r_rank - ways_d, False)
+            return acc
+        
+        d, next_rank = reduce(search, range(n), (-1, rank, False))
+        # Note: the reduce above returns (digit, rank, found), 
+        # but the search logic needs to be precise.
+        # Let's fix the search return.
+        return (0, [], []) # Placeholder
+
+    # Redefining the logic to fit into a single reduce without helper functions 
+    # that require loops.
+    
+    def solve_recursive(state, _):
+        rank, counts, res = state
+        total_rem = sum(counts)
+        if total_rem == 0: return state
+        
+        w_total = count_permutations(counts)
+        
+        # Find digit d and new rank
+        # We use reduce to iterate 1..N and find the first d that satisfies the rank
+        # The accumulator is (found_digit, current_rank)
+        def find_d(acc, d_idx):
+            digit, r_rank = acc
+            if digit != -1: return (digit, r_rank)
+            if counts[d_idx] > 0:
+                ways_d = (w_total * counts[d_idx]) // total_rem
+                if r_rank <= ways_d:
+                    return (d_idx + 1, r_rank)
+                else:
+                    return (-1, r_rank - ways_d)
+            return (digit, r_rank)
+        
+        d, next_rank = reduce(find_d, range(n), (-1, rank))
+        new_counts = [c - (1 if i == d-1 else 0) for i, c in enumerate(counts)]
+        return (next_rank, new_counts, res + [d])
+
+    final_state = reduce(solve_recursive, range(n * k), (initial_rank, [k] * n, []))
+    print(*(final_state[2]))
+
+solve()
+```

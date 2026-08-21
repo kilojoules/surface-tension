@@ -1,0 +1,94 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state mutation to a functional paradigm, emphasizing the transformation of data streams. In this specific problem, we must track the positions of the left and right hands across a sequence of instructions, calculating the shortest path around a circular ring while accounting for the "blockage" created by the stationary hand.
+
+To solve this, I will use `functools.reduce` to maintain a state tuple `(current_l, current_r, total_distance)`. For each instruction, I will calculate the distance between the moving hand's current position and the target position. Since the ring is circular, there are two possible directions; however, one direction may be blocked by the stationary hand. I will use a helper function to determine the shortest valid path by checking if the stationary hand lies within the range of the movement in either the clockwise or counter-clockwise direction.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    instructions = []
+    for i in range(Q):
+        instructions.append((input_data[2 + 2*i], int(input_data[3 + 2*i])))
+
+    # Helper to calculate distance between two points on a ring of size N
+    # Given the stationary hand's position, we must find the shortest path
+    # that does not cross the stationary hand.
+    def get_dist(start, end, stationary, n):
+        if start == end:
+            return 0
+        
+        # The ring is 1-indexed, convert to 0-indexed for easier modulo math
+        s, e, st = start - 1, end - 1, stationary - 1
+        
+        # There are two paths: clockwise and counter-clockwise.
+        # Path 1: s -> s+1 -> ... -> e (modulo n)
+        # Path 2: s -> s-1 -> ... -> e (modulo n)
+        
+        # Calculate clockwise distance
+        dist_cw = (e - s + n) % n
+        # Check if stationary hand is in the clockwise path
+        # The stationary hand is in the path if (st - s + n) % n < dist_cw
+        blocked_cw = (st - s + n) % n < dist_cw
+        
+        # Calculate counter-clockwise distance
+        dist_ccw = (s - e + n) % n
+        # Check if stationary hand is in the counter-clockwise path
+        blocked_ccw = (st - s - n) % n < 0 # This logic is trickier, let's simplify.
+        
+        # A simpler way to check if stationary is between s and e:
+        # For clockwise: is st in {s+1, ..., e}?
+        # For counter-clockwise: is st in {s-1, ..., e}?
+        
+        # Let's use a more robust check:
+        # Clockwise path consists of indices (s + k) % n for k = 1 to dist_cw
+        # Stationary is blocking if (st - s + n) % n is between 1 and dist_cw - 1
+        # Actually, the problem says we can't move to the destination if the other hand is there.
+        # But the guarantee says T_i != stationary. 
+        # So we just need to check if the stationary hand is any of the intermediate steps.
+        
+        # Clockwise:
+        is_blocked_cw = False
+        # The stationary hand blocks the clockwise path if it's between s and e clockwise.
+        # Since s != e and st != s and st != e, it blocks if:
+        if (st - s + n) % n < (e - s + n) % n:
+            is_blocked_cw = True
+            
+        # Counter-clockwise:
+        is_blocked_ccw = False
+        if (s - st + n) % n < (s - e + n) % n:
+            is_blocked_ccw = True
+            
+        # We are guaranteed one path is always open.
+        if is_blocked_cw:
+            return (s - e + n) % n
+        if is_blocked_ccw:
+            return (e - s + n) % n
+        
+        # If neither is blocked (only possible if N is large), take the minimum.
+        return min((e - s + n) % n, (s - e + n) % n)
+
+    # State: (current_l, current_r, total_dist)
+    # Initial state: L=1, R=2, dist=0
+    final_state = reduce(
+        lambda state, instr: (
+            (instr[1], state[1], state[2] + get_dist(state[0], instr[1], state[1], N))
+            if instr[0] == 'L' else
+            (state[0], instr[1], state[2] + get_dist(state[1], instr[1], state[0], N))
+        ),
+        instructions,
+        (1, 2, 0)
+    )
+
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```

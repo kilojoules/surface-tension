@@ -1,0 +1,89 @@
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read N and M from the first line
+    # Read all A_i values from the remaining input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = map(int, input_data[2:])
+    
+    # Let P_i be the distance from rest area 1 to rest area i.
+    # P_1 = 0
+    # P_2 = A_1
+    # P_3 = A_1 + A_2 ...
+    # The distance from s to t (s < t) is (P_t - P_s).
+    # The distance from s to t (s > t) is (Total_Sum - P_s + P_t).
+    # We want (Distance) % M == 0.
+    
+    # Calculate prefix sums P_i mod M
+    # accumulate returns P_1, P_2, ..., P_N where P_1 is the first element of A.
+    # We need P_1 = 0, so we prepend 0 to the sequence A.
+    # However, A has N elements. The distance from 1 to 1 is 0, 1 to 2 is A_1, etc.
+    # Let's create a sequence of prefix sums: 0, A_1, A_1+A_2, ..., A_1+...+A_{N-1}
+    # The total sum S = A_1 + ... + A_N.
+    
+    # Using a generator to handle the prefix sums of A_1...A_{N-1}
+    # We only need the first N prefix sums (from area 1 to N)
+    # P = [0, A_1, A_1+A_2, ..., A_1+...+A_{N-1}]
+    # The distance from s to t (s < t) is (P[t-1] - P[s-1]) % M == 0  => P[t-1] % M == P[s-1] % M
+    # The distance from s to t (s > t) is (S - P[s-1] + P[t-1]) % M == 0 => (P[s-1] - P[t-1]) % M == S % M
+    
+    # To implement this without loops, we use map, accumulate, and Counter.
+    
+    # 1. Get the prefix sums P_i mod M for i = 1 to N
+    # We use a slice of the input to get A_1 to A_{N-1} for the prefix sums
+    # But it's easier to take all A_i, accumulate them, and take the first N values starting from 0.
+    
+    # Correct logic for prefix sums:
+    # Let prefix_sums = [0, A_1, A_1+A_2, ..., A_1+...+A_{N-1}]
+    # Total sum S = A_1 + ... + A_N
+    
+    # Since we can't use loops, we use map and accumulate.
+    # We need the sum of all A_i first.
+    A_list = list(map(int, input_data[2:]))
+    S = sum(A_list)
+    
+    # P_i mod M for i = 1...N
+    # P_1 = 0, P_2 = A_1, ...
+    # We can get this by accumulating A_list and prepending 0, then taking N elements.
+    P = list(accumulate([0] + A_list))[:N]
+    P_mod = [p % M for p in P]
+    
+    counts = Counter(P_mod)
+    
+    # For s < t: P_t % M == P_s % M
+    # Number of pairs is sum(count * (count - 1) // 2)
+    ans_st = sum(c * (c - 1) // 2 for c in counts.values())
+    
+    # For s > t: (P_s - P_t) % M == S % M
+    # Let R = S % M. We need P_s % M - P_t % M \equiv R (mod M)
+    # P_s % M \equiv (P_t % M + R) (mod M)
+    R = S % M
+    
+    # We need to sum counts[i] * counts[(i + R) % M] for all i in counts
+    # But we must exclude cases where s = t (though the problem says s != t)
+    # And we must handle the case where R == 0 carefully.
+    # If R == 0, then P_s % M == P_t % M. This is the same condition as s < t.
+    # However, the condition s > t is distinct.
+    # If R == 0, then for every pair {s, t} with P_s % M == P_t % M, 
+    # both (s, t) and (t, s) work.
+    # If R != 0, we look for pairs (P_t % M, P_s % M) such that P_s % M = (P_t % M + R) % M.
+    
+    if R == 0:
+        # Every pair {s, t} that satisfied s < t also satisfies s > t
+        ans_ts = ans_st
+    else:
+        # Sum counts[i] * counts[(i + R) % M]
+        # We iterate over the unique remainders present in P_mod
+        ans_ts = sum(counts[i] * counts.get((i + R) % M, 0) for i in counts)
+        
+    print(ans_st + ans_ts)
+
+if __name__ == "__main__":
+    solve()

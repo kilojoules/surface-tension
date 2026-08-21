@@ -1,0 +1,98 @@
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        a = int(input_data[3 + i*4])
+        b = int(input_data[4 + i*4])
+        c = int(input_data[5 + i*4])
+        d = int(input_data[6 + i*4])
+        segments.append(((a, b), (c, d)))
+
+    # Precompute lengths of segments
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    seg_lengths = [dist(s[0], s[1]) for s in segments]
+
+    # We need to try all permutations of segments and all directions (start/end)
+    # There are N! permutations and 2^N direction combinations.
+    # N <= 6, so 720 * 64 = 46080 iterations, which is well within limits.
+    
+    # Generate all permutations of indices
+    indices_perms = permutations(range(N))
+    # Generate all possible directions (0: start->end, 1: end->start)
+    directions = product([0, 1], repeat=N)
+
+    def calculate_time(perm, dirs):
+        # Current position starts at (0, 0)
+        # We need to track the sequence of points visited.
+        # For a given perm and dirs:
+        # Segment i is segments[perm[i]]
+        # If dirs[i] == 0: print from segments[perm[i]][0] to segments[perm[i]][1]
+        # If dirs[i] == 1: print from segments[perm[i]][1] to segments[perm[i]][0]
+        
+        # Create the sequence of (start_point, end_point) for the chosen order
+        path = [
+            (segments[perm[i]][dirs[i]], segments[perm[i]][1 - dirs[i]])
+            for i in range(N)
+        ]
+        
+        # The total time is:
+        # Time to move from (0,0) to path[0].start / S
+        # + Time to print path[0] / T
+        # + Time to move from path[0].end to path[1].start / S
+        # + Time to print path[1] / T ...
+        
+        # To calculate this without loops, we can create a list of points
+        # (0,0), start0, end0, start1, end1, ...
+        points = [(0, 0)] + [p for seg in path for p in seg]
+        
+        # Time for printing is constant regardless of order/direction
+        print_time = sum(seg_lengths) / T
+        
+        # Time for moving (non-emitting)
+        # Move from points[0] to points[1], points[2] to points[3], etc.
+        # The gaps are (points[0], points[1]), (points[2], points[3]), (points[4], points[5])...
+        # Wait, the gaps are:
+        # 0 -> 1 (move)
+        # 1 -> 2 (print)
+        # 2 -> 3 (move)
+        # 3 -> 4 (print)
+        # So move gaps are indices (0,1), (2,3), (4,5) ... (2i, 2i+1)
+        
+        move_dist = sum(
+            dist(points[2*i], points[2*i+1]) 
+            for i in range(N)
+        )
+        
+        return (move_dist / S) + print_time
+
+    # Since we cannot use nested loops, we use a generator expression inside min()
+    # We need to iterate over all permutations and all direction combinations.
+    # To avoid nested loops, we can use itertools.product to combine perms and dirs.
+    
+    all_perms = list(permutations(range(N)))
+    all_dirs = list(product([0, 1], repeat=N))
+    
+    ans = min(
+        calculate_time(p, d) 
+        for p in all_perms 
+        for d in all_dirs
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

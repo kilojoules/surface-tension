@@ -1,0 +1,146 @@
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy, tx, ty = map(int, input_data)
+
+    # The tiling rule: 
+    # If i+j is even, A_{i,j} and A_{i+1,j} are one tile.
+    # This means for a fixed j, the tiles are pairs (0,1), (2,3), etc. if j is even.
+    # If j is odd, the tiles are pairs (1,2), (3,4), etc.
+    # Essentially, the tile boundaries in x are at x = k where k % 2 == (j % 2).
+    
+    # To move from (sx, sy) to (tx, ty), we can move in x then y, or y then x.
+    # However, we can optimize by moving to a coordinate that minimizes the toll.
+    # The cost to move from sy to ty is simply abs(sy - ty) because every 
+    # vertical move of 1 unit enters a new tile (since tiles are 2x1).
+    # The cost to move from sx to tx depends on the parity of the current y.
+    
+    # Let's evaluate the cost of moving horizontally at height y.
+    # A move from sx to tx at height y:
+    # We pay a toll if we cross a boundary x = k where k % 2 == (y % 2).
+    # The number of such boundaries between sx and tx is:
+    # count(k in (min(sx, tx), max(sx, tx)) such that k % 2 == (y % 2))
+    
+    def get_horizontal_cost(x1, x2, y):
+        low, high = min(x1, x2), max(x1, x2)
+        # We want to count k such that low < k < high and k % 2 == y % 2.
+        # This is equivalent to counting k in [low + 1, high - 1] with k % 2 == y % 2.
+        if low + 1 > high - 1:
+            return 0
+        
+        # Number of integers in [1, N] with parity p is (N + (1 if p==1 else 0)) // 2
+        # But it's easier to use: count of k <= N with k % 2 == p is (N + 1) // 2 if p=1 else N // 2
+        # Wait, the standard formula for count of k in [0, N] with k % 2 == p:
+        # If p=0: (N // 2) + 1
+        # If p=1: (N + 1) // 2
+        
+        def count_upto(n, p):
+            if n < 0: return 0
+            return (n // 2) + (1 if p == 0 else 0) if p == 0 else (n + 1) // 2
+        
+        # For p=0, count_upto(n, 0) is 0, 2, 4... -> n//2 + 1
+        # For p=1, count_upto(n, 1) is 1, 3, 5... -> (n+1)//2
+        # Let's redefine to avoid the 0-index confusion and use a simpler logic:
+        # The number of k in [1, N] with k % 2 == p is:
+        # if p == 1: (N + 1) // 2
+        # if p == 0: N // 2
+        
+        def count_range(n, p):
+            if n <= 0: return 0
+            return (n + 1) // 2 if p == 1 else n // 2
+
+        # We need k in [low + 1, high - 1].
+        # This is count_range(high - 1, y % 2) - count_range(low, y % 2).
+        # However, the parity logic depends on whether the coordinate is shifted.
+        # Let's use: the number of k in (low, high) with k % 2 == y % 2.
+        # This is equivalent to counting k in [0, high-1] minus k in [0, low].
+        # Let f(n, p) be the number of k in {1, ..., n} such that k % 2 == p.
+        # f(n, 1) = (n + 1) // 2
+        # f(n, 0) = n // 2
+        
+        p = y % 2
+        return count_range(high - 1, p) - count_range(low, p)
+
+    # The total cost is abs(sy - ty) + horizontal_cost.
+    # We can choose to move horizontally at sy or at ty.
+    # Any other y would only increase the vertical cost without decreasing horizontal cost.
+    
+    cost_at_sy = abs(sy - ty) + get_horizontal_cost(sx, tx, sy)
+    cost_at_ty = abs(sy - ty) + get_horizontal_cost(sx, tx, ty)
+    
+    print(min(cost_at_sy, cost_at_ty))
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I should double check the logic. If $S_x = 5, T_x = 2, S_y = 0, T_y = 5$:
+- At $y=0$: $p=0$. Boundaries $k \in (2, 5)$ where $k$ is even. $k=4$. Cost = 1.
+- At $y=5$: $p=1$. Boundaries $k \in (2, 5)$ where $k$ is odd. $k=3$. Cost = 1.
+- Total = $5 + 1 = 6$. 
+- But the sample says 5. Let's re-read.
+- "Move left by 1. Pay 0." (From 5.5 to 4.5). $y=0$, boundary is at $x=4$. Since $4\%2 == 0\%2$, the boundary is there. But the move is from 5.5 to 4.5. It crosses $x=5$. $5\%2 \neq 0\%2$. No toll.
+- "Move up by 1. Pay 1." (From 4.5, 0.5 to 4.5, 1.5). Crosses $y=1$. Always pays 1.
+- "Move left by 1. Pay 0." (From 4.5, 1.5 to 3.5, 1.5). $y=1$, boundary is at $x=k$ where $k\%2 == 1$. Crosses $x=4$. $4\%2 \neq 1\%2$. No toll.
+- "Move up by 3. Pay 3." Crosses $y=2, 3, 4$.
+- "Move left by 1. Pay 0." (From 3.5, 4.5 to 2.5, 4.5). $y=4$, boundary $k\%2 == 0$. Crosses $x=3$. $3\%2 \neq 0\%2$. No toll.
+- "Move up by 1. Pay 1." Crosses $y=5$.
+- Total = $1 + 3 + 1 = 5$.
+
+My `get_horizontal_cost` calculates how many boundaries $x=k$ are crossed. 
+For $S_x=5, T_x=2, y=0$: boundaries are $k \in \{3, 4\}$. $k\%2==0 \implies k=4$. Cost = 1.
+For $S_x=5, T_x=2, y=1$: boundaries are $k \in \{3, 4\}$. $k\%2==1 \implies k=3$. Cost = 1.
+Wait, the sample path is:
+(5.5, 0.5) $\xrightarrow{L1}$ (4.5, 0.5) $\xrightarrow{U1}$ (4.5, 1.5) $\xrightarrow{L1}$ (3.5, 1.5) $\xrightarrow{U3}$ (3.5, 4.5) $\xrightarrow{L1}$ (2.5, 4.5) $\xrightarrow{U1}$ (2.5, 5.5).
+The horizontal moves are at $y=0, 1, 4$.
+At $y=0$, move $5 \to 4$. Boundary $x=k, k\%2=0$. $k=4$ is the boundary. Move is from 5.5 to 4.5. It crosses $x=5$. $5\%2 \neq 0$. No toll.
+At $y=1$, move $4 \to 3$. Boundary $x=k, k\%2=1$. $k=3$ is the boundary. Move is from 4.5 to 3.5. It crosses $x=4$. $4\%2 \neq 1$. No toll.
+At $y=4$, move $3 \to 2$. Boundary $x=k, k\%2=0$. $k=4, 2$ are boundaries. Move is from 3.5 to 2.5. It crosses $x=3$. $3\%2 \neq 0$. No toll.
+
+Actually, the rule is: you pay a toll if you **enter** a tile. 
+If you move from $x+0.5$ to $x-0.5$, you cross the line $x$. You enter a new tile if $x$ is a boundary.
+$x$ is a boundary if $x\%2 == y\%2$.
+So for a move from $S_x$ to $T_x$ at height $y$, the cost is the number of $k$ between $S_x$ and $T_x$ such that $k\%2 == y\%2$.
+However, the sample shows we can change $y$ to avoid tolls.
+Since we can move any $n$ units, we can effectively move horizontally at any $y \in [S_y, T_y]$.
+To minimize $\sum \text{tolls}$, we want to pick $y$ such that the number of $k \in (\min(S_x, T_x), \max(S_x, T_x))$ with $k\%2 == y\%2$ is minimized.
+The minimum of this is $\lfloor (\text{number of } k)/2 \rfloor$.
+But we can only move at $y$ values we have already reached.
+Actually, the simplest strategy is:
+1. Move vertically from $S_y$ to $T_y$. Cost: $|S_y - T_y|$.
+2. Move horizontally at either $y=S_y$ or $y=T_y$.
+3. But we can also move horizontally at some $y$ between $S_y$ and $T_y$.
+4. If $|S_y - T_y| > 0$, we can pick $y$ to be either even or odd.
+5. If $S_y = T_y$, we are forced to use $y=S_y$.
+
+Correct logic:
+If $S_y == T_y$:
+  Cost = `get_horizontal_cost(sx, tx, sy)`
+Else:
+  Cost = `abs(sy - ty) + min(get_horizontal_cost(sx, tx, 0), get_horizontal_cost(sx, tx, 1))`
+  (Since we can pick any $y$ between $S_y$ and $T_y$ to do the horizontal move, and we can pick $y$ to be even or odd).
+
+Wait, if $S_y \neq T_y$, we can pick $y$ to be any integer in $[S_y, T_y]$.
+If the range $[S_y, T_y]$ contains both an even and an odd integer, we can pick the one that minimizes the horizontal cost.
+If $S_y \neq T_y$, the range always contains both an even and an odd integer.
+
+Final refined logic:
+If $S_y == T_y$:
+  result = `get_horizontal_cost(sx, tx, sy)`
+Else:
+  result = `abs(sy - ty) + min(get_horizontal_cost(sx, tx, 0), get_horizontal_cost(sx, tx, 1))`
+
+One last check: Sample 1. $S_x=5, T_x=2, S_y=0, T_y=5$.
+$S_y \neq T_y$, so cost = $5 + \min(\text{cost at } y=0, \text{cost at } y=1)$.
+$k \in \{3, 4\}$.
+$y=0 \implies k\%2=0 \implies k=4$ (1 toll).
+$y=1 \implies k\%2=1 \implies k=3$ (1 toll).
+Result = $5 + 1 = 6$.
+Wait, the sample output

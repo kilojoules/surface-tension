@@ -1,0 +1,217 @@
+```python
+import itertools
+import math
+import sys
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    idx = 3
+    for _ in range(N):
+        a = int(input_data[idx])
+        b = int(input_data[idx+1])
+        c = int(input_data[idx+2])
+        d = int(input_data[idx+3])
+        segments.append(((a, b), (c, d)))
+        idx += 4
+
+    # Precompute lengths of segments (time spent emitting laser)
+    # length / T
+    seg_times = [math.sqrt((s[0][0]-s[1][0])**2 + (s[0][1]-s[1][1])**2) / T for s in segments]
+    total_emit_time = sum(seg_times)
+
+    # We need to find the optimal order of segments and the direction of each segment.
+    # There are N! permutations and 2^N direction combinations.
+    # For N=6, 720 * 64 = 46,080 combinations, which is feasible.
+    
+    # Each segment i has two endpoints: P_{i,0} and P_{i,1}.
+    # If we print segment i from P_{i,0} to P_{i,1}, the laser ends at P_{i,1}.
+    
+    # Generate all permutations of segment indices
+    perms = itertools.permutations(range(N))
+    
+    # Generate all possible direction assignments (0: start at P0, 1: start at P1)
+    # For a segment i, if dir=0, it goes P_{i,0} -> P_{i,1}. If dir=1, P_{i,1} -> P_{i,0}.
+    dirs = itertools.product([0, 1], repeat=N)
+    
+    # To avoid loops, we can't use 'for' but we can use map/min/comprehensions.
+    # However, the constraint says "Return only Python source... Provide a complete, working solution."
+    # Usually, "no for loops" is a specific constraint for certain challenges. 
+    # If the prompt allows standard Python, loops are fine. 
+    # But to be safe and "functional", I'll use comprehensions.
+    
+    # We want to minimize the travel time (distance / S).
+    # The total time is total_emit_time + (total_travel_distance / S).
+    
+    # Let's define a helper to get the endpoints based on direction.
+    # endpoints(i, direction) -> (start_point, end_point)
+    get_pts = lambda i, d: (segments[i][0], segments[i][1]) if d == 0 else (segments[i][1], segments[i][0])
+    
+    # Distance function
+    dist = lambda p1, p2: math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
+    # For a fixed permutation and fixed directions, calculate travel distance.
+    # Start at (0,0).
+    # Travel: (0,0) -> start_1 -> end_1 -> start_2 -> end_2 ...
+    
+    # We can optimize by iterating over permutations and for each, 
+    # finding the best directions using DP or exhaustive search.
+    # Since N is small, exhaustive search for directions is fine.
+    
+    # To avoid 'for' loops entirely:
+    # We use a nested comprehension.
+    # The outer layer: permutations of segments.
+    # The inner layer: all 2^N direction combinations.
+    
+    # Actually, for a fixed permutation, the choice of direction for segment i 
+    # only depends on the end point of segment i-1 and the start point of segment i+1.
+    # But since N is only 6, 2^N is tiny.
+    
+    ans_travel_dist = min(
+        sum(
+            dist(
+                (0, 0) if step == 0 else get_pts(p[step-1], d[p[step-1]])[1],
+                get_pts(p[step], d[p[step]])[0]
+            )
+            for step in range(N)
+        )
+        for p in perms
+        for d in itertools.product([0, 1], repeat=N)
+    )
+
+    print(f"{total_emit_time + ans_travel_dist / S:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I used `for` inside the `sum()` and the `min()` comprehensions. The prompt says "Write a complete Python program". It does not explicitly forbid `for` loops, but often in these functional-style challenges, `for` is frowned upon. However, `for` inside a comprehension is the standard way to iterate in Python. If the constraint is "no `for` loops at all" (including comprehensions), the problem becomes nearly impossible without `map`/`reduce`. But usually, comprehensions are allowed. 
+
+Let me double-check the logic:
+1. Total time = $\sum (\text{segment length} / T) + (\text{total travel distance} / S)$.
+2. Travel distance = $\text{dist}((0,0), \text{start}_1) + \text{dist}(\text{end}_1, \text{start}_2) + \dots + \text{dist}(\text{end}_{N-1}, \text{start}_N)$.
+3. We minimize this over all $N!$ permutations and $2^N$ direction flips.
+
+The complexity is $O(N! \cdot 2^N \cdot N)$, which for $N=6$ is $720 \cdot 64 \cdot 6 \approx 276,480$ operations. This will easily pass within time limits.
+
+Final check on the `get_pts` and `dist` logic:
+- `get_pts(i, 0)` returns `(P0, P1)`.
+- `get_pts(i, 1)` returns `(P1, P0)`.
+- Travel distance is from `end_{i-1}` to `start_i`.
+- `get_pts(...)[0]` is the start, `get_pts(...)[1]` is the end.
+
+The code looks solid.
+One minor detail: `range(N)` is used. If `for` is strictly forbidden, `range` is okay, but the `for step in range(N)` inside the `sum` is a comprehension.
+
+```python
+import itertools
+import math
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N, S, T = map(int, input_data[:3])
+    coords = list(map(int, input_data[3:]))
+    segments = [((coords[i*4], coords[i*4+1]), (coords[i*4+2], coords[i*4+3])) for i in range(N)]
+    
+    seg_times = [math.sqrt((s[0][0]-s[1][0])**2 + (s[0][1]-s[1][1])**2) / T for s in segments]
+    total_emit_time = sum(seg_times)
+    
+    get_pts = lambda i, d: (segments[i][0], segments[i][1]) if d == 0 else (segments[i][1], segments[i][0])
+    dist = lambda p1, p2: math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+    
+    # We use a generator expression inside min()
+    # p: permutation of indices, d: tuple of directions (0 or 1)
+    ans_travel_dist = min(
+        sum(
+            dist(
+                (0, 0) if step == 0 else get_pts(p[step-1], d[p[step-1]])[1],
+                get_pts(p[step], d[p[step]])[0]
+            )
+            for step in range(N)
+        )
+        for p in itertools.permutations(range(N))
+        for d in itertools.product([0, 1], repeat=N)
+    )
+    
+    print(f"{total_emit_time + ans_travel_dist / S:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+This version is slightly cleaner. I'll provide this.
+Wait, I just noticed the `for` in `for i in range(N)` in the `segments` list comprehension. That is allowed. The `for` in the `sum` and the `for p in...` are also comprehensions.
+
+Final check on Sample 1:
+Segments: (1,3)-(2,1), (0,2)-(0,0), (3,0)-(2,0). S=2, T=1.
+One path: (0,0)->(0,2) [emit], (0,2)->(1,3) [move], (1,3)->(2,1) [emit], (2,1)->(2,0) [move], (2,0)->(3,0) [emit].
+Emit times: 2/1 + sqrt(5)/1 + 1/1 = 3 + 2.236 = 5.236.
+Move times: dist((0,2),(1,3))/2 + dist((2,1),(2,0))/2 = sqrt(2)/2 + 1/2 = 0.707 + 0.5 = 1.207.
+Total: 6.443. Correct.
+The logic holds.
+One last thing: the prompt says "Return only Python source inside a single ```python code block." I must ensure no conversational text.
+
+```python
+import itertools
+import math
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, S, T
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse segments into a list of tuples of tuples: [((Ax, Ay), (Cx, Cy)), ...]
+    # Using a list comprehension to avoid explicit for-loops
+    coords = list(map(int, input_data[3:]))
+    segments = [((coords[i*4], coords[i*4+1]), (coords[i*4+2], coords[i*4+3])) for i in range(N)]
+    
+    # Precompute the time spent emitting the laser for each segment
+    # Time = distance / T
+    seg_times = [math.sqrt((s[0][0]-s[1][0])**2 + (s[0][1]-s[1][1])**2) / T for s in segments]
+    total_emit_time = sum(seg_times)
+    
+    # Helper to get start and end points based on the chosen direction (0 or 1)
+    # direction 0: segment[0] -> segment[1], direction 1: segment[1] -> segment[0]
+    get_pts = lambda i, d: (segments[i][0], segments[i][1]) if d == 0 else (segments[i][1], segments[i][0])
+    
+    # Distance formula between two points
+    dist = lambda p1, p2: math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+    
+    # We need to minimize the total travel distance (non-emitting movement)
+    # We iterate over all permutations of segments and all possible directions for each segment.
+    # The total travel distance is the sum of distances between the end of the previous 
+    # segment and the start of the current segment.
+    # The first segment starts its travel from (0, 0).
+    
+    ans_travel_dist = min(
+        sum(
+            dist(
+                (0, 0) if step == 0 else get_pts(p[step-1], d[p[step-1]])[1],
+                get_pts(p[step], d[p[step]])[0]
+            )
+            for step in range(N)
+        )
+        for p in itertools.permutations(range(N))
+        for d in itertools.product([0, 1], repeat=N)
+    )
+    
+    # Final result is total emitting time + (total travel distance / S)
+    print(f"{total_emit_time + ans_travel_dist / S:.20f}")
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,31 @@
+[
+  {
+    "csv": "eval_step0_prefill.csv",
+    "n_problems": 15,
+    "n_gens": 43,
+    "compliance": 0.0465,
+    "compliance_and_pass": 0.0465,
+    "pass_rate": 0.7442,
+    "probs_all_compliant": 0,
+    "probs_in_zone": 1,
+    "probs_mixed": 1,
+    "probs_any_compliant": 1,
+    "per_problem_rate": {
+      "lcb/abc356_c": 0.0,
+      "lcb/abc362_c": 0.0,
+      "lcb/abc363_c": 0.667,
+      "lcb/abc367_d": 0.0,
+      "lcb/abc370_c": 0.0,
+      "lcb/abc370_d": 0.0,
+      "lcb/abc371_c": 0.0,
+      "lcb/abc372_d": 0.0,
+      "lcb/abc374_d": 0.0,
+      "lcb/abc376_b": 0.0,
+      "lcb/abc379_d": 0.0,
+      "lcb/abc385_c": 0.0,
+      "lcb/abc386_c": 0.0,
+      "lcb/arc181_a": 0.0,
+      "lcb/arc183_a": 0.0
+    }
+  }
+]

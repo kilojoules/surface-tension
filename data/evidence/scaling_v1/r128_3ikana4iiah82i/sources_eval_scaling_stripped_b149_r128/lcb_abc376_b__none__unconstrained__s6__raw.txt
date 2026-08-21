@@ -1,0 +1,236 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into a list of (hand, target)
+    # H_i is at index 2 + 2*i, T_i is at index 3 + 2*i
+    instructions = [
+        (input_data[2 + 2*i], int(input_data[3 + 2*i]))
+        for i in range(Q)
+    ]
+
+    # Helper to calculate distance between two points on a ring of size N
+    # Since we can move in both directions, the distance is the 
+    # shortest path avoiding the other hand.
+    # However, the problem guarantees the instructions are achievable.
+    # On a ring, there are only two paths between any two points.
+    # One path is clockwise, one is counter-clockwise.
+    # The "blocked" path is the one that contains the other hand's current position.
+    
+    def get_dist(start, end, blocker, n):
+        if start == end:
+            return 0
+        
+        # Path 1: Clockwise (increasing index)
+        # Distance is (end - start) % n
+        # This path is blocked if the blocker is "between" start and end clockwise.
+        # The blocker is at relative position (blocker - start) % n.
+        # The path is blocked if 0 < (blocker - start) % n < (end - start) % n.
+        
+        dist_cw = (end - start) % n
+        blocked_cw = (0 < (blocker - start) % n < dist_cw)
+        
+        # Path 2: Counter-clockwise (decreasing index)
+        # Distance is (start - end) % n
+        # The path is blocked if the blocker is "between" start and end counter-clockwise.
+        
+        dist_ccw = (start - end) % n
+        blocked_ccw = (0 < (start - blocker) % n < dist_ccw)
+        
+        # We need the minimum distance of the non-blocked path.
+        # The problem guarantees at least one path is open.
+        res = []
+        if not blocked_cw: res.append(dist_cw)
+        if not blocked_ccw: res.append(dist_ccw)
+        return min(res)
+
+    # State: (left_hand, right_hand, total_distance)
+    # Initial state: Left=1, Right=2, Dist=0
+    initial_state = (1, 2, 0)
+    
+    # Use accumulate to iterate through instructions without a for/while loop
+    # The lambda takes the current state and the next instruction
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        if hand == 'L':
+            # Move left hand to target, right hand stays at r
+            return (target, r, d + get_dist(l, target, r, N))
+        else:
+            # Move right hand to target, left hand stays at l
+            return (l, target, d + get_dist(r, target, l, N))
+
+    final_state = list(accumulate(instructions, transition, initial=initial_state))[-1]
+    
+    # The result is the total distance (the third element of the state tuple)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Note:** I used `initial` in `accumulate` which is available in Python 3.8+. If the environment is older, the `initial` state can be prepended to the `instructions` list and the lambda adjusted. However, based on the constraints and problem type, Python 3.8+ is standard. The `list(...)[-1]` is used to extract the final accumulated state.
+**Wait**, I noticed I used a `for` loop in the list comprehension to parse instructions. To be strictly compliant with "no for/while", I can use `map` and `zip`.
+
+Revised parsing logic:
+```python
+    # Replace the instructions list comprehension with:
+    it = iter(input_data[2:])
+    instructions = list(zip(it, map(int, it)))
+```
+Actually, the prompt says "Write a complete Python program". Usually, list comprehensions are allowed as they are expressions, but I will ensure the logic is purely functional.
+
+Final check on the `get_dist` logic:
+If $L=1, R=4, N=6$ and we want to move $L$ to $5$.
+Clockwise: $1 \to 2 \to 3 \to 4 \to 5$. Blocked by $R=4$.
+Counter-clockwise: $1 \to 6 \to 5$. Not blocked.
+`dist_cw = (5-1)%6 = 4`. `(4-1)%6 = 3`. $0 < 3 < 4$ is True. Blocked.
+`dist_ccw = (1-5)%6 = 2`. `(1-4)%6 = 3`. $0 < 3 < 2$ is False. Not blocked.
+Result: $2$. Correct.
+If $L=1, R=2, N=6$ and we want to move $R$ to $4$.
+Clockwise: $2 \to 3 \to 4$. Not blocked by $L=1$.
+Counter-clockwise: $2 \to 1 \to 6 \to 5 \to 4$. Blocked by $L=1$.
+`dist_cw = (4-2)%6 = 2`. `(1-2)%6 = 5$. $0 < 5 < 2$ is False. Not blocked.
+`dist_ccw = (2-4)%6 = 4$. `(2-1)%6 = 1$. $0 < 1 < 4$ is True. Blocked.
+Result: $2$. Correct.
+The logic holds.
+Since I cannot use `for` in the parsing, I will use `zip` and `slice`.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parsing without for-loop: use zip and slicing
+    # input_data[2::2] are the H_i, input_data[3::2] are the T_i
+    instructions = list(zip(input_data[2::2], map(int, input_data[3::2])))
+
+    def get_dist(start, end, blocker, n):
+        if start == end: return 0
+        dist_cw = (end - start) % n
+        blocked_cw = (0 < (blocker - start) % n < dist_cw)
+        dist_ccw = (start - end) % n
+        blocked_ccw = (0 < (start - blocker) % n < dist_ccw)
+        return min(filter(lambda x: True, [dist_cw] if not blocked_cw else []) + 
+                  filter(lambda x: True, [dist_ccw] if not blocked_ccw else []))
+
+    # Using a helper to avoid 'if' in get_dist for strictness, 
+    # though 'if' in expressions is allowed.
+    # Let's refine get_dist to be more expression-like.
+    
+    def get_dist_refined(start, end, blocker, n):
+        if start == end: return 0
+        d_cw = (end - start) % n
+        b_cw = (0 < (blocker - start) % n < d_cw)
+        d_ccw = (start - end) % n
+        b_ccw = (0 < (start - blocker) % n < d_ccw)
+        # Return the one that isn't blocked. 
+        # Since it's guaranteed achievable, one must be False.
+        return d_cw if not b_cw else d_ccw
+
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        return (target, r, d + get_dist_refined(l, target, r, N)) if hand == 'L' else \
+               (l, target, d + get_dist_refined(r, target, l, N))
+
+    final_state = list(accumulate(instructions, transition, initial=(1, 2, 0)))[-1]
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `initial` argument in `accumulate` is Python 3.8+. I'll use it. The `if/else` in the return is a conditional expression, which is allowed.
+
+Final check on the `get_dist_refined`:
+If both are unblocked, it returns `d_cw`. But the problem asks for the *minimum* total operations. If both paths are open, we should take `min(d_cw, d_ccw)`.
+Corrected: `return min(d_cw if not b_cw else n, d_ccw if not b_ccw else n)`
+
+```python
+    def get_dist_refined(start, end, blocker, n):
+        if start == end: return 0
+        d_cw = (end - start) % n
+        b_cw = (0 < (blocker - start) % n < d_cw)
+        d_ccw = (start - end) % n
+        b_ccw = (0 < (start - blocker) % n < d_ccw)
+        return min(d_cw if not b_cw else n, d_ccw if not b_ccw else n)
+```
+This looks solid.
+One last detail: `input_data[2::2]` etc. is allowed. `map` is allowed. `zip` is allowed. `accumulate` is allowed. No `for` or `while` loops.
+
+Final code structure:
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    instructions = list(zip(input_data[2::2], map(int, input_data[3::2])))
+
+    def get_dist(start, end, blocker, n):
+        if start == end: return 0
+        d_cw = (end - start) % n
+        b_cw = (0 < (blocker - start) % n < d_cw)
+        d_ccw = (start - end) % n
+        b_ccw = (0 < (start - blocker) % n < d_ccw)
+        return min(d_cw if not b_cw else n, d_ccw if not b_ccw else n)
+
+    def transition(state, instr):
+        l, r, d = state
+        hand, target = instr
+        return (target, r, d + get_dist(l, target, r, N)) if hand == 'L' else \
+               (l, target, d + get_dist(r, target, l, N))
+
+    final_state = list(accumulate(instructions, transition, initial=(1, 2, 0)))[-1]
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `initial` keyword in `accumulate` is only in 3.8+. If I can't use it, I can do:
+`list(accumulate([(1, 2, 0)] + instructions, transition))[-1]`
+But the `transition` function would need to handle the first element differently.
+Actually, the standard way to do `reduce` with an initial value is `functools.reduce(function, iterable, initial)`. `accumulate` is for the running totals. Since I only need the final state, `reduce` is more appropriate.
+
+```python
+from functools import reduce
+# ...
+final_state = reduce(transition, instructions, (1, 2, 0))
+print(final_state[2])
+```
+This is cleaner and avoids the `initial` keyword issue.
+
+Final check on constraints: $N, Q \le 100$. The $O(Q)$ approach is perfect.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    instructions = list(zip(input_data[2::2], map(int, input_data[3::2])))
+
+    def get_dist(start, end, blocker, n):
+        if start == end: return 0
+        d_cw = (end - start) % n
+        b_cw = (0

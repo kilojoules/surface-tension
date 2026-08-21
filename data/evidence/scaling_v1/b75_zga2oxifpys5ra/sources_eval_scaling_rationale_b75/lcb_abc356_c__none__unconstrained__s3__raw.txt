@@ -1,0 +1,59 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, emphasizing declarative data transformations over imperative state changes. For this problem, I will use `itertools.product` to generate all possible key combinations (real/dummy) and a generator expression combined with `sum()` to count how many combinations satisfy all $M$ test conditions. Each test condition is verified by counting the intersection of the "real keys" set and the "tested keys" set.
+
+```python
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+    
+    # Parse tests into a list of tuples: (set_of_keys, result)
+    # We use a helper function to slice the input list since we cannot use loops
+    def parse_tests(data, index, count):
+        if count == 0:
+            return []
+        
+        # C_i is at data[index]
+        c_i = int(data[index])
+        # Keys are from index + 1 to index + c_i
+        keys = set(map(int, data[index + 1 : index + 1 + c_i]))
+        # Result is at index + 1 + c_i
+        result = data[index + 1 + c_i]
+        
+        # Recursively parse the rest
+        return [(keys, result)] + parse_tests(data, index + 2 + c_i, count - 1)
+
+    tests = parse_tests(input_data, 3, M)
+    
+    # Generate all 2^N combinations of (0, 1) where 1 means 'real'
+    # We use a generator expression inside sum() to count valid combinations
+    # A combination is valid if for every test:
+    # (count of real keys in test >= K) == (result == 'o')
+    
+    # We represent a combination as a tuple of 0s and 1s
+    # To check if a key is real, we check the value at index (key - 1)
+    
+    ans = sum(
+        1 for combo in product([0, 1], repeat=N)
+        if all(
+            (sum(combo[k-1] for k in test_keys) >= K) == (res == 'o')
+            for test_keys, res in tests
+        )
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    # Increase recursion depth for parse_tests if M is large, 
+    # though M=100 is well within default limits.
+    sys.setrecursionlimit(2000)
+    solve()
+```

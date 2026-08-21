@@ -1,0 +1,199 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs of (L, R)
+    pairs = [
+        (int(input_data[2*i + 1]), int(input_data[2*i + 2])) 
+        for i in range(N)
+    ]
+    
+    # Calculate the minimum and maximum possible sums
+    # sum(L_i) <= sum(X_i) <= sum(R_i)
+    min_sum = sum(L for L, R in pairs)
+    max_sum = sum(R for L, R in pairs)
+    
+    # A solution exists if and only if 0 is within the range [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        # We need to distribute the remaining sum needed to reach 0
+        # Starting from the minimum possible sum, we need to add 'target'
+        target = -min_sum
+        
+        # For each i, the maximum we can add to L_i is (R_i - L_i)
+        # We use accumulate to greedily fill the target
+        # current_sum tracks the total amount added so far
+        def get_added_value(acc, pair):
+            L, R = pair
+            capacity = R - L
+            added = min(capacity, target - acc)
+            return acc + added
+
+        # Calculate the total added amount at each step
+        # accumulate returns an iterator of the running totals
+        totals = list(accumulate(pairs, get_added_value, initial=0))
+        
+        # The amount added to X_i is (totals[i+1] - totals[i])
+        # X_i = L_i + (totals[i+1] - totals[i])
+        X = [
+            pairs[i][0] + (totals[i+1] - totals[i]) 
+            for i in range(N)
+        ]
+        
+        print("Yes")
+        print(*(X))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Note on implementation:** Since the problem requires a sum of 0, we start with the minimum possible sum $\sum L_i$. If this sum is $\leq 0$, we need to increase some $X_i$ values (up to their respective $R_i$) until the total sum reaches exactly 0. If the minimum sum is already $> 0$ or the maximum sum is $< 0$, it is impossible. The `itertools.accumulate` function is used here to simulate a loop that tracks the "budget" of the target sum across the sequence.
+**Wait, a correction on `accumulate` logic:** The `initial` value in `accumulate` shifts the index. In the code above, `totals[0]` is 0, and `totals[i+1]` is the sum of additions after processing pair $i$. Thus, the addition for pair $i$ is `totals[i+1] - totals[i]`.
+**Complexity:** Time complexity is $O(N)$ and space complexity is $O(N)$.
+**Constraints:** $N=2 \times 10^5$ is handled efficiently by avoiding explicit Python `for` loops for summation and using `sys.stdin.read().split()`.
+**Wait, `accumulate` with a custom function is essentially a loop.** To ensure it passes within time limits and follows the logic:
+1. Calculate `min_sum`.
+2. If `min_sum > 0` or `max_sum < 0`, print No.
+3. Otherwise, we need to add `diff = -min_sum` to the $L_i$ values.
+4. For each $i$, $X_i = L_i + \min(R_i - L_i, \text{remaining diff})$.
+
+The provided code implements this logic.
+**Wait, `accumulate` with a function is slightly different from a loop.** Let's double check:
+`totals = list(accumulate(pairs, get_added_value, initial=0))`
+`totals[0] = 0`
+`totals[1] = get_added_value(0, pairs[0])` $\rightarrow$ `0 + min(R0-L0, target-0)`
+`totals[2] = get_added_value(totals[1], pairs[1])` $\rightarrow$ `totals[1] + min(R1-L1, target-totals[1])`
+This correctly distributes the `target` value.
+**Final check on Sample 1:**
+L=[3, -4, -2], R=[5, 1, 3]. min_sum = 3-4-2 = -3. target = 3.
+i=0: added = min(5-3, 3-0) = 2. totals[1]=2. X1 = 3+2=5.
+i=1: added = min(1--4, 3-2) = min(5, 1) = 1. totals[2]=3. X2 = -4+1=-3.
+i=2: added = min(3--2, 3-3) = 0. totals[3]=3. X3 = -2+0=-2.
+Sum: 5-3-2 = 0. Correct. (Output 5 -3 -2 is valid).
+**Sample 2:** L=[1,1,1], R=[2,2,2]. min_sum=3. 3 <= 0 is False. Output: No. Correct.
+**Sample 3:** Works similarly.
+**Wait, the `initial` argument in `accumulate` was added in Python 3.8.** Most competitive programming environments use 3.8+. If not, one could use `accumulate([0] + pairs, ...)`. But 3.8 is standard.
+**One final detail:** The problem says $L_i \leq X_i \leq R_i$. My logic $X_i = L_i + \text{added}$ where $0 \leq \text{added} \leq R_i - L_i$ ensures this. The sum is $\sum L_i + \text{target} = \text{min\_sum} + (-\text{min\_sum}) = 0$. Correct.
+**Wait, the `get_added_value` function needs `target` from the outer scope.** In Python, this is allowed (closure).
+
+Final check on constraints: $L_i, R_i$ up to $10^9$, $N$ up to $2 \times 10^5$. Sums can reach $2 \times 10^{14}$, which fits in Python's arbitrary precision integers.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs of (L, R)
+    pairs = [
+        (int(input_data[2*i + 1]), int(input_data[2*i + 2])) 
+        for i in range(N)
+    ]
+    
+    # Calculate the minimum and maximum possible sums
+    min_sum = sum(L for L, R in pairs)
+    max_sum = sum(R for L, R in pairs)
+    
+    # A solution exists if and only if 0 is within the range [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        # We need to distribute the remaining sum needed to reach 0
+        target = -min_sum
+        
+        # Use a closure to access target
+        def get_added_value(acc, pair):
+            L, R = pair
+            # We can add at most (R - L) to the current L_i, 
+            # and at most what is left of the target
+            added = min(R - L, target - acc)
+            return acc + added
+
+        # Calculate the running total of the "added" values
+        # totals[i] is the sum of additions made to X_0 ... X_{i-1}
+        totals = list(accumulate(pairs, get_added_value, initial=0))
+        
+        # X_i = L_i + (amount added to this specific element)
+        X = [
+            pairs[i][0] + (totals[i+1] - totals[i]) 
+            for i in range(N)
+        ]
+        
+        sys.stdout.write("Yes\n")
+        sys.stdout.write(" ".join(map(str, X)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, I will provide the code in the requested format. The `sys.stdout.write` is slightly faster than `print` for large outputs.
+
+Final logic check:
+If $\sum L_i = -10$ and $\sum R_i = 10$, then `target = 10`.
+We add as much as possible to $X_1$, then $X_2$, etc., until the total added is 10.
+Since $\sum (R_i - L_i) = \sum R_i - \sum L_i = 10 - (-10) = 20$, and $20 \geq 10$, we are guaranteed to reach the target.
+The result is $\sum X_i = \sum L_i + \text{target} = -10 + 10 = 0$.
+All $L_i \leq X_i \leq R_i$ because $0 \leq \text{added}_i \leq R_i - L_i$.
+Everything is correct.
+One last check on `accumulate` with `initial`:
+`list(accumulate([1, 2], lambda x, y: x+y, initial=0))` $\rightarrow$ `[0, 1, 3]`
+`totals[0] = 0`
+`totals[1] = 1` (added 1)
+`totals[2] = 3` (added 2)
+Correct.
+The `pairs` list is used as the iterable.
+`totals[i+1] - totals[i]` gives the value added to `pairs[i]`.
+Correct.
+Final code structure:
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # ... logic ...
+
+if __name__ == "__main__":
+    solve()
+```
+This is complete.
+One minor detail: `sys.stdin.read().split()` reads the whole file. For $N=2 \cdot 10^5$, that's $\sim 4 \cdot 10^5$ integers, which is perfectly fine for memory.
+The time complexity is $O(N)$ because `sum`, `list comprehension`, `accumulate`, and `join` are all $O(N)$.
+The space complexity is $O(N)$ to store the input and the result.
+This fits within typical competitive programming limits (usually 2s, 256MB).
+Final check on the `target - acc` part: `acc` is the sum of additions so far. `target - acc` is the remaining amount needed to reach 0. `min(R-L, target-acc)` ensures we don't exceed $R_i$ and don't exceed the total required sum. Since `target` is non-negative and `acc` starts at 0 and increases, `target-acc` will eventually hit 0 and stay there.
+Everything looks solid.
+Final check on the output format: "Yes" then the sequence.
+Sample 1: `Yes \n 4 -3 -1` (or any valid).
+My code: `Yes \n 5 -3 -2`.
+$5 + (-3) + (-2) = 0$.
+$3 \leq 5 \leq 5$ (True)
+$-4 \leq -3 \leq 1$ (True)
+$-2 \leq -2 \leq 3$ (True)
+Valid.
+Sample 2: `No`.
+My code: `No`.
+Valid.
+Sample 3: `Yes \n ...`.
+My code: `Yes \n ...`.
+Valid.
+The logic is robust.
+Final code block provided below.
+One last check: `sys.stdin.read().split()` handles all whitespace (newlines, tabs, spaces).
+The constraints say $L_i \leq R_i$, so $R_i - L_i$ is always $\geq 0$.
+The `target` is $-min\_sum$. Since $min\_sum \leq 0$, $target \geq 0$.
+The `acc` starts at 0 and is non-decreasing.
+The `added` value is always $\geq 0$ as long as `target - acc \geq 0`.
+Once `acc` reaches `target`, `target - acc` becomes 0, and `added` becomes 0 for all subsequent $i$.
+Since $\sum (R_i - L_i) \geq target$, we are guaranteed that the final `acc` will be exactly `target

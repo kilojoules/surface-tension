@@ -1,0 +1,50 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state-mutation to a functional paradigm. While this is generally *not* idiomatic for graph-like problems (like Edit Distance) in Python, it encourages the use of high-level abstractions and sequence processing. To solve this for $K=1$, I will use slicing to identify the mismatched segments of the strings and conditional expressions to verify if the remaining parts can be reconciled via a single edit.
+
+```python
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # For K=1, we check if S and T are already identical
+    # or if they can be made identical with one operation.
+    
+    # Find the first index where S and T differ
+    # We use a generator expression with next() to find the first mismatch
+    # If no mismatch is found, the strings are identical.
+    def get_first_mismatch(s1, s2):
+        return next((i for i in range(min(len(s1), len(s2))) if s1[i] != s2[i]), min(len(s1), len(s2)))
+
+    def check_k1(s, t):
+        # If strings are identical
+        if s == t:
+            return True
+        
+        # Find first mismatch
+        i = get_first_mismatch(s, t)
+        
+        # There are three possible operations:
+        # 1. Replace: S[i] becomes T[i]. Check if S[i+1:] == T[i+1:]
+        # 2. Delete: S[i] is removed. Check if S[i+1:] == T[i:]
+        # 3. Insert: T[i] is inserted into S. Check if S[i:] == T[i+1:]
+        
+        return (
+            (len(s) == len(t) and s[i+1:] == t[i+1:]) or
+            (len(s) == len(t) + 1 and s[i+1:] == t[i:]) or
+            (len(s) == len(t) - 1 and s[i:] == t[i+1:])
+        )
+
+    # The problem specifies K=1, but we handle the logic generally for 0 or 1.
+    # Since we cannot use loops, we use the helper function.
+    sys.stdout.write("Yes\n" if check_k1(s, t) else "No\n")
+
+if __name__ == "__main__":
+    solve()
+```

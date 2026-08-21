@@ -1,0 +1,298 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+    
+    # We need to track the height of plants.
+    # Let 'current_time' be the total T accumulated from type 2 queries.
+    # A plant planted at 'current_time' with height 0 has a "relative birth time" of 'current_time'.
+    # Its height at any future time is: (Total T at that time) - (Relative birth time).
+    # Condition: Height >= H  =>  Total T - Birth Time >= H  =>  Birth Time <= Total T - H.
+    
+    # We store the birth times of all existing plants in a sorted list.
+    # Since we only add plants (type 1) and remove plants (type 3), 
+    # and birth times are non-decreasing, the list remains sorted.
+    
+    # Use a generator/iterator to process the flat input list into queries
+    def get_queries():
+        it = iter(queries)
+        # This is a helper to handle the variable length of queries
+        # However, since we can't use loops, we map a function that 
+        # consumes the iterator based on the query type.
+        pass
+
+    # Because we cannot use loops, we use a recursive-like structure via 
+    # a custom class or a reduction. But since we need to maintain state 
+    # (the list of plants and current_time), we can use a mutable object 
+    # and a list comprehension to drive the process.
+    
+    class State:
+        def __init__(self):
+            self.current_time = 0
+            self.plants = [] # Sorted list of birth times
+            self.results = []
+
+        def process(self, q_type, *args):
+            if q_type == '1':
+                self.plants.append(self.current_time)
+            elif q_type == '2':
+                self.current_time += int(args[0])
+            elif q_type == '3':
+                h = int(args[0])
+                threshold = self.current_time - h
+                # Find index of first plant with birth time > threshold
+                idx = bisect_left(self.plants, threshold + 0.1) 
+                # Wait, the condition is Birth Time <= Total T - H.
+                # So plants at indices [0, bisect_right(plants, threshold) - 1] are harvested.
+                # Let's use bisect_right for Birth Time <= threshold.
+                import bisect
+                idx = bisect.bisect_right(self.plants, threshold)
+                self.results.append(idx)
+                self.plants = self.plants[idx:]
+            return self
+
+    # To handle the variable number of arguments per query without a loop:
+    # We pre-group the input into a list of tuples.
+    def group_queries(data):
+        # Since we can't use loops, we use a recursive-like approach with a list
+        # But recursion limit is an issue. Let's use a trick with a generator.
+        def gen(it):
+            for line in it:
+                t = line
+                if t == '1':
+                    yield ('1',)
+                elif t == '2':
+                    yield ('2', next(it))
+                elif t == '3':
+                    yield ('3', next(it))
+        return list(gen(iter(data)))
+
+    # Since the prompt forbids 'for' and 'while', the generator inside group_queries 
+    # technically uses 'for'. Let's redefine it using a functional approach.
+    # Actually, the most robust way to process this without loops is using a 
+    # reduction or a recursive function with a helper.
+    
+    # Let's use a helper function and sys.setrecursionlimit.
+    sys.setrecursionlimit(300000)
+    
+    def process_all(state, query_list):
+        if not query_list:
+            return state
+        
+        q = query_list[0]
+        q_type = q[0]
+        
+        if q_type == '1':
+            state.plants.append(state.current_time)
+        elif q_type == '2':
+            state.current_time += int(q[1])
+        elif q_type == '3':
+            import bisect
+            threshold = state.current_time - int(q[1])
+            idx = bisect.bisect_right(state.plants, threshold)
+            state.results.append(idx)
+            state.plants = state.plants[idx:]
+            
+        return process_all(state, query_list[1:])
+
+    # To avoid the 'for' in group_queries, we can use a custom iterator.
+    def parse_queries(it):
+        # Use a list comprehension to consume the iterator
+        # We create a function that consumes 1 or 2 elements
+        def next_q(it):
+            t = next(it)
+            if t == '1': return ('1',)
+            if t == '2': return ('2', next(it))
+            if t == '3': return ('3', next(it))
+        
+        # We can't use a loop to call next_q, so we use a trick with 
+        # a list comprehension and a range, but that requires knowing 
+        # the number of queries. However, the number of queries is 
+        # not fixed. We can use a recursive function to build the list.
+        def build_list(it, acc):
+            try:
+                return build_list(it, acc + [next_q(it)])
+            except StopIteration:
+                return acc
+        
+        return build_list(it, [])
+
+    # Final execution flow:
+    # 1. Parse input into query tuples.
+    # 2. Process queries using recursion.
+    # 3. Print results.
+    
+    # Since the recursion limit and the nature of the problem, 
+    # let's use a more iterative-looking functional approach.
+    # Actually, the simplest way to group without 'for' is using a 
+    # generator and then converting to a list, but 'for' is banned.
+    # We can use map/filter/reduce.
+    
+    # Correct way to group without 'for':
+    def group_func(it):
+        # This is a recursive function to group the flat list into tuples
+        def recurse(it):
+            try:
+                t = next(it)
+                if t == '1':
+                    return [('1',)] + recurse(it)
+                elif t == '2':
+                    return [('2', next(it))] + recurse(it)
+                elif t == '3':
+                    return [('3', next(it))] + recurse(it)
+            except StopIteration:
+                return []
+        return recurse(it)
+
+    # To avoid recursion depth issues with the list concatenation, 
+    # we use a state object and a reduction.
+    from functools import reduce
+    
+    # We need to group the input first. Since we can't use loops or 
+    # deep recursion for grouping, we can use a trick with a 
+    # generator-like structure using map and a mutable container.
+    
+    def get_grouped_queries(data):
+        it = iter(data)
+        # We use a list comprehension to drive the iterator.
+        # Since we don't know how many queries there are, but we know 
+        # there are at most Q, we can try to call a function Q times.
+        # But some queries take 1 element, some 2.
+        # The total number of elements is len(data).
+        return [None] # Placeholder
+    
+    # Let's use a different approach for grouping:
+    # Use a helper function that consumes the iterator and 
+    # call it via a list comprehension over a range.
+    # But we don't know how many queries there are.
+    # Wait, we can just use a while-like structure via recursion 
+    # and increase the recursion limit.
+    
+    # Let's refine the grouping and processing into one recursive call.
+    def run(it, state):
+        try:
+            t = next(it)
+            if t == '1':
+                state.plants.append(state.current_time)
+                return run(it, state)
+            elif t == '2':
+                state.current_time += int(next(it))
+                return run(it, state)
+            elif t == '3':
+                import bisect
+                h = int(next(it))
+                threshold = state.current_time - h
+                idx = bisect.bisect_right(state.plants, threshold)
+                state.results.append(idx)
+                state.plants = state.plants[idx:]
+                return run(it, state)
+        except StopIteration:
+            return state
+
+    final_state = run(iter(queries), State())
+    print('\n'.join(map(str, final_state.results)))
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed that the recursive `run` function will hit the recursion limit for $Q=2 \times 10^5$. Even with `sys.setrecursionlimit`, Python's stack depth is limited by the OS. The only way to process this without `for` or `while` and without hitting stack limits is using `functools.reduce`.
+
+However, `reduce` requires a sequence. I can't easily group the input into a sequence without a loop. But I can process the raw `queries` list by maintaining a pointer in the state.
+
+Here is the corrected version using `reduce`:
+
+```python
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    class State:
+        def __init__(self):
+            self.current_time = 0
+            self.plants = []
+            self.results = []
+            self.ptr = 0
+
+        def step(self, _):
+            q_type = queries[self.ptr]
+            if q_type == '1':
+                self.plants.append(self.current_time)
+                self.ptr += 1
+            elif q_type == '2':
+                self.current_time += int(queries[self.ptr + 1])
+                self.ptr += 2
+            elif q_type == '3':
+                h = int(queries[self.ptr + 1])
+                threshold = self.current_time - h
+                idx = bisect_right(self.plants, threshold)
+                self.results.append(idx)
+                self.plants = self.plants[idx:]
+                self.ptr += 2
+            return self
+
+    # Use range(Q) to drive the reduce, but since ptr jumps, 
+    # we need a way to call step only when ptr < len(queries).
+    # Actually, we can just use a list comprehension to call a 
+    # function that checks the pointer.
+    
+    state = State()
+    # We use a list comprehension to execute the state transitions.
+    # Since we don't know how many steps, we can use a range up to Q
+    # and a conditional inside the step function.
+    
+    def drive(s, i):
+        if s.ptr < len(queries):
+            s.step(None)
+        return s
+
+    final_state = reduce(drive, range(Q), state)
+    sys.stdout.write('\n'.join(map(str, final_state.results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `range(Q)` in `reduce` will work because `self.ptr` handles the actual consumption of the `queries` list. If a query is type 2 or 3, it consumes 2 elements, but the `reduce` still runs $Q$ times. Since there are at most $Q$ queries, `range(Q)` is sufficient.
+
+Final check on constraints: $Q=2 \times 10^5$, $T, H = 10^9$. The `bisect_right` and list slicing `self.plants[idx:]` are efficient.
+
+```python
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    class State:
+        def __init__(self):
+            self.current_time = 0
+            self.plants = []
+            self.results = []
+            self.ptr = 0
+
+        def step(self):
+            if self.ptr >= len(queries):
+                return self
+            q_type = queries[self.ptr]
+            if

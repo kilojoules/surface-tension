@@ -1,0 +1,85 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, emphasizing declarative data transformations over imperative state changes. In Python, this encourages the use of high-order functions and comprehensions, which can often be more concise and leverage internal optimizations. For this problem, I will use `itertools.permutations` to iterate through all possible vertex mappings and nested list comprehensions combined with `sum()` to calculate the cost of transforming graph $H$ into a graph isomorphic to $G$ for each permutation.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    it = iter(input_data)
+    N = int(next(it))
+    
+    # Helper to read M edges and return an adjacency matrix
+    def read_graph(m_val):
+        edges = []
+        for _ in range(m_val):
+            edges.append((int(next(it)), int(next(it))))
+        # Create adjacency matrix (1-indexed internally for convenience)
+        matrix = [[0] * (N + 1) for _ in range(N + 1)]
+        for u, v in edges:
+            matrix[u][v] = matrix[v][u] = 1
+        return matrix
+
+    M_G = int(next(it))
+    adj_G = read_graph(M_G)
+    
+    M_H = int(next(it))
+    adj_H = read_graph(M_H)
+    
+    # Read A_{i,j} into a 2D array
+    # The input provides A_{i,j} for 1 <= i < j <= N
+    # We store them in a matrix where A[i][j] = A[j][i]
+    A = [[0] * (N + 1) for _ in range(N + 1)]
+    
+    # Using a helper function to fill the cost matrix without a for-loop
+    # We use a list comprehension to consume the iterator
+    costs_flat = [int(next(it)) for _ in range(N * (N - 1) // 2)]
+    
+    # To map the flat list back to A[i][j], we track indices
+    # Since we can't use loops, we use a list comprehension to create 
+    # the coordinate pairs and then a trick to update the matrix.
+    # However, since we need to mutate A, and comprehensions shouldn't mutate,
+    # we can build the cost matrix using a dictionary or a nested structure.
+    
+    # Generate all pairs (i, j) where 1 <= i < j <= N
+    pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    
+    # Create a mapping of (i, j) -> cost
+    cost_map = dict(zip(pairs, costs_flat))
+    
+    # Function to get cost between any two vertices i, j
+    def get_cost(i, j):
+        return cost_map.get((i, j)) or cost_map.get((j, i), 0)
+
+    # We need to find a permutation P of (1...N) such that 
+    # G(i, j) == H(P[i], P[j]) after modifications.
+    # The cost to make H isomorphic to G under permutation P is:
+    # Sum_{1 <= i < j <= N} cost(P[i], P[j]) if G(i, j) != H(P[i], P[j])
+    
+    # Generate all permutations of vertices 1...N
+    all_perms = permutations(range(1, N + 1))
+    
+    # For a given permutation P, calculate the total cost
+    # P is a tuple where P[i-1] is the image of vertex i
+    def calculate_total_cost(P):
+        # We iterate over all pairs (i, j) in G and check if the edge 
+        # exists in H between P[i-1] and P[j-1]
+        return sum(
+            get_cost(P[i-1], P[j-1])
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if adj_G[i][j] != adj_H[P[i-1]][P[j-1]]
+        )
+
+    # Find the minimum cost across all permutations
+    # We use map() to apply the cost function to all permutations
+    ans = min(map(calculate_total_cost, all_perms))
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,191 @@
+The constraint to avoid explicit loops forces a transition from imperative programming to a functional style. While idiomatic Python often uses `for` loops for readability, utilizing high-order functions and comprehensions can lead to more concise, declarative code that describes *what* to calculate rather than *how* to step through the data. For this problem, I will use a combination of `functools.reduce` to maintain a state (a monotonic stack) across the sequence, and list comprehensions to format the final output.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # The condition "no building taller than Building j between i and j" 
+    # means Building j is a "visible" building looking forward from i.
+    # This is equivalent to saying Building j is part of the 
+    # upper-envelope of the heights to the right of i.
+    # However, the problem asks for the count for each i.
+    # Let's rephrase: for a fixed i, we want to count j > i such that 
+    # max(H[i+1]...H[j-1]) < H[j].
+    # This is exactly the number of elements that would be pushed onto a 
+    # monotonic decreasing stack if we processed the array from i+1 to N.
+    # But we need this for all i.
+    
+    # Observation: A building j is counted for i if and only if 
+    # H[j] is greater than all heights in the range (i, j).
+    # This means j is a "right-side" visible building.
+    # For a fixed j, it is counted for all i < j such that 
+    # max(H[i+1]...H[j-1]) < H[j].
+    # This is true for all i from the index of the first building to the left 
+    # of j that is taller than H[j], up to j-1.
+    # Let L[j] be the index of the nearest building to the left of j with H[L[j]] > H[j].
+    # Then j satisfies the condition for i in range(L[j], j).
+    # The number of such i is j - L[j].
+    
+    # We can find L[j] for all j using a monotonic stack.
+    # We use reduce to simulate the stack process without a for loop.
+    
+    def process_stack(state, h):
+        stack, left_indices = state
+        # Pop elements from stack that are smaller than current height
+        # We use a while-like logic inside a helper or recursion, 
+        # but since we can't use while, we use a trick with a 
+        # custom function or just accept that the 'pop' logic 
+        # is the core of the monotonic stack.
+        # To strictly avoid 'while', we can use a recursive-like 
+        # structure via a helper function.
+        
+        def pop_smaller(s, val):
+            if s and s[-1][0] < val:
+                return pop_smaller(s[:-1], val)
+            return s
+        
+        new_stack = pop_smaller(stack, h)
+        # L[j] is the index of the top of the stack after popping
+        l_idx = new_stack[-1][1] if new_stack else -1
+        
+        # We need to record that building j contributes to the count of 
+        # all i in range(l_idx + 1, j).
+        # Instead of updating a range, we can use a difference array.
+        # count[l_idx + 1] += 1, count[j] -= 1
+        return (new_stack + [(h, len(left_indices))], left_indices + [l_idx])
+
+    # Using reduce to find L[j] for all j
+    # state: (stack, list_of_L_indices)
+    initial_state = ([], [])
+    final_state = reduce(process_stack, H, initial_state)
+    L = final_state[1]
+    
+    # Now we have L[j] for each j.
+    # The number of j's for a fixed i is the count of j > i such that L[j] < i + 1.
+    # Wait, the condition is: j satisfies the condition for i if L[j] <= i < j.
+    # Let's use the difference array method:
+    # For each j, it contributes +1 to indices i in [L[j]+1, j-1].
+    # Note: the problem says i < j, so i max is j-1.
+    # The range of i is [L[j]+1, j-1].
+    # Using a difference array D: D[L[j]+1] += 1, D[j] -= 1.
+    
+    # Since we can't use loops, we use a list comprehension to create the 
+    # difference array and then another to compute the prefix sums.
+    
+    # Create the difference array
+    # We need to handle the indices carefully.
+    # For each j (0 to N-1), the range of i is (L[j], j-1).
+    # Note: L[j] is the index of the first taller building to the left.
+    # If L[j] = -1, the range is [0, j-1].
+    # If L[j] = 0, the range is [1, j-1].
+    
+    # We can use a dictionary or a list to build the difference array.
+    # But we can't loop to fill it. We can use a list comprehension 
+    # and then a groupby or similar, but that's complex.
+    # Actually, we can use a technique with sorted tuples and reduce.
+    
+    # Each j provides a range [L[j]+1, j-1].
+    # We want to count how many ranges cover each i.
+    # This is equivalent to: for each i, count j > i such that L[j] < i + 1.
+    # This is: count j such that j > i and L[j] <= i.
+    
+    # Let's use the property: for a fixed i, the j's that satisfy the 
+    # condition are exactly the elements of the monotonic decreasing 
+    # stack if we started the stack from index i.
+    # This is still O(N^2) if we do it for all i.
+    # The L[j] approach is O(N).
+    
+    # To compute the final counts without loops:
+    # We have pairs (L[j], j). We want for each i: count j > i where L[j] <= i.
+    # This is: (count j > i) - (count j > i where L[j] > i).
+    # Since j > i is always true for the range we care about, 
+    # and L[j] is always < j, the condition L[j] <= i is the key.
+    
+    # Let's use the difference array logic with a trick:
+    # We can't use a loop to populate the difference array, 
+    # but we can use a list comprehension to create a list of 
+    # updates and then use a method to apply them.
+    # Actually, the simplest way to get the counts is:
+    # For each j, it contributes to i in range L[j]+1 to j-1.
+    # The number of such i is (j-1) - (L[j]+1) + 1 = j - L[j] - 1.
+    # But we need the count for EACH i.
+    
+    # Let's use the fact: for a fixed i, the j's are the 
+    # "right-side" visible buildings.
+    # These are the indices that would remain in a monotonic 
+    # decreasing stack when processing from i+1 to N.
+    # This is equivalent to: j is visible from i if H[j] > max(H[i+1]...H[j-1]).
+    # This is exactly the definition of the "Next Greater Element" 
+    # chain starting from the first element after i.
+    
+    # Correct approach:
+    # For each i, the visible j's are:
+    # j1 = i + 1
+    # j2 = NextGreaterElement(j1)
+    # j3 = NextGreaterElement(j2)... and so on.
+    # The number of such j's is the depth of the NextGreaterElement 
+    # chain starting at i+1.
+    
+    # Let dp[j] be the number of visible buildings starting from index j.
+    # dp[j] = 1 + dp[NextGreaterElement(j)] (if NGE exists)
+    # dp[j] = 1 (if no NGE exists)
+    # Then for index i, the answer is dp[i+1].
+    
+    # To find NGE for all j:
+    # Use a monotonic stack.
+    def find_nge(h_list):
+        n = len(h_list)
+        # We use reduce to simulate the stack and find NGE
+        # state: (stack, nge_list)
+        # Since we need to fill nge_list out of order, we use a dictionary.
+        def step(state, idx):
+            stack, nge = state
+            h = h_list[idx]
+            # Pop and update NGE
+            def pop_and_update(s, val, current_idx, nge_dict):
+                if s and h_list[s[-1]] < val:
+                    nge_dict[s[-1]] = current_idx
+                    return pop_and_update(s[:-1], val, current_idx, nge_dict)
+                return s
+            
+            return (pop_and_update(stack, h, idx, nge) + [idx], nge)
+
+        # We need a mutable dictionary for nge to work inside reduce
+        nge_dict = {}
+        final_state = reduce(step, range(n), ([], nge_dict))
+        return nge_dict
+
+    nge = find_nge(H)
+    
+    # Now compute dp[j] using the NGE.
+    # Since dp[j] depends on dp[nge[j]], and nge[j] > j, 
+    # we must compute dp from N-1 down to 0.
+    # We can use reduce on the reversed range.
+    
+    def compute_dp(state, j):
+        dp = state
+        # dp is a dictionary
+        val = 1 + dp.get(nge.get(j, -1), 0)
+        dp[j] = val
+        return dp
+
+    dp = reduce(compute_dp, range(N - 1, -1, -1), {})
+    
+    # The answer for i is dp[i+1] if i+1 < N else 0.
+    results = [dp.get(i + 1, 0) for i in range(N)]
+    print(*(results))
+
+if __name__ == "__main__":
+    # Increase recursion depth for the pop_smaller helper
+    sys.setrecursionlimit(300000)
+    solve()
+```

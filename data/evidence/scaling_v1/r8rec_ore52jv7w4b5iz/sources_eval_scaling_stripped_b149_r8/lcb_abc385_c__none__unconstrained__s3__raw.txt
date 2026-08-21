@@ -1,0 +1,232 @@
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Group indices by building height
+    # height_groups = {height: [list of indices]}
+    # We use a dictionary comprehension to organize indices for each unique height
+    unique_heights = set(h)
+    height_groups = {height: [i for i, val in enumerate(h) if val == height] 
+                     for height in unique_heights}
+    
+    # For each height group, we need to find the maximum number of indices 
+    # that form an arithmetic progression.
+    # Since N is small (3000), we can iterate through all pairs of indices (i, j)
+    # in a group to define a starting point and a common difference 'd'.
+    
+    # We use a nested comprehension to evaluate all possible intervals for each height.
+    # For a fixed height and a fixed interval 'd', we count how many buildings 
+    # of that height exist at that interval.
+    
+    # However, a simpler approach: 
+    # For every pair of indices (i, j) in a height group, they define an interval d = j - i.
+    # We can then check how many elements in that group fit the pattern i + k*d.
+    # But that's O(N^3). With N=3000, we need something closer to O(N^2).
+    
+    # Optimized approach:
+    # For each height, and for every pair of indices (i, j) where i < j,
+    # the number of elements is (count of k such that h[i + k*(j-i)] == height).
+    # Actually, we can just iterate through all possible intervals d from 1 to N.
+    # For a fixed d and height H, we check all possible offsets r from 0 to d-1.
+    
+    # Let's use a more direct approach:
+    # For each height, we find all indices. Then for every pair of indices, 
+    # we calculate the potential length.
+    # To avoid O(N^3), we can iterate through all possible intervals d (1 to N)
+    # and all possible starting positions i (0 to N-1).
+    
+    # The condition is: H[i] == H[i+d] == H[i+2d] ...
+    # We can use a generator expression to find the length of the sequence 
+    # starting at i with interval d.
+    
+    # We use a helper function to count the length of the sequence.
+    # Since we cannot use 'while' or 'for' loops, we use a recursive-like 
+    # structure via a list comprehension or map, but that is tricky.
+    # Alternatively, we can use the fact that for a fixed i and d, 
+    # the indices are i, i+d, i+2d... 
+    # We can use a list comprehension to extract the heights at these indices
+    # and then use itertools.takewhile to count the prefix of identical heights.
+    
+    from itertools import takewhile
+    
+    # For every starting index i and every interval d:
+    # 1. Create a sequence of heights: h[i], h[i+d], h[i+2d]...
+    # 2. Use takewhile to keep elements equal to h[i].
+    # 3. The length of that sequence is a candidate for the maximum.
+    
+    # We use a generator expression inside max()
+    # range(n) for i, range(1, n) for d.
+    # Note: if n=1, range(1, 1) is empty, so we handle that with a default.
+    
+    ans = max(
+        (
+            len(list(takewhile(lambda x: x == h[i], 
+                               [h[i + k * d] for k in range((n - 1 - i) // d + 1)])))
+            for i in range(n)
+            for d in range(1, n)
+        ),
+        default=1
+    )
+    
+    print(max(ans, 1))
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, the logic above uses a `for` loop inside a list comprehension `[h[i + k * d] for k in range(...)]`. The prompt forbids `for` loops. I must use `map`, `filter`, or comprehensions. Actually, list comprehensions *are* allowed as long as they aren't used to bypass the "no loop" rule for iteration logic. But the prompt says "Return only Python source... Provide a complete, working solution." Usually, in these constraints, comprehensions are the intended way to iterate.
+
+Let's refine the `takewhile` logic to ensure it's strictly compliant and efficient.
+
+```python
+import sys
+from itertools import takewhile
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # We need to find max(k) such that h[i] == h[i+d] == ... == h[i+(k-1)*d]
+    # We iterate i from 0 to n-1 and d from 1 to n-1.
+    # For each (i, d), we generate the sequence h[i], h[i+d], ...
+    # and count how many starting elements are equal to h[i].
+    
+    # Using a generator expression to avoid explicit for/while loops.
+    # The range() in the list comprehension is allowed as it's the standard way 
+    # to perform comprehensions in Python.
+    
+    result = max(
+        (
+            len(list(takewhile(
+                lambda val: val == h[i],
+                (h[i + k * d] for k in range((n - 1 - i) // d + 1))
+            )))
+            for i in range(n)
+            for d in range(1, n)
+        ),
+        default=1
+    )
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the most robust way to avoid any "loop" accusation while maintaining $O(N^2)$ is to iterate over all possible intervals $d$ and then use a grouping mechanism, but the $i, d$ approach is $O(N^2 \log N)$ or $O(N^2)$ depending on the sequence length. Given $N=3000$, $N^2$ is $9 \times 10^6$, which fits in the time limit.
+
+Final check on constraints: $N=3000$. The nested generator `for i in range(n) for d in range(1, n)` is $N^2$. The `takewhile` consumes the sequence. This is acceptable.
+
+One final detail: `range` is allowed in comprehensions.
+
+```python
+import sys
+from itertools import takewhile
+
+def solve():
+    # Read all input
+    data = sys.stdin.read().split()
+    if not data:
+        return
+    
+    n = int(data[0])
+    h = list(map(int, data[1:]))
+    
+    # We evaluate the length of the constant-height sequence for every 
+    # starting position i and every possible interval d.
+    # The expression (h[i + k * d] for k in range(...)) creates the sequence.
+    # takewhile(lambda x: x == h[i], ...) extracts the contiguous block of same heights.
+    
+    # We use a generator expression to find the maximum length.
+    # We handle the n=1 case via the default value of max().
+    ans = max(
+        (
+            len(list(takewhile(
+                lambda x: x == h[i],
+                (h[i + k * d] for k in range((n - 1 - i) // d + 1))
+            )))
+            for i in range(n)
+            for d in range(1, n)
+        ),
+        default=1
+    )
+    
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `for i in range(n) for d in range(1, n)` is still a nested loop structure. To be safer and more "functional", I can use `itertools.product`.
+
+```python
+import sys
+from itertools import takewhile, product
+
+def solve():
+    data = sys.stdin.read().split()
+    if not data: return
+    n = int(data[0])
+    h = list(map(int, data[1:]))
+    
+    # Use product(range(n), range(1, n)) to avoid 'for' keywords entirely
+    # although comprehensions are usually allowed.
+    ans = max(
+        map(
+            lambda pair: len(list(takewhile(
+                lambda x: x == h[pair[0]],
+                (h[pair[0] + k * pair[1]] for k in range((n - 1 - pair[0]) // pair[1] + 1))
+            ))),
+            product(range(n), range(1, n))
+        ),
+        default=1
+    )
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the prompt says "Write a complete Python program". It doesn't explicitly forbid `for` in comprehensions, but it forbids `for` loops. In Python, `for` in a comprehension is an expression, not a statement. However, to be 100% safe, I will use `map` and `product`.
+
+One last check: `range` in the `k` generator is still a `for` in a comprehension. I'll replace it with `map`.
+
+```python
+import sys
+from itertools import takewhile, product
+
+def solve():
+    data = sys.stdin.read().split()
+    if not data: return
+    n = int(data[0])
+    h = list(map(int, data[1:]))
+    
+    ans = max(
+        map(
+            lambda pair: len(list(takewhile(
+                lambda x: x == h[pair[0]],
+                map(lambda k: h[pair[0] + k * pair[1]], range((n - 1 - pair[0]) // pair[1] + 1))
+            ))),
+            product(range(n), range(1, n))
+        ),
+        default=1
+    )
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+This version uses zero `for` or `while` keywords.
+
+Final logic check:
+Sample 1: 8 buildings, heights [5, 7, 5, 7, 7, 5, 7, 7]
+i=1 (height 7), d=3: indices 1, 4, 7. Heights: h[1]=7, h[4]=7, h[7]=7. Length = 3. Correct.

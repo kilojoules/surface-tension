@@ -1,0 +1,56 @@
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into lists of Ls and Rs
+    pairs = [ (int(input_data[i]), int(input_data[i+1])) for i in range(1, len(input_data), 2) ]
+    Ls = [p[0] for p in pairs]
+    Rs = [p[1] for p in pairs]
+    
+    # The minimum possible sum is the sum of all L_i
+    # The maximum possible sum is the sum of all R_i
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    # A solution exists if and only if 0 is within [min_sum, max_sum]
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start with X_i = L_i. We need to increase the total sum from min_sum to 0.
+    # The amount we need to add is -min_sum.
+    needed = -min_sum
+    
+    # For each i, the maximum we can add to L_i is (R_i - L_i).
+    # We use accumulate to find the prefix sums of the available "headroom".
+    headroom = [r - l for l, r in zip(Ls, Rs)]
+    prefix_headroom = list(accumulate(headroom))
+    
+    # For each i, we want to add as much as possible from 'needed', 
+    # but not more than the headroom for that specific element.
+    # The amount added to X_i is:
+    # min(headroom[i], needed - (sum of headroom of elements before i))
+    # However, a simpler way to think about it:
+    # The total added to the first i elements is min(needed, prefix_headroom[i-1])
+    # So the amount added to element i is:
+    # min(needed, prefix_headroom[i]) - min(needed, prefix_headroom[i-1])
+    
+    # We create a helper list for the subtraction logic
+    # We prepend 0 to prefix_headroom to handle the i=0 case
+    ph = [0] + prefix_headroom
+    
+    # Calculate X_i = L_i + (amount added)
+    # amount added = min(needed, ph[i+1]) - min(needed, ph[i])
+    X = [Ls[i] + (min(needed, ph[i+1]) - min(needed, ph[i])) for i in range(N)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()

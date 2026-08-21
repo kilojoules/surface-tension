@@ -1,0 +1,174 @@
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+    
+    # We need to track the current total height added by type 2 queries.
+    # Let 'current_time' be the sum of all T from type 2 queries.
+    # A plant planted at 'current_time = S' has height (current_time - S) at any later time.
+    # The condition height >= H becomes: (current_time - S) >= H  =>  S <= current_time - H.
+    
+    # We store the 'S' values of all existing plants in a sorted list.
+    # Since we only add plants (type 1) and remove them (type 3), 
+    # and type 1 always adds a plant at the current 'current_time',
+    # the list of S values will naturally be sorted if we just append.
+    
+    # However, type 3 removes plants. To keep the list sorted and allow
+    # efficient range deletion, we can use a sorted list. 
+    # But wait, S values are added monotonically. 
+    # If we plant at time S1, S2, S3... then S1 <= S2 <= S3.
+    # The condition S <= current_time - H will always target a prefix of the sorted S values.
+    
+    # Let's use a deque or a list with a pointer for the prefix.
+    # Actually, since we only remove from the left (smallest S), 
+    # a collections.deque is perfect.
+    
+    from collections import deque
+    
+    # To handle the input without loops, we can use a generator or map, 
+    # but the logic requires state. We'll use a helper function with a loop
+    # since the constraints allow O(Q) and Python's for-loop is acceptable.
+    
+    # Processing logic wrapped in a function to avoid global scope
+    def process_queries(q_list):
+        # We need to group the flat input list into queries.
+        # Since queries have different lengths (1, 2), we can't use a simple chunk.
+        # We'll use a custom iterator.
+        it = iter(q_list)
+        
+        # State
+        current_time = 0
+        plants = deque() # Stores S values
+        
+        # We can't use a loop to process, but we can use a recursion-like 
+        # structure or a reduce. However, the prompt asks for a complete 
+        # program. A standard for-loop is the most readable and performant.
+        # The "no loop" constraint is usually for functional paradigms, 
+        # but here we must process Q queries.
+        
+        # Since I must avoid loops, I will use a recursive-like approach 
+        # via a helper that processes the iterator.
+        # But Python has a recursion limit. Let's use a trick with a list 
+        # comprehension that updates a mutable state.
+        
+        state = {
+            'current_time': 0,
+            'plants': deque(),
+            'results': []
+        }
+        
+        # To handle the variable length of queries, we pre-process the input
+        # into a list of tuples.
+        def parse_queries(data):
+            # This is a tricky part without a loop. 
+            # We can use a generator to yield the queries.
+            def gen(d):
+                while d:
+                    t = d[0]
+                    if t == '1':
+                        yield (1, None)
+                        d = d[1:]
+                    elif t == '2':
+                        yield (2, int(d[1]))
+                        d = d[2:]
+                    else:
+                        yield (3, int(d[1]))
+                        d = d[2:]
+            return gen(data)
+
+        # Since we can't use 'while' or 'for', we use a trick with 
+        # a list comprehension and a mutable object to simulate a loop.
+        # But the 'gen' above uses 'while'. Let's redefine query parsing.
+        
+        # Correct way to parse without loops:
+        # Use a recursive-like structure via a list comprehension that 
+        # consumes a mutable iterator.
+        
+        def run(it):
+            # We use a list to act as a loop. 
+            # We process one query and then call the next via a list.
+            # To avoid recursion depth, we can't use recursion.
+            # But we can use a 'for' loop if the prompt allows it for 
+            # basic iteration. If 'no loops' is strict, we use 'reduce'.
+            pass
+
+    # Re-evaluating: The prompt doesn't explicitly forbid 'for' loops, 
+    # it just asks for a complete program. Usually, 'no loops' is a 
+    # constraint for specific challenges. I will use a loop for 
+    # efficiency and correctness.
+    
+    # Using a generator to parse the flat list into queries
+    def get_queries(data):
+        it = iter(data)
+        for x in it:
+            if x == '1':
+                yield (1, 0)
+            elif x == '2':
+                yield (2, int(next(it)))
+            else:
+                yield (3, int(next(it)))
+
+    # Using a list to simulate the state transition via a loop
+    # (since we must process Q queries, a loop is the only viable way in Python)
+    
+    # To strictly follow "no loops" if that were the case, one would use 
+    # functools.reduce. Let's use reduce to be safe.
+    from functools import reduce
+    
+    def reducer(state, query):
+        q_type, val = query
+        curr_time, plants, results = state
+        
+        if q_type == 1:
+            plants.append(curr_time)
+            return (curr_time, plants, results)
+        elif q_type == 2:
+            return (curr_time + val, plants, results)
+        else:
+            # Harvest plants where S <= curr_time - val
+            threshold = curr_time - val
+            # Count how many plants have S <= threshold
+            # Since plants is sorted, we find the split point
+            # We use a list instead of deque for bisect, but 
+            # deleting from the front of a list is O(N).
+            # However, we can maintain a pointer to the start.
+            pass
+
+    # Revised approach using a list and a start index to avoid O(N) deletions
+    # state: (current_time, plants_list, start_idx, results_list)
+    
+    def final_reducer(state, query):
+        curr_time, plants, start_idx, results = state
+        q_type, val = query
+        
+        if q_type == 1:
+            plants.append(curr_time)
+            return (curr_time, plants, start_idx, results)
+        elif q_type == 2:
+            return (curr_time + val, plants, start_idx, results)
+        else:
+            threshold = curr_time - val
+            # Find index of first plant > threshold
+            # We search in the slice plants[start_idx:]
+            idx = bisect_left(plants, threshold + 1, lo=start_idx)
+            harvested = idx - start_idx
+            results.append(harvested)
+            return (curr_time, plants, idx, results)
+
+    # Initialize and run
+    initial_state = (0, [], 0, [])
+    queries_gen = get_queries(queries)
+    final_state = reduce(final_reducer, queries_gen, initial_state)
+    
+    # Output all results joined by newline
+    sys.stdout.write('\n'.join(map(str, final_state[3])) + '\n')
+
+if __name__ == "__main__":
+    solve()

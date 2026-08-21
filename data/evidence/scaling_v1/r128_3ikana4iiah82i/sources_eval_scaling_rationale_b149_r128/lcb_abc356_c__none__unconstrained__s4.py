@@ -1,0 +1,69 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # N: number of keys, M: number of tests, K: required real keys
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+
+    # Parse the tests. Each test is stored as (set_of_keys, result)
+    # We use a helper function or a comprehension to group the input tokens
+    # Since we cannot use loops, we use a list comprehension to slice the input_data
+    # The structure of each test is: C_i, then C_i keys, then R_i
+    # However, because C_i varies, we must process the input carefully.
+    
+    # To handle variable C_i without loops, we can use a recursive-like 
+    # structure via a custom function or process the tokens using a 
+    # technique that identifies the boundaries of each test.
+    
+    # Given the constraints to avoid loops, we can pre-process the tests 
+    # by iterating through the tokens using a method that simulates 
+    # the parsing logic.
+    
+    def parse_tests(tokens, index, tests):
+        if index >= len(tokens):
+            return tests
+        
+        # C_i is at tokens[index]
+        c_i = int(tokens[index])
+        # Keys are from index + 1 to index + c_i
+        keys = [int(x) for x in tokens[index + 1 : index + 1 + c_i]]
+        # Result is at index + 1 + c_i
+        result = tokens[index + 1 + c_i]
+        
+        return parse_tests(tokens, index + 2 + c_i, tests + [(keys, result)])
+
+    # Since recursion is allowed (as it is not a for/while loop), 
+    # we use it to parse the variable-length test inputs.
+    tests = parse_tests(input_data[3:], 0, [])
+
+    # Generate all 2^N combinations of keys (0 = dummy, 1 = real)
+    # product([0, 1], repeat=N) creates an iterator of all possibilities
+    all_combinations = product([0, 1], repeat=N)
+
+    # Validation logic:
+    # For a combination 'comb' (tuple of 0s and 1s):
+    # A test (keys, res) is satisfied if:
+    # (res == 'o' and sum(comb[k-1] for k in keys) >= K) OR
+    # (res == 'x' and sum(comb[k-1] for k in keys) < K)
+    
+    # We use a generator expression inside sum() to count valid combinations
+    ans = sum(
+        1 for comb in all_combinations
+        if all(
+            (res == 'o' and sum(comb[k-1] for k in keys) >= K) or
+            (res == 'x' and sum(comb[k-1] for k in keys) < K)
+            for (keys, res) in tests
+        )
+    )
+
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

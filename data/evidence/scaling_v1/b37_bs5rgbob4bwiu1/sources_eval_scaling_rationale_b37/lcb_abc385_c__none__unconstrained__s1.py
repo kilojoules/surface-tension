@@ -1,0 +1,107 @@
+import sys
+
+def solve():
+    # Read N and the list of heights
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # We need to find the maximum number of buildings that:
+    # 1. Have the same height H_i
+    # 2. Are spaced at equal intervals 'd'
+    
+    # We can iterate over all possible starting indices 'i' (0 to N-1)
+    # and all possible intervals 'd' (1 to N-1).
+    # For a fixed i and d, we count how many buildings H[i + k*d] 
+    # have the same height as H[i].
+    
+    # Using a nested comprehension to evaluate all pairs of (i, d):
+    # i: starting index
+    # d: interval
+    # We use a generator expression inside max() to find the best result.
+    
+    # To optimize, we only check d such that i + d < N.
+    # For a fixed i and d, the number of buildings is the count of k 
+    # such that i + k*d < N and H[i + k*d] == H[i].
+    # However, the condition "equal intervals" implies we check 
+    # H[i], H[i+d], H[i+2d]... and they MUST all be the same height.
+    # If we encounter one that isn't, the sequence stops.
+    
+    # Wait, the problem says "The chosen buildings are arranged at equal intervals."
+    # This means if we pick indices {i, i+d, i+2d, ..., i+(m-1)d}, 
+    # all these must have the same height.
+    
+    # Let's redefine: for every pair (i, d), we find the maximum m 
+    # such that H[i] == H[i+d] == ... == H[i+(m-1)d].
+    
+    # Since we cannot use loops, we can use a helper function with recursion 
+    # or a list comprehension that simulates the sequence.
+    # Actually, the simplest way to count the length of the prefix of the 
+    # sequence [H[i], H[i+d], H[i+2d]...] that matches H[i] is to use 
+    # a comprehension to identify all indices and then find the first index that fails.
+    
+    # However, a more "functional" way to count the contiguous matching heights 
+    # in the sequence is to use a list comprehension to mark matches (1 or 0) 
+    # and then find the first 0. But we can't use loops to find the first 0.
+    
+    # Correction: The problem asks for the maximum number of buildings.
+    # If we pick a set of buildings at indices i, i+d, i+2d... 
+    # they must ALL have the same height. 
+    # This means we are looking for the largest m such that 
+    # H[i] == H[i+d] == H[i+2d] == ... == H[i+(m-1)d].
+    
+    # We can use a recursive function to count the length of the matching sequence.
+    def count_match(i, d, height):
+        if i >= N or H[i] != height:
+            return 0
+        return 1 + count_match(i + d, d, height)
+
+    # To avoid recursion depth issues and loops, we can use a comprehension 
+    # to generate all possible (i, d) and map them to the count_match function.
+    # But recursion might hit limits. Let's use a different approach.
+    
+    # For a fixed i and d, the number of elements is the length of the 
+    # sequence until the first height mismatch.
+    # We can use a list comprehension to get the sequence of booleans 
+    # [H[i]==H[i], H[i+d]==H[i], H[i+2d]==H[i]...] 
+    # and then find the index of the first False.
+    
+    # Since we can't use loops, we can use `next()` with a generator to find the first False.
+    # But we need the count of Trues before the first False.
+    
+    # Let's use the property: for a fixed i and d, we want the largest m 
+    # such that for all k < m, H[i + k*d] == H[i].
+    # This is equivalent to: 
+    # m = length of [k for k in range(0, (N-1-i)//d + 1) if all(H[i+j*d] == H[i] for j in range(k+1))]
+    # That is too slow.
+    
+    # Correct approach: 
+    # For every i and d, the number of buildings is the number of k's 
+    # such that H[i + k*d] == H[i], PROVIDED that all preceding ones also matched.
+    # Actually, the simplest way is:
+    # For every i and d, we check the sequence H[i], H[i+d], H[i+2d]...
+    # The number of buildings is the length of the prefix where all elements == H[i].
+    
+    # We can use a recursive function with @lru_cache or just a helper.
+    # Given N=3000, recursion depth might be an issue, but the maximum depth 
+    # is N (when d=1), which is 3000. sys.setrecursionlimit can handle this.
+    
+    sys.setrecursionlimit(5000)
+    
+    # We use a generator expression to find the maximum value across all i and d.
+    # i ranges from 0 to N-1, d ranges from 1 to N-1.
+    ans = max(
+        (count_match(i, d, H[i]) for i in range(N) for d in range(1, N)),
+        default=0
+    )
+    
+    # If N=1, the range(1, N) is empty, so we handle the default.
+    # But the problem says if we choose one building, it satisfies the condition.
+    # So the minimum answer is 1 if N >= 1.
+    print(max(ans, 1) if N > 0 else 0)
+
+if __name__ == "__main__":
+    solve()

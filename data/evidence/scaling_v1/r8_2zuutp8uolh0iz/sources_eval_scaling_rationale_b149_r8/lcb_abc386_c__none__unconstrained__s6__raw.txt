@@ -1,0 +1,60 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative style to a functional paradigm, emphasizing data transformation over state mutation. For this specific problem (Edit Distance with $K=1$), I will use slicing and boolean logic within a conditional expression to check the three possible single-operation transformations (substitution, insertion, deletion) and the case where the strings are already identical.
+
+```python
+import sys
+
+def solve():
+    # Read input and strip whitespace
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    # Since K=1, we check if S equals T, or if they can be made equal 
+    # via one substitution, one insertion, or one deletion.
+    # We use a helper logic to check if removing one char from S and T 
+    # makes them identical, or if changing one char does.
+    
+    # The core logic:
+    # 1. S == T (0 operations)
+    # 2. len(S) == len(T): Check if they differ by at most 1 character.
+    # 3. len(S) + 1 == len(T): Check if T is S with one character inserted.
+    # 4. len(S) - 1 == len(T): Check if S is T with one character inserted.
+    
+    # To avoid loops, we use generator expressions and any()
+    # For len(S) == len(T), we count mismatches.
+    # For length difference of 1, we find the first mismatch and check the remaining suffixes.
+    
+    # Finding the first mismatch index without a loop:
+    # We can't use a loop to find the index, but we can use a 
+    # combination of zip and next() to find the first index where s[i] != t[i].
+    
+    def check_substitution(s1, s2):
+        # Count mismatches using a generator expression
+        return sum(1 for a, b in zip(s1, s2) if a != b) <= 1
+
+    def check_insertion(s_short, s_long):
+        # Find first mismatch
+        # We use a generator to find the index of the first difference
+        mismatches = [i for i, (a, b) in enumerate(zip(s_short, s_long)) if a != b]
+        # If no mismatch in the zipped part, it's the last character
+        idx = mismatches[0] if mismatches else len(s_short)
+        # Check if skipping the mismatched char in s_long makes them equal
+        return s_long[:idx] + s_long[idx+1:] == s_short
+
+    # Final logic wrapped in a single expression
+    result = (
+        (s == t) or
+        (len(s) == len(t) and check_substitution(s, t)) or
+        (len(s) + 1 == len(t) and check_insertion(s, t)) or
+        (len(s) - 1 == len(t) and check_insertion(t, s))
+    )
+    
+    sys.stdout.write("Yes\n" if result else "No\n")
+
+if __name__ == "__main__":
+    solve()
+```

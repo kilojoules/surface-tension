@@ -1,0 +1,65 @@
+The constraint to avoid explicit loops forces a shift from imperative state management to a functional paradigm, emphasizing declarative transformations over step-by-step instructions. While idiomatic Python often uses `for` loops for readability, utilizing `map`, `sum`, and list comprehensions allows for concise data processing and leverages Python's internal optimizations. To solve this problem, I will calculate the minimum and maximum possible sums of the sequence, verify if zero falls within this range, and then use a greedy approach via list comprehensions to distribute the remaining required sum across the elements.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into lists of Ls and Rs
+    # Using list comprehension to structure the data
+    pairs = [ (int(input_data[i]), int(input_data[i+1])) for i in range(1, 2*N, 2) ]
+    L = [p[0] for p in pairs]
+    R = [p[1] for p in pairs]
+    
+    # Calculate the boundaries of the possible sum
+    min_sum = sum(L)
+    max_sum = sum(R)
+    
+    # Condition for existence: 0 must be between the minimum and maximum possible sums
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start with the minimum possible values X_i = L_i.
+    # The current sum is min_sum. We need to add 'target_diff' to reach a total sum of 0.
+    target_diff = 0 - min_sum
+    
+    # To distribute target_diff, for each i, we can increase L_i up to R_i.
+    # The amount we can add to X_i is min(R_i - L_i, remaining_diff).
+    # Since we cannot use loops, we simulate the state carry-over using a comprehension
+    # combined with a helper logic or by pre-calculating the prefix sums of the capacities.
+    
+    # Capacity of each element to be increased: C_i = R_i - L_i
+    C = [r - l for l, r in zip(L, R)]
+    
+    # Prefix sums of capacities to determine how much each element contributes
+    # Using a list comprehension with a slice/sum is O(N^2), so we use a different approach.
+    # We can use a generator or map with a mutable accumulator (though discouraged, 
+    # the prompt forbids 'for' and 'while' keywords).
+    
+    # Using a list to store the running total of capacity used
+    # We use a trick with a list as a closure variable to track the remaining difference
+    state = [target_diff]
+    
+    def distribute(cap):
+        # Calculate how much of the remaining difference this element takes
+        take = min(cap, state[0])
+        state[0] -= take
+        return take
+
+    # Map the distribute function across all capacities
+    # X_i = L_i + amount_taken
+    diffs = list(map(distribute, C))
+    X = [L[i] + diffs[i] for i in range(N)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,244 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once and split into a list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a generator to extract N and the pairs
+    # Since we cannot use loops, we use next() to get N
+    # and then group the remaining data into pairs
+    try:
+        # We wrap the map in a iterator to use next()
+        it = map(int, sys.stdin.read().split())
+    except:
+        pass
+
+    # Because the above structure is tricky without loops, 
+    # let's redefine the input reading process.
+    pass
+
+# Redefining the solve function to avoid the 'it' logic and use a more functional approach
+def solve_functional():
+    # Read everything
+    data = sys.stdin.read().split()
+    if not data:
+        return
+    
+    N = int(data[0])
+    # Create list of (L, R) tuples using slicing and zip
+    # Ls are at indices 1, 3, 5... and Rs are at 2, 4, 6...
+    Ls = list(map(int, data[1::2]))
+    Rs = list(map(int, data[2::2]))
+    
+    sum_L = sum(Ls)
+    sum_R = sum(Rs)
+    
+    if sum_L > 0 or sum_R < 0:
+        print("No")
+        return
+
+    print("Yes")
+    
+    # We need to distribute the remaining sum (0 - sum_L) across the X_i
+    # Each X_i can be increased by at most (R_i - L_i)
+    # We use accumulate to keep track of the "budget" used
+    diffs = [R - L for L, R in zip(Ls, Rs)]
+    total_needed = -sum_L
+    
+    # accumulate returns a running total of the differences
+    # We use this to determine how much of the 'budget' is consumed by each element
+    running_diffs = list(accumulate(diffs))
+    
+    # For each i, the amount added to L_i is:
+    # min(diffs[i], total_needed - (running_diffs[i-1] if i > 0 else 0))
+    # However, a simpler way:
+    # The amount added to L_i is the portion of total_needed that falls within 
+    # the range [running_diffs[i-1], running_diffs[i]]
+    
+    # To avoid loops and indices, we can use a list comprehension with a helper function
+    # But since we can't use loops, we calculate the 'added' value based on the 
+    # overlap of the interval [prev_sum, curr_sum] and [0, total_needed]
+    
+    # We prepend 0 to running_diffs to handle the i=0 case
+    sums = [0] + running_diffs
+    
+    # The amount added to L_i is:
+    # max(0, min(sums[i+1], total_needed) - max(sums[i], 0))
+    # Since sums are non-decreasing and total_needed is the target:
+    added = [
+        max(0, min(sums[i+1], total_needed) - sums[i])
+        for i in range(N)
+    ]
+    
+    X = [L + a for L, a in zip(Ls, added)]
+    print(*(X))
+
+# The constraint says no 'for' loops. 'range' inside a list comprehension is allowed.
+# Let's refine the logic to ensure it strictly follows the "no loop" rule.
+# The 'range' in the list comprehension is the only way to iterate.
+
+if __name__ == "__main__":
+    # To strictly avoid the function call inside the script, 
+    # I will put the logic inside a wrapper.
+    solve_functional()
+```
+**Wait**, I noticed I used a `for` loop in the list comprehension. The prompt says "no `for` loops". Usually, this means no `for` statements, but list comprehensions are explicitly allowed. Let me double-check the logic.
+
+The logic:
+1. Calculate $\sum L_i$ and $\sum R_i$.
+2. If $0 < \sum L_i$ or $0 > \sum R_i$, it's impossible.
+3. Otherwise, we need to add a total of $S = -\sum L_i$ to the $L_i$ values.
+4. Each $L_i$ can be increased by at most $R_i - L_i$.
+5. We fill the "capacity" of each interval one by one until $S$ is exhausted.
+
+The implementation uses `accumulate` and a list comprehension to simulate the distribution of the remaining sum.
+
+Final check on constraints: $N=2 \times 10^5$, $L, R = \pm 10^9$. Python's `sum` and `accumulate` handle these magnitudes.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    data = sys.stdin.read().split()
+    if not data: return
+    N = int(data[0])
+    Ls = list(map(int, data[1::2]))
+    Rs = list(map(int, data[2::2]))
+    sL, sR = sum(Ls), sum(Rs)
+    if sL > 0 or sR < 0:
+        print("No")
+        return
+    print("Yes")
+    diffs = [R - L for L, R in zip(Ls, Rs)]
+    sums = [0] + list(accumulate(diffs))
+    target = -sL
+    # Calculate added amount for each X_i without using a for loop
+    # We use a list comprehension to iterate through the indices
+    added = [max(0, min(sums[i+1], target) - sums[i]) for i in range(N)]
+    print(*(L + a for L, a in zip(Ls, added)))
+
+solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block". I must provide the complete code.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N is the first element
+    n = int(input_data[0])
+    # L values are at 1, 3, 5... and R values are at 2, 4, 6...
+    ls = list(map(int, input_data[1::2]))
+    rs = list(map(int, input_data[2::2]))
+    
+    sum_l = sum(ls)
+    sum_r = sum(rs)
+    
+    # Condition for existence: sum(L) <= 0 <= sum(R)
+    if sum_l > 0 or sum_r < 0:
+        sys.stdout.write("No\n")
+        return
+
+    # We need to distribute the deficit (-sum_l) across the ranges [L_i, R_i]
+    # The maximum we can add to each L_i is (R_i - L_i)
+    diffs = [r - l for l, r in zip(ls, rs)]
+    # Prefix sums of the available capacities
+    pref = [0] + list(accumulate(diffs))
+    target = -sum_l
+    
+    # For each i, the amount added is the intersection of [pref[i], pref[i+1]] and [0, target]
+    # This is calculated as: max(0, min(pref[i+1], target) - max(pref[i], 0))
+    # Since pref is non-decreasing and starts at 0, it simplifies to:
+    # max(0, min(pref[i+1], target) - pref[i])
+    
+    # Using a list comprehension to avoid explicit for-loops
+    res = [l + max(0, min(pref[i+1], target) - pref[i]) for i, l in enumerate(ls)]
+    
+    sys.stdout.write("Yes\n" + " ".join(map(str, res)) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used `enumerate` and `range` (implicitly via `enumerate` or `range` in comprehensions). The prompt says "no `for` loops". In Python, `for` is a keyword used in both loops and comprehensions. However, usually, in these challenges, "no `for` loops" means no `for` **statements**. If comprehensions are banned, I'd need `map` and `lambda`. But the prompt says "You can use list comprehensions". 
+
+Actually, the prompt says: "You cannot use any `for` or `while` loops. You can use list comprehensions, `map`, `filter`, `reduce`, and `recursion`."
+
+So the above is correct. I will provide it in the final block.
+One final detail: `sys.stdin.read().split()` might be slow for $2 \cdot 10^5$ but is generally acceptable. `sys.stdout.write` is faster than `print`.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input and parse N
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    # Extract Ls and Rs using slicing
+    ls = list(map(int, input_data[1::2]))
+    rs = list(map(int, input_data[2::2]))
+    
+    sum_l = sum(ls)
+    sum_r = sum(rs)
+    
+    # Check if a solution exists
+    if sum_l > 0 or sum_r < 0:
+        sys.stdout.write("No\n")
+        return
+
+    # Calculate the total amount we need to add to the sum of Ls to reach 0
+    target = -sum_l
+    # Calculate the capacity of each interval [L_i, R_i]
+    diffs = [r - l for l, r in zip(ls, rs)]
+    # Use accumulate to find the prefix sums of capacities
+    pref = [0] + list(accumulate(diffs))
+    
+    # Determine the value of each X_i
+    # X_i = L_i + amount_taken_from_target
+    # The amount taken is the overlap of [pref[i], pref[i+1]] and [0, target]
+    res = [l + max(0, min(pref[i+1], target) - pref[i]) for i, l in enumerate(ls)]
+    
+    sys.stdout.write("Yes\n" + " ".join(map(str, res)) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used `enumerate` in the list comprehension. `enumerate` is allowed. The logic is sound.
+
+Final check on Sample 1:
+N=3, (3,5), (-4,1), (-2,3)
+sum_L = 3-4-2 = -3. sum_R = 5+1+3 = 9.
+-3 <= 0 <= 9 is True.
+target = 3.
+diffs = [2, 5, 5].
+pref = [0, 2, 7, 12].
+i=0: l=3, max(0, min(2, 3) - 0) = 2. X_0 = 3+2 = 5.
+i=1: l=-4, max(0, min(7, 3) - 2) = 1. X_1 = -4+1 = -3.
+i=2: l=-2, max(0, min(12, 3) - 7) = 0. X_2 = -2+0 = -2.
+Sum = 5-3-2 = 0. Correct.
+
+Sample 2:
+N=3, (1,2), (1,2), (1,2)
+sum_L = 3. sum_R = 6.
+sum_L > 0 is True. Output "No". Correct.
+
+Sample 3:
+N=6, (-87,12), (-60,-54), (2,38), (-76,6), (87,96), (-17,38)
+sum_L = -87-60+2-76+87-17 = -151.
+sum_R = 12-54+38+6+96+38 = 136.
+-151 <= 0 <= 136 is True.
+target = 151.
+diffs = [99, 6, 36, 82, 9, 55].
+pref = [0, 99, 105, 141, 22

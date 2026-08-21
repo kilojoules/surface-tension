@@ -1,0 +1,112 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing the use of higher-order functions and declarative data transformations over imperative state mutation. To solve this problem, I will use `functools.reduce` to maintain the state of the grid across queries and `bisect` modules to efficiently find the nearest existing walls in rows and columns. Since the grid can be large, I will maintain sorted lists of existing wall indices for each row and column.
+
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = zip(map(int, input_data[3::2]), map(int, input_data[4::2]))
+
+    # rows[i] stores sorted indices of columns that have a wall in row i
+    # cols[j] stores sorted indices of rows that have a wall in column j
+    # Using lists of lists. Since we cannot use loops, we use list comprehensions.
+    initial_rows = [[j for j in range(1, W + 1)] for _ in range(H)]
+    initial_cols = [[i for i in range(1, H + 1)] for _ in range(W)]
+    
+    # We need a way to track if a wall exists at (r, c)
+    # Using a set of tuples (r, c) for walls is too slow for updates.
+    # Instead, we use the row/col lists and a boolean grid for O(1) check.
+    # However, we cannot mutate the grid in a loop. 
+    # We will use a dictionary or a flat list to simulate a 2D array for wall existence.
+    # Since H*W <= 4*10^5, a flat list is efficient.
+    grid_exists = [True] * (H * W)
+
+    def get_idx(r, c):
+        return (r - 1) * W + (c - 1)
+
+    def process_query(state, query):
+        r, c = query
+        rows, cols, grid = state
+        idx = get_idx(r, c)
+        
+        if grid[idx]:
+            # Destroy wall at (r, c)
+            # We need to remove c from rows[r-1] and r from cols[c-1]
+            # Since we can't use loops or mutate lists easily, 
+            # we use the fact that we can mutate the contents of the lists.
+            grid[idx] = False
+            # Use bisect to find and remove
+            r_list = rows[r-1]
+            c_pos = bisect_left(r_list, c)
+            r_list.pop(c_pos)
+            
+            c_list = cols[c-1]
+            r_pos = bisect_left(c_list, r)
+            c_list.pop(r_pos)
+            
+            return state
+        else:
+            # Destroy 4 nearest walls
+            r_list = rows[r-1]
+            c_list = cols[c-1]
+            
+            # Find neighbors in row r
+            # Left
+            idx_in_row = bisect_left(r_list, c)
+            # Right
+            # The wall to the left is at idx_in_row - 1
+            # The wall to the right is at idx_in_row
+            
+            def destroy(r_val, c_val):
+                if 1 <= r_val <= H and 1 <= c_val <= W:
+                    g_idx = get_idx(r_val, c_val)
+                    if grid[g_idx]:
+                        grid[g_idx] = False
+                        # Remove from row list
+                        row_l = rows[r_val-1]
+                        row_l.pop(bisect_left(row_l, c_val))
+                        # Remove from col list
+                        col_l = cols[c_val-1]
+                        col_l.pop(bisect_left(col_l, r_val))
+            
+            # Identify targets first to avoid mutation during search
+            targets = []
+            # Left
+            if idx_in_row > 0:
+                targets.append((r, r_list[idx_in_row-1]))
+            # Right
+            if idx_in_row < len(r_list):
+                targets.append((r, r_list[idx_in_row]))
+            
+            # Find neighbors in col c
+            idx_in_col = bisect_left(c_list, r)
+            # Up
+            if idx_in_col > 0:
+                targets.append((c_list[idx_in_col-1], c))
+            # Down
+            if idx_in_col < len(c_list):
+                targets.append((c_list[idx_in_col], c))
+            
+            # Apply destructions
+            # Using a list comprehension to trigger the side-effect of destroy()
+            [destroy(tr, tc) for tr, tc in targets]
+            
+            return state
+
+    from functools import reduce
+    final_state = reduce(process_query, queries, (initial_rows, initial_cols, grid_exists))
+    
+    # Count remaining walls
+    print(sum(final_state[2]))
+
+if __name__ == "__main__":
+    solve()
+```

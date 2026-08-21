@@ -1,0 +1,116 @@
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[0:2])
+    tx, ty = map(int, input_data[2:4])
+
+    # The tiling pattern is:
+    # If (i + j) is even, A_{i,j} and A_{i+1,j} are one tile.
+    # This means for a fixed j, the tiles are pairs (0,1), (2,3), etc. if j is even,
+    # and pairs (1,2), (3,4), etc. if j is odd.
+    
+    # Let's transform the coordinates to a system where we can calculate 
+    # the distance in terms of tile boundaries.
+    # A tile is defined by the pair of squares it covers.
+    # For a square (x, y), its tile ID can be represented as:
+    # If (x + y) is even, it's the left half of a tile: (x//2 if y even else (x-1)//2, y)
+    # Actually, a simpler way to think about it:
+    # In row y, the boundary between tiles occurs at x = k where (k + y) is odd.
+    # The cost to move vertically is simply the change in y.
+    # The cost to move horizontally depends on whether we cross a boundary.
+    
+    # Let's use the property: a move in x costs 1 if we cross a boundary.
+    # A boundary exists between x and x+1 if (x + y) is odd.
+    # The distance is essentially the L1 distance in a transformed space.
+    # The optimal path is to move to a coordinate where the "parity" of the 
+    # tile boundaries aligns.
+    
+    # The cost is max(|sx - tx|, |sy - ty|) if we consider the 
+    # "checkerboard" nature of the tiles.
+    # Specifically, the distance is:
+    # cost = max(abs(sx - tx), abs(sy - ty)) 
+    # But we must account for the offset of the tiles.
+    
+    # Let's normalize the coordinates.
+    # For a cell (x, y), it belongs to a tile. 
+    # Let the tile's representative be (X, Y).
+    # If (x + y) is even, the tile is {(x, y), (x+1, y)}. Representative: (x, y)
+    # If (x + y) is odd, the tile is {(x-1, y), (x, y)}. Representative: (x-1, y)
+    
+    def get_tile_coords(x, y):
+        # If (x + y) is even, this square is the left one of the tile.
+        # If (x + y) is odd, this square is the right one of the tile.
+        # The tile's "left" x-coordinate is x if (x+y)%2 == 0 else x-1.
+        # However, the tiles shift every row. To make it a grid, 
+        # we can map (x, y) -> (X, Y)
+        # X = x if (x+y)%2 == 0 else x-1
+        # But the distance between X_1 and X_2 is not simply |X1-X2| because
+        # the tiles are 2x1. The distance is |X1-X2| / 2.
+        # Let's use the transformation:
+        # X = (x + (x + y) % 2) // 2
+        # Y = y
+        # This doesn't quite work because the parity of y affects X.
+        pass
+
+    # Correct approach:
+    # The distance is max(|sx - tx|, |sy - ty|) if we can move diagonally.
+    # But we move in 4 directions. 
+    # The cost is actually:
+    # Let dx = abs(sx - tx), dy = abs(sy - ty)
+    # The answer is max(dx, dy) if we can move "diagonally" in terms of tiles.
+    # Actually, the distance is simply:
+    # ans = max(abs(sx - tx), abs(sy - ty))
+    # Wait, that's for a different problem. 
+    # Let's re-evaluate:
+    # To move from (sx, sy) to (tx, ty):
+    # Vertical distance is always |sy - ty|.
+    # Horizontal distance: in each row, boundaries are at ... -1, 0, 1, 2 ...
+    # But they shift.
+    # The distance is max(|sx - tx|, |sy - ty|) if we use the 
+    # transformation: 
+    # x' = (x + (x+y)%2) // 2, y' = y
+    # No, the simplest formula for this specific tiling problem is:
+    # result = max(abs(sx - tx), abs(sy - ty)) 
+    # But we must check the parity of the start and end tiles.
+    
+    # Let's use the coordinate transformation:
+    # A square (x, y) belongs to tile ( (x + (x+y)%2)//2, y )
+    # Let X(x, y) = (x + (x+y)%2) // 2
+    # The distance is max(|X(sx, sy) - X(tx, ty)|, |sy - ty|)
+    # Let's test Sample 1: (5, 0) and (2, 5)
+    # X(5, 0) = (5 + (5+0)%2)//2 = (5+1)//2 = 3
+    # X(2, 5) = (2 + (2+5)%2)//2 = (2+1)//2 = 1
+    # max(|3 - 1|, |0 - 5|) = max(2, 5) = 5. Correct.
+    
+    # Sample 2: (3, 1) and (4, 1)
+    # X(3, 1) = (3 + (3+1)%2)//2 = (3+0)//2 = 1
+    # X(4, 1) = (4 + (4+1)%2)//2 = (4+1)//2 = 2
+    # Wait, X(3,1)=1, X(4,1)=2. max(|1-2|, |1-1|) = 1. 
+    # But Sample 2 output is 0.
+    # Let's re-check: (3, 1) and (4, 1). 3+1=4 (even). 
+    # Rule: if i+j is even, A_{i,j} and A_{i+1,j} are one tile.
+    # So A_{3,1} and A_{4,1} are the same tile. Cost 0.
+    # My X function: X(3, 1) = (3 + 0)//2 = 1. X(4, 1) = (4 + 1)//2 = 2.
+    # The formula should be:
+    # If (x+y) is even, tile_x = x // 2 if y is even else (x-1) // 2
+    # Let's use: tile_x = (x + (y % 2)) // 2
+    # Sample 2: (3, 1) -> (3 + 1)//2 = 2. (4, 1) -> (4 + 1)//2 = 2.
+    # max(|2-2|, |1-1|) = 0. Correct.
+    # Sample 1: (5, 0) -> (5 + 0)//2 = 2. (2, 5) -> (2 + 1)//2 = 1.
+    # max(|2-1|, |0-5|) = 5. Correct.
+    
+    # Final Formula:
+    # X = (x + (y % 2)) // 2
+    # Ans = max(abs(X_s - X_t), abs(sy - ty))
+    
+    xs = (sx + (sy % 2)) // 2
+    xt = (tx + (ty % 2)) // 2
+    print(max(abs(xs - xt), abs(sy - ty)))
+
+if __name__ == "__main__":
+    solve()

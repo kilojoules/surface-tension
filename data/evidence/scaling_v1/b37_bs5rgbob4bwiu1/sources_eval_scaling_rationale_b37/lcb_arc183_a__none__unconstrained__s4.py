@@ -1,0 +1,109 @@
+import sys
+from math import factorial
+from functools import reduce
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N = int(input_data[0])
+    K = int(input_data[1])
+
+    # The total number of good sequences S is (N*K)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Let target = (S + 1) // 2
+    
+    # To avoid calculating S explicitly (which is huge), 
+    # we can determine the sequence element by element.
+    # For the first element, we try values v = 1, 2, ..., N.
+    # The number of sequences starting with v is (NK-1)! / ((K-1)! * (K!)^{N-1})
+    # which simplifies to S * (K / NK) = S / N.
+    # Wait, that's only if all counts are equal. 
+    # Generally, if we have counts c1, c2, ..., cN, the total is (sum c_i)! / prod(c_i!)
+    
+    # Precompute factorials for the multinomial coefficient
+    # Since N, K <= 500, NK <= 250,000. Factorials are too large for standard floats,
+    # but Python handles arbitrary precision integers.
+    
+    # However, we need the "middle" sequence. 
+    # A key observation: the lexicographical middle of all permutations of a multiset
+    # is the sequence that is "halfway" through the sorted list.
+    # Because of the symmetry of lexicographical ordering, the sequence at index (S+1)//2
+    # is the one where we effectively "reverse" the preference of digits halfway through.
+    # Actually, the simplest way to find the (S+1)//2-th sequence is to realize that
+    # the set of all good sequences is symmetric. If a sequence is the i-th,
+    # its "complement" (replacing x with N-x+1) is the (S-i+1)-th.
+    # The middle sequence is its own complement if S is odd, or paired with another if S is even.
+    # But we can just use the property that we want the sequence that splits the space in half.
+    
+    # Correct approach: 
+    # For the first position, we want the smallest v such that the number of sequences
+    # starting with 1, ..., v is >= (S+1)//2.
+    # Let f(c1, ..., cN) be the number of ways to arrange the remaining elements.
+    # f = (sum c_i)! / prod(c_i!)
+    
+    # To avoid massive numbers, we can't use floats. We must use integers.
+    # But we only need to compare the current rank with the total count.
+    # Let target = (S + 1) // 2.
+    # For the first element, we check v=1: count = f(K-1, K, ..., K).
+    # If target <= count, first element is 1.
+    # Else, target -= count, try v=2...
+    
+    # Since we need (S+1)//2, and S = (NK)! / (K!)^N:
+    # S is even unless N=1 (S=1) or (N > 1 and the power of 2 in (NK)! is equal to N * power of 2 in K!).
+    # Actually, we can just maintain the target rank and the current counts.
+    
+    # To avoid loops, we use reduce to iterate over the length of the sequence (N*K)
+    # and a helper function to find the digit.
+    
+    memo_fact = {}
+    def get_fact(n):
+        if n not in memo_fact:
+            memo_fact[n] = factorial(n)
+        return memo_fact[n]
+
+    def get_count(counts):
+        total = sum(counts)
+        denom = reduce(lambda x, y: x * get_fact(y), counts, 1)
+        return get_fact(total) // denom
+
+    # Initial state: (current_counts, current_target, result_sequence)
+    # target = (get_count([K]*N) + 1) // 2
+    
+    initial_counts = [K] * N
+    total_s = get_count(initial_counts)
+    initial_target = (total_s + 1) // 2
+    
+    def find_digit(state):
+        counts, target, res = state
+        
+        def search(v, current_target):
+            if v > N: return None # Should not happen
+            # Count of sequences starting with v
+            # New counts: counts[v-1] becomes counts[v-1] - 1
+            if counts[v-1] > 0:
+                # Calculate ways to arrange remaining
+                # ways = (sum-1)! / (c1! ... (cv-1)! ... cN!)
+                # ways = get_count(counts) * counts[v-1] // sum(counts)
+                # To avoid float, use the formula:
+                rem_counts = list(counts)
+                rem_counts[v-1] -= 1
+                ways = get_count(rem_counts)
+                
+                if current_target <= ways:
+                    return v, current_target
+                else:
+                    return search(v + 1, current_target - ways)
+            else:
+                return search(v + 1, current_target)
+
+        digit, new_target = search(1, target)
+        new_counts = list(counts)
+        new_counts[digit-1] -= 1
+        return (new_counts, new_target, res + [digit])
+
+    final_state = reduce(lambda state, _: find_digit(state), range(N * K), (initial_counts, initial_target, []))
+    print(*(final_state[2]))
+
+solve()

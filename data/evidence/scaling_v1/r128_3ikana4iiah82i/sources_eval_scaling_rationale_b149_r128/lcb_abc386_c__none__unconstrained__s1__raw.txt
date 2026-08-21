@@ -1,0 +1,55 @@
+The constraint to avoid explicit loops forces a shift from imperative style (how to do it) to functional style (what to do), emphasizing the use of higher-order functions and sequence expressions. For this problem, I will use list comprehensions for data processing and `next()` combined with generator expressions to find the first index where two strings differ, effectively replacing `for` loops and `break` statements.
+
+```python
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem is to check if the Edit Distance (Levenshtein) is <= 1.
+    # Since K=1, we can check this by comparing the strings and finding the first mismatch.
+    
+    # Find the first index where s and t differ
+    # Use a generator expression and next() to find the first index i where s[i] != t[i]
+    # We zip s and t to compare them character by character.
+    mismatch_idx = next(
+        (i for i, (char_s, char_t) in enumerate(zip(s, t)) if char_s != char_t),
+        min(len(s), len(t))
+    )
+
+    # The remaining suffixes after the first mismatch
+    s_suffix = s[mismatch_idx:]
+    t_suffix = t[mismatch_idx:]
+
+    # There are three possible operations to fix the mismatch:
+    # 1. Replace: s[i] becomes t[i]. Check if s[i+1:] == t[i+1:]
+    # 2. Delete: s[i] is removed. Check if s[i+1:] == t[i:]
+    # 3. Insert: t[i] is added to s. Check if s[i:] == t[i+1:]
+    
+    # We use a list comprehension to evaluate these conditions and 'any()' to check if any are True.
+    # Note: We must handle slicing carefully to avoid index errors, though Python slices handle this.
+    
+    possible = any([
+        # Case 0: Strings are already identical (or differ only by length at the end)
+        (s == t),
+        # Case 1: Replace character at mismatch_idx
+        (len(s) == len(t) and s[mismatch_idx + 1:] == t[mismatch_idx + 1:]),
+        # Case 2: Delete character from s at mismatch_idx
+        (s[mismatch_idx + 1:] == t[mismatch_idx:]),
+        # Case 3: Insert character into s at mismatch_idx (effectively skipping one in t)
+        (s[mismatch_idx:] == t[mismatch_idx + 1:])
+    ])
+
+    # Output result
+    sys.stdout.write("Yes\n" if possible else "No\n")
+
+if __name__ == "__main__":
+    solve()
+```

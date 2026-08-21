@@ -1,0 +1,237 @@
+```python
+import itertools
+import math
+
+def solve():
+    # Read N, S, T
+    line1 = input().split()
+    if not line1: return
+    n, s, t = map(int, line1)
+    
+    # Read line segments
+    segments = [list(map(int, input().split())) for _ in range(n)]
+    
+    # Pre-calculate lengths of each segment
+    # length = sqrt((Cx-Ax)^2 + (Dy-By)^2)
+    # Time to print = length / T
+    seg_lengths = [math.sqrt((seg[2]-seg[0])**2 + (seg[3]-seg[1])**2) for seg in segments]
+    
+    # Each segment i has two endpoints: P_{i,0}=(Ai, Bi) and P_{i,1}=(Ci, Di)
+    # We need to decide the order of segments and the direction of each segment.
+    # There are N! permutations of segments and 2^N choices of directions.
+    
+    # Let's represent a state as (segment_index, endpoint_index)
+    # endpoint_index 0 means we finished at (Ci, Di), 1 means we finished at (Ai, Bi)
+    # Wait, that's confusing. Let's say:
+    # Direction 0: Start at (Ai, Bi), end at (Ci, Di)
+    # Direction 1: Start at (Ci, Di), end at (Ai, Bi)
+    
+    def get_coords(seg_idx, direction, is_start):
+        seg = segments[seg_idx]
+        # direction 0: start=(A,B), end=(C,D)
+        # direction 1: start=(C,D), end=(A,B)
+        if direction == 0:
+            return (seg[0], seg[1]) if is_start else (seg[2], seg[3])
+        else:
+            return (seg[2], seg[3]) if is_start else (seg[0], seg[1])
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
+    # Generate all permutations of segment indices
+    perms = itertools.permutations(range(n))
+    # Generate all combinations of directions (0 or 1)
+    dirs = itertools.product([0, 1], repeat=n)
+    
+    # We want to minimize:
+    # Total Time = Sum(seg_lengths / T) + Sum(dist(end_prev, start_curr) / S)
+    # The first movement is from (0,0) to start_0.
+    
+    # Since we can't use loops, we use a generator expression inside min()
+    # We iterate over all permutations and all direction combinations.
+    
+    # To avoid nested loops, we can use a helper logic to calculate total travel time
+    # for a specific permutation and direction set.
+    
+    def calculate_travel_time(p, d):
+        # Starting point
+        curr_pos = (0, 0)
+        travel_dist = 0
+        # For each segment in the permutation
+        # We need the start and end coordinates based on the direction
+        # We use a list comprehension to build the sequence of (start, end) pairs
+        stops = [ (get_coords(p[i], d[p[i]], True), get_coords(p[i], d[p[i]], False)) 
+                  for i in range(n) ]
+        
+        # The travel distance is dist((0,0), start_0) + dist(end_0, start_1) + ...
+        # We can use a trick with zip to calculate distances between end_i and start_{i+1}
+        starts = [s[0] for s in stops]
+        ends = [s[1] for s in stops]
+        
+        # Initial jump
+        initial_dist = dist((0,0), starts[0])
+        # Intermediate jumps
+        intermediate_dist = sum(dist(ends[i], starts[i+1]) for i in range(n-1))
+        
+        return (initial_dist + intermediate_dist) / s
+
+    # We need to map the directions to the permutation. 
+    # The 'dirs' product generates tuples of length N. 
+    # If we use a permutation p, the direction of segment p[i] is d[i].
+    
+    # Corrected logic for directions:
+    # For a permutation p, there are 2^N ways to orient the segments.
+    # Let d be a tuple of length N where d[i] is the direction of the i-th segment in the permutation.
+    
+    total_print_time = sum(seg_lengths) / t
+    
+    # We use a generator to find the minimum travel time across all permutations and directions.
+    # Note: N is small (up to 6), so N! * 2^N = 720 * 64 = 46,080, which is well within limits.
+    
+    min_travel_time = min(
+        sum(
+            dist(
+                (0, 0) if i == 0 else get_coords(p[i-1], d[i-1], False),
+                get_coords(p[i], d[i], True)
+            )
+            for i in range(n)
+        ) / s
+        for p in itertools.permutations(range(n))
+        for d in itertools.product([0, 1], repeat=n)
+    )
+
+    print(f"{total_print_time + min_travel_time:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I noticed a bug in my `get_coords` logic inside the generator.** The `d` in `itertools.product` is mapped to the position in the permutation, not the segment index. Let's refine the generator to ensure `d[i]` refers to the direction of the `i`-th segment being printed.
+
+Corrected logic:
+For a permutation `p`, the segments are printed in order `p[0], p[1], ... p[n-1]`.
+The direction of the `i`-th segment printed is `d[i]`.
+The start point of the `i`-th segment is `get_coords(p[i], d[i], True)`.
+The end point of the `i`-th segment is `get_coords(p[i], d[i], False)`.
+
+The provided code already does this: `get_coords(p[i], d[i], True)`.
+
+Final check on complexity: $6! \times 2^6 = 720 \times 64 = 46,080$. This is very small and will execute instantly.
+
+```python
+import itertools
+import math
+
+def solve():
+    # Read N, S, T
+    input_data = math.isqrt(0) # dummy to avoid logic, just reading
+    import sys
+    all_input = sys.stdin.read().split()
+    if not all_input: return
+    
+    n = int(all_input[0])
+    s = int(all_input[1])
+    t = int(all_input[2])
+    
+    # Parse segments: each is 4 integers
+    segs = [
+        (int(all_input[3 + i*4]), int(all_input[4 + i*4]), 
+         int(all_input[5 + i*4]), int(all_input[6 + i*4]))
+        for i in range(n)
+    ]
+    
+    # Pre-calculate lengths
+    seg_lengths = [math.sqrt((seg[2]-seg[0])**2 + (seg[3]-seg[1])**2) for seg in segs]
+    
+    def get_coords(seg_idx, direction, is_start):
+        seg = segs[seg_idx]
+        # direction 0: start=(A,B), end=(C,D)
+        # direction 1: start=(C,D), end=(A,B)
+        if direction == 0:
+            return (seg[0], seg[1]) if is_start else (seg[2], seg[3])
+        else:
+            return (seg[2], seg[3]) if is_start else (seg[0], seg[1])
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
+    total_print_time = sum(seg_lengths) / t
+    
+    # Use a generator to find the minimum travel time
+    # p: permutation of segment indices
+    # d: directions for the segments in the order of the permutation
+    min_travel_time = min(
+        sum(
+            dist(
+                (0, 0) if i == 0 else get_coords(p[i-1], d[i-1], False),
+                get_coords(p[i], d[i], True)
+            )
+            for i in range(n)
+        ) / s
+        for p in itertools.permutations(range(n))
+        for d in itertools.product([0, 1], repeat=n)
+    )
+
+    print(f"{total_print_time + min_travel_time:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block." I will provide the final cleaned version.
+Actually, the `get_coords` and `dist` functions inside `solve` are fine, but for absolute purity in a single block, I'll keep it concise.
+
+Final logic check:
+Sample 1: 3 segments, S=2, T=1.
+Segments: (1,3)-(2,1), (0,2)-(0,0), (3,0)-(2,0).
+One path: (0,0)->(0,2) [print], (0,2)->(1,3) [move], (1,3)->(2,1) [print], (2,1)->(2,0) [move], (2,0)->(3,0) [print].
+Print times: 2/1 + sqrt(5)/1 + 1/1 = 3 + 2.236 = 5.236.
+Move times: dist((0,0),(0,0))/2 + dist((0,2),(1,3))/2 + dist((2,1),(2,0))/2 = 0 + 1.414/2 + 1/2 = 0.707 + 0.5 = 1.207.
+Total: 6.443. Correct.
+The logic holds.
+One final detail: the `get_coords` and `dist` are called inside a generator. To avoid `RecursionError` or scope issues in some environments, I'll define them as closures or use a helper. Since $N$ is small, this is efficient.
+
+```python
+import itertools
+import math
+import sys
+
+def solve():
+    all_input = sys.stdin.read().split()
+    if not all_input:
+        return
+    
+    n = int(all_input[0])
+    s = int(all_input[1])
+    t = int(all_input[2])
+    
+    segs = [
+        (int(all_input[3 + i*4]), int(all_input[4 + i*4]), 
+         int(all_input[5 + i*4]), int(all_input[6 + i*4]))
+        for i in range(n)
+    ]
+    
+    seg_lengths = [math.sqrt((seg[2]-seg[0])**2 + (seg[3]-seg[1])**2) for seg in segs]
+    
+    # Helper to get coordinates based on segment index and direction
+    # direction 0: A->C, direction 1: C->A
+    def get_pt(idx, direction, is_start):
+        seg = segs[idx]
+        if direction == 0:
+            return (seg[0], seg[1]) if is_start else (seg[2], seg[3])
+        return (seg[2], seg[3]) if is_start else (seg[0], seg[1])
+
+    def get_dist(p1, p2):
+        return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
+    total_print_time = sum(seg_lengths) / t
+    
+    # We minimize the travel time between segments
+    # p: permutation of segment indices
+    # d: directions for the segments in the order of the permutation
+    min_travel_time = min(
+        sum(
+            get_dist(
+                (0, 0) if i == 0 else get_pt(p[i-1], d[i-1], False),
+                get_pt(p[i], d[i], True)
+            )
+            for i in

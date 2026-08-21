@@ -1,0 +1,137 @@
+problem_id,benchmark,entry_point,constraint,condition,sample_idx,model,elapsed_s,gen_error,code_extracted,code_chars,parses,has_entry,compliant,test_passed,test_timed_out,test_error,prompt_chars,raw_chars
+lcb/abc356_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,255.85,,1,4215,0,0,0,0,0,,2499,4762
+lcb/abc356_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,461.92,,1,7614,1,1,1,1,0,,2499,8105
+lcb/abc356_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,312.32,,1,5443,0,0,0,0,0,,2499,5962
+lcb/abc356_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,564.24,no_code_block_found,0,0,0,0,0,0,0,,2499,9442
+lcb/abc356_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,179.31,,1,2939,0,0,0,0,0,,2499,3440
+lcb/abc356_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,291.43,,1,5085,1,1,1,1,0,,2499,5603
+lcb/abc356_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,210.67,,1,3405,1,1,1,1,0,,2499,3917
+lcb/abc356_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,396.89,,1,6530,1,1,1,1,0,,2499,7048
+lcb/abc359_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,206.16,,1,2530,1,1,1,0,0,wrong_output on test 7: got '3865081076768754' want '3865081076768755',2172,3062
+lcb/abc359_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,490.91,,1,6426,1,1,1,0,0,wrong_output on test 5: got '10000000000000000' want '5000000000000000',2172,7008
+lcb/abc359_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,184.42,,1,2406,1,1,1,0,0,wrong_output on test 7: got '3865081076768754' want '3865081076768755',2172,2870
+lcb/abc359_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,562.86,no_code_block_found,0,0,0,0,0,0,0,,2172,7377
+lcb/abc359_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,563.17,no_code_block_found,0,0,0,0,0,0,0,,2172,8014
+lcb/abc359_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,562.42,no_code_block_found,0,0,0,0,0,0,0,,2172,7884
+lcb/abc359_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,562.0,no_code_block_found,0,0,0,0,0,0,0,,2172,7747
+lcb/abc359_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,142.49,,1,2052,1,1,1,0,0,wrong_output on test 0: got '6' want '5',2172,2558
+lcb/abc362_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,210.94,,1,3289,1,1,1,0,0,wrong_output on test 0: got 'Yes\n4 -4 -2' want 'Yes\n4 -3 -1',1510,3850
+lcb/abc362_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,337.05,,1,5258,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,5773
+lcb/abc362_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,351.02,,1,5686,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,6200
+lcb/abc362_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,162.76,,1,2512,1,1,1,0,0,wrong_output on test 0: got 'Yes\n4 -4 -2' want 'Yes\n4 -3 -1',1510,3029
+lcb/abc362_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,201.39,,1,3211,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,3671
+lcb/abc362_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,419.29,,1,5381,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,7761
+lcb/abc362_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,205.22,,1,3126,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,3585
+lcb/abc362_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,261.52,,1,3812,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,4322
+lcb/abc363_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,99.53,,1,1573,1,1,1,1,0,,1690,2163
+lcb/abc363_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,82.61,,1,1174,1,1,1,1,0,,1690,1780
+lcb/abc363_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,181.69,,1,2319,1,1,1,0,0,wrong_output on test 0: got '' want '1',1690,3580
+lcb/abc363_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,98.99,,1,1437,1,1,1,1,0,,1690,2011
+lcb/abc363_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,87.58,,1,1232,1,1,1,1,0,,1690,1820
+lcb/abc363_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,95.0,,1,1298,1,1,1,1,0,,1690,1877
+lcb/abc363_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,109.76,,1,1690,1,1,1,1,0,,1690,2246
+lcb/abc363_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,84.68,,1,1189,1,1,1,1,0,,1690,1755
+lcb/abc367_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,585.34,no_code_block_found,0,0,0,0,0,0,0,,2549,7661
+lcb/abc367_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,525.56,,1,6715,1,1,1,0,0,wrong_output on test 0: got '10' want '4',2549,7252
+lcb/abc367_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,585.86,no_code_block_found,0,0,0,0,0,0,0,,2549,7654
+lcb/abc367_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,586.19,no_code_block_found,0,0,0,0,0,0,0,,2549,7785
+lcb/abc367_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,585.72,no_code_block_found,0,0,0,0,0,0,0,,2549,7102
+lcb/abc367_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,587.37,no_code_block_found,0,0,0,0,0,0,0,,2549,7694
+lcb/abc367_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,586.86,no_code_block_found,0,0,0,0,0,0,0,,2549,7678
+lcb/abc367_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,515.11,,1,6136,1,1,1,0,0,wrong_output on test 0: got '6' want '4',2549,6652
+lcb/abc370_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,218.6,,1,3521,1,1,1,1,0,,2468,4109
+lcb/abc370_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,169.8,,1,2582,1,1,1,1,0,,2468,3127
+lcb/abc370_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,188.74,,1,3008,0,0,0,0,0,,2468,3564
+lcb/abc370_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,140.27,,1,1917,1,1,1,0,0,runtime_err on test 0: TypeError: can only join an iterable,2468,2505
+lcb/abc370_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,186.47,,1,2734,1,1,1,1,0,,2468,3279
+lcb/abc370_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,206.13,,1,3190,1,1,1,1,0,,2468,3778
+lcb/abc370_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,191.01,,1,2823,1,1,1,1,0,,2468,3411
+lcb/abc370_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,112.07,,1,1597,1,1,1,0,0,wrong_output on test 0: got '3\nbdbe\nbcbe\nbcbc' want '3\nacbe\nacbc\nbcbc',2468,2191
+lcb/abc370_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,588.87,no_code_block_found,0,0,0,0,0,0,0,,2861,11093
+lcb/abc370_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,588.52,no_code_block_found,0,0,0,0,0,0,0,,2861,11010
+lcb/abc370_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,138.65,,1,2014,1,1,1,0,0,wrong_output on test 0: got '5' want '2',2861,2715
+lcb/abc370_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,169.7,,1,2451,1,1,1,0,1,timeout on test 3,2861,3066
+lcb/abc370_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,196.66,,1,2691,1,1,1,0,0,runtime_err on test 0: TypeError: 'list' object is not an iterator,2861,3389
+lcb/abc370_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,182.08,,1,2450,1,1,1,0,1,timeout on test 3,2861,3193
+lcb/abc370_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,310.43,,1,4459,0,0,0,0,0,,2861,5145
+lcb/abc370_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,260.27,,1,3872,1,1,1,0,1,timeout on test 3,2861,4559
+lcb/abc371_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,244.95,,1,3003,1,1,1,1,0,,3641,3566
+lcb/abc371_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,242.89,,1,3113,1,1,1,0,0,runtime_err on test 0: IndexError: list index out of range,3641,3636
+lcb/abc371_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,181.28,,1,2172,1,1,1,1,0,,3641,2743
+lcb/abc371_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,155.85,,1,2023,1,1,1,1,0,,3641,2602
+lcb/abc371_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,162.18,,1,2091,0,0,0,0,0,,3641,2639
+lcb/abc371_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,239.66,,1,3063,1,1,1,1,0,,3641,3633
+lcb/abc371_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,181.83,,1,2327,1,1,1,1,0,,3641,2875
+lcb/abc371_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,328.72,,1,4181,1,1,1,1,0,,3641,4718
+lcb/abc372_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,585.83,no_code_block_found,0,0,0,0,0,0,0,,1493,9539
+lcb/abc372_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,585.23,no_code_block_found,0,0,0,0,0,0,0,,1493,9918
+lcb/abc372_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,585.83,no_code_block_found,0,0,0,0,0,0,0,,1493,9230
+lcb/abc372_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,365.61,,1,5201,1,1,1,0,0,wrong_output on test 0: got '0 1 2 2 3' want '3 2 2 1 0',1493,5796
+lcb/abc372_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,585.36,no_code_block_found,0,0,0,0,0,0,0,,1493,10459
+lcb/abc372_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,585.68,no_code_block_found,0,0,0,0,0,0,0,,1493,10532
+lcb/abc372_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,585.12,no_code_block_found,0,0,0,0,0,0,0,,1493,10175
+lcb/abc372_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,585.97,no_code_block_found,0,0,0,0,0,0,0,,1493,10449
+lcb/abc374_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,140.56,,1,1987,1,1,1,0,0,wrong_output on test 0: got '6.47213595499957961010' want '6.44317475868633722080',3428,2542
+lcb/abc374_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,188.31,,1,2764,1,1,1,0,0,wrong_output on test 0: got '6.47213595499957961010' want '6.44317475868633722080',3428,3382
+lcb/abc374_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,446.14,,1,6774,1,1,1,0,0,runtime_err on test 0: NameError: name 'order' is not defined,3428,7291
+lcb/abc374_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,459.52,,1,6791,0,0,0,0,0,,3428,7315
+lcb/abc374_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,352.52,,1,5223,1,1,1,0,0,runtime_err on test 0: TypeError: 'int' object is not iterable,3428,5814
+lcb/abc374_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,278.1,,1,4420,1,1,1,0,0,wrong_output on test 0: got '6.47213595499957961010' want '6.44317475868633722080',3428,5015
+lcb/abc374_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,167.04,,1,2210,1,1,1,0,0,wrong_output on test 0: got '6.47213595499957961010' want '6.44317475868633722080',3428,2802
+lcb/abc374_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,174.43,,1,2621,1,1,1,0,0,runtime_err on test 0: IndexError: tuple index out of range,3428,3166
+lcb/abc376_b,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,218.99,,1,3617,0,0,0,0,0,,3382,4097
+lcb/abc376_b,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,131.6,,1,1943,1,1,1,1,0,,3382,2537
+lcb/abc376_b,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,231.33,,1,3741,0,0,0,0,0,,3382,4267
+lcb/abc376_b,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,586.71,no_code_block_found,0,0,0,0,0,0,0,,3382,10508
+lcb/abc376_b,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,286.98,,1,4318,1,1,1,1,0,,3382,4975
+lcb/abc376_b,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,226.35,,1,3463,1,1,1,1,0,,3382,4012
+lcb/abc376_b,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,137.56,,1,1972,1,1,1,1,0,,3382,2550
+lcb/abc376_b,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,217.59,,1,3272,1,1,1,1,0,,3382,3784
+lcb/abc379_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,134.59,,1,2201,1,1,1,1,0,,2332,2743
+lcb/abc379_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,287.53,,1,4998,1,1,1,0,0,runtime_err on test 0: AttributeError: 'int' object has no attribute 'flush',2332,5736
+lcb/abc379_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,589.93,no_code_block_found,0,0,0,0,0,0,0,,2332,11809
+lcb/abc379_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,147.78,,1,2180,1,1,1,1,0,,2332,3101
+lcb/abc379_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,236.2,,1,3989,1,1,1,1,0,,2332,4785
+lcb/abc379_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,131.01,,1,2068,1,1,1,1,0,,2332,2634
+lcb/abc379_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,118.13,,1,1856,1,1,1,1,0,,2332,2363
+lcb/abc379_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,214.92,,1,3624,1,1,1,1,0,,2332,4330
+lcb/abc385_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,452.98,,1,7519,1,1,1,1,0,,1414,8090
+lcb/abc385_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,483.75,,1,7507,1,1,1,0,0,wrong_output on test 0: got '5' want '3',1414,8062
+lcb/abc385_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,171.38,,1,2437,1,1,1,0,0,wrong_output on test 0: got '5' want '3',1414,3002
+lcb/abc385_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,587.9,no_code_block_found,0,0,0,0,0,0,0,,1414,9516
+lcb/abc385_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,526.63,,1,7851,1,1,1,1,0,,1414,8414
+lcb/abc385_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,108.71,,1,1436,1,1,1,0,0,wrong_output on test 0: got '5' want '3',1414,1999
+lcb/abc385_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,587.24,no_code_block_found,0,0,0,0,0,0,0,,1414,9258
+lcb/abc385_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,160.94,,1,2324,1,1,1,0,0,wrong_output on test 0: got '5' want '3',1414,2920
+lcb/abc386_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,149.06,,1,2094,1,1,1,0,0,wrong_output on test 0: got 'No' want 'Yes',1889,2650
+lcb/abc386_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,219.69,,1,2846,1,1,1,1,0,,1889,3448
+lcb/abc386_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,121.94,,1,1742,1,1,1,1,0,,1889,2283
+lcb/abc386_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,156.11,,1,2116,1,1,1,0,0,wrong_output on test 0: got 'No' want 'Yes',1889,2654
+lcb/abc386_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,225.9,,1,3228,1,1,1,1,0,,1889,3729
+lcb/abc386_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,167.18,,1,2276,1,1,1,1,0,,1889,2817
+lcb/abc386_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,116.8,,1,1591,1,1,1,1,0,,1889,2132
+lcb/abc386_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,160.62,,1,2165,1,1,1,1,0,,1889,3014
+lcb/arc181_a,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,451.11,,1,5479,0,0,0,0,0,,2262,7812
+lcb/arc181_a,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,515.67,,1,6725,0,0,0,0,0,,2262,8645
+lcb/arc181_a,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,588.71,too_long,1,8692,1,1,0,0,0,,2262,9471
+lcb/arc181_a,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,525.74,,1,7657,1,1,1,0,0,wrong_output on test 2: got '2' want '3',2262,8233
+lcb/arc181_a,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,333.94,,1,4264,1,1,1,0,0,"runtime_err on test 0: TypeError: sequence item 0: expected str instance, function found",2262,5820
+lcb/arc181_a,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,460.84,,1,4532,1,1,1,0,0,wrong_output on test 0: got '' want '1\n0\n2',2262,8160
+lcb/arc181_a,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,589.38,no_code_block_found,0,0,0,0,0,0,0,,2262,7924
+lcb/arc181_a,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,303.82,,1,4852,1,1,1,0,0,runtime_err on test 0: AttributeError: 'int' object has no attribute 'flush',2262,5425
+lcb/arc183_a,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,317.96,,1,5630,1,1,1,0,0,runtime_err on test 0: TypeError: 'int' object is not subscriptable,1891,6158
+lcb/arc183_a,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,505.9,,1,8575,1,1,1,0,1,timeout on test 4,1891,9199
+lcb/arc183_a,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,257.62,,1,3879,1,1,1,0,0,runtime_err on test 2: StopIteration,1891,4677
+lcb/arc183_a,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,410.82,,1,5951,0,0,0,0,0,,1891,7610
+lcb/arc183_a,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,588.97,too_long,1,9725,1,1,0,0,0,,1891,10759
+lcb/arc183_a,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,465.41,,1,7739,1,1,1,0,1,timeout on test 7,1891,8357
+lcb/arc183_a,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,590.53,no_code_block_found,0,0,0,0,0,0,0,,1891,11190
+lcb/arc183_a,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,591.14,no_code_block_found,0,0,0,0,0,0,0,,1891,9674
+lcb/arc189_a,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,593.58,no_code_block_found,0,0,0,0,0,0,0,,2041,7313
+lcb/arc189_a,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,592.29,no_code_block_found,0,0,0,0,0,0,0,,2041,8161
+lcb/arc189_a,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,591.84,no_code_block_found,0,0,0,0,0,0,0,,2041,7265
+lcb/arc189_a,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,591.58,no_code_block_found,0,0,0,0,0,0,0,,2041,7546
+lcb/arc189_a,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,592.59,no_code_block_found,0,0,0,0,0,0,0,,2041,8199
+lcb/arc189_a,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,592.65,no_code_block_found,0,0,0,0,0,0,0,,2041,7497
+lcb/arc189_a,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,591.75,no_code_block_found,0,0,0,0,0,0,0,,2041,7260
+lcb/arc189_a,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/dpo_pass/final_adapter,594.94,no_code_block_found,0,0,0,0,0,0,0,,2041,6972

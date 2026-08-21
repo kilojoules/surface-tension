@@ -1,0 +1,80 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state updates to a functional paradigm, which is generally not idiomatic for grid-based simulation problems in Python. To solve this without loops or recursion, I will use `functools.reduce` to simulate the sequence of queries and list comprehensions to handle the grid transformations. Specifically, I will maintain the grid as a flattened list and use `reduce` to apply each query's logic sequentially, utilizing `next` with generator expressions to find the first available walls in the four cardinal directions.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    # Queries as a list of (R, C) tuples
+    queries = [ (int(input_data[i]), int(input_data[i+1])) 
+                for i in range(3, len(input_data), 2) ]
+    
+    # Initial grid: 1 represents wall, 0 represents empty
+    # Flattened grid for easier handling in some contexts, 
+    # but we'll use a list of lists for coordinate accessibility
+    initial_grid = [[1] * W for _ in range(H)]
+
+    def process_query(grid, query):
+        R, C = query
+        # Adjust to 0-indexed
+        r, c = R - 1, C - 1
+        
+        # If wall exists at (r, c), destroy it and return
+        if grid[r][c] == 1:
+            # Create a new grid with the wall removed
+            # Using list comprehension to avoid mutation
+            return [
+                [ (0 if i == r and j == c else grid[i][j]) 
+                  for j in range(W) ] 
+                for i in range(H)
+            ]
+        
+        # If no wall, find first walls in 4 directions
+        # Up
+        up = next((i for i in range(r - 1, -1, -1) if grid[i][c] == 1), None)
+        # Down
+        down = next((i for i in range(r + 1, H) if grid[i][c] == 1), None)
+        # Left
+        left = next((j for j in range(c - 1, -1, -1) if grid[r][j] == 1), None)
+        # Right
+        right = next((j for j in range(c + 1, W) if grid[r][j] == 1), None)
+        
+        # Create a set of coordinates to destroy
+        to_destroy = {
+            (up, c) if up is not None else None,
+            (down, c) if down is not None else None,
+            (r, left) if left is not None else None,
+            (r, right) if right is not None else None
+        }
+        
+        # Return new grid with those walls removed
+        return [
+            [ 
+                (0 if (i, j) in to_destroy else grid[i][j]) 
+                for j in range(W) 
+            ] 
+            for i in range(H)
+        ]
+
+    # Use reduce to process all queries without a for-loop
+    final_grid = reduce(process_query, queries, initial_grid)
+    
+    # Calculate remaining walls using sum and list comprehension
+    result = sum(
+        sum(row) for row in final_grid
+    )
+    
+    sys.stdout.write(str(result) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

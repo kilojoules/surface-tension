@@ -1,0 +1,89 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = zip(map(int, input_data[3::2]), map(int, input_data[4::2]))
+
+    # We maintain a list of sorted indices of existing walls for each row and column.
+    # rows[i] contains sorted column indices of walls in row i.
+    # cols[j] contains sorted row indices of walls in column j.
+    # Using lists and bisect allows O(log N) search and O(N) deletion.
+    # Given H*W <= 4e5, O(N) deletion in a list is acceptable in Python for these constraints.
+    
+    initial_rows = [sorted(range(1, W + 1)) for _ in range(H + 1)]
+    initial_cols = [sorted(range(1, H + 1)) for _ in range(W + 1)]
+    
+    # State: (rows, cols, total_walls)
+    # We use a helper function to handle the wall destruction logic.
+    def destroy_wall(state, r, c):
+        rows, cols, total = state
+        
+        # Check if wall exists at (r, c)
+        # Use bisect to check existence in the sorted list
+        idx = bisect_left(rows[r], c)
+        exists = idx < len(rows[r]) and rows[r][idx] == c
+        
+        if exists:
+            # Destroy wall at (r, c)
+            rows[r].pop(idx)
+            # Find and remove r from cols[c]
+            c_idx = bisect_left(cols[c], r)
+            cols[c].pop(c_idx)
+            return (rows, cols, total - 1)
+        else:
+            # Destroy 4 nearest walls
+            # 1. Up (same col c, row i < r)
+            # 2. Down (same col c, row i > r)
+            # 3. Left (same row r, col j < c)
+            # 4. Right (same row r, col j > c)
+            
+            # Find targets
+            # Column search (Up/Down)
+            c_idx = bisect_left(cols[c], r)
+            up_r = cols[c][c_idx - 1] if c_idx > 0 else None
+            down_r = cols[c][c_idx] if c_idx < len(cols[c]) else None
+            
+            # Row search (Left/Right)
+            r_idx = bisect_left(rows[r], c)
+            left_c = rows[r][r_idx - 1] if r_idx > 0 else None
+            right_c = rows[r][r_idx] if r_idx < len(rows[r]) else None
+            
+            targets = [t for t in [(up_r, c), (down_r, c), (r, left_c), (r, right_c)] if t[0] and t[1]]
+            
+            # To avoid mutating the state while iterating, we define a removal function
+            def remove_target(s, target):
+                curr_rows, curr_cols, curr_total = s
+                tr, tc = target
+                # Check if wall still exists (might have been destroyed by another target in this query)
+                # Since the problem says "simultaneously", we should identify all targets first,
+                # then remove them. However, the targets are in different directions, 
+                # so they can only overlap at (r, c), which we already know is empty.
+                # Thus, we can just remove them.
+                
+                # Remove from row list
+                r_idx_rem = bisect_left(curr_rows[tr], tc)
+                if r_idx_rem < len(curr_rows[tr]) and curr_rows[tr][r_idx_rem] == tc:
+                    curr_rows[tr].pop(r_idx_rem)
+                    # Remove from col list
+                    c_idx_rem = bisect_left(curr_cols[tc], tr)
+                    curr_cols[tc].pop(c_idx_rem)
+                    return (curr_rows, curr_cols, curr_total - 1)
+                return s
+
+            return reduce(remove_target, targets, (rows, cols, total))
+
+    # Process all queries
+    final_state = reduce(destroy_wall, queries, (initial_rows, initial_cols, H * W))
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

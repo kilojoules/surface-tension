@@ -1,0 +1,190 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N = int(input_data[0])
+    K = int(input_data[1])
+
+    # The total number of good sequences S is (NK)! / (K!^N).
+    # We need the floor((S+1)/2)-th sequence.
+    # This is the "middle" sequence. 
+    # Due to the symmetry of lexicographical order, if a sequence T is the i-th,
+    # its "complement" (where each value x is replaced by N - x + 1) 
+    # is the (S - i + 1)-th sequence.
+    # The middle sequence is the one that is "closest" to its own complement.
+    # Specifically, we want the sequence T such that T is the largest sequence
+    # that is lexicographically smaller than or equal to its complement T'.
+    # This happens when the sequence is "balanced" around the middle.
+    # A simpler observation: the floor((S+1)/2)-th sequence is the last sequence
+    # that starts with a value <= (N+1)/2 if we consider the distribution.
+    # Actually, the symmetry implies that if we can't find a perfect middle,
+    # we are looking for the sequence that is just before the point where 
+    # the first element switches from x to x+1 such that the total count 
+    # of sequences starting with 1...x is S/2.
+    
+    # For N=1, the only sequence is (1,)*K.
+    if N == 1:
+        print(*( [1] * K ))
+        return
+
+    # The target index is floor((S+1)/2).
+    # We can determine the sequence element by element.
+    # For the first element, we check if the number of sequences starting with 1, 2, ..., x
+    # is >= S/2.
+    # The number of sequences starting with x is (NK-1)! / (K!^{N-1} * (K-1)!)
+    # This is S * (K / NK) = S / N.
+    # So the first element is floor((S/2) / (S/N)) + 1 = floor(N/2) + 1.
+    # Wait, if S is the total, and each starting digit has S/N sequences:
+    # The index S/2 falls into the digit ceil(N/2).
+    # If N=2, S/2 is the end of the sequences starting with 1.
+    # If N=3, S/2 is in the middle of sequences starting with 2.
+    
+    # Let's use the property: the floor((S+1)/2)-th sequence is the one 
+    # that is the "largest" sequence T such that T <= complement(T).
+    # This means at the first index i where T_i != T'_i, we must have T_i < T'_i.
+    # To be the largest such sequence, we want T_i to be as large as possible,
+    # and all subsequent T_j to be as large as possible, provided the 
+    # condition T <= T' is maintained.
+    
+    # The condition T <= T' is determined by the first index i where T_i != T'_i.
+    # We want the largest T such that T_i < T'_i.
+    # This means for all j < i, T_j = T'_j.
+    # T_j = T'_j means T_j = N - T_j + 1, so 2*T_j = N + 1.
+    # This is only possible if N is odd and T_j = (N+1)/2.
+    
+    # Case 1: N is even.
+    # We cannot have T_j = T'_j. The first element T_1 must be < T'_1.
+    # T'_1 = N - T_1 + 1. T_1 < N - T_1 + 1 => 2*T_1 < N + 1 => T_1 <= N/2.
+    # To make T largest, we pick T_1 = N/2.
+    # Then we want the largest possible sequence for the remaining slots.
+    # The remaining counts are: N/2 has K-1, others have K.
+    # To make it lexicographically largest, we fill remaining slots with 
+    # the largest available numbers.
+    
+    # Case 2: N is odd.
+    # We can have T_j = (N+1)/2. To make T largest, we keep T_j = (N+1)/2 
+    # as long as possible. But we only have K such elements.
+    # After K elements of (N+1)/2, we must have T_i < T'_i.
+    # T'_i = N - T_i + 1. So T_i <= N/2.
+    # To make T largest, we pick T_i = N/2.
+    # Then fill the rest with the largest available.
+
+    # General Algorithm:
+    # 1. If N is even:
+    #    First element is N // 2.
+    #    Remaining: one (N // 2) has K-1, others have K.
+    #    Fill remaining greedily from largest to smallest.
+    # 2. If N is odd:
+    #    First K elements are (N + 1) // 2.
+    #    Next element is (N // 2).
+    #    Remaining: one (N // 2) has K-1, others have K.
+    #    Fill remaining greedily from largest to smallest.
+
+    # However, the "largest" remaining is simply sorting the remaining 
+    # multiset in descending order.
+    
+    # Let's refine:
+    # The total number of sequences is S. We want index S/2.
+    # Each starting digit has S/N sequences.
+    # The digit is ceil((S/2) / (S/N)) = ceil(N/2).
+    # Let mid = (N + 1) // 2.
+    # If N is even, S/2 is exactly the end of the block starting with N/2.
+    # So the answer is the largest sequence starting with N/2.
+    # If N is odd, S/2 falls in the middle of the block starting with (N+1)//2.
+    # The block starting with mid has S/N sequences.
+    # We want the (S/2 - (mid-1)*S/N)-th sequence in that block.
+    # This is (S/2 - (mid-1)*S/N) / (S/N) = 1/2 - (mid-1) + mid = 1/2.
+    # So we want the middle of the sequences starting with mid.
+    # This is a recursive problem.
+    
+    # For N=3, K=3: S=1680/6=280. S/2 = 140.
+    # Starts with 1: 280/3 = 93.33... No, S is (9!)/(3!^3) = 1680.
+    # S/N = 1680/3 = 560.
+    # Index 840. 
+    # 1... : 560 sequences.
+    # 2... : 560 sequences. (Index 561 to 1120).
+    # 840 is in the 2... block.
+    # Relative index in 2... block is 840 - 560 = 280.
+    # This is exactly half of 560.
+    # So we want the middle of sequences starting with 2.
+    # This is the same problem with N=3, K=3, but one '2' is used.
+    
+    # The pattern is:
+    # While we can, pick the middle element mid = (N+1)//2.
+    # If N is even, the first element is N//2, then the rest is the largest possible.
+    # If N is odd, we pick mid, and then we are looking for the middle of the 
+    # remaining. This continues until the count of mid becomes 0, 
+    # then we pick (N//2) and the rest is the largest possible.
+
+    def get_middle_sequence(n, k):
+        # Using a list to build the sequence
+        res = []
+        # We use a dictionary to track remaining counts
+        counts = {i: k for i in range(1, n + 1)}
+        
+        # The logic for the "middle" sequence:
+        # As long as the current 'middle' element is available, we take it.
+        # Once the middle element is exhausted, we take the element just below it
+        # and then fill the rest greedily (largest to smallest).
+        
+        # For N even, the 'middle' is N/2, but we want the largest sequence 
+        # starting with N/2.
+        # For N odd, the 'middle' is (N+1)/2.
+        
+        # Correct logic for floor((S+1)/2):
+        # If N is even, the first element is N//2, and the rest is the 
+        # lexicographically largest sequence possible with the remaining.
+        # If N is odd, the first K elements are (N+1)//2, then the next is N//2,
+        # and the rest is the lexicographically largest.
+        
+        # Wait, Sample 4: N=3, K=3 -> 2 2 2 1 3 3 3 1 1
+        # This matches: K times (N+1)//2, then N//2, then largest remaining.
+        # Remaining for N=3, K=3: {1:3, 2:2, 3:3} -> after 2,2,2: {1:3, 2:0, 3:3}
+        # Then next is N//2 = 1. Remaining: {1:2, 2:0, 3:3}.
+        # Largest remaining: 3 3 3 1 1.
+        # Result: 2 2 2 1 3 3 3 1 1. Matches sample!
+        
+        # Sample 1: N=2, K=2 -> 1 2 2 1
+        # N is even. First element N//2 = 1.
+        # Remaining: {1:1, 2:2}. Largest remaining: 2 2 1.
+        # Result: 1 2 2 1. Matches sample!
+        
+        # Sample 3: N=6, K=1 -> 3 6 5 4 2 1
+        # N is even. First element N//2 = 3.
+        # Remaining: {1:1, 2:1, 3:0, 4:1, 5:1, 6:1}.
+        # Largest remaining: 6 5 4 2 1.
+        # Result: 3 6 5 4 2 1. Matches sample!
+        
+        # Implementation:
+        if n % 2 == 0:
+            first = n // 2
+            # Remaining counts
+            rem = {i: k for i in range(1, n + 1)}
+            rem[first] -= 1
+            # Largest remaining: sort keys descending, repeat by count
+            suffix = [i for i in range(n, 0, -1) for _ in range(rem[i])]
+            return [first] + suffix
+        else:
+            mid = (n + 1) // 2
+            first_part = [mid] * k
+            # After K mids, we need the "middle" of the remaining.
+            # But the remaining are N-1 elements (1...mid-1 and mid+1...N).
+            # This is now an "even" case with N-1 elements.
+            # The elements are 1, ..., mid-1, mid+1, ..., N.
+            # The "middle" of these is the (N-1)//2-th smallest.
+            # Which is mid - 1.
+            second = mid - 1
+            rem = {i: k for i in range(1, n + 1) if i != mid}
+            rem[second] -= 1
+            # Largest remaining:
+            suffix = [i for i in range(n, 0, -1) if i != mid for _ in range(rem[i])]
+            return first_part + [second] + suffix
+
+    print(*(get_middle_sequence(N, K)))
+
+if __name__ == "__main__":
+    solve()

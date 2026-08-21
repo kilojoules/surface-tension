@@ -1,0 +1,77 @@
+The constraint to avoid explicit loops forces a shift from imperative state management to a functional paradigm, emphasizing the transformation of data streams. In this specific problem, we need to track the "birth time" of plants relative to a global clock (the cumulative sum of $T$ values) to determine their current height. I will use `itertools.accumulate` to track the global time, a sorted list (via `bisect`) to store birth times, and `functools.reduce` to maintain the state across queries.
+
+```python
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+    
+    # We need to group the queries because they have different lengths
+    # Type 1: 1 element, Type 2: 2 elements, Type 3: 2 elements
+    def parse_queries(data):
+        it = iter(data)
+        def get_next():
+            try:
+                q_type = next(it)
+                if q_type == '1':
+                    return (1, 0)
+                elif q_type == '2':
+                    return (2, int(next(it)))
+                else:
+                    return (3, int(next(it)))
+            except StopIteration:
+                return None
+        
+        # Use a list comprehension to exhaust the iterator
+        return [get_next() for _ in range(Q)]
+
+    parsed_queries = parse_queries(queries)
+
+    # State consists of:
+    # 1. current_time: Cumulative T values
+    # 2. plants: A sorted list of 'birth_times' (the current_time when plant was height 0)
+    # 3. results: List of answers for type 3 queries
+    
+    def process(state, query):
+        q_type, val = query
+        current_time, plants, results = state
+        
+        if q_type == 1:
+            # Plant height 0 at current_time. 
+            # Height at time t is (t - birth_time).
+            # We use bisect.insort to keep plants sorted, but since we only 
+            # append current_time and current_time is non-decreasing, 
+            # a simple append suffices.
+            return (current_time, plants + [current_time], results)
+        
+        elif q_type == 2:
+            # Increase global clock
+            return (current_time + val, plants, results)
+        
+        else:
+            # Harvest plants where (current_time - birth_time) >= H
+            # This is equivalent to birth_time <= (current_time - H)
+            threshold = current_time - val
+            # Find index of first plant with birth_time > threshold
+            idx = bisect_right(plants, threshold)
+            harvested_count = idx
+            # Keep plants from idx onwards
+            return (current_time, plants[idx:], results + [harvested_count])
+
+    # Use reduce to simulate the loop over queries
+    final_state = reduce(process, parsed_queries, (0, [], []))
+    
+    # Print all results stored in the state
+    sys.stdout.write('\n'.join(map(str, final_state[2])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

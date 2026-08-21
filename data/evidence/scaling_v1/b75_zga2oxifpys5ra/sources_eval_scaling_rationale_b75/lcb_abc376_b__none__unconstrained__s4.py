@@ -1,0 +1,70 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into a list of (H, T)
+    instructions = [
+        (input_data[2 + 2*i], int(input_data[3 + 2*i]))
+        for i in range(Q)
+    ]
+    
+    # Helper to calculate distance between start and end on a ring of size N
+    # given that a certain position 'obstacle' cannot be crossed.
+    # There are only two directions: clockwise and counter-clockwise.
+    # One direction will be blocked by the obstacle.
+    def get_dist(start, end, obstacle, n):
+        # Clockwise distance (increasing index)
+        # Path: start -> start+1 -> ... -> end
+        # The obstacle is hit if it lies between start and end (exclusive of start, inclusive of end)
+        # However, the problem says we can't move TO the obstacle.
+        # Let's check if the obstacle is in the path.
+        
+        # Normalize coordinates to 0..N-1 for easier modulo arithmetic
+        s, e, o = start - 1, end - 1, obstacle - 1
+        
+        # Distance moving 'forward' (s -> s+1 -> ...)
+        # Forward distance is (e - s) % n
+        # The obstacle is encountered if (o - s) % n < (e - s) % n
+        dist_f = (e - s) % n
+        blocked_f = (o - s) % n < dist_f
+        
+        # Distance moving 'backward' (s -> s-1 -> ...)
+        # Backward distance is (s - e) % n
+        # The obstacle is encountered if (s - o) % n < (s - e) % n
+        dist_b = (s - e) % n
+        blocked_b = (s - o) % n < dist_b
+        
+        # It is guaranteed that the instruction is achievable.
+        # Return the distance of the path that is not blocked.
+        return dist_f if not blocked_f else dist_b
+
+    # State: (left_hand, right_hand, total_ops)
+    # Initial state: L=1, R=2, ops=0
+    initial_state = (1, 2, 0)
+    
+    def transition(state, instr):
+        l, r, total = state
+        h, t = instr
+        
+        if h == 'L':
+            # Move left hand from l to t, right hand r is fixed
+            d = get_dist(l, t, r, N)
+            return (t, r, total + d)
+        else:
+            # Move right hand from r to t, left hand l is fixed
+            d = get_dist(r, t, l, N)
+            return (l, t, total + d)
+
+    final_state = reduce(transition, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

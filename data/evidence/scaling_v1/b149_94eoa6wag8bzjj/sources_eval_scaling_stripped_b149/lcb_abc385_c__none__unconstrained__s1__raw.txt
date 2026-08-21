@@ -1,0 +1,228 @@
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Group indices by building height
+    # height_groups: {height: [index1, index2, ...]}
+    # We use a dictionary comprehension to organize indices of the same height
+    # Since we cannot use loops, we use a list comprehension to build a list of tuples
+    # and then a dictionary to group them. However, a simpler way is to 
+    # iterate through all unique heights and filter the indices.
+    
+    unique_heights = set(h)
+    
+    # For each height, we find all indices where that height occurs.
+    # Then, for every pair of indices (i, j) in that set, we calculate the interval d = j - i.
+    # We check how many elements in the sequence (i, i+d, i+2d...) have the same height.
+    
+    # To avoid loops, we use nested list comprehensions.
+    # 1. Get indices for each height: [[idx for idx, val in enumerate(h) if val == ht] for ht in unique_heights]
+    # 2. For each set of indices, try all possible intervals d.
+    # 3. For a fixed height, start index i, and interval d, count how many k satisfy h[i + k*d] == height.
+    
+    # Optimization: Instead of checking all d, we only check d that are differences between existing indices.
+    # But since N=3000, a O(N^2) approach is needed. 
+    # We can iterate through all pairs (i, j) and check the sequence.
+    
+    # Let's refine: for every pair (i, j) with h[i] == h[j], they define an interval d = j - i.
+    # The number of buildings is (j - i) // gcd(j-i, ...) ? No.
+    # The simplest O(N^2) is: for every pair (i, j), if h[i] == h[j], 
+    # the count is 1 + (number of k > 0 such that i + k*(j-i) < N and h[i + k*(j-i)] == h[i]).
+    
+    # To implement this without loops:
+    # We use a list comprehension to evaluate all pairs (i, j) where i < j and h[i] == h[j].
+    # For each pair, we use another list comprehension to count the valid k's.
+    
+    res = [
+        1 + sum(1 for k in range(1, (n - 1 - i) // (j - i) + 1) 
+                if h[i + k * (j - i)] == h[i])
+        for i in range(n)
+        for j in range(i + 1, n)
+        if h[i] == h[j]
+    ]
+    
+    # The answer is the maximum of res, or 1 if res is empty.
+    print(max(res) if res else 1)
+
+if __name__ == "__main__":
+    solve()
+```
+***Correction:*** The prompt forbids `for` loops. The `range` inside a list comprehension is allowed as it is part of the comprehension syntax, but the `for i in range(n)` inside the list comprehension is the standard way to iterate. However, the prompt says "without using any loops (for, while)". In Python, `for` is used in comprehensions. Usually, this constraint implies avoiding `for` blocks, but allows comprehensions. If comprehensions are also banned, one must use `map`, `filter`, and `recursion`. But since the prompt asks for a "complete Python program" and the standard interpretation of "no loops" in these challenges allows comprehensions, the above is the intended approach. 
+
+Wait, the prompt says "without using any loops (for, while)". To be safe, I will use `itertools` and `map` to avoid the `for` keyword entirely.
+
+```python
+import sys
+from itertools import combinations, count, takewhile
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # Use combinations to get all pairs (i, j)
+    # Use takewhile to count the sequence without a loop
+    # Use map to apply the logic to all pairs
+    
+    def count_sequence(pair):
+        i, j = pair
+        if h[i] != h[j]: return 0
+        d = j - i
+        # count(1) generates 1, 2, 3...
+        # takewhile checks if the index is in range and height matches
+        return 1 + sum(1 for _ in takewhile(
+            lambda k: i + k * d < n and h[i + k * d] == h[i], 
+            count(1)
+        ))
+
+    # We use map instead of list comprehension to avoid 'for'
+    # We use combinations to avoid 'for i in range'
+    results = map(count_sequence, combinations(range(n), 2))
+    
+    print(max(results, default=1))
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, `sum(1 for _ in ...)` contains a `for`. To be 100% loop-free:
+
+```python
+import sys
+from itertools import combinations, count, takewhile
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    def count_sequence(pair):
+        i, j = pair
+        if h[i] != h[j]: return 0
+        d = j - i
+        # Use len(list(takewhile(...))) to count instead of sum(1 for ...)
+        return 1 + len(list(takewhile(
+            lambda k: i + k * d < n and h[i + k * d] == h[i], 
+            count(1)
+        )))
+
+    results = map(count_sequence, combinations(range(n), 2))
+    print(max(results, default=1))
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `count_sequence` logic above counts from $k=1$ onwards. Since the pair $(i, j)$ already confirms $h[i] == h[j]$, the building at $j$ is the first one found by `takewhile` (where $k=1$). So the total is $1$ (for building $i$) $+ 1$ (for building $j$) $+ \dots$. The `len(list(takewhile...))` will return $1$ for the pair $(i, j)$ if no further buildings are found. So $1 + 1 = 2$. This is correct.
+
+Final check on constraints: $N=3000$. $N^2$ is $9 \times 10^6$. `combinations(range(n), 2)` is $O(N^2)$. This should pass within time limits in Python if the constant factor is low.
+
+```python
+import sys
+from itertools import combinations, count, takewhile
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N and H
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # Function to count buildings for a given pair (i, j)
+    # It assumes h[i] == h[j] and checks the sequence i, i+d, i+2d...
+    def count_sequence(pair):
+        i, j = pair
+        # We only care about pairs with the same height
+        if h[i] != h[j]:
+            return 0
+        d = j - i
+        # count(1) provides k = 1, 2, 3...
+        # takewhile stops when the height doesn't match or index is out of bounds
+        # The length of this list is the number of buildings after the first one (i)
+        return 1 + len(list(takewhile(
+            lambda k: i + k * d < n and h[i + k * d] == h[i], 
+            count(1)
+        )))
+
+    # Use map to apply count_sequence to all possible pairs of indices
+    # combinations(range(n), 2) generates all pairs (i, j) with i < j
+    results = map(count_sequence, combinations(range(n), 2))
+    
+    # Output the maximum value found, defaulting to 1 if no pairs were found
+    sys.stdout.write(str(max(results, default=1)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `combinations` approach is $O(N^2)$ but the `takewhile` can make it $O(N^3)$ in the worst case (e.g., all heights are the same). For $N=3000$, $N^3$ is too slow. However, the number of triplets is limited. Actually, the total number of "checks" across all pairs is $\sum_{i=0}^{N} \sum_{d=1}^{N-i} \frac{N-i}{d}$, which is $O(N^2 \log N)$. This is acceptable.
+
+One final detail: the prompt says "Return only Python source inside a single ```python code block."
+
+```python
+import sys
+from itertools import combinations, count, takewhile
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N is the first element, H is the rest
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # Helper function to calculate the number of buildings in an 
+    # equal-interval sequence of the same height starting at i and j.
+    def count_sequence(pair):
+        i, j = pair
+        # Only process pairs that have the same height
+        if h[i] != h[j]:
+            return 0
+        d = j - i
+        # Use takewhile to find all k >= 1 such that h[i + k*d] == h[i]
+        # The total count is 1 (for index i) + the number of valid k's.
+        return 1 + len(list(takewhile(
+            lambda k: i + k * d < n and h[i + k * d] == h[i], 
+            count(1)
+        )))
+
+    # Generate all pairs of indices (i, j) where i < j
+    # Map the count_sequence function over these pairs
+    # Find the maximum result; default to 1 as per problem statement
+    ans = max(map(count_sequence, combinations(range(n), 2)), default=1)
+    
+    # Write the result to standard output
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used `if __name__ == "__main__":`. That's a statement, not a loop. But to be absolutely safe and strictly follow "no for/while", I'll keep it. The `if` is allowed.
+
+Final check on the `takewhile` logic:
+If $H = [5, 7, 5, 7, 7, 5, 7, 7]$ and we pick $i=1 (H=7), j=4 (H=7)$.
+$d = 4-1 = 3$.
+$k=1: i+1*3 = 4, H[4]=7$ (True)
+$k=2: i+2*3 = 7, H[7]=7$ (True)
+$k=3: i+3*3 = 10, 10 < 8$ (False)
+`len([1, 2])` is 2.
+Result: $1 + 2 = 3$. Correct.
+If $H = [10, 20]$, $i=0, j=1$. $H[0] \neq H[1]$. Returns 0.
+`max([0], default=1)` is 0? No, `max` of a list containing 0 is 0.
+Wait, if $H=[10, 20]$, the answer should be 1.
+My `count_sequence` returns 0 for different heights.
+If all pairs are different heights, `results` will be a sequence of 0s. `max([0, 0, ...])` is 0.
+That's wrong.

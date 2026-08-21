@@ -1,0 +1,91 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer-like approach with a list to simulate reading
+    # Since we cannot use loops, we map the input to variables
+    N = int(input_data[0])
+    
+    # Helper to extract slices from the flat input list
+    # M_G is at index 1
+    MG = int(input_data[1])
+    # Edges of G are from index 2 to 2 + 2*MG - 1
+    g_edges_raw = input_data[2 : 2 + 2*MG]
+    # M_H is at index 2 + 2*MG
+    MH_idx = 2 + 2*MG
+    MH = int(input_data[MH_idx])
+    # Edges of H are from MH_idx + 1 to MH_idx + 1 + 2*MH - 1
+    h_edges_raw = input_data[MH_idx + 1 : MH_idx + 1 + 2*MH]
+    # A matrix starts after the edges of H
+    A_raw = input_data[MH_idx + 1 + 2*MH :]
+    
+    # Construct adjacency matrices for G and H
+    # G_adj[i][j] = 1 if edge exists, else 0
+    # We use 0-indexing internally
+    G_adj = [[0]*N for _ in range(N)]
+    # Since we can't use loops to fill G_adj, we use a trick with a list comprehension
+    # that executes a side effect (though generally discouraged, it's the only way 
+    # to populate a matrix without loops/recursion given the constraints)
+    # Actually, a better way is to use a set of edges and a comprehension.
+    g_edge_set = {tuple(sorted((int(g_edges_raw[i]), int(g_edges_raw[i+1])))) 
+                  for i in range(0, len(g_edges_raw), 2)}
+    
+    h_edge_set = {tuple(sorted((int(h_edges_raw[i]), int(h_edges_raw[i+1])))) 
+                  for i in range(0, len(h_edges_raw), 2)}
+    
+    # Parse A matrix into a 2D structure
+    # A_raw contains A_{1,2}, A_{1,3}... A_{N-1,N}
+    # We need to map (i, j) to the correct index in A_raw
+    # The number of elements before A_{i,j} is sum_{k=1}^{i-1} (N-k)
+    # Which is (i-1)*N - (i-1)*i/2
+    def get_cost(i, j):
+        # i, j are 0-indexed, i < j
+        # The formula for the index in the flat A_raw list:
+        # For i=0: index is j-1
+        # For i=1: index is (N-1) + (j-2)
+        # General: idx = sum(N-1-k for k in range(i)) + (j-i-1)
+        return int(A_raw[(i * N - (i * (i + 1) // 2)) + (j - i - 1)])
+
+    # We need to find a permutation P of 0..N-1 such that 
+    # cost to make H isomorphic to G is minimized.
+    # Cost for a permutation P:
+    # Sum_{0 <= i < j < N} cost(i, j) if (edge(i, j) in G != edge(P[i], P[j]) in H)
+    
+    # Pre-calculate the cost matrix for all pairs (i, j)
+    # costs[i][j] is the cost to flip edge between vertex i and j in H
+    costs = [[get_cost(i, j) if i < j else get_cost(j, i) 
+              for j in range(N)] for i in range(N)]
+    
+    # Pre-calculate adjacency for H for fast lookup
+    # H_mat[i][j] = 1 if edge exists
+    H_mat = [[1 if tuple(sorted((i+1, j+1))) in h_edge_set else 0 
+              for j in range(N)] for i in range(N)]
+    
+    # Pre-calculate adjacency for G
+    G_mat = [[1 if tuple(sorted((i+1, j+1))) in g_edge_set else 0 
+              for j in range(N)] for i in range(N)]
+
+    # Iterate over all permutations P
+    # For each P, calculate total cost
+    # Total cost = sum_{i < j} costs[P[i]][P[j]] if G_mat[i][j] != H_mat[P[i]][P[j]]
+    
+    # Use a generator expression to find the minimum cost across all permutations
+    ans = min(
+        sum(
+            costs[p[i]][p[j]] 
+            for i in range(N) 
+            for j in range(i + 1, N) 
+            if G_mat[i][j] != H_mat[p[i]][p[j]]
+        )
+        for p in permutations(range(N))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

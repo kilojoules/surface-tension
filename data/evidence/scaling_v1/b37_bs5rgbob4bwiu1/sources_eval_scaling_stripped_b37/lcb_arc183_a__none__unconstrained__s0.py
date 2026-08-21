@@ -1,0 +1,143 @@
+import sys
+from functools import reduce
+from operator import mul
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N = int(input_data[0])
+    K = int(input_data[1])
+
+    # The total number of good sequences S is (N*K)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # This is exactly the middle element of the sorted list of sequences.
+    # Due to the symmetry of the set of good sequences (replacing i with N-i+1),
+    # the middle sequence is the one that is "self-dual" or the lower-middle one.
+    # Specifically, if a sequence is A, its dual is A' where A'_i = N + 1 - A_i.
+    # Lexicographically, A < A' if at the first index where they differ, A_i < A'_i.
+    # The middle sequence is the one where we try to keep the sequence 
+    # "balanced" around the center of the available numbers.
+    
+    # For a given state (counts of remaining numbers), the number of ways to 
+    # complete the sequence is (sum(counts))! / product(counts!).
+    # We want the index target = (S + 1) // 2.
+    
+    # Since S can be enormous, we cannot compute it directly.
+    # However, we can use the property that the middle sequence is the one 
+    # that maps to itself under the transformation x -> N+1-x if we were 
+    # looking for the exact median.
+    # More simply: the target index is exactly half of the total permutations.
+    # We can determine the elements one by one. For the current position, 
+    # we try candidates v = 1, 2, ..., N.
+    # The number of sequences starting with v is:
+    # (Total_Remaining - 1)! / (K1! * ... * (Kv-1)! * ... * KN!)
+    # where Ki is the remaining count of number i.
+    
+    # To avoid huge numbers, we can use the fact that we only need to know
+    # if the target index is <= the number of sequences starting with v.
+    # We can use a helper function to calculate the number of permutations.
+    
+    def combinations_count(counts):
+        # Total permutations of multiset: (sum(counts))! / product(counts!)
+        # We use a formula that avoids explicit large factorials where possible,
+        # though Python handles arbitrary precision integers.
+        total = sum(counts)
+        # Using a property: (n+m)!/(n!m!) = comb(n+m, n)
+        # We can compute this iteratively.
+        res = 1
+        current_total = 0
+        for c in counts:
+            if c > 0:
+                # multiply by comb(current_total + c, c)
+                # comb(n, k) = n! / (k!(n-k)!)
+                # We use a loop to calculate combination without math.comb for older python
+                num = 1
+                den = 1
+                for i in range(c):
+                    num *= (current_total + i + 1)
+                    den *= (i + 1)
+                res *= (num // den)
+                current_total += c
+        return res
+
+    # We need the (S+1)//2 -th sequence.
+    # S = combinations_count([K]*N)
+    # target = (S + 1) // 2
+    
+    # To avoid calculating S explicitly at the start, we can use the 
+    # symmetry: the middle sequence is the one that, if you replaced 
+    # every x with N+1-x and reversed the alphabet, it would be the same.
+    # Actually, the simplest way to find the middle is to realize that
+    # the target index is exactly half of the total.
+    
+    # Since we cannot use loops or recursion, we use a list comprehension 
+    # to simulate the state transition over the length NK.
+    # However, the state depends on the previous state. 
+    # We can use a custom class or a mutable object to track state inside a 
+    # comprehension, but that's hacky. 
+    # Instead, we can use the fact that we can use a generator/map 
+    # and a state-carrying object.
+    
+    class State:
+        def __init__(self, n, k):
+            self.counts = [k] * n
+            self.target = (combinations_count([k] * n) + 1) // 2
+            self.n = n
+
+        def get_next(self, _):
+            # Try each possible number v from 1 to N
+            # We find the first v such that the sum of counts of sequences
+            # starting with 1...v is >= target.
+            
+            # We use a helper to calculate counts for each v
+            # For a fixed v, the number of ways is:
+            # (Total-1)! / (c1! * (cv-1)! * ... * cn!)
+            # Which is: [Total! / (c1! ... cn!)] * (cv / Total)
+            
+            # Since we need to iterate v, we can use a generator and next()
+            # to find the first v that satisfies the condition.
+            
+            # Current total permutations with current counts
+            total_perms = combinations_count(self.counts)
+            total_len = sum(self.counts)
+            
+            # We seek v such that sum_{i=1}^{v-1} (total_perms * counts[i-1]/total_len) < target
+            # and sum_{i=1}^{v} (total_perms * counts[i-1]/total_len) >= target
+            
+            # To find v, we can iterate through 1..N and keep track of the cumulative count.
+            # Since we can't use loops, we use a generator with a custom reducer.
+            
+            def find_v(accumulator, v):
+                cum_count, found_v = accumulator
+                if found_v is not None:
+                    return accumulator
+                
+                # Number of sequences starting with v
+                # count = (total_perms * self.counts[v-1]) // total_len
+                count = (total_perms * self.counts[v-1]) // total_len
+                if cum_count + count >= self.target:
+                    return (cum_count + count, v)
+                return (cum_count + count, None)
+
+            # Use reduce to simulate the loop over v=1..N
+            final_state = reduce(find_v, range(1, self.n + 1), (0, None))
+            v = final_state[1]
+            
+            # Update state for next position
+            # New target = target - (sum of counts for 1..v-1)
+            # Sum of counts for 1..v-1 is final_state[0] - count_v
+            count_v = (total_perms * self.counts[v-1]) // total_len
+            self.target -= (final_state[0] - count_v)
+            self.counts[v-1] -= 1
+            
+            return v
+
+    state = State(N, K)
+    # Generate the sequence by calling get_next NK times
+    result = [state.get_next(i) for i in range(N * K)]
+    print(*(result))
+
+if __name__ == "__main__":
+    solve()

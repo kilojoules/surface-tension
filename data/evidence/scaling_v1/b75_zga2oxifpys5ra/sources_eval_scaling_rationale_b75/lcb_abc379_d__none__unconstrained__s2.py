@@ -1,0 +1,78 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries in order. 
+    # Since we cannot use loops, we use reduce to maintain state.
+    # State: (current_height_offset, sorted_list_of_planting_times, results_list)
+    # A plant planted at time 't' has height: current_height_offset - t
+    # Condition height >= H becomes: current_height_offset - t >= H  => t <= current_height_offset - H
+    
+    # To handle the input stream without a loop, we group the flat list into queries.
+    # However, queries have variable lengths (1, 2, 2). 
+    # We can use a generator or a custom function to parse the flat list.
+    
+    def get_queries(data):
+        # This is a helper to structure the flat input list into a iterable of queries
+        # Since we can't use while loops, we use a recursive-like approach via a generator
+        # but generators are allowed as they are iterators.
+        it = iter(data[1:])
+        def produce():
+            try:
+                q_type = next(it)
+                if q_type == '1':
+                    yield (1, 0)
+                elif q_type == '2':
+                    yield (2, int(next(it)))
+                else:
+                    yield (3, int(next(it)))
+                yield from produce()
+            except StopIteration:
+                pass
+        return produce()
+
+    def process_query(state, query):
+        offset, plants, results = state
+        q_type, val = query
+        
+        if q_type == 1:
+            # Plant height 0 means its "planting time" is the current offset
+            # We use bisect to keep the plants list sorted
+            import bisect
+            new_plants = plants[:]
+            bisect.insort(new_plants, offset)
+            return (offset, new_plants, results)
+        
+        elif q_type == 2:
+            # Increase height of all plants by T
+            return (offset + val, plants, results)
+        
+        else: # q_type == 3
+            # Harvest plants where height >= H
+            # height = offset - planting_time >= H  => planting_time <= offset - H
+            threshold = offset - val
+            # Find index of first plant with planting_time > threshold
+            idx = bisect_left(plants, threshold + 1)
+            harvested_count = idx
+            # Remaining plants are those from idx onwards
+            return (offset, plants[idx:], results + [str(harvested_count)])
+
+    # Using reduce to simulate the loop over queries
+    # Initial state: (offset=0, plants=[], results=[])
+    final_state = reduce(process_query, get_queries(input_data), (0, [], []))
+    
+    # Print all results joined by newline
+    sys.stdout.write('\n'.join(final_state[2]) + '\n')
+
+if __name__ == "__main__":
+    # Increase recursion depth for the generator-based query parser
+    sys.setrecursionlimit(300000)
+    solve()

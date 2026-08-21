@@ -7,8 +7,8 @@ https://gist.github.com/kilojoules/207763a19c1a6a460f7097790dcfeb21.
 held.** Reported per the pre-committed decision rules: the matched-token
 "rationale prose is load-bearing" reading is hereby **qualified as
 rank-dependent, with r=128 as the failing rank.** Committed convention
-throughout: /136, AST re-checked from saved sources. Raw evidence in
-`vast_logs/{2zuutp8uolh0iz,3ikana4iiah82i,ore52jv7w4b5iz}/`; adapters
+throughout: /136, AST re-checked from saved sources. Raw evidence published in `data/evidence/scaling_v1/`
+(local mirrors `vast_logs/{2zuutp8uolh0iz,3ikana4iiah82i,ore52jv7w4b5iz}/`); adapters
 `kilojoules/surface-tension-scaling-*-r{8,128}-final`. Cost ≈ $95 including
 a dead-pod recovery (below).
 

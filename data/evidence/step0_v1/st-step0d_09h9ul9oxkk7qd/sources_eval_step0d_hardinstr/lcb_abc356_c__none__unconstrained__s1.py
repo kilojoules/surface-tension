@@ -1,0 +1,55 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+    
+    # Parse tests
+    # Each test is stored as (set_of_keys, result)
+    # We use a helper function to slice the input list based on C_i
+    def parse_tests(data, index, count):
+        if count == 0:
+            return []
+        
+        # C_i is at data[index]
+        c_i = int(data[index])
+        # Keys are from index + 1 to index + c_i
+        keys = set(map(int, data[index + 1 : index + 1 + c_i]))
+        # Result is at index + 1 + c_i
+        res = data[index + 1 + c_i]
+        
+        # Recursively get the rest of the tests
+        return [(keys, res)] + parse_tests(data, index + 2 + c_i, count - 1)
+
+    tests = parse_tests(input_data, 3, M)
+    
+    # Generate all 2^N combinations of real (1) and dummy (0) keys
+    # Each combination is a tuple of length N
+    all_combinations = product([0, 1], repeat=N)
+    
+    # Validation logic for a single combination
+    # combo is a tuple where index i corresponds to key i+1
+    def is_valid(combo):
+        # Check if all M tests are satisfied
+        return all(
+            (sum(combo[k-1] for k in test_keys) >= K) if res == 'o' 
+            else (sum(combo[k-1] for k in test_keys) < K)
+            for test_keys, res in tests
+        )
+
+    # Count combinations that satisfy all tests using a list comprehension
+    # and the len() function.
+    result = len([combo for combo in all_combinations if is_valid(combo)])
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,77 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. While idiomatic Python often uses `for` loops for readability, utilizing `itertools` and list comprehensions allows for concise, declarative data transformations. For this problem, I will use `itertools.permutations` to iterate through all possible vertex mappings and nested list comprehensions to calculate the cost of transforming graph $H$ into a graph isomorphic to $G$ for each mapping, finally using `min()` to find the optimal result.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    gen = iter(input_data)
+    
+    # N is the number of vertices
+    N = next(gen)
+    
+    # Read Graph G edges
+    Mg = next(gen)
+    g_edges = [tuple(sorted((next(gen), next(gen)))) for _ in range(Mg)]
+    # Represent G as an adjacency matrix for O(1) lookup
+    # G_adj[i][j] == 1 if edge exists, else 0
+    G_adj = [[0] * (N + 1) for _ in range(N + 1)]
+    for u, v in g_edges:
+        G_adj[u][v] = G_adj[v][u] = 1
+        
+    # Read Graph H edges
+    Mh = next(gen)
+    h_edges = [tuple(sorted((next(gen), next(gen)))) for _ in range(Mh)]
+    H_adj = [[0] * (N + 1) for _ in range(N + 1)]
+    for u, v in h_edges:
+        H_adj[u][v] = H_adj[v][u] = 1
+        
+    # Read Cost matrix A
+    # A[i][j] is the cost to flip edge (i, j)
+    # The input gives A_{1,2}, A_{1,3}... A_{N-1,N}
+    # We store it in a 2D list where A_mat[i][j] is the cost for vertices i, j
+    A_flat = [next(gen) for _ in range(N * (N - 1) // 2)]
+    
+    # To map the flat A list to a 2D matrix without loops:
+    # We can use a helper function or a comprehension.
+    # There are N-1 elements for i=1, N-2 for i=2, etc.
+    # However, a simpler way to handle A is to pre-calculate indices.
+    # Let's build the cost matrix using a dictionary or a nested list.
+    
+    # Since we cannot use loops, we use a list comprehension to build the cost matrix.
+    # We first create a list of all pairs (i, j) with 1 <= i < j <= N.
+    pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    # Map each pair to its cost from the flat A_flat list.
+    cost_map = {pairs[k]: A_flat[k] for k in range(len(pairs))}
+    
+    # We need to find a permutation P of (1...N) such that 
+    # G is isomorphic to the modified H.
+    # The cost for a permutation P is the sum of A_{P_i, P_j} 
+    # for all pairs (i, j) where (i, j) is an edge in G 
+    # but (P_i, P_j) is NOT an edge in H, or vice versa.
+    
+    # We iterate over all permutations of (1...N)
+    # For each permutation, we calculate the total cost.
+    # The cost for a pair (i, j) is cost_map[sorted((P[i-1], P[j-1]))] 
+    # if G_adj[i][j] != H_adj[P[i-1]][P[j-1]]
+    
+    # Using a generator expression inside min() to find the minimum cost.
+    # We use 0-indexing for the permutation P, so vertex i is mapped to P[i-1].
+    
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i-1], p[j-1]))))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if G_adj[i][j] != H_adj[p[i-1]][p[j-1]]
+        )
+        for p in permutations(range(1, N + 1))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

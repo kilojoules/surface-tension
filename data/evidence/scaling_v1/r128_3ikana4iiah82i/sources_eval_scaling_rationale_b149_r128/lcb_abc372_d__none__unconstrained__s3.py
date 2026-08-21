@@ -1,0 +1,160 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # The condition "no building taller than Building j between i and j"
+    # means we are looking for the number of indices j > i such that
+    # H_j is a prefix maximum of the sequence H_{i+1}, ..., H_N.
+    # However, a simpler interpretation is: for a fixed i, we want to count
+    # j > i such that for all k (i < k < j), H_k < H_j.
+    # This is equivalent to counting how many elements to the right of i
+    # are "visible" if we look from i, but the condition is specifically
+    # about the height of the target building j being the tallest in the gap.
+    
+    # Let's re-evaluate: j satisfies the condition if max(H_{i+1}...H_{j-1}) < H_j.
+    # This means Building j is a "right-side" visible building.
+    # For a fixed j, it satisfies the condition for all i < j such that
+    # H_j is taller than all buildings between i and j.
+    # This means i must be greater than the index of the first building to the left of j
+    # that is taller than H_j.
+    # Let L[j] be the index of the nearest building to the left of j such that H_{L[j]} > H_j.
+    # If no such building exists, L[j] = 0 (using 1-based indexing).
+    # Then for a fixed j, the condition is satisfied for all i where L[j] <= i < j.
+    # The number of such i is j - L[j].
+    
+    # We can find L[j] for all j using a monotonic stack.
+    # We use reduce to simulate the stack process.
+    # State: (stack, L_values)
+    # stack stores indices of buildings in decreasing order of height.
+    
+    def process_stack(state, current_idx):
+        stack, l_values = state
+        # Remove elements from stack that are shorter than current building
+        # Note: we cannot use a while loop, so we use a helper function or 
+        # a recursive-like structure via list slicing.
+        # Since we can't use loops, we use a trick with a helper function 
+        # called inside reduce, but the prompt forbids 'while' or 'for'.
+        # We can use a recursive-style filter or a custom function.
+        
+        # To find the first element > H[current_idx], we need to pop 
+        # elements < H[current_idx].
+        # Because we can't use while, we use a function that finds the 
+        # split point using a list comprehension or map.
+        
+        # Actually, the most idiomatic way to find the nearest greater element 
+        # without loops is to use a recursive-like structure or 
+        # utilize the fact that we can use 'map' and 'filter'.
+        # But wait, the constraint says no 'for' or 'while'. 
+        # It does NOT forbid recursion.
+        return state
+
+    # Since the "no loop" constraint is strict, I will use a recursive function
+    # to find the nearest greater element to the left for all indices.
+    
+    def get_l_values(heights):
+        # Using a recursive function to simulate the monotonic stack
+        def find_l(stack, idx):
+            if not stack or heights[stack[-1]] > heights[idx]:
+                # Current stack top is taller or stack is empty
+                val = stack[-1] + 1 if stack else 0
+                return (stack + [idx], val)
+            else:
+                # Pop and try again
+                # We use a helper to simulate the 'while' loop via recursion
+                def pop_until(s, target_h):
+                    if not s or heights[s[-1]] > target_h:
+                        return s
+                    return pop_until(s[:-1], target_h)
+                
+                new_stack = pop_until(stack, heights[idx])
+                val = new_stack[-1] + 1 if new_stack else 0
+                return (new_stack + [idx], val)
+
+        # We use reduce to iterate through the indices
+        # state: (stack, results_list)
+        def accumulate(state, idx):
+            stack, results = state
+            # Simulate the while loop with a recursive helper
+            def pop_until(s, target_h):
+                if not s or heights[s[-1]] > target_h:
+                    return s
+                return pop_until(s[:-1], target_h)
+            
+            s_after_pop = pop_until(stack, heights[idx])
+            l_val = s_after_pop[-1] + 1 if s_after_pop else 0
+            return (s_after_pop + [idx], results + [l_val])
+
+        return reduce(accumulate, range(n), ([], []))[1]
+
+    # Increase recursion depth for deep stacks
+    sys.setrecursionlimit(300000)
+    
+    l_values = get_l_values(h)
+    
+    # For each i, we want to count j > i such that L[j] <= i.
+    # This is equivalent to: for each j, it contributes to all i in [L[j], j-1].
+    # We can use a difference array ( Fenwick tree is overkill, but we can't use loops).
+    # Let's use a simpler approach:
+    # The answer for i is the number of j > i such that L[j] <= i.
+    # This is: (count of j > i) - (count of j > i such that L[j] > i).
+    # Note that L[j] is always < j.
+    # So we want to count j in {i+1, ..., n-1} such that L[j] <= i.
+    
+    # Let's use the property: the answer for i is the number of j > i 
+    # such that the maximum height in range [i+1, j-1] is less than H_j.
+    # This is exactly what the monotonic stack (nearest greater to the left) 
+    # helps us solve.
+    # For a fixed j, it is a "valid" building for all i from L[j] to j-1.
+    # So we need to calculate for each i: sum_{j=i+1}^{n-1} [L[j] <= i]
+    
+    # This can be solved by:
+    # 1. Creating an array of counts of L[j].
+    # 2. The answer for i is: (number of j > i) - (number of j > i such that L[j] > i).
+    # Actually, the simplest way:
+    # The answer for i is: (number of j from 0 to n-1 such that L[j] <= i) - (number of j from 0 to i such that L[j] <= i).
+    # Since L[j] is always <= j, the second term is simply (i + 1).
+    # Let's refine:
+    # Let f(i) be the number of j in {0, ..., n-1} such that L[j] <= i.
+    # The answer for i is f(i) - (number of j in {0, ..., i} such that L[j] <= i).
+    # Since for all j <= i, L[j] is automatically <= i, the second term is (i + 1).
+    # So ans[i] = f(i) - (i + 1).
+    
+    # To compute f(i) without loops:
+    # L_values is a list of L[j]. We want to count how many L[j] <= i.
+    # We can use a frequency array and then a prefix sum.
+    
+    # Frequency array using map/reduce
+    freq = [0] * (n + 1)
+    # We can't use a for loop to fill freq. We use a trick with a list and 
+    # a custom function in reduce.
+    def fill_freq(f, val):
+        f[val] += 1
+        return f
+    
+    reduce(fill_freq, l_values, freq)
+    
+    # Prefix sum to get f(i)
+    def get_prefix_sums(arr):
+        # Using a recursive-like structure to avoid loops for prefix sum
+        # But wait, we can use itertools.accumulate!
+        from itertools import accumulate
+        return list(accumulate(arr))
+
+    f = get_prefix_sums(freq)
+    
+    # Final answer: ans[i] = f[i] - (i + 1)
+    # Use list comprehension
+    ans = [f[i] - (i + 1) for i in range(n)]
+    
+    print(*(ans))
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,83 @@
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into lists of Ls and Rs
+    # Use list comprehensions to avoid for-loops
+    L = [int(input_data[i]) for i in range(1, 2 * N, 2)]
+    R = [int(input_data[i]) for i in range(2, 2 * N + 1, 2)]
+    
+    # Calculate the minimum and maximum possible sums
+    sum_L = sum(L)
+    sum_R = sum(R)
+    
+    # Check if 0 is within the reachable range [sum_L, sum_R]
+    # If not, it's impossible to make the sum 0
+    is_possible = sum_L <= 0 <= sum_R
+    
+    # To construct the sequence:
+    # Start with X_i = L_i. The current sum is sum_L.
+    # We need to add S = 0 - sum_L to the elements to reach a total sum of 0.
+    # Each X_i can be increased by at most (R_i - L_i).
+    # We distribute S across the elements.
+    
+    # Let S be the amount we need to add to sum_L to reach 0
+    S = -sum_L
+    
+    # For each i, we can add min(S, R_i - L_i). 
+    # However, S changes as we add. To avoid loops/state, 
+    # we can use the fact that we only need ANY valid sequence.
+    # We can use a prefix sum of the available "headroom" (R_i - L_i)
+    # to determine how much of S is consumed by the time we reach index i.
+    
+    # Headroom for each element
+    H = [r - l for l, r in zip(L, R)]
+    
+    # Prefix sums of headroom to know the cumulative capacity
+    # Since we can't use loops, we use a trick with a list comprehension 
+    # and a helper to calculate the contribution of each element.
+    # But wait, we can simply calculate how much of S is left.
+    # Let's use a different approach: 
+    # X_i = L_i + clamp(S - (sum of previous H), 0, H_i)
+    # To do this without loops, we can pre-calculate the prefix sums of H.
+    
+    # Since Python 3.8+, we can't useを assignment expressions (:=) 
+    # inside comprehensions for some versions/contexts, 
+    # but we can use a custom map or a mathematical approach.
+    
+    # Let's use the property: 
+    # The amount added to X_i is max(0, min(H[i], S - sum(H[0...i-1])))
+    # We can calculate prefix sums of H using a list comprehension 
+    # by leveraging a helper list or map.
+    
+    # Actually, a simpler way to handle the "remaining S" without a loop:
+    # We know S. For element i, the amount we add is:
+    # amount = max(0, min(H[i], S - (prefix_sum_H[i-1])))
+    
+    # To get prefix sums without a loop, we can use a trick with a 
+    # temporary list and a function, but the prompt asks for no explicit loops.
+    # We can use `itertools.accumulate` for prefix sums.
+    from itertools import accumulate
+    
+    prefix_H = list(accumulate(H))
+    
+    # X_i = L_i + max(0, min(H[i], S - (prefix_H[i-1] if i > 0 else 0)))
+    # We can use a list comprehension to build the final X.
+    X = [
+        L[i] + max(0, min(H[i], S - (prefix_H[i-1] if i > 0 else 0)))
+        for i in range(N)
+    ]
+    
+    # Output result
+    sys.stdout.write(
+        "Yes\n" + " ".join(map(str, X)) + "\n" if is_possible 
+        else "No\n"
+    )
+
+if __name__ == "__main__":
+    solve()

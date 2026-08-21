@@ -1,0 +1,84 @@
+```python
+import sys
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N is the first element, H is the rest
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # If there are no buildings, the answer is 0
+    if N == 0:
+        print(0)
+        return
+
+    # We need to find the maximum count of buildings with the same height H_i
+    # that are spaced at a constant interval 'd'.
+    # Let the indices be i, i+d, i+2d, ..., i+(k-1)d.
+    # All these must have H[index] == H[i].
+    
+    # To avoid nested loops with if/else, we can use a list comprehension
+    # and the max() function.
+    # We iterate through all possible starting positions 'i' and all possible intervals 'd'.
+    
+    # Note: The constraints are N <= 3000. A triple loop (i, d, k) would be O(N^3).
+    # However, we can check the length for a specific (i, d) efficiently.
+    
+    # To satisfy constraints and avoid explicit for/while loops for the k-dimension:
+    # For a fixed i and d, the number of buildings is the length of the longest 
+    # prefix of [H[i], H[i+d], H[i+2d], ...] that equals H[i].
+    
+    # Since we cannot use while loops, we can use a trick with map/filter or 
+    # simply iterate through all i and d and use a list comprehension to find 
+    # where the sequence breaks. But since we need the "count", we can 
+    # pre-calculate the positions of each height.
+    
+    # Let's group indices by height: height_map = {height: [indices]}
+    # For each height, we check all pairs of indices (idx1, idx2) as the start and second element.
+    # The interval is d = idx2 - idx1. We then check how many subsequent elements fit.
+    
+    # To strictly avoid 'while' and 'for' loops for the k-dimension:
+    # We can iterate i from 0 to N-1 and d from 1 to N//2.
+    # For each (i, d), we want to find k such that H[i + j*d] == H[i] for 0 <= j < k.
+    
+    # We can use a recursive-like approach via map or a comprehension that 
+    # checks the condition. But the most straightforward way to count 
+    # consecutive matches without a while loop is to use a helper function 
+    # or a specific construction.
+    
+    # Given the constraints and the "no while/for" for the k-loop (implied by 
+    # wanting a functional style or specific structure), we can use:
+    
+    def count_matches(i, d, h):
+        # This function calculates how many buildings starting at i with interval d have height h.
+        # We use a list comprehension to create a boolean array and then find the first False.
+        # Since we can't use while, we can use a trick:
+        # Create a list of booleans, then find the index of the first False.
+        
+        # Range of j is from 0 up to (N - 1 - i) // d + 1
+        max_j = (N - 1 - i) // d + 1
+        matches = [H[i + j * d] == h for j in range(max_j)]
+        
+        # To find the length of the prefix of True values:
+        # We can use a list comprehension to find indices of False, and take the first one.
+        false_indices = [j for j, val in enumerate(matches) if not val]
+        return false_indices[0] if false_indices else max_j
+
+    # We use map to iterate over all i and d and find the maximum.
+    # i ranges from 0 to N-1, d ranges from 1 to N.
+    # We also consider the case where only 1 building is chosen (result = 1).
+    
+    ans = max([1] + list(map(
+        lambda pair: count_matches(pair[0], pair[1], H[pair[0]]),
+        [(i, d) for i in range(N) for d in range(1, N)]
+    )))
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

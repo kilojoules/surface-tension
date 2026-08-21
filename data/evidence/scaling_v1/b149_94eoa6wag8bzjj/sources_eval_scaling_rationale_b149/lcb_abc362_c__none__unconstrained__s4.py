@@ -1,0 +1,55 @@
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into lists of Ls and Rs
+    pairs = [map(int, input_data[i:i+2]) for i in range(1, len(input_data), 2)]
+    # Since map objects are iterators, we convert them to lists
+    # Using a list comprehension to handle the mapping
+    LR = [list(p) for p in pairs]
+    
+    L = [row[0] for row in LR]
+    R = [row[1] for row in LR]
+    
+    sum_L = sum(L)
+    sum_R = sum(R)
+    
+    # Condition for existence: 0 must be within [sum(L), sum(R)]
+    if sum_L <= 0 <= sum_R:
+        # We start with X_i = L_i. 
+        # We need to add 'diff' to the elements to reach a total sum of 0.
+        diff = -sum_L
+        
+        # For each i, the maximum we can add to L_i is (R_i - L_i).
+        # We use accumulate to find how much of 'diff' is absorbed by each element.
+        capacities = [r - l for l, r in zip(L, R)]
+        # cumulative_capacities[i] is the total room available up to index i
+        cum_cap = list(accumulate(capacities))
+        
+        # The amount added to X_i is the difference between 
+        # the room filled at i and the room filled at i-1, 
+        # capped by the total diff.
+        # amount_added_i = min(diff, cum_cap[i]) - min(diff, cum_cap[i-1])
+        
+        # To avoid a loop, we create a shifted version of cum_cap for the i-1 terms
+        cum_cap_shifted = [0] + cum_cap[:-1]
+        
+        # Calculate X_i = L_i + (min(diff, current_cum) - min(diff, prev_cum))
+        X = [
+            l + (min(diff, curr) - min(diff, prev))
+            for l, curr, prev in zip(L, cum_cap, cum_cap_shifted)
+        ]
+        
+        print("Yes")
+        print(*(X))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

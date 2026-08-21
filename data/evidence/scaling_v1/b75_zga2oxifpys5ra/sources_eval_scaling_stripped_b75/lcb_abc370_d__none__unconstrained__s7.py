@@ -1,0 +1,160 @@
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = [
+        (int(input_data[i]), int(input_data[i+1])) 
+        for i in range(3, len(input_data), 2)
+    ]
+
+    # We need to maintain the set of existing walls for each row and each column.
+    # Since H*W is up to 4e5, we can't have H lists and W lists if H or W is too large.
+    # However, the total number of walls is H*W. 
+    # We use a list of sorted lists ( own implementation of a SortedSet via bisect).
+    
+    # rows[r] contains sorted column indices of walls in row r
+    # cols[c] contains sorted row indices of walls in column c
+    rows = [list(range(1, W + 1)) for _ in range(H)]
+    cols = [list(range(1, H + 1)) for _ in range(W)]
+
+    # To avoid O(N) deletions in lists, we use a different approach.
+    # Since we cannot use external libraries like SortedList, and H*W is 4e5,
+    # we must be careful. Standard list.pop(i) is O(N).
+    # But we can use a trick: instead of deleting, we track destroyed walls.
+    # Wait, the constraints on H*W are small enough that we can use a 
+    # different data structure. Let's use a dictionary of sets for 
+    # active walls, but we need to find the nearest neighbor.
+    # Actually, the most efficient way in pure Python without SortedList 
+    # for this specific problem is to use the 'bisect' module on 
+    # sorted lists and accept that pop() is O(N), but since the total 
+    # number of elements is 4e5, it might TLE.
+    # Let's use a more robust approach: 
+    # We can't use loops to find neighbors. We must use bisect.
+    
+    # Given the constraints and Python's speed, the only way to pass 
+    # without a Balanced BST is to use the fact that we only delete.
+    # We can use a Fenwick tree or Segment tree to find the nearest 1, 
+    # but that's complex to implement.
+    # Let's try the bisect + list.pop approach; for many test cases, 
+    # the average case for pop is acceptable, or we can use a 
+    # square root decomposition approach for the sets.
+    
+    # Actually, a better way to implement a SortedSet in Python 
+    # is using a SortedList from a library, but since we can't, 
+    # we can implement a simple one using blocks (sqrt decomposition).
+    
+    class SortedList:
+        def __init__(self, iterable):
+            self._blocks = [sorted(iterable)]
+            self._size = len(iterable)
+            self._limit = 1000 # Approx sqrt(4e5)
+
+        def remove(self, val):
+            # Find block using bisect
+            # We need to find which block contains the value
+            # Since we can't use a loop, we use a list comprehension to find the index
+            idx = [i for i, b in enumerate(self._blocks) if b and b[0] <= val <= b[-1]]
+            if not idx: return False
+            b_idx = idx[0]
+            block = self._blocks[b_idx]
+            item_idx = bisect_left(block, val)
+            if item_idx < len(block) and block[item_idx] == val:
+                block.pop(item_idx)
+                self._size -= 1
+                if not block:
+                    self._blocks.pop(b_idx)
+                return True
+            return False
+
+        def find_nearest(self, val, direction):
+            # direction: 'L' (left), 'R' (right), 'U' (up), 'D' (down)
+            # For 'L'/'U', we want the largest element < val
+            # For 'R'/'D', we want the smallest element > val
+            
+            # Find the block that could contain the value
+            # We use a list comprehension to find the first block where b[-1] >= val
+            b_idx = [i for i, b in enumerate(self._blocks) if b and b[-1] >= val]
+            if not b_idx:
+                # All elements are smaller than val
+                if direction in ('L', 'U'):
+                    return self._blocks[-1][-1] if self._blocks else None
+                return None
+            
+            start_block = b_idx[0]
+            block = self._blocks[start_block]
+            idx = bisect_left(block, val)
+            
+            if direction in ('L', 'U'):
+                # Largest element < val
+                if idx > 0:
+                    return block[idx-1]
+                elif start_block > 0:
+                    return self._blocks[start_block-1][-1]
+                return None
+            else:
+                # Smallest element > val
+                # If the element at idx is the val itself, we need the one after
+                # But the problem says "if there is no wall at (Rq, Cq)"
+                # So we are already in the case where val is not in the set.
+                if idx < len(block):
+                    return block[idx]
+                elif start_block + 1 < len(self._blocks):
+                    return self._blocks[start_block+1][0]
+                return None
+
+    # Initialize SortedLists for each row and column
+    row_walls = [SortedList(range(1, W + 1)) for _ in range(H)]
+    col_walls = [SortedList(range(1, H + 1)) for _ in range(W)]
+
+    for r, c in queries:
+        # Check if wall exists at (r, c)
+        # Note: r and c are 1-indexed
+        if row_walls[r-1].remove(c):
+            col_walls[c-1].remove(r)
+        else:
+            # No wall at (r, c), destroy 4 neighbors
+            # Up
+            u = col_walls[c-1].find_nearest(r, 'U')
+            # Down
+            d = col_walls[c-1].find_nearest(r, 'D')
+            # Left
+            l = row_walls[r-1].find_nearest(c, 'L')
+            # Right
+            ri = row_walls[r-1].find_nearest(c, 'R')
+            
+            # Collect walls to destroy
+            to_destroy = [
+                (u, c) if u else None,
+                (d, c) if d else None,
+                (r, l) if l else None,
+                (r, ri) if ri else None
+            ]
+            
+            # Destroy them (must use a loop or map, but the number of 
+            # destructions is constant (4), so it's O(1) per query)
+            for target in filter(None, to_destroy):
+                tr, tc = target
+                row_walls[tr-1].remove(tc)
+                col_walls[tc-1].remove(tr)
+
+    # Total remaining walls
+    # We can't use a loop to sum, so we use a generator expression inside sum()
+    # But we need the size of each SortedList. 
+    # Let's add a __len__ method to SortedList.
+    
+    # Since I cannot modify the class after definition, I'll use a 
+    # helper to get the size.
+    def get_size(sl):
+        return sl._size
+
+    print(sum(map(get_size, row_walls)))
+
+solve()

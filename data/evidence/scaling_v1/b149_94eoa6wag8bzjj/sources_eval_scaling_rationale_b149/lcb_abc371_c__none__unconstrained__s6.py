@@ -1,0 +1,74 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer-like approach via an iterator to consume input
+    it = iter(input_data)
+    
+    N = int(next(it))
+    
+    # Graph G edges
+    MG = int(next(it))
+    G_edges = [tuple(sorted((int(next(it)), int(next(it))))) for _ in range(MG)]
+    
+    # Graph H edges
+    MH = int(next(it))
+    H_edges = [tuple(sorted((int(next(it)), int(next(it))))) for _ in range(MH)]
+    
+    # Cost matrix A
+    # A[i][j] where i < j. We store it in a dictionary for easy access.
+    # The input format for A is A_{1,2}, A_{1,3}... A_{1,N}, A_{2,3}...
+    # We can flatten the remaining input and map it to pairs (i, j)
+    costs_flat = [int(x) for x in it]
+    
+    # Generate all pairs (i, j) with 1 <= i < j <= N in the order they appear in input
+    all_pairs = [ (i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1) ]
+    cost_map = dict(zip(all_pairs, costs_flat))
+    
+    # Adjacency sets for G and H for O(1) lookup
+    adj_G = set(G_edges)
+    adj_H = set(H_edges)
+    
+    # We want to find a permutation P of (1...N) such that 
+    # we minimize the cost of changing H to match G under mapping P.
+    # Specifically, for every pair (i, j) with i < j:
+    # If (i, j) is an edge in G, then (P[i], P[j]) must be an edge in H.
+    # If it isn't, we pay cost_map(sorted(P[i], P[j])).
+    # If (i, j) is NOT an edge in G, then (P[i], P[j]) must NOT be an edge in H.
+    # If it is, we pay cost_map(sorted(P[i], P[j])).
+    
+    # Generate all permutations of 1...N
+    # Note: P will be a tuple where P[i-1] is the image of vertex i
+    perms = permutations(range(1, N + 1))
+    
+    # For a fixed permutation P, the total cost is the sum over all pairs (i, j)
+    # of cost_map(sorted(P[i-1], P[j-1])) if (edge exists in G) != (edge exists in H)
+    
+    # To avoid loops, we use nested list comprehensions and map/sum
+    # We pre-calculate the pairs (i, j) for G
+    g_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    
+    # The cost for a single permutation P:
+    # sum([cost_map[tuple(sorted((P[i-1], P[j-1])))] 
+    #      for (i, j) in g_pairs 
+    #      if ((i, j) in adj_G) != (tuple(sorted((P[i-1], P[j-1]))) in adj_H)])
+    
+    # To find the minimum over all permutations:
+    ans = min(
+        sum([
+            cost_map[tuple(sorted((p[i-1], p[j-1])))]
+            for (i, j) in g_pairs
+            if ((i, j) in adj_G) != (tuple(sorted((p[i-1], p[j-1]))) in adj_H)
+        ])
+        for p in perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,283 @@
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # Use an iterator to consume the input tokens
+    it = iter(input_data)
+    T_str = next(it, None)
+    if T_str is None:
+        return
+    T = int(T_str)
+
+    # Process each test case
+    # We use a list comprehension to iterate T times
+    # For each case, we read N, then read N elements of P
+    # The core logic:
+    # 1. If P is already sorted, answer is 0.
+    # 2. If there exists k such that sorting [1, k-1] and [k+1, N] sorts the whole array, answer is 1.
+    #    This happens if there is some index k where P[k] is the only element "out of place" 
+    #    relative to the sorted version, OR more simply, if removing P[k] leaves the 
+    #    remaining elements in a state that, when sorted in two blocks, results in 1..N.
+    #    Actually, the condition for 1 operation is: there exists k such that 
+    #    {P_1, ..., P_{k-1}} = {1, ..., k-1} and {P_{k+1}, ..., P_N} = {k+1, ..., N}.
+    #    This is equivalent to saying P[k] = k and the prefix and suffix are permutations 
+    #    of their respective ranges.
+    #    Wait, the operation is: sort(1 to k-1) and sort(k+1 to N).
+    #    After one operation, P becomes (1, 2, ..., k-1, P[k], k+1, ..., N).
+    #    For this to be (1, ..., N), we must have P[k] = k.
+    #    So 1 operation is possible if there exists k such that P[k] = k.
+    #    If P is not sorted and no P[k] = k, the answer is 2.
+    #    (It is proven that 2 operations always suffice for N >= 3).
+    
+    # To handle the input without loops, we group the flat list into chunks of (N, P1...PN)
+    # However, N varies. We can use a helper function with a list comprehension 
+    # that consumes the iterator.
+    
+    def process_cases(iterator, remaining_t):
+        if remaining_t <= 0:
+            return []
+        
+        # Read N
+        n_val = int(next(iterator))
+        # Read P (slice the iterator is not possible, so we use islice or list comprehension)
+        # Since we can't use loops, we use a list comprehension to extract N elements
+        p = [int(next(iterator)) for _ in range(n_val)]
+        
+        # Check if sorted
+        is_sorted = all(p[i] == i + 1 for i in range(n_val))
+        
+        # Check if any P[i] == i + 1
+        has_fixed_point = any(p[i] == i + 1 for i in range(n_val))
+        
+        result = 0 if is_sorted else (1 if has_fixed_point else 2)
+        
+        # Recursively call for the rest (using a list to trigger the recursion)
+        return [result] + process_cases(iterator, remaining_t - 1)
+
+    # The constraint on recursion depth might be an issue for T=10^5.
+    # Let's use a different approach to group the input.
+    # We can use a generator function with 'yield' and 'for' (which is allowed in generators)
+    # and then wrap it in a list().
+    
+    def generator_solve(it, t_count):
+        # We use a list comprehension inside to consume N elements
+        # But we still need to loop T times. The prompt says "no for/while loops".
+        # We can use map() or a recursive-like structure via a list comprehension.
+        # Actually, the most robust way to "loop" without for/while is using 
+        # a recursive function and increasing sys.setrecursionlimit.
+        pass
+
+# Since the constraint forbids for/while, and T is 10^5, 
+# we must use recursion or functional tools.
+# Let's redefine the logic inside a single execution block.
+
+import sys
+from functools import reduce
+
+# Increase recursion depth for deep recursive calls
+sys.setrecursionlimit(200000)
+
+def main():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    it = iter(input_data)
+    T = int(next(it))
+    
+    def solve_recursive(count):
+        if count <= 0:
+            return []
+        N = int(next(it))
+        P = [int(next(it)) for _ in range(N)]
+        
+        # Logic:
+        # 0: Already sorted
+        # 1: Not sorted, but there exists k such that P[k] == k
+        # 2: Otherwise
+        
+        # We use all() and any() which are allowed
+        is_sorted = all(P[i] == i + 1 for i in range(N))
+        has_fixed = any(P[i] == i + 1 for i in range(N))
+        
+        res = 0 if is_sorted else (1 if has_fixed else 2)
+        return [res] + solve_recursive(count - 1)
+
+    # To avoid recursion depth issues entirely, we can use a trick with 
+    # a list comprehension that calls a function, but that's still a loop.
+    # The only way to process T cases without a loop is recursion.
+    # Given T=10^5, we must set recursion limit.
+    
+    print('\n'.join(map(str, solve_recursive(T))))
+
+if __name__ == "__main__":
+    main()
+```
+**Wait**, I used a list comprehension `[int(next(it)) for _ in range(N)]` and `solve_recursive`. The prompt says "no for/while loops". List comprehensions are technically loops. Let me refine this to be strictly functional.
+
+Corrected approach: Use `map` and `next` inside a recursive function, and `slice` or `itertools.islice` to get $N$ elements.
+
+```python
+import sys
+from itertools import islice
+
+# Increase recursion depth for T = 10^5
+sys.setrecursionlimit(300000)
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    it = iter(input_data)
+    T_val = int(next(it))
+    
+    def process(t):
+        if t <= 0:
+            return []
+        
+        # Get N
+        n_str = next(it)
+        n = int(n_str)
+        
+        # Get P using islice to avoid list comprehensions
+        p = list(map(int, islice(it, n)))
+        
+        # Check if sorted: all(P[i] == i + 1)
+        # We use map and all to avoid loops
+        is_sorted = all(map(lambda x: x[0] == x[1] + 1, enumerate(p)))
+        
+        # Check if any P[i] == i + 1
+        has_fixed = any(map(lambda x: x[0] == x[1] + 1, enumerate(p)))
+        # Wait, the logic above is slightly wrong. 
+        # enumerate(p) gives (index, value). 
+        # We need value == index + 1.
+        
+        # Corrected checks:
+        # is_sorted: for all i, p[i] == i + 1
+        # has_fixed: exists i, p[i] == i + 1
+        
+        # Let's redefine checks clearly:
+        # check_sorted = all(p[i] == i + 1 for i in range(n)) -> range is allowed? 
+        # The prompt says no for/while. Range in all() is a generator expression.
+        # To be safe, I'll use map and enumerate.
+        
+        # Re-evaluating:
+        # is_sorted: all(val == idx + 1 for idx, val in enumerate(p))
+        # has_fixed: any(val == idx + 1 for idx, val in enumerate(p))
+        
+        # Using map/lambda to be strictly "no loop"
+        check_fixed = lambda pair: pair[1] == pair[0] + 1
+        
+        res_is_sorted = all(map(check_fixed, enumerate(p)))
+        res_has_fixed = any(map(check_fixed, enumerate(p)))
+        
+        ans = 0 if res_is_sorted else (1 if res_has_fixed else 2)
+        
+        return [ans] + process(t - 1)
+
+    # Using a helper to call process and print
+    # We use sys.stdout.write to avoid print() in a loop
+    sys.stdout.write('\n'.join(map(str, process(T_val))) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Final check on logic:
+- If $P$ is sorted $\rightarrow 0$.
+- If $P$ is not sorted, but there is some $k$ such that $P_k = k$, then sorting $[1, k-1]$ and $[k+1, N]$ will result in $(1, \dots, k-1, k, k+1, \dots, N) \rightarrow 1$.
+- Otherwise $\rightarrow 2$.
+This is correct.
+
+One final detail: `sys.setrecursionlimit` is necessary. The `islice` and `map` replace the list comprehensions.
+
+```python
+import sys
+from itertools import islice
+
+# Increase recursion depth for T = 10^5
+sys.setrecursionlimit(300000)
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    it = iter(input_data)
+    try:
+        T_val = int(next(it))
+    except StopIteration:
+        return
+    
+    def process(t):
+        if t <= 0:
+            return []
+        
+        try:
+            n = int(next(it))
+            p = list(map(int, islice(it, n)))
+            
+            # Check if P[i] == i + 1
+            # enumerate(p) provides (0, P[0]), (1, P[1])...
+            # We check if value == index + 1
+            check_fixed = lambda pair: pair[1] == pair[0] + 1
+            
+            res_is_sorted = all(map(check_fixed, enumerate(p)))
+            res_has_fixed = any(map(check_fixed, enumerate(p)))
+            
+            ans = 0 if res_is_sorted else (1 if res_has_fixed else 2)
+            
+            return [ans] + process(t - 1)
+        except StopIteration:
+            return []
+
+    sys.stdout.write('\n'.join(map(str, process(T_val))) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `[ans] + process(t-1)` creates a new list at every step, leading to $O(T^2)$ time and space complexity. I should use a generator and `list()` or `deque`.
+
+```python
+def process(t):
+    if t <= 0:
+        return
+    # ... logic ...
+    yield ans
+    yield from process(t - 1)
+```
+This is $O(T)$.
+
+Final Code:
+```python
+import sys
+from itertools import islice
+
+sys.setrecursionlimit(300000)
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    it = iter(input_data)
+    try:
+        T_val = int(next(it))
+    except StopIteration: return
+    
+    def process(t):
+        if t <= 0: return
+        try:
+            n = int(next(it))
+            p = list(map(int, islice(it, n)))
+            check_fixed = lambda pair: pair[1] == pair[0] + 1
+            res_is_sorted = all(map(check_fixed, enumerate(p)))
+            res_has_fixed = any(map(check_fixed, enumerate(p)))
+            yield 0 if res_is_sorted else (1 if res_has_fixed else 2)
+            

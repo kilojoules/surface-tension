@@ -1,0 +1,62 @@
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Group indices of buildings by their height
+    # height_groups[height] = [index1, index2, ...]
+    height_groups = {}
+    for i in range(n):
+        height = h[i]
+        if height not in height_groups:
+            height_groups[height] = []
+        height_groups[height].append(i)
+    
+    max_buildings = 0
+    
+    # For each height, check all possible starting positions and intervals
+    for height in height_groups:
+        indices = height_groups[height]
+        num_indices = len(indices)
+        
+        # If the total number of buildings of this height is less than 
+        # the current max, we can't possibly beat the record.
+        if num_indices <= max_buildings:
+            continue
+            
+        # We can use a set for O(1) lookup to check if a building of 
+        # the same height exists at a specific index.
+        index_set = set(indices)
+        
+        # Try every pair of buildings of the same height as the first two 
+        # buildings in the sequence to determine the interval.
+        for i in range(num_indices):
+            start_idx = indices[i]
+            for j in range(i + 1, num_indices):
+                next_idx = indices[j]
+                interval = next_idx - start_idx
+                
+                # Count how many buildings of the same height follow this interval
+                count = 2
+                current_idx = next_idx + interval
+                while current_idx < n and current_idx in index_set:
+                    count += 1
+                    current_idx += interval
+                
+                if count > max_buildings:
+                    max_buildings = count
+                    
+    # If no pairs were found, the answer is 1 (as long as N >= 1)
+    if max_buildings == 0 and n > 0:
+        max_buildings = 1
+        
+    print(max_buildings)
+
+if __name__ == "__main__":
+    solve()

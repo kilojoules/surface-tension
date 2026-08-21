@@ -1,0 +1,71 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions are pairs of (H, T)
+    instructions = []
+    for i in range(Q):
+        instructions.append((input_data[2 + 2*i], int(input_data[3 + 2*i])))
+
+    # Helper to calculate distance on a ring avoiding a specific point
+    # Current position: curr, Target position: target, Obstacle position: obs
+    # The ring is 1 to N.
+    def get_dist(curr, target, obs, n):
+        if curr == target:
+            return 0
+        
+        # There are two paths on the ring: clockwise and counter-clockwise.
+        # One path is blocked if the obstacle 'obs' lies on it.
+        
+        # Path 1: Increasing index (1 -> 2 -> ... -> N -> 1)
+        # To check if obs is between curr and target moving forward:
+        # We normalize coordinates to 0...N-1 for easier modulo arithmetic
+        c, t, o = curr - 1, target - 1, obs - 1
+        
+        # Distance moving forward
+        dist_fwd = (t - c) % n
+        # Obstacle is on forward path if (o - c) % n < dist_fwd
+        blocked_fwd = (o - c) % n < dist_fwd
+        
+        # Distance moving backward
+        dist_bwd = (c - t) % n
+        # Obstacle is on backward path if (c - o) % n < dist_bwd
+        blocked_bwd = (c - o) % n < dist_bwd
+        
+        # The problem guarantees the instruction is achievable.
+        # Since we can't move the other hand, we must pick the path not blocked by obs.
+        if not blocked_fwd:
+            return dist_fwd
+        if not blocked_bwd:
+            return dist_bwd
+        return 0 # Should not happen per guarantees
+
+    # State: (left_hand, right_hand, total_distance)
+    # Initial state: L=1, R=2, dist=0
+    initial_state = (1, 2, 0)
+
+    def step(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            # Move left hand to t, right hand r is obstacle
+            d = get_dist(l, t, r, N)
+            return (t, r, total + d)
+        else:
+            # Move right hand to t, left hand l is obstacle
+            d = get_dist(r, t, l, N)
+            return (l, t, total + d)
+
+    final_state = reduce(step, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

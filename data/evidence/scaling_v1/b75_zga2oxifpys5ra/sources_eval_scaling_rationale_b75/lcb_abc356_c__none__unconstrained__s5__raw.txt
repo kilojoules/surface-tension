@@ -1,0 +1,87 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative programming to a functional paradigm. While not necessarily "cleaner" for all developers, it encourages the use of high-level abstractions and declarative data processing, leveraging Python's powerful built-in iterators. To solve this problem, I will use list comprehensions for iteration, `all()` for conditional validation across the test set, and `sum()` combined with a generator expression to count the valid combinations. I will use `itertools.product` to generate all $2^N$ possible key configurations.
+
+```python
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+
+    # Parse the tests
+    # Each test is stored as (set_of_keys, result)
+    # We use a helper function to slice the input_data list
+    def parse_tests(data, index, count):
+        # Since we cannot use loops, we use a list comprehension to parse tests
+        # We need to track the jumping index because C_i varies.
+        # However, since we can't use loops to track index, 
+        # we pre-process the data into a structure.
+        pass
+
+    # Because we cannot use loops to parse variable length C_i, 
+    # we use a recursive-like approach via a list comprehension 
+    # by mapping a function over a range, but the problem says no recursion.
+    # Actually, we can use a generator/iterator to consume the input.
+    it = iter(input_data[3:])
+    
+    # To avoid loops and recursion for parsing, we can use a trick:
+    # We know the structure is C_i, then C_i elements, then R_i.
+    # We can use a custom class or a complex list comprehension.
+    # But the simplest way to handle variable length without loops 
+    # is to use a helper function with a list comprehension that 
+    # processes the iterator.
+    
+    def get_tests(iterator, remaining):
+        if remaining == 0:
+            return []
+        # This is technically recursion, but the prompt forbids it.
+        # Let's use a different approach: 
+        # Since M is small (100), we can use a list comprehension 
+        # that manages the state via a mutable object (like a list).
+        return []
+
+    # Correct approach to parse without loops/recursion:
+    # Use a list to store the current position and a list comprehension to iterate M times.
+    cursor = [0]
+    flat_tests = input_data[3:]
+    
+    # We use a list comprehension to build the tests list.
+    # Inside, we update the cursor.
+    def extract_test(_):
+        start = cursor[0]
+        c_i = int(flat_tests[start])
+        keys = [int(x) for x in flat_tests[start + 1 : start + 1 + c_i]]
+        res = flat_tests[start + 1 + c_i]
+        cursor[0] = start + 2 + c_i
+        return (set(keys), res)
+
+    tests = [extract_test(i) for i in range(M)]
+
+    # Generate all 2^N combinations of (Real=1, Dummy=0)
+    # Each combination is a tuple of length N
+    combinations = product([0, 1], repeat=N)
+
+    # Validation function for a single combination
+    def is_valid(combo):
+        # combo is a tuple where index i corresponds to key i+1
+        # Check if all M tests are satisfied
+        return all(
+            (sum(combo[k-1] for k in test_keys) >= K) if res == 'o' 
+            else (sum(combo[k-1] for k in test_keys) < K)
+            for test_keys, res in tests
+        )
+
+    # Count valid combinations using sum() and a generator expression
+    ans = sum(1 for combo in combinations if is_valid(combo))
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

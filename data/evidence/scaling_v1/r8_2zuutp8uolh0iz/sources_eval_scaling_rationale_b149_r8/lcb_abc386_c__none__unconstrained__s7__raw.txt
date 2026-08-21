@@ -1,0 +1,47 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative style to a functional paradigm, emphasizing data transformation over state mutation. For this specific problem (checking if the edit distance between two strings is $\le 1$), I will use slicing and comparison logic within a conditional expression to determine if the strings are identical, differ by one substitution, or differ by one insertion/deletion.
+
+```python
+import sys
+
+def solve():
+    # Read input and strip whitespace
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem asks if edit distance <= 1
+    # Case 1: Strings are identical
+    # Case 2: Lengths differ by 0 -> Check if exactly one character differs (Substitution)
+    # Case 3: Lengths differ by 1 -> Check if removing one char from longer makes it the shorter one (Insertion/Deletion)
+    # Case 4: Lengths differ by > 1 -> Impossible
+    
+    # Helper to check if s and t are identical after removing one character from the longer string
+    # We find the first mismatch and check the remaining suffixes
+    def check_one_diff(s1, s2):
+        # Find first index where s1 and s2 differ
+        # Using a generator expression with next() to find the first mismatch index
+        mismatch_idx = next((i for i, (a, b) in enumerate(zip(s1, s2)) if a != b), min(len(s1), len(s2)))
+        
+        # If lengths are same, it's a substitution: check if suffixes after mismatch_idx + 1 are same
+        # If lengths differ, it's an insertion: check if s1[mismatch_idx+1:] == s2[mismatch_idx:] (if s1 is longer)
+        return (
+            (len(s1) == len(s2) and s1[mismatch_idx + 1:] == s2[mismatch_idx + 1:]) or
+            (len(s1) > len(s2) and s1[mismatch_idx + 1:] == s2[mismatch_idx:]) or
+            (len(s2) > len(s1) and s1[mismatch_idx:] == s2[mismatch_idx + 1:])
+        )
+
+    # Final logic
+    result = "Yes" if (
+        s == t or 
+        (abs(len(s) - len(t)) <= 1 and check_one_diff(s, t))
+    ) else "No"
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

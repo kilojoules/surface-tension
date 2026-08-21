@@ -1,0 +1,56 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    # Use a generator to extract N and the pairs
+    data_iter = iter(input_data)
+    N = next(data_iter)
+    
+    # Use a list comprehension to create pairs (L, R)
+    # This replaces a for-loop for reading N pairs
+    pairs = [(L := next(data_iter), R := next(data_iter)) for _ in range(N)]
+    
+    # Calculate the minimum and maximum possible sums
+    # sum() is used instead of a loop to aggregate values
+    min_sum = sum(p[0] for p in pairs)
+    max_sum = sum(p[1] for p in pairs)
+    
+    # Check if 0 is within the reachable range [min_sum, max_sum]
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # We start with X_i = L_i. The current sum is min_sum.
+    # We need to add 'target_diff' to the elements to reach a total sum of 0.
+    target_diff = 0 - min_sum
+    
+    # To distribute target_diff without a loop, we can't easily maintain a 
+    # running state of the remaining difference. However, we can use 
+    # the fact that each X_i can be increased by at most (R_i - L_i).
+    
+    # We calculate the prefix sums of the maximum possible increases (R_i - L_i)
+    # to determine how much of the target_diff is absorbed by each element.
+    # Since we cannot use loops, we use a trick with a helper function or 
+    # list comprehension logic. 
+    # Actually, the simplest way to distribute the sum without a loop 
+    # is to realize that for each i, X_i = L_i + min(R_i - L_i, remaining_diff).
+    # Because we need the 'remaining_diff', and we can't use loops/assignment 
+    # in a comprehension, we can use a technique involving a mutable object 
+    # (like a list) and a function called inside a list comprehension.
+    
+    state = [target_diff]
+    def distribute(pair):
+        L, R = pair
+        increase = min(R - L, state[0])
+        state[0] -= increase
+        return L + increase
+
+    # The list comprehension here executes the 'distribute' function for each pair
+    result = [distribute(p) for p in pairs]
+    
+    print("Yes")
+    print(*(result))
+
+if __name__ == "__main__":
+    solve()

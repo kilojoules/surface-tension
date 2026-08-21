@@ -1,0 +1,61 @@
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Pair L_i and R_i using slicing
+    L = list(map(int, input_data[1::2]))
+    R = list(map(int, input_data[2::2]))
+    
+    # The range of the sum of X_i is [sum(L), sum(R)]
+    # We need 0 to be within this range.
+    sum_L = sum(L)
+    sum_R = sum(R)
+    
+    if sum_L > 0 or sum_R < 0:
+        print("No")
+        return
+
+    # We need to find X_i such that sum(X_i) = 0 and L_i <= X_i <= R_i.
+    # Let X_i = L_i + delta_i, where 0 <= delta_i <= R_i - L_i.
+    # Then sum(L_i + delta_i) = 0  =>  sum(delta_i) = -sum(L_i).
+    # Let Target = -sum(L_i). Since sum_L <= 0 <= sum_R, 
+    # Target is non-negative and Target <= sum(R_i - L_i).
+    
+    target = -sum_L
+    deltas_max = [r - l for l, r in zip(L, R)]
+    
+    # We can use accumulate to greedily fill the target sum.
+    # current_sum[i] will be the sum of deltas used up to index i.
+    # The delta for index i is min(deltas_max[i], target - current_sum[i-1]).
+    
+    # To avoid loops, we use a generator/map logic.
+    # However, since we need the previous state to calculate the current,
+    # we can use a trick with accumulate by storing (current_sum, current_delta).
+    
+    def step(state, d_max):
+        curr_sum, _ = state
+        delta = min(d_max, target - curr_sum)
+        return (curr_sum + delta, delta)
+
+    # Initialize accumulate with (0, 0)
+    # We use a list comprehension to extract the delta from the state tuples
+    results = list(accumulate(deltas_max, step, initial=(0, 0)))
+    
+    # The first element of results is the initial (0,0), so we skip it.
+    # We extract the second element of each tuple (the delta).
+    final_deltas = [state[1] for state in results[1:]]
+    
+    # X_i = L_i + delta_i
+    X = [l + d for l, d in zip(L, final_deltas)]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    solve()

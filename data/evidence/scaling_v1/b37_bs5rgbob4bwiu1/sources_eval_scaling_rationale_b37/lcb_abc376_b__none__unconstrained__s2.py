@@ -1,0 +1,72 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions as a list of (H, T)
+    instructions = []
+    for i in range(Q):
+        h = input_data[2 + 2*i]
+        t = int(input_data[3 + 2*i])
+        instructions.append((h, t))
+
+    # Helper to calculate distance on a ring avoiding a point
+    # current: starting position
+    # target: destination position
+    # avoid: position of the other hand
+    def get_dist(current, target, avoid, n):
+        # Clockwise distance (increasing index)
+        # To go clockwise from current to target, we check if 'avoid' is in the way.
+        # The path is current -> current+1 -> ... -> target
+        # We normalize coordinates to 0...N-1 for easier modulo arithmetic
+        s = current - 1
+        e = target - 1
+        a = avoid - 1
+        
+        # Distance clockwise
+        cw_dist = (e - s) % n
+        # Check if 'avoid' is encountered moving clockwise
+        # avoid is encountered if (a - s) % n < cw_dist
+        cw_blocked = (a - s) % n < cw_dist
+        
+        # Distance counter-clockwise
+        ccw_dist = (s - e) % n
+        # avoid is encountered if (s - a) % n < ccw_dist
+        ccw_blocked = (s - a) % n < ccw_dist
+        
+        # We are guaranteed the move is possible. 
+        # If one way is blocked, we must take the other.
+        # If both are open, take the minimum.
+        res = []
+        if not cw_blocked: res.append(cw_dist)
+        if not ccw_blocked: res.append(ccw_dist)
+        return min(res)
+
+    # State: (left_hand, right_hand, total_distance)
+    # Initial state: L=1, R=2, dist=0
+    initial_state = (1, 2, 0)
+
+    def update_state(state, instr):
+        l, r, dist = state
+        h, t = instr
+        if h == 'L':
+            # Move left hand to t, right hand r stays
+            d = get_dist(l, t, r, N)
+            return (t, r, dist + d)
+        else:
+            # Move right hand to t, left hand l stays
+            d = get_dist(r, t, l, N)
+            return (l, t, dist + d)
+
+    final_state = reduce(update_state, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

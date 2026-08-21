@@ -1,0 +1,120 @@
+The constraint to avoid explicit loops forces a shift toward a functional programming paradigm, emphasizing declarative data transformations over imperative state changes. In idiomatic Python, this encourages the use of higher-order functions and comprehensions, which can often be more concise and leverage internal optimizations. To solve this problem without loops, I will use `functools.reduce` to maintain the state of the grid (tracked via sets of existing walls for each row and column) across the sequence of queries, and sorted lists (via `bisect`) to efficiently find the nearest remaining walls.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = zip(map(int, input_data[3::2]), map(int, input_data[4::2]))
+
+    # We maintain the state of walls using sorted lists for each row and column.
+    # row_walls[i] contains sorted indices of columns that have a wall in row i.
+    # col_walls[j] contains sorted indices of rows that have a wall in column j.
+    # Since H*W is up to 4e5, we initialize these lists.
+    # To avoid loops, we use list comprehensions.
+    initial_state = {
+        'row_walls': [list(range(1, W + 1)) for _ in range(H)],
+        'col_walls': [list(range(1, H + 1)) for _ in range(W)],
+        'total_walls': H * W
+    }
+
+    def process_query(state, query):
+        r, c = query
+        # Adjust to 0-indexed for internal lists
+        r_idx, c_idx = r - 1, c - 1
+        
+        row_list = state['row_walls'][r_idx]
+        col_list = state['col_walls'][c_idx]
+        
+        # Check if wall exists at (r, c)
+        # We use bisect to check existence in the sorted list
+        idx_in_row = bisect_left(row_list, c)
+        exists = idx_in_row < len(row_list) and row_list[idx_in_row] == c
+        
+        if exists:
+            # Destroy wall at (r, c)
+            # Note: mutating lists inside reduce is generally frowned upon but 
+            # necessary here for performance given the constraints.
+            # However, we use slice assignment or pop to avoid explicit for/while loops.
+            row_list.pop(idx_in_row)
+            
+            # Also remove from col_walls
+            idx_in_col = bisect_left(col_list, r)
+            col_list.pop(idx_in_col)
+            
+            return {
+                'row_walls': state['row_walls'],
+                'col_walls': state['col_walls'],
+                'total_walls': state['total_walls'] - 1
+            }
+        else:
+            # Destroy nearest walls in 4 directions
+            # 1. Left and Right (in the same row)
+            idx = bisect_left(row_list, c)
+            
+            # Targets to remove
+            to_remove_cols = []
+            if idx > 0: # Left
+                to_remove_cols.append(row_list[idx-1])
+            if idx < len(row_list): # Right
+                to_remove_cols.append(row_list[idx])
+                
+            # 2. Up and Down (in the same column)
+            idx_c = bisect_left(col_list, r)
+            to_remove_rows = []
+            if idx_c > 0: # Up
+                to_remove_rows.append(col_list[idx_c-1])
+            if idx_c < len(col_list): # Down
+                to_remove_rows.append(col_list[idx_c])
+            
+            # To avoid loops, we use a helper function to remove walls
+            def remove_wall(s, row, col):
+                # Remove from row_walls
+                r_l = s['row_walls'][row-1]
+                i_r = bisect_left(r_l, col)
+                if i_r < len(r_l) and r_l[i_r] == col:
+                    r_l.pop(i_r)
+                    # Remove from col_walls
+                    c_l = s['col_walls'][col-1]
+                    i_c = bisect_left(c_l, row)
+                    if i_c < len(c_l) and c_l[i_c] == row:
+                        c_l.pop(i_c)
+                    return 1
+                return 0
+
+            # Use reduce to apply removal of the 4 potential walls
+            # We identify the specific coordinates first
+            targets = [
+                (r, row_list[idx-1]) if idx > 0 else None,
+                (r, row_list[idx]) if idx < len(row_list) else None,
+                (col_list[idx_c-1], c) if idx_c > 0 else None,
+                (col_list[idx_c], c) if idx_c < len(col_list) else None
+            ]
+            
+            # Filter None and remove duplicates (e.g., if the same wall is nearest in two directions)
+            unique_targets = list(set(filter(None, targets)))
+            
+            # Update total walls by counting how many were actually removed
+            removed_count = sum(map(lambda t: remove_wall(state, t[0], t[1]), unique_targets))
+            
+            return {
+                'row_walls': state['row_walls'],
+                'col_walls': state['col_walls'],
+                'total_walls': state['total_walls'] - removed_count
+            }
+
+    final_state = reduce(process_query, queries, initial_state)
+    print(final_state['total_walls'])
+
+if __name__ == "__main__":
+    solve()
+```

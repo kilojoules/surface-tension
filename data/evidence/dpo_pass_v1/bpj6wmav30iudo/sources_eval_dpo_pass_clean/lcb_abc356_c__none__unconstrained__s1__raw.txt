@@ -1,0 +1,196 @@
+The constraint to avoid explicit loops and recursion forces a transition from imperative programming to a functional style. While not necessarily "cleaner" for all developers, it encourages the use of declarative constructs like list comprehensions and `filter`, which can often be more concise for data transformation and selection tasks. For this problem, I will use `itertools.product` to generate the search space and list comprehensions to filter the valid combinations.
+
+```python
+import sys
+from itertools import product
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+    
+    # Parse tests into a list of tuples (set_of_keys, result)
+    # We use a generator to process the flat list of input tokens
+    # Each test starts with C_i, followed by C_i keys, then R_i
+    # Since the structure is variable, we use a helper to slice the data
+    
+    # To avoid loops, we pre-calculate the indices where each test starts
+    # However, since we can't use loops to build the index map, 
+    # we leverage the fact that N is small (15) and use a 
+    # recursive-like structure via map/reduce or simply 
+    # process the input stream carefully.
+    
+    # Given the constraints and the "no loop" rule, 
+    # we can parse the tests by treating the input as a list 
+    # and using a custom function with map/itertools.
+    
+    # Because the number of keys C_i varies, standard slicing is hard.
+    # But we can use a recursive-like approach with a helper 
+    # that isn't a "loop" or "recursion" by using a 
+    # list comprehension that iterates over the 2^N possibilities.
+    
+    # First, let's extract the tests. 
+    # Since we can't use loops, we use a trick to parse the variable length input.
+    # We can use a regex or simply split the input and 
+    # use a custom iterator.
+    
+    # Actually, we can parse the tests by iterating through the 
+    # input_data list using a while-like logic inside a 
+    # list comprehension if we're clever, but that's forbidden.
+    # Instead, we'll use a helper function that uses 
+    # slicing and is called via map.
+    
+    # Since I cannot use loops or recursion, I will use 
+    # a list comprehension to parse the tests by 
+    # calculating the cumulative sum of (C_i + 2).
+    
+    # Let's use a different approach: 
+    # Since N is very small (15), we can generate all 2^N combinations.
+    # To handle the variable input, we'll use a 
+    # generator-based approach to consume the input.
+    
+    # Wait, the prompt says "no for/while loops" and "no recursion".
+    # I can use `itertools.accumulate` to find the boundaries of each test.
+    
+    # Let's define the logic to check if a combination is valid.
+    # A combination is a tuple of 0s and 1s of length N.
+    # For each test:
+    #   keys_in_test = [A_i, ...]
+    #   real_keys_count = sum(comb[key-1] for key in keys_in_test)
+    #   if R_i == 'o', real_keys_count must be >= K
+    #   if R_i == 'x', real_keys_count must be < K
+    
+    # To parse the input without loops:
+    # We use a helper list to store the tests.
+    # Since we can't loop, we use a recursive-like 
+    # structure via map/reduce? No, recursion is banned.
+    # We can use a list comprehension with a 
+    # sentinel or a fixed-point iteration? No.
+    
+    # Let's use a regex to find all patterns of 
+    # (C_i, keys..., R_i).
+    import re
+    # This regex finds: number, then (number) repeated C_i times, then 'o' or 'x'
+    # But C_i is dynamic. 
+    # However, we know R_i is always 'o' or 'x'.
+    # We can split the input by 'o' and 'x'.
+    
+    # Let's use a simpler way to parse:
+    # Since we know the format, we can use a 
+    # list comprehension that iterates over the 
+    # input_data and filters for 'o' and 'x'.
+    
+    # Let's use a helper to get the tests:
+    # We can use a list comprehension to identify the indices of 'o' and 'x'.
+    # results_indices = [i for i, val in enumerate(input_data[3:]) if val in ('o', 'x')]
+    # Then we can extract the keys between these indices.
+    
+    # Let's implement the core logic:
+    # 1. Parse N, M, K.
+    # 2. Parse tests into a list of (key_indices, result).
+    # 3. Generate all 2^N combinations.
+    # 4. Filter combinations that satisfy all tests.
+    # 5. Count them.
+    
+    # To parse without loops:
+    # We use a list comprehension to find the positions of 'o' and 'x'.
+    # Then we use those positions to slice the input_data.
+    
+    # Since I must avoid loops, I'll use map, filter, and list comprehensions.
+    
+    # Parsing logic:
+    # The input starts at index 3.
+    # Each test: C_i (1), A_i...A_{C_i} (C_i), R_i (1). Total C_i + 2.
+    # We can find the R_i markers.
+    
+    # Let's use a regex to extract the tests.
+    # Each test is: digits, then space-separated digits, then 'o' or 'x'.
+    # Since N is small, we can just read the whole thing.
+    
+    # Use regex to find all test blocks.
+    # A block is: (number) (some numbers) (o or x)
+    # Since the numbers are separated by spaces, we can match 
+    # everything until an 'o' or 'x' is encountered.
+    
+    import re
+    raw_text = " ".join(input_data[3:])
+    # Regex: match one or more digits, then any chars, then 'o' or 'x' 
+    # followed by a space or end of string.
+    # Because C_i tells us how many keys, we can't easily use regex for the count.
+    # But we can split by 'o ' and 'x '.
+    
+    # Actually, the most reliable way to parse this without loops 
+    # is to use a recursive function, but that's banned.
+    # I will use a list comprehension that iterates over 
+    # the range of M, and for each m, calculates the 
+    # start/end indices by summing the C_i values.
+    # But C_i is inside the data.
+    
+    # Let's use a different trick: 
+    # Since we know R_i is always 'o' or 'x', 
+    # we can split the input_data[3:] into a list of strings 
+    # where each string is one test.
+    
+    # We can use a custom function with `itertools.accumulate` 
+    # to find the boundaries.
+    # But we need the values of C_i to do that.
+    
+    # Let's use a regex to find all 'o' and 'x' and their indices.
+    # Then we can slice the list.
+    
+    # Let's try this:
+    # 1. Find all indices in input_data[3:] that are 'o' or 'x'.
+    # 2. For each such index 'idx', the test is from 
+    #    (previous_idx + 1) to (idx + 1).
+    
+    # To do this without loops:
+    # indices = [i for i, x in enumerate(input_data[3:]) if x in ('o', 'x')]
+    # tests = [ (input_data[3 + i - (int(input_data[3 + i - (something)]) if ... else ...)], ...) ]
+    # This is getting complex. Let's use a simpler regex.
+    
+    # Regex to match: (C_i) (A_i1 A_i2 ...) (R_i)
+    # Since A_ij are numbers and R_i is a letter, 
+    # we can match: (\d+)\s+([\d\s]+?)\s+([ox])
+    
+    matches = re.findall(r'(\d+)\s+([\d\s]+?)\s+([ox])', raw_text)
+    # matches is a list of (C_i, keys_string, R_i)
+    
+    # Process matches into a usable format:
+    # tests = [ ( [int(k) for k in m[1].split()], m[2] ) for m in matches ]
+    tests = [([int(k) for k in m[1].split()], m[2]) for m in matches]
+    
+    # Generate all 2^N combinations
+    # combinations = product([0, 1], repeat=N)
+    
+    # Filter combinations:
+    # A combination 'comb' is valid if for all (keys, res) in tests:
+    #   count = sum(comb[k-1] for k in keys)
+    #   if res == 'o': count >= K
+    #   if res == 'x': count < K
+    
+    # This can be written as:
+    # (res == 'o' and count >= K) or (res == 'x' and count < K)
+    
+    # We use a list comprehension to count valid combinations.
+    # To avoid a loop over tests, we use 'all()' inside the comprehension.
+    
+    ans = sum(
+        1 for comb in product([0, 1], repeat=N)
+        if all(
+            (res == 'o' and sum(comb[k-1] for k in keys) >= K) or
+            (res == 'x' and sum(comb[k-1] for k in keys) < K)
+            for keys, res in tests
+        )
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

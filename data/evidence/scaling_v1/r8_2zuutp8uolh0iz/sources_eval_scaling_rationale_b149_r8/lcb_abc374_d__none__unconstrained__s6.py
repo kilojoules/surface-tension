@@ -1,0 +1,76 @@
+import sys
+import math
+from itertools import product, permutations
+from functools import reduce
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((int(input_data[idx]), int(input_data[idx+1]), 
+                         int(input_data[idx+2]), int(input_data[idx+3])))
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute segment lengths and printing times
+    seg_data = [
+        ((s[0], s[1]), (s[2], s[3]), dist((s[0], s[1]), (s[2], s[3])) / T)
+        for s in segments
+    ]
+
+    # We need to try all permutations of segments
+    # For each segment, we can print it in two directions (Start -> End or End -> Start)
+    # There are N! permutations and 2^N direction combinations
+    
+    # Generate all permutations of indices
+    all_perms = permutations(range(N))
+    
+    # For a fixed permutation and a fixed set of directions, calculate total time
+    # directions: 0 means p1 -> p2, 1 means p2 -> p1
+    def calculate_time(perm, dirs):
+        # Current state: (current_x, current_y, total_time)
+        # We use reduce to simulate the sequence of printing segments
+        def accumulate(state, idx):
+            curr_pos, total_t = state
+            p1, p2, print_t = seg_data[idx]
+            
+            start_node = p1 if dirs[perm.index(idx)] == 0 else p2
+            end_node = p2 if dirs[perm.index(idx)] == 0 else p1
+            
+            move_t = dist(curr_pos, start_node) / S
+            return (end_node, total_t + move_t + print_t)
+
+        final_state = reduce(accumulate, perm, ((0, 0), 0.0))
+        return final_state[1]
+
+    # To avoid nested loops, we use list comprehensions and min()
+    # We iterate over all permutations and all possible direction combinations
+    # Since N <= 6, N! * 2^N is at most 720 * 64 = 46080, which is small.
+    
+    # Generate all direction combinations (0 or 1 for each segment in the permutation)
+    dir_combos = list(product([0, 1], repeat=N))
+    
+    # We map the calculation over all permutations and direction combinations
+    # Note: the 'dirs' corresponds to the order of segments in the permutation
+    # So we can just use a fixed length bitmask for the sequence.
+    
+    ans = min(
+        calculate_time(p, d)
+        for p in all_perms
+        for d in dir_combos
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

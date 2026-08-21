@@ -1,0 +1,73 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions as list of (H, T)
+    instructions = [
+        (input_data[i*2 + 2], int(input_data[i*2 + 3]))
+        for i in range(Q)
+    ]
+
+    # Function to calculate the shortest distance between start and end on a ring of size N
+    # given that the other hand is at position 'obstacle'.
+    # The movement is restricted: we cannot step on the obstacle.
+    # There are two directions: clockwise and counter-clockwise.
+    def get_dist(start, end, obstacle, n):
+        # We can move in two directions. 
+        # Direction 1: start -> start+1 -> ... -> end (mod N)
+        # Direction 2: start -> start-1 -> ... -> end (mod N)
+        
+        # To check if a path is blocked, we check if the obstacle lies 
+        # strictly between start and end in that direction.
+        
+        # Normalize to 0-indexed for easier modulo arithmetic
+        s, e, o = start - 1, end - 1, obstacle - 1
+        
+        # Clockwise distance
+        dist_cw = (e - s) % n
+        # The path is blocked if the obstacle is at (s + k) % n for 0 < k < dist_cw
+        # This is true if (o - s) % n < dist_cw and o != s
+        blocked_cw = (o - s) % n < dist_cw and o != s
+        
+        # Counter-clockwise distance
+        dist_ccw = (s - e) % n
+        # The path is blocked if the obstacle is at (s - k) % n for 0 < k < dist_ccw
+        blocked_ccw = (s - o) % n < dist_ccw and o != s
+        
+        # We are guaranteed the instruction is achievable.
+        # Return the minimum of the unblocked paths.
+        res = []
+        if not blocked_cw: res.append(dist_cw)
+        if not blocked_ccw: res.append(dist_ccw)
+        return min(res)
+
+    # State: (left_pos, right_pos, total_distance)
+    # Initial state: Left at 1, Right at 2, distance 0
+    initial_state = (1, 2, 0)
+
+    def transition(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            # Move left hand to t, right hand stays at r
+            d = get_dist(l, t, r, N)
+            return (t, r, total + d)
+        else:
+            # Move right hand to t, left hand stays at l
+            d = get_dist(r, t, l, N)
+            return (l, t, total + d)
+
+    # Use reduce to process all instructions and accumulate the total distance
+    final_state = reduce(transition, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

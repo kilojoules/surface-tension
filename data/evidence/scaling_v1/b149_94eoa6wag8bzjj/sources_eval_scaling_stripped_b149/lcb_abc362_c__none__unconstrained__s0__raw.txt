@@ -1,0 +1,250 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs of (L, R)
+    pairs = [
+        (int(input_data[i]), int(input_data[i+1])) 
+        for i in range(1, 2*N, 2)
+    ]
+    
+    # Calculate the minimum and maximum possible sums
+    # Use map/sum to avoid explicit loops
+    min_sum = sum(map(lambda p: p[0], pairs))
+    max_sum = sum(map(lambda p: p[1], pairs))
+    
+    # A solution exists if and only if 0 is within [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        # We need to distribute the 'deficit' from the minimum sum to reach 0
+        # deficit = 0 - min_sum
+        deficit = -min_sum
+        
+        # For each i, X_i = L_i + amount_added
+        # amount_added is capped by (R_i - L_i)
+        # We use accumulate to track how much of the deficit is covered
+        # range_widths = [R_i - L_i for L_i, R_i in pairs]
+        # covered = accumulate(range_widths)
+        # X_i = L_i + min(deficit - (covered_{i-1}), R_i - L_i)
+        
+        # To implement this without loops, we calculate the contribution of each index:
+        # The amount added to X_i is max(0, min(R_i - L_i, deficit - sum(R_j - L_j for j < i)))
+        
+        widths = [r - l for l, r in pairs]
+        prefix_widths = list(accumulate(widths))
+        
+        # Calculate X_i based on the deficit
+        # For the i-th element (0-indexed):
+        # The total width available before i is prefix_widths[i-1] (or 0 if i=0)
+        # The amount we can add to L_i is min(width_i, max(0, deficit - prefix_widths[i-1]))
+        
+        # We use a list comprehension to build the result
+        # We handle the i=0 case by treating prefix_widths[-1] as 0 for the first element
+        # But since we can't use loops, we'll shift the prefix list.
+        
+        shifted_prefix = [0] + prefix_widths[:-1]
+        
+        res = [
+            l + max(0, min(r - l, deficit - prev_sum))
+            for (l, r), prev_sum in zip(pairs, shifted_prefix)
+        ]
+        
+        print("Yes")
+        print(*(res))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I used a `for` loop in the list comprehension.** The prompt says "Return only Python source... Provide a complete, working solution." Usually, list comprehensions are allowed as they are the standard way to process sequences in Python without `for` blocks. However, to be strictly "loop-free" in the sense of avoiding `for` keywords entirely, I can use `map` and `lambda`.
+
+Here is the version using `map` and `zip` to avoid the `for` keyword entirely:
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N = int(input_data[0])
+    pairs = list(map(int, input_data[1:]))
+    # Group into (L, R) pairs using zip and slicing
+    bounded_pairs = list(zip(pairs[0::2], pairs[1::2]))
+    
+    min_sum = sum(map(lambda p: p[0], bounded_pairs))
+    max_sum = sum(map(lambda p: p[1], bounded_pairs))
+    
+    if min_sum <= 0 <= max_sum:
+        deficit = -min_sum
+        widths = list(map(lambda p: p[1] - p[0], bounded_pairs))
+        prefix_widths = list(accumulate(widths))
+        shifted_prefix = [0] + prefix_widths[:-1]
+        
+        # Use map and lambda instead of list comprehension
+        res = list(map(
+            lambda args: args[0][0] + max(0, min(args[0][1] - args[0][0], deficit - args[1])),
+            zip(bounded_pairs, shifted_prefix)
+        ))
+        
+        sys.stdout.write("Yes\n" + " ".join(map(str, res)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the prompt asks for the code inside a single block. I will provide the `map`/`lambda` version to be safe.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N = int(input_data[0])
+    pairs = list(map(int, input_data[1:]))
+    bounded_pairs = list(zip(pairs[0::2], pairs[1::2]))
+    min_sum = sum(map(lambda p: p[0], bounded_pairs))
+    max_sum = sum(map(lambda p: p[1], bounded_pairs))
+    if min_sum <= 0 <= max_sum:
+        deficit = -min_sum
+        widths = list(map(lambda p: p[1] - p[0], bounded_pairs))
+        prefix_widths = list(accumulate(widths))
+        shifted_prefix = [0] + prefix_widths[:-1]
+        res = list(map(
+            lambda args: args[0][0] + max(0, min(args[0][1] - args[0][0], deficit - args[1])),
+            zip(bounded_pairs, shifted_prefix)
+        ))
+        sys.stdout.write("Yes\n" + " ".join(map(str, res)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I cannot use `if` statements if the goal is absolute zero control flow, but the prompt says "Determine whether... and print", which implies a conditional. Usually, "no loops" means no `for`/`while`. `if` is generally allowed for the final output.
+
+Final check on the logic:
+If $\sum L_i = -10$ and $\sum R_i = 10$, deficit is $10$.
+If $X_1$ has range $[-5, 5]$, width is $10$.
+$X_1 = -5 + \min(10, 10 - 0) = 5$.
+Remaining deficit for $X_2 \dots X_N$ is $0$.
+This correctly balances the sum to $0$.
+The use of `sys.stdin.read().split()` handles the input constraints $N=2 \times 10^5$ efficiently.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    N = int(input_data[0])
+    pairs = list(map(int, input_data[1:]))
+    bounded_pairs = list(zip(pairs[0::2], pairs[1::2]))
+    min_sum = sum(map(lambda p: p[0], bounded_pairs))
+    max_sum = sum(map(lambda p: p[1], bounded_pairs))
+    
+    # Using a conditional expression to decide output
+    output = (
+        "Yes\n" + " ".join(map(str, 
+            list(map(
+                lambda args: args[0][0] + max(0, min(args[0][1] - args[0][0], -min_sum - args[1])),
+                zip(bounded_pairs, [0] + list(accumulate(map(lambda p: p[1] - p[0], bounded_pairs)))[:-1]
+            ))
+        )) + "\n"
+        if min_sum <= 0 <= max_sum 
+        else "No\n"
+    )
+    sys.stdout.write(output)
+
+if __name__ == "__main__":
+    solve()
+```
+This version removes the `if` block entirely in favor of a conditional expression.
+
+Final Polish:
+1. `input_data[1:]` is used to get $L_1, R_1 \dots$
+2. `zip(pairs[0::2], pairs[1::2])` creates the $(L, R)$ pairs.
+3. `accumulate` handles the prefix sums of the ranges.
+4. `map` handles the calculation of $X_i$.
+5. `join` handles the output formatting.
+
+One small detail: `sys.setrecursionlimit` is not needed here as there is no recursion.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input and convert to integers
+    data = list(map(int, sys.stdin.read().split()))
+    if not data: return
+    
+    # N = data[0], pairs = data[1:]
+    # Create (L, R) tuples
+    bounded_pairs = list(zip(data[1::2], data[2::2]))
+    
+    # Calculate boundaries
+    min_s = sum(map(lambda p: p[0], bounded_pairs))
+    max_s = sum(map(lambda p: p[1], bounded_pairs))
+    
+    # Logic to compute X_i: L_i + clamp(0, R_i - L_i, deficit - prefix_sum_of_widths)
+    # We use a conditional expression for the final output
+    result = (
+        "Yes\n" + " ".join(map(str, 
+            list(map(
+                lambda args: args[0][0] + max(0, min(args[0][1] - args[0][0], -min_s - args[1])),
+                zip(bounded_pairs, [0] + list(accumulate(map(lambda p: p[1] - p[0], bounded_pairs)))[:-1]
+            ))
+        )) + "\n"
+        if min_s <= 0 <= max_s 
+        else "No\n"
+    )
+    sys.stdout.write(result)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, `data[2::2]` is correct for $R_i$ because `data[0]` is $N$, so $L_1$ is `data[1]`, $R_1$ is `data[2]`.
+`data[1::2]` $\rightarrow$ indices $1, 3, 5 \dots$ (All $L_i$)
+`data[2::2]` $\rightarrow$ indices $2, 4, 6 \dots$ (All $R_i$)
+This is correct.
+
+Final check on constraints: $N=2 \cdot 10^5$, values $10^9$. Python handles large integers automatically. Time complexity is $O(N)$ due to `map`, `zip`, and `sum`. Space complexity is $O(N)$ to store the input and result.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input and convert to integers
+    data = list(map(int, sys.stdin.read().split()))
+    if not data: return
+    
+    # N = data[0], pairs = data[1:]
+    # Create (L, R) tuples: L_i are at indices 1, 3, 5... and R_i at 2, 4, 6...
+    bounded_pairs = list(zip(data[1::2], data[2::2]))
+    
+    # Calculate the minimum and maximum possible sums of X_i
+    min_s = sum(map(lambda p: p[0], bounded_pairs))
+    max_s = sum(map(lambda p: p[1], bounded_pairs))
+    
+    # A solution exists if 0 is between the minimum and maximum possible sums.
+    # If it exists, we start all X_i at L_i and distribute the remaining 
+    # required sum (-min_s) across the available ranges (R_i - L_i).
+    result = (
+        "Yes\n" + " ".join(map(str, 
+            list(map(
+                lambda args: args[0][0] + max(0, min(args[0][1] - args[0][0], -min_s - args[1])),
+                zip(bounded_pairs, [0] + list(

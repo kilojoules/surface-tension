@@ -1,0 +1,78 @@
+The constraint to avoid explicit loops forces a shift from imperative state-mutation to a functional paradigm, emphasizing the transformation of data streams. In this specific problem, since we need to determine the sequence element-by-element based on the number of permutations remaining, I will use `functools.reduce` to maintain and update the state (the counts of remaining numbers and the target index) across the length of the sequence.
+
+To avoid `for` loops and `while` loops, I use list comprehensions for calculations and `reduce` to simulate the iterative process of filling the sequence. The number of permutations of a multiset is calculated using the formula $\frac{(\sum k_i)!}{\prod (k_i!)}$. Since the total number of sequences $S$ can be very large, I use Python's arbitrary-precision integers.
+
+```python
+import sys
+from functools import reduce
+from math import factorial
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # Precompute factorials for efficiency
+    fact = [factorial(i) for i in range(n * k + 1)]
+
+    def get_count(counts):
+        # Formula for permutations of a multiset: (sum(counts))! / product(count!)
+        total_rem = sum(counts)
+        denom = reduce(lambda x, y: x * y, [fact[c] for c in counts], 1)
+        return fact[total_rem] // denom
+
+    # The target index is floor((S + 1) / 2)
+    # S is the total number of good sequences
+    total_s = get_count([k] * n)
+    target_idx = (total_s + 1) // 2
+
+    # We use reduce to build the sequence. 
+    # State: (current_counts, current_target_idx, result_sequence)
+    # We iterate NK times.
+    initial_state = ([k] * n, target_idx, [])
+    
+    def step(state, _):
+        counts, target, seq = state
+        
+        # Find the smallest digit i such that the number of sequences 
+        # starting with digits smaller than i is less than target.
+        # We use a list comprehension to calculate the number of sequences 
+        # starting with each possible digit 1..N.
+        
+        # counts_at_i is a list of counts if we pick digit i
+        # ways_at_i is the number of permutations possible if we pick digit i
+        # We need to find i such that sum(ways_at_j for j < i) < target <= sum(ways_at_j for j <= i)
+        
+        # To avoid loops, we compute the number of permutations for each possible next digit
+        # if that digit is still available.
+        ways = [
+            get_count(counts[:i] + [counts[i]-1] + counts[i+1:]) 
+            if counts[i] > 0 else 0 
+            for i in range(n)
+        ]
+        
+        # Use a list comprehension to find the index of the digit to pick
+        # We are looking for the first i where the prefix sum of 'ways' >= target
+        # Since we can't use while/for, we use a trick with a cumulative sum
+        prefix_sums = list(reduce(lambda acc, x: acc + [acc[-1] + x], ways, [0]))
+        
+        # The digit index is the first i where prefix_sums[i+1] >= target
+        # We use a list comprehension to find the first index
+        digit_idx = [i for i in range(n) if prefix_sums[i+1] >= target][0]
+        
+        # Update counts
+        new_counts = counts[:digit_idx] + [counts[digit_idx] - 1] + counts[digit_idx+1:]
+        # Update target index: subtract the number of sequences skipped
+        new_target = target - prefix_sums[digit_idx]
+        
+        return (new_counts, new_target, seq + [digit_idx + 1])
+
+    final_state = reduce(step, range(n * k), initial_state)
+    print(*(final_state[2]))
+
+if __name__ == "__main__":
+    solve()
+```

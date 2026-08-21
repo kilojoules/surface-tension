@@ -1,0 +1,57 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing the transformation of data streams over stateful iteration. To solve this problem, I will use list comprehensions to identify the indices where $S$ and $T$ differ, and `functools.reduce` to iteratively build the sequence of strings, as each step depends on the result of the previous one.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    # To get the lexicographically smallest array X, we must change characters
+    # at indices that make the resulting string smaller as early as possible.
+    # However, the problem asks for the lexicographically smallest array X.
+    # If we change a character at index i to T[i], and T[i] < S[i], 
+    # the string becomes lexicographically smaller immediately.
+    # If T[i] > S[i], the string becomes lexicographically larger.
+    # Therefore, we should prioritize changing indices i where T[i] < S[i] 
+    # from left to right, and then indices i where T[i] > S[i] from right to left.
+    
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # Indices where the target character is smaller than the current (improves lexicographical rank)
+    # These should be processed first, from left to right.
+    decreasing = [i for i in diff_indices if T[i] < S[i]]
+    
+    # Indices where the target character is larger than the current (worsens lexicographical rank)
+    # These should be processed last, from right to left, to keep the string "smaller" for longer.
+    increasing = [i for i in diff_indices if T[i] > S[i]]
+    
+    # The optimal order of indices to change
+    order = decreasing + increasing[::-1]
+    
+    # Use reduce to generate the sequence of strings
+    # accumulator is the list X, current_val is the index to change
+    # We need to keep track of the current state of the string, so we store (current_string, X_list)
+    def evolve(state, idx):
+        curr_s, x_list = state
+        # Create new string by replacing character at idx
+        new_s = curr_s[:idx] + T[idx] + curr_s[idx+1:]
+        return (new_s, x_list + [new_s])
+
+    final_state = reduce(evolve, order, (S, []))
+    X = final_state[1]
+    
+    # Output the number of elements and the elements themselves
+    print(len(X))
+    if X:
+        print('\n'.join(X))
+
+if __name__ == "__main__":
+    solve()
+```

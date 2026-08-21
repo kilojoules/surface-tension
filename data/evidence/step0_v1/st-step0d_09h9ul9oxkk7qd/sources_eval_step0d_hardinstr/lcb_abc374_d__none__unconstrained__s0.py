@@ -1,0 +1,119 @@
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((
+            (int(input_data[idx]), int(input_data[idx+1])),
+            (int(input_data[idx+2]), int(input_data[idx+3]))
+        ))
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute lengths of segments to avoid redundant calculations
+    seg_lengths = [dist(s[0], s[1]) for s in segments]
+    
+    # We need to try all permutations of segments and all combinations of directions
+    # For each segment i, direction 0 means start at s[0] end at s[1], direction 1 vice versa.
+    
+    # The total time is:
+    # Sum of (length of segment / T) + Sum of (distance between segments / S)
+    
+    # Total printing time is constant regardless of order
+    total_print_time = sum(seg_lengths) / T
+    
+    # We need to minimize the travel time (non-emitting)
+    # The laser starts at (0, 0)
+    start_pos = (0, 0)
+    
+    # Generate all permutations of segment indices
+    # For each permutation, generate all 2^N combinations of directions
+    # We use a generator expression to find the minimum travel distance
+    
+    min_travel_dist = min(
+        sum(
+            dist(
+                (segments[p[i]][0 if d[i] == 0 else 1], segments[p[i]][0 if d[i] == 0 else 1]) 
+                if i == 0 and False else # This logic is handled by the zipped sequence
+                (0,0) if i == 0 else segments[p[i-1]][1 if d[i-1] == 0 else 0],
+                segments[p[i]][0 if d[i] == 0 else 1]
+            )
+            for i in range(N)
+        )
+        for p in permutations(range(N))
+        for d in product([0, 1], repeat=N)
+    )
+    
+    # The above logic in the generator was slightly flawed due to the index 0 handling.
+    # Let's redefine the travel distance calculation clearly.
+    # For a fixed permutation p and directions d:
+    # Point 0: (0,0)
+    # Point 1: Start of segment p[0] -> End of segment p[0]
+    # Point 2: Start of segment p[1] -> End of segment p[1] ...
+    
+    # Corrected generator:
+    def get_travel_dist(p, d):
+        # Current position
+        curr = (0, 0)
+        # We need to sum distances: 
+        # dist(curr, start_0) + dist(end_0, start_1) + ...
+        # Since we can't use loops, we construct the sequence of points.
+        
+        # Points are: 
+        # Start: (0,0)
+        # Seg 0: (로, 뤠) -> (뤠, 로) based on d
+        # We can use a list comprehension to get all endpoints and then zip them.
+        
+        # endpoints[i] = (start_point, end_point)
+        endpoints = [
+            (segments[p[i]][0], segments[p[i]][1]) if d[i] == 0 else (segments[p[i]][1], segments[p[i]][0])
+            for i in range(N)
+        ]
+        
+        # Travel distances:
+        # 1. (0,0) to endpoints[0][0]
+        # 2. endpoints[0][1] to endpoints[1][0]
+        # ...
+        # N. endpoints[N-1][1] to endpoints[N][0] (not applicable)
+        
+        # We can use a generator to sum these:
+        return dist((0,0), endpoints[0][0]) + sum(
+            dist(endpoints[i][1], endpoints[i+1][0]) 
+            for i in range(N-1)
+        )
+
+    # To avoid the function call inside min() and keep it as a pure expression:
+    # We can pre-calculate the endpoints for each permutation and direction.
+    
+    ans = min(
+        (
+            dist((0,0), (segments[p[0]][0] if d[0]==0 else segments[p[0]][1])) +
+            sum(
+                dist(
+                    (segments[p[i]][1] if d[i]==0 else segments[p[i]][0]),
+                    (segments[p[i+1]][0] if d[i+1]==0 else segments[p[i+1]][1])
+                )
+                for i in range(N-1)
+            )
+        )
+        for p in permutations(range(N))
+        for d in product([0, 1], repeat=N)
+    )
+    
+    print(f"{total_print_time + ans/S:.20f}")
+
+if __name__ == "__main__":
+    solve()

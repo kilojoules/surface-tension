@@ -1,0 +1,50 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s = input_data[0]
+    t = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(s)) if s[i] != t[i]]
+    
+    # To get the lexicographically smallest array X:
+    # 1. We must change characters one by one.
+    # 2. For a specific index i, if T[i] < S[i], changing S[i] to T[i] 
+    #    makes the string lexicographically smaller immediately.
+    #    We should process these indices from left to right (0 to N-1).
+    # 3. If T[i] > S[i], changing S[i] to T[i] makes the string lexicographically larger.
+    #    We should process these indices from right to left (N-1 to 0) to keep 
+    #    the prefix smaller for as long as possible.
+    
+    # Indices where T[i] < S[i] (processed left to right)
+    left_to_right = [i for i in diff_indices if t[i] < s[i]]
+    # Indices where T[i] > S[i] (processed right to left)
+    right_to_left = [i for i in diff_indices if t[i] > s[i]][::-1]
+    
+    # The sequence of indices to change
+    order = left_to_right + right_to_left
+    
+    # Use reduce to generate the sequence of strings.
+    # The accumulator is a list containing the current string and the history X.
+    # state = (current_s, history_list)
+    def evolve(state, idx):
+        current_s, history = state
+        # Create new string by replacing character at idx
+        new_s = current_s[:idx] + t[idx] + current_s[idx+1:]
+        return (new_s, history + [new_s])
+
+    final_state = reduce(evolve, order, (s, []))
+    m = len(final_state[1])
+    x = final_state[1]
+    
+    # Output the result
+    print(m)
+    print('\n'.join(x))
+
+if __name__ == "__main__":
+    solve()

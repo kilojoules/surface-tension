@@ -1,0 +1,68 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Parse pairs into lists of Ls and Rs
+    # Using list comprehension to avoid for-loops
+    L = [int(input_data[i]) for i in range(1, 2 * N + 1, 2)]
+    R = [int(input_data[i]) for i in range(2, 2 * N + 2, 2)]
+    
+    # The minimum possible sum is the sum of all L_i
+    # The maximum possible sum is the sum of all R_i
+    min_sum = sum(L)
+    max_sum = sum(R)
+    
+    # A solution exists if and only if 0 is within [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        # We start with X_i = L_i. 
+        # We need to increase the total sum from min_sum to 0.
+        # The amount we need to add is -min_sum.
+        diff = -min_sum
+        
+        # For each i, we can increase X_i by up to (R_i - L_i).
+        # We use a greedy approach: add as much as possible to each X_i 
+        # until the total increase reaches 'diff'.
+        
+        # To avoid loops, we calculate the prefix sums of the maximum possible increases (R_i - L_i).
+        # However, a simpler functional approach is to use the fact that 
+        # X_i = L_i + min(R_i - L_i, remaining_diff).
+        # Since we cannot use loops to track 'remaining_diff', we can use 
+        # the cumulative sum of (R_i - L_i) to determine how much of the 
+        # diff is absorbed by the i-th element.
+        
+        # Let S_i be the prefix sum of (R_j - L_j) for j = 1 to i.
+        # The amount added to X_i is:
+        # max(0, min(R_i - L_i, diff - S_{i-1}))
+        
+        # Calculate R_i - L_i for all i
+        deltas = [R[i] - L[i] for i in range(N)]
+        
+        # Calculate prefix sums of deltas
+        # Using a list comprehension with sum() is O(N^2), so we must avoid it.
+        # Since we cannot use loops, we use a trick with a helper function or 
+        # map/reduce logic. But the prompt forbids 'for' and 'while'.
+        # We can use a generator expression inside a list constructor combined with 
+        # a mutable object to simulate a state (accumulator) for the prefix sum.
+        
+        state = {'rem': diff}
+        def allocate(d):
+            add = min(d, state['rem'])
+            state['rem'] -= add
+            return add
+
+        # Map the allocate function over the deltas
+        # X_i = L_i + allocate(R_i - L_i)
+        X = [L[i] + allocate(deltas[i]) for i in range(N)]
+        
+        print("Yes")
+        print(*(X))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

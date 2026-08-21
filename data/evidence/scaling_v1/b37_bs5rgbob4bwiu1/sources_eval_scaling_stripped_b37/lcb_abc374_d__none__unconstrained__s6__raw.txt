@@ -1,0 +1,252 @@
+```python
+import sys
+from itertools import permutations
+import math
+
+def solve():
+    # Read input and parse N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples: ((x1, y1), (x2, y2))
+    segments = [
+        (
+            (int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+            (int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        )
+        for i in range(N)
+    ]
+
+    # Precompute lengths of each segment (time taken to print)
+    # length / T
+    seg_times = [
+        math.sqrt((s[0][0] - s[1][0])**2 + (s[0][1] - s[1][1])**2) / T
+        for s in segments
+    ]
+
+    # Function to calculate distance between two points
+    # distance / S
+    def dist_time(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2) / S
+
+    # We need to visit every segment. For each segment, we can start at either end.
+    # There are N! permutations of segments and 2^N choices of direction.
+    # Since N is small (<= 6), we can iterate through all permutations.
+    # For the direction, we can use recursion or a bitmask, but since we 
+    # process segments sequentially, we can use a recursive function to 
+    # find the best direction for the remaining segments.
+
+    # To avoid redundant calculations in the recursion, we can use a helper
+    # However, with N=6, the total states are 6! * 2^6 = 720 * 64 = 46,080.
+    # This is small enough to compute directly.
+
+    def get_min_time(perm):
+        # For a fixed order of segments, find the best direction for each.
+        # state: (index_of_segment, current_position)
+        # Since we only have 2 choices per segment, we can use recursion.
+        
+        memo = {}
+
+        def recurse(idx, current_pos):
+            state = (idx, current_pos)
+            if state in memo:
+                return memo[state]
+            
+            if idx == N:
+                return 0
+            
+            seg = segments[perm[idx]]
+            p1, p2 = seg
+            t_print = seg_times[perm[idx]]
+            
+            # Option 1: Move to p1, then print to p2
+            res1 = dist_time(current_pos, p1) + t_print + recurse(idx + 1, p2)
+            # Option 2: Move to p2, then print to p1
+            res2 = dist_time(current_pos, p2) + t_print + recurse(idx + 1, p1)
+            
+            ans = min(res1, res2)
+            memo[state] = ans
+            return ans
+
+        return recurse(0, (0, 0))
+
+    # Try all permutations of segment indices
+    all_perms = permutations(range(N))
+    # For each permutation, calculate the minimum time required
+    # We use a list comprehension to calculate the min time for each permutation
+    # and then take the minimum of those results.
+    
+    # Note: The recurse function inside get_min_time handles the 2^N direction choices.
+    # We wrap the logic in a function to avoid loops and maintain the requested structure.
+    
+    results = [get_min_time(p) for p in all_perms]
+    print(f"{min(results):.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a small issue: the `recurse` function inside `get_min_time` uses `N` and `segments` from the outer scope, and it uses a dictionary for memoization. However, the `current_pos` is a tuple, which is hashable. The logic is sound. Let's refine it into a single block.
+
+```python
+import sys
+from itertools import permutations
+import math
+
+def solve():
+    # Read input and parse N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples: ((x1, y1), (x2, y2))
+    segments = [
+        (
+            (int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+            (int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        )
+        for i in range(N)
+    ]
+
+    # Precompute lengths of each segment (time taken to print)
+    seg_times = [
+        math.sqrt((s[0][0] - s[1][0])**2 + (s[0][1] - s[1][1])**2) / T
+        for s in segments
+    ]
+
+    def dist_time(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2) / S
+
+    def get_min_time(perm):
+        # memo keys: (index, current_point)
+        memo = {}
+
+        def recurse(idx, current_pos):
+            state = (idx, current_pos)
+            if state in memo:
+                return memo[state]
+            
+            if idx == N:
+                return 0
+            
+            seg_idx = perm[idx]
+            p1, p2 = segments[seg_idx]
+            t_print = seg_times[seg_idx]
+            
+            # Option 1: Move to p1, print to p2. Next start is p2.
+            res1 = dist_time(current_pos, p1) + t_print + recurse(idx + 1, p2)
+            # Option 2: Move to p2, print to p1. Next start is p1.
+            res2 = dist_time(current_pos, p2) + t_print + recurse(idx + 1, p1)
+            
+            ans = min(res1, res2)
+            memo[state] = ans
+            return ans
+
+        return recurse(0, (0, 0))
+
+    # Try all permutations of segment indices and find the minimum total time
+    ans = min(get_min_time(p) for p in permutations(range(N)))
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Final check on constraints: $N=6$ is very small. $6! = 720$. For each permutation, we have $2^6 = 64$ paths. Total paths to check: $720 \times 64 = 46,080$. This will easily run within time limits in Python.
+The `recurse` function is called for each permutation. Since the state only depends on the index and the current endpoint, and there are only 2 endpoints per segment, the memoization table size per permutation is $6 \times 2 = 12$. This is extremely efficient.
+
+One final detail: the problem says "Return only Python source inside a single ```python code block."
+
+```python
+import sys
+from itertools import permutations
+import math
+
+def solve():
+    # Read input and parse N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples: ((x1, y1), (x2, y2))
+    segments = [
+        (
+            (int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+            (int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        )
+        for i in range(N)
+    ]
+
+    # Precompute lengths of each segment (time taken to print)
+    seg_times = [
+        math.sqrt((s[0][0] - s[1][0])**2 + (s[0][1] - s[1][1])**2) / T
+        for s in segments
+    ]
+
+    def dist_time(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2) / S
+
+    def get_min_time(perm):
+        memo = {}
+
+        def recurse(idx, current_pos):
+            state = (idx, current_pos)
+            if state in memo:
+                return memo[state]
+            
+            if idx == N:
+                return 0
+            
+            seg_idx = perm[idx]
+            p1, p2 = segments[seg_idx]
+            t_print = seg_times[seg_idx]
+            
+            # Option 1: Move to p1, print to p2.
+            res1 = dist_time(current_pos, p1) + t_print + recurse(idx + 1, p2)
+            # Option 2: Move to p2, print to p1.
+            res2 = dist_time(current_pos, p2) + t_print + recurse(idx + 1, p1)
+            
+            ans = min(res1, res2)
+            memo[state] = ans
+            return ans
+
+        return recurse(0, (0, 0))
+
+    # Calculate minimum time across all permutations of segments
+    final_ans = min(get_min_time(p) for p in permutations(range(N)))
+    print(f"{final_ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the complete program. I will provide it now.
+The logic is:
+1. Read $N, S, T$.
+2. Read $N$ pairs of coordinates.
+3. For every permutation of the $N$ segments:
+   - Use dynamic programming (via recursion + memoization) to decide whether to print each segment from point A to B or B to A.
+   - The state is `(index_of_segment, current_laser_position)`.
+4. The transition is: $\min(\text{dist}(pos, A)/S + \text{len}(AB)/T + \text{solve}(idx+1, B), \text{dist}(pos, B)/S + \text{len}(AB)/T + \text{solve}(idx+1, A))$.
+5. Output the minimum value found across all permutations.
+6. Complexity: $O(N! \cdot N)$. With $N=6$, $720 \cdot 6 \approx 4320$ operations per test case. This is well within limits.
+7. Precision: Using `math.sqrt` and float division provides the required $10^{-6}$ precision.
+
+Final check on Sample 1:
+Segments: (1,3)-(2,1), (0,2)-(0,0), (3,0)-(2,0). S=2, T=1.
+One path: (0,0) $\xrightarrow{print}$ (0,2) $\xrightarrow{move}$ (1,3) $\xrightarrow{print}$ (2,1) $\xrightarrow{move}$ (2,0) $\xrightarrow{print}$ (3,0).
+Times: $2/1 + \text{dist}((0,2),(1,3))/2 + \sqrt{5}/1 + \text{dist}((2,1),(2,0))/2 + 1/1$
+$= 2 + \sqrt{2}/2 + \sqrt{5} + 1/2 + 1 \approx 6.443175$. Correct.
+Sample 2: 2 segments, S=1, T=1. (0,0)-(10,10) and (0,2)-(2,0).
+Path 1: (0,0) $\to$ (0,0) $\xrightarrow{p}$ (10,10) $\to$ (0,2) $\xrightarrow{p}$ (2,0).
+Time: $0 + \sqrt{200}/1 + \text{dist}((10,10

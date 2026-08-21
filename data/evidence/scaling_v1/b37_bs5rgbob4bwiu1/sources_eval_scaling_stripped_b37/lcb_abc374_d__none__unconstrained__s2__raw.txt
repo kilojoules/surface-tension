@@ -1,0 +1,104 @@
+```python
+import sys
+from itertools import permutations
+import math
+
+def solve():
+    # Read input and parse N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples ((x1, y1), (x2, y2))
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((
+            (int(input_data[idx]), int(input_data[idx+1])),
+            (int(input_data[idx+2]), int(input_data[idx+3]))
+        ))
+
+    # Function to calculate distance between two points
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute the time taken to print each segment
+    # print_times[i] = length of segment i / T
+    print_times = [dist(s[0], s[1]) / T for s in segments]
+    
+    # We need to decide the order of segments and the direction of each segment.
+    # There are N! permutations of segments and 2^N combinations of directions.
+    # Since N is small (<= 6), we can iterate through all permutations and 
+    # use a bitmask or recursion to handle directions, or simply map 
+    # the choice of endpoint for each segment.
+    
+    # For a given permutation of indices, we want to find the best directions.
+    # This can be solved with DP: dp[i][end_point_index] 
+    # where end_point_index 0 means we ended at segment i's first endpoint, 
+    # and 1 means we ended at the second.
+    
+    def get_min_time(p):
+        # p is a permutation of 0...N-1
+        # dp[i][0]: min time after printing segment p[i], ending at point 0 of that segment
+        # dp[i][1]: min time after printing segment p[i], ending at point 1 of that segment
+        
+        # Initial state: moving from (0,0) to start of first segment
+        # To end at point 0, we must have started at point 1.
+        # To end at point 1, we must have started at point 0.
+        s0 = segments[p[0]][0]
+        s1 = segments[p[0]][1]
+        
+        # dp[0][0]: (0,0) -> s1 (move) -> s0 (print)
+        # dp[0][1]: (0,0) -> s0 (move) -> s1 (print)
+        dp0 = (dist((0, 0), s1) / S) + print_times[p[0]]
+        dp1 = (dist((0, 0), s0) / S) + print_times[p[0]]
+        
+        curr_dp = (dp0, dp1)
+        
+        for i in range(1, N):
+            prev_p = p[i-1]
+            curr_p = p[i]
+            
+            # Points of previous and current segments
+            prev_pts = segments[prev_p]
+            curr_pts = segments[curr_p]
+            
+            # To end at curr_pts[0], we must have started at curr_pts[1]
+            # We could have come from prev_pts[0] (dp[i-1][0]) or prev_pts[1] (dp[i-1][1])
+            cost_to_0 = min(
+                curr_dp[0] + dist(prev_pts[0], curr_pts[1]) / S,
+                curr_dp[1] + dist(prev_pts[1], curr_pts[1]) / S
+            ) + print_times[curr_p]
+            
+            # To end at curr_pts[1], we must have started at curr_pts[0]
+            cost_to_1 = min(
+                curr_dp[0] + dist(prev_pts[0], curr_pts[0]) / S,
+                curr_dp[1] + dist(prev_pts[1], curr_pts[0]) / S
+            ) + print_times[curr_p]
+            
+            curr_dp = (cost_to_0, cost_to_1)
+            
+        return min(curr_dp)
+
+    # Iterate over all permutations of segment indices
+    all_perms = permutations(range(N))
+    ans = min(get_min_time(p) for p in all_perms)
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Explanation:**
+1. **Problem Constraints:** $N \le 6$ is very small, which suggests that an approach involving permutations ($N!$) is feasible. $6! = 720$.
+2. **State Representation:** For any chosen order of segments, each segment $i$ has two endpoints $P_{i,0}$ and $P_{i,1}$. We must enter the segment at one endpoint and leave at the other.
+3. **Dynamic Programming:** For a fixed sequence of segments, we maintain a DP state `(cost_end_at_0, cost_end_at_1)`. 
+   - `cost_end_at_0`: The minimum time to have printed the current segment and ended up at $P_{i,0}$. This implies we traveled to $P_{i,1}$ and printed towards $P_{i,0}$.
+   - The transition considers the two possible ending positions of the previous segment in the sequence.
+4. **Complexity:** The total complexity is $O(N! \cdot N)$, which for $N=6$ is roughly $720 \times 6 \approx 4320$ operations, well within the time limit.
+5. **Precision:** Using `math.sqrt` and float division provides the required precision.

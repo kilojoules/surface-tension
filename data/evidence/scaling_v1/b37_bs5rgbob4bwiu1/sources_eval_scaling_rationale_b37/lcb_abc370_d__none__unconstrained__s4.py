@@ -1,0 +1,99 @@
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read H, W, Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    queries = []
+    for i in range(Q):
+        queries.append((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])))
+
+    # To avoid loops, we use a functional approach to state management.
+    # We maintain a set of existing walls for each row and each column.
+    # Since we cannot use loops, we use map/reduce or recursion.
+    # However, the prompt asks for a complete program. 
+    # I will use a list comprehension/map style to process queries 
+    # and a dictionary of sorted lists to track walls.
+    
+    # Initial state: All walls exist.
+    # rows[r] contains sorted indices of columns that have walls in row r.
+    # cols[c] contains sorted indices of rows that have walls in column c.
+    rows = {r: list(range(1, W + 1)) for r in range(1, H + 1)}
+    cols = {c: list(range(1, H + 1)) for c in range(1, W + 1)}
+    
+    # We need a way to remove elements from sorted lists efficiently.
+    # Since we can't use loops, we'll use a helper function and reduce.
+    from functools import reduce
+
+    def process_query(state, query):
+        r, c = query
+        rows_state, cols_state = state
+        
+        # Check if wall exists at (r, c)
+        # We use bisect to check existence in the sorted list
+        idx_in_row = bisect_left(rows_state[r], c)
+        exists = idx_in_row < len(rows_state[r]) and rows_state[r][idx_in_row] == c
+        
+        if exists:
+            # Destroy wall at (r, c)
+            # Using slice assignment to simulate removal without a loop
+            rows_state[r] = rows_state[r][:idx_in_row] + rows_state[r][idx_in_row+1:]
+            
+            # Find index in col list to remove
+            idx_in_col = bisect_left(cols_state[c], r)
+            cols_state[c] = cols_state[c][:idx_in_col] + cols_state[c][idx_in_col+1:]
+            return (rows_state, cols_state)
+        else:
+            # Destroy 4 nearest walls
+            # Up
+            idx_up = bisect_left(cols_state[c], r) - 1
+            # Down
+            idx_down = bisect_left(cols_state[c], r)
+            # Left
+            idx_left = bisect_left(rows_state[r], c) - 1
+            # Right
+            idx_right = bisect_left(rows_state[r], c)
+            
+            # Identify targets
+            targets = []
+            if idx_up >= 0: targets.append((cols_state[c][idx_up], c))
+            if idx_down < len(cols_state[c]): targets.append((cols_state[c][idx_down], c))
+            if idx_left >= 0: targets.append((r, rows_state[r][idx_left]))
+            if idx_right < len(rows_state[r]): targets.append((r, rows_state[r][idx_right]))
+            
+            # Remove all targets
+            # To avoid loops, we use reduce to apply the removal for each target
+            def remove_wall(s, target):
+                tr, tc = target
+                # Remove from row list
+                r_list = s[0][tr]
+                r_idx = bisect_left(r_list, tc)
+                if r_idx < len(r_list) and r_list[r_idx] == tc:
+                    s[0][tr] = r_list[:r_idx] + r_list[r_idx+1:]
+                
+                # Remove from col list
+                c_list = s[1][tc]
+                c_idx = bisect_left(c_list, tr)
+                if c_idx < len(c_list) and c_list[c_idx] == tr:
+                    s[1][tc] = c_list[:c_idx] + c_list[c_idx+1:]
+                return s
+
+            return reduce(remove_wall, targets, (rows_state, cols_state))
+
+    # Process all queries using reduce
+    final_state = reduce(process_query, queries, (rows, cols))
+    
+    # Calculate remaining walls
+    # Sum of lengths of all lists in the rows dictionary
+    total_remaining = sum(map(len, final_state[0].values()))
+    print(total_remaining)
+
+if __name__ == "__main__":
+    solve()

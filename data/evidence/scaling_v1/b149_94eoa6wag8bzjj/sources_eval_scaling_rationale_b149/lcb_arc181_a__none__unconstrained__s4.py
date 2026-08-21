@@ -1,0 +1,97 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # Use a generator to yield chunks of data for each test case
+    def get_cases(data):
+        # We use a helper to slice the data list based on N values
+        # Since we cannot use loops, we use a recursive-like approach 
+        # via a list comprehension or map. 
+        # However, N varies, so we must track the current index.
+        # A more reliable way without loops is to process the flat list
+        # by calculating the prefix sums of Ns.
+        
+        # But wait, the constraint allows list comprehensions.
+        # Let's process the flat list by mapping a function.
+        pass
+
+    # To avoid loops and recursion, we can process the flat list 
+    # by calculating the boundaries of each test case.
+    
+    # 1. Extract all Ns and Ps
+    # We can't use a loop to find boundaries, so we use a trick:
+    # We build a list of (N, P) pairs by iterating through the flat list
+    # using a custom function and map.
+    
+    def process_all(data):
+        # Since we can't use while/for, we use a technique to 
+        # group the data. We can use a list comprehension that 
+        # references a mutable state (a list) to track the index.
+        state = [0] 
+        def extract_case():
+            n = int(data[state[0]])
+            p = data[state[0]+1 : state[0]+1+n]
+            state[0] += 1 + n
+            return n, p
+        
+        # We use map(extract_case, range(T)) to get all cases
+        return map(lambda _: extract_case(), range(T))
+
+    def solve_case(case):
+        n, p_str = case
+        p = list(map(int, p_str))
+        
+        # The goal is P_i = i for all i.
+        # 0 operations: already sorted.
+        if p == sorted(p):
+            return 0
+        
+        # 1 operation: exists k such that {P_1...P_{k-1}} == {1...k-1} 
+        # and {P_{k+1}...P_N} == {k+1...N}.
+        # This is equivalent to: max(P_1...P_{k-1}) == k-1 and min(P_{k+1}...P_N) == k+1.
+        
+        # Precompute prefix max and suffix min
+        # Using list comprehensions to simulate scans
+        # Note: we can't use for-loops, but we can use a trick with 
+        # a list and a function to simulate accumulate.
+        # However, Python's itertools.accumulate is perfect here.
+        from itertools import accumulate
+        
+        prefix_max = list(accumulate(p, max))
+        suffix_min = list(accumulate(p[::-1], min))[::-1]
+        
+        # Check if any k (1-indexed) satisfies the condition.
+        # k=1: suffix_min[1] == 2
+        # k=N: prefix_max[N-2] == N-1
+        # 1 < k < N: prefix_max[k-2] == k-1 and suffix_min[k] == k+1
+        
+        # We check all k in range(1, N+1)
+        # k=1
+        cond1 = (n > 1 and suffix_min[1] == 2)
+        # k=N
+        condN = (n > 1 and prefix_max[n-2] == n-1)
+        # 1 < k < N
+        # We use a generator expression inside 'any'
+        cond_mid = any(
+            prefix_max[k-2] == k-1 and suffix_min[k] == k+1 
+            for k in range(2, n)
+        )
+        
+        if cond1 or condN or cond_mid:
+            return 1
+        
+        # Otherwise, 2 operations are always enough for N >= 3.
+        return 2
+
+    # Execute the pipeline
+    results = map(solve_case, process_all(input_data[1:]))
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

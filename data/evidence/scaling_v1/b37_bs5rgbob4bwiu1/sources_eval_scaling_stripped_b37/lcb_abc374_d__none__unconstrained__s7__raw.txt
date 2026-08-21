@@ -1,0 +1,261 @@
+```python
+import sys
+from itertools import permutations
+import math
+
+def solve():
+    # Read input and parse N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples: ((x1, y1), (x2, y2))
+    segments = [
+        (
+            (int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+            (int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        )
+        for i in range(N)
+    ]
+    
+    # Precompute lengths of each segment
+    # Time to print segment i is length / T
+    seg_times = [
+        math.sqrt((s[0][0] - s[1][0])**2 + (s[0][1] - s[1][1])**2) / T
+        for s in segments
+    ]
+    
+    # We need to visit every segment. For each segment, we can start at either end.
+    # There are N! permutations of segments and 2^N ways to choose directions.
+    # Since N is small (<= 6), we can iterate through all permutations and 
+    # use dynamic programming or recursion to find the best direction for each.
+    
+    # For a fixed order of segments, the state is (current_segment_index, end_point_used).
+    # However, with N=6, we can simply use itertools.product to try all 2^N directions
+    # for every permutation.
+    
+    from itertools import product
+    
+    # Function to calculate distance between two points
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+    
+    # Generate all permutations of segment indices
+    perms = permutations(range(N))
+    # Generate all possible direction choices (0: start->end, 1: end->start)
+    dirs = product([0, 1], repeat=N)
+    
+    # To optimize, we can group the logic. For a fixed permutation, 
+    # we want to minimize the travel time between segments.
+    # Let f(i, side) be the min time to finish i segments ending at side of segment i.
+    # But since N is only 6, we can use a comprehension over permutations and 
+    # a nested comprehension/generator over the 2^N direction combinations.
+    
+    # We use a helper to calculate total time for a specific order and direction set.
+    def calc_time(p, d):
+        # p: permutation of indices, d: tuple of directions (0 or 1)
+        # Current position starts at (0, 0)
+        # For each segment i in p:
+        #   Start point is segments[i][d[i]], End point is segments[i][1-d[i]]
+        #   Travel time = dist(current, start) / S + length(segment) / T
+        
+        # We can use a list comprehension with a custom accumulator via a loop 
+        # or a reduction, but a simple generator expression inside sum() 
+        # requires tracking the 'current' position. 
+        # Since we cannot use loops, we use a recursive-like approach or 
+        # map/reduce. Actually, the most 'Pythonic' way without explicit for-loops
+        # to handle state is using a reduction.
+        
+        from functools import reduce
+        
+        def step(state, idx_dir):
+            idx, direction = idx_dir
+            curr_pos, total_t = state
+            p1, p2 = segments[idx]
+            start = p1 if direction == 0 else p2
+            end = p2 if direction == 0 else p1
+            
+            travel_t = dist(curr_pos, start) / S
+            print_t = seg_times[idx]
+            return (end, total_t + travel_t + print_t)
+        
+        # Initial state: ((0,0), 0)
+        # Sequence of (index, direction)
+        seq = ((p[i], d[i]) for i in range(N))
+        final_state = reduce(step, seq, ((0, 0), 0.0))
+        return final_state[1]
+
+    # We need to iterate over all permutations and all direction combinations.
+    # To avoid explicit loops, we use a generator expression inside min().
+    # Note: dirs is a generator, so we convert it to a list to reuse it for each permutation.
+    dir_options = list(product([0, 1], repeat=N))
+    
+    # For each permutation p, we find the best direction combination d.
+    # Then we find the minimum across all permutations.
+    ans = min(
+        min(calc_time(p, d) for d in dir_options)
+        for p in perms
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a logic error in the `calc_time` function regarding the direction mapping. If `d[i] == 0`, the laser moves from `segments[i][0]` to `segments[i][1]`. If `d[i] == 1`, it moves from `segments[i][1]` to `segments[i][0]`. My code handles this correctly. However, the `dir_options` are mapped to the *position in the permutation*, not the segment index. 
+
+Corrected logic: `d[i]` should refer to the direction of the $i$-th segment in the chosen permutation $p$.
+
+Revised `calc_time` logic:
+For a permutation $p = (p_0, p_1, \dots, p_{N-1})$ and directions $d = (d_0, d_1, \dots, d_{N-1})$:
+Segment $p_0$ is printed from $endpoint(p_0, d_0)$ to $endpoint(p_0, 1-d_0)$.
+Then move to $endpoint(p_1, d_1)$ and print to $endpoint(p_1, 1-d_1)$, and so on.
+
+The provided code already does this: `idx, direction = idx_dir` where `idx` comes from the permutation and `direction` comes from the `product` object.
+
+Final check on constraints: $N=6$ means $6! \times 2^6 = 720 \times 64 = 46,080$ iterations. This is well within the time limit for Python.
+
+```python
+import sys
+from itertools import permutations, product
+from functools import reduce
+import math
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = [
+        (
+            (int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+            (int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        )
+        for i in range(N)
+    ]
+    
+    seg_times = [
+        math.sqrt((s[0][0] - s[1][0])**2 + (s[0][1] - s[1][1])**2) / T
+        for s in segments
+    ]
+    
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+    
+    def calc_time(p, d):
+        def step(state, item):
+            idx, direction = item
+            curr_pos, total_t = state
+            p1, p2 = segments[idx]
+            start = p1 if direction == 0 else p2
+            end = p2 if direction == 0 else p1
+            return (end, total_t + dist(curr_pos, start) / S + seg_times[idx])
+        
+        # Combine permutation indices with their chosen directions
+        seq = zip(p, d)
+        return reduce(step, seq, ((0, 0), 0.0))[1]
+
+    dir_options = list(product([0, 1], repeat=N))
+    ans = min(
+        min(calc_time(p, d) for d in dir_options)
+        for p in permutations(range(N))
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the code in a single block. I will provide the final version.
+One final detail: `S` and `T` are used as divisors, so they must be floats. Python 3 `/` operator handles this automatically.
+
+Final check on the logic:
+1. Start at (0,0).
+2. For each segment in the chosen order:
+   a. Move to one endpoint (without laser).
+   b. Move to the other endpoint (with laser).
+3. Total time is sum of (distance/S) for moves and (distance/T) for printing.
+
+This matches the problem description.
+
+```python
+import sys
+from itertools import permutations, product
+from functools import reduce
+import math
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, S, T
+    N = int(input_data[0])
+    S = float(input_data[1])
+    T = float(input_data[2])
+    
+    # Parse segments: list of ((x1, y1), (x2, y2))
+    segments = [
+        (
+            (int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+            (int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        )
+        for i in range(N)
+    ]
+    
+    # Precompute printing time for each segment: length / T
+    seg_times = [
+        math.sqrt((s[0][0] - s[1][0])**2 + (s[0][1] - s[1][1])**2) / T
+        for s in segments
+    ]
+    
+    # Distance helper function
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+    
+    # Function to calculate total time for a specific order (p) and direction set (d)
+    def calc_time(p, d):
+        def step(state, item):
+            idx, direction = item
+            curr_pos, total_t = state
+            p1, p2 = segments[idx]
+            # direction 0: p1 -> p2, direction 1: p2 -> p1
+            start = p1 if direction == 0 else p2
+            end = p2 if direction == 0 else p1
+            return (end, total_t + dist(curr_pos, start) / S + seg_times[idx])
+        
+        # zip(p, d) creates the sequence of (segment_index, direction)
+        return reduce(step, zip(p, d), ((0, 0), 0.0))[1]
+
+    # All possible direction combinations for N segments
+    dir_options = list(product([0, 1], repeat=N))
+    
+    # Minimize over all permutations of segments and all direction combinations
+    ans = min(
+        min(calc_time(p, d) for d in dir_options)
+        for p in permutations(range(N))
+    )
+    
+    # Output formatted to required precision
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+One last check: The constraints say $T \le S$. This means printing is always slower than or equal to moving. This doesn't change the logic, just a property of the problem. The complexity $O(N! \cdot 2^N \cdot N)$ is perfectly fine for $N=6$.
+The use of `reduce` and `zip` avoids explicit `for` loops as requested (though the prompt said "Write a complete Python program", it didn't explicitly forbid `for` loops, but using comprehensions/reductions is cleaner). Actually, the prompt didn't forbid `for` loops, but I'll keep the functional style.
+
+Final code block:
+```python
+import sys
+from itertools import permutations, product
+from functools import reduce
+import math
+
+def solve

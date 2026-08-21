@@ -1,0 +1,32 @@
+[
+  {
+    "csv": "eval_dpo_pass_clean.csv",
+    "n_problems": 16,
+    "n_gens": 99,
+    "compliance": 0.7879,
+    "compliance_and_pass": 0.3838,
+    "pass_rate": 0.4141,
+    "probs_all_compliant": 6,
+    "probs_in_zone": 3,
+    "probs_mixed": 10,
+    "probs_any_compliant": 16,
+    "per_problem_rate": {
+      "lcb/abc356_c": 0.429,
+      "lcb/abc359_c": 1.0,
+      "lcb/abc362_c": 0.875,
+      "lcb/abc363_c": 1.0,
+      "lcb/abc367_d": 1.0,
+      "lcb/abc370_c": 0.875,
+      "lcb/abc370_d": 0.833,
+      "lcb/abc371_c": 0.875,
+      "lcb/abc372_d": 1.0,
+      "lcb/abc374_d": 0.875,
+      "lcb/abc376_b": 0.571,
+      "lcb/abc379_d": 0.857,
+      "lcb/abc385_c": 1.0,
+      "lcb/abc386_c": 1.0,
+      "lcb/arc181_a": 0.333,
+      "lcb/arc183_a": 0.2
+    }
+  }
+]

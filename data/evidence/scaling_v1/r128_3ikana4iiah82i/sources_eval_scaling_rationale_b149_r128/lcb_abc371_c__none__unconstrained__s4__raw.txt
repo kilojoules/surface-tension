@@ -1,0 +1,76 @@
+The constraint to avoid explicit loops forces a shift toward a functional programming style, emphasizing declarative data transformations over imperative state changes. In Python, this is achieved by utilizing `itertools.permutations` to generate all possible vertex mappings, and nested list comprehensions combined with `sum()` to calculate the cost of transforming graph $H$ into a graph isomorphic to $G$ for each mapping. The final result is obtained by applying `min()` across all calculated costs.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a generator/iterator to consume input
+    it = iter(input_data)
+    
+    # N: Number of vertices
+    N = int(next(it))
+    
+    # M_G: Number of edges in G
+    M_G = int(next(it))
+    # G_edges: Set of edges in G for O(1) lookup
+    G_edges = set(
+        tuple(sorted([int(next(it)), int(next(it))])) 
+        for _ in range(M_G)
+    )
+    
+    # M_H: Number of edges in H
+    M_H = int(next(it))
+    # H_edges: Set of edges in H for O(1) lookup
+    H_edges = set(
+        tuple(sorted([int(next(it)), int(next(it))])) 
+        for _ in range(M_H)
+    )
+    
+    # A: Cost matrix for toggling edges in H
+    # We store it as a dictionary with keys (i, j) where i < j
+    # The input provides A_{1,2}, A_{1,3}... A_{N-1,N}
+    costs_list = [int(x) for x in it]
+    
+    # Create a mapping of (i, j) to cost
+    # There are N*(N-1)//2 such pairs
+    pairs = [
+        (i, j) 
+        for i in range(1, N + 1) 
+        for j in range(i + 1, N + 1)
+    ]
+    A = dict(zip(pairs, costs_list))
+
+    # To make G and H isomorphic, we look for a permutation P of {1...N}
+    # such that we minimize the cost of changing H to match G under P.
+    # The cost for a pair (i, j) is A_{P_i, P_j} if the edge status 
+    # of (i, j) in G differs from the edge status of (P_i, P_j) in H.
+    
+    # Generate all permutations of vertices 1...N
+    all_perms = permutations(range(1, N + 1))
+    
+    # For each permutation P, calculate the total cost
+    # P is a tuple where P[i-1] is the image of vertex i
+    # We iterate over all pairs (i, j) with 1 <= i < j <= N
+    
+    # We use a generator expression inside min() to find the optimal permutation
+    result = min(
+        sum(
+            A[tuple(sorted([p[i-1], p[j-1]]))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if ((i, j) in G_edges) != (tuple(sorted([p[i-1], p[j-1]])) in H_edges)
+        )
+        for p in all_perms
+    )
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

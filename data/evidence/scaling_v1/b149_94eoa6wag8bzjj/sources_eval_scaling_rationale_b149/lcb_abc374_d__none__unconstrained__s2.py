@@ -1,0 +1,77 @@
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((
+            (int(input_data[idx]), int(input_data[idx+1])),
+            (int(input_data[idx+2]), int(input_data[idx+3]))
+        ))
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute lengths of segments to avoid redundant calculations
+    seg_lengths = [dist(s[0], s[1]) for s in segments]
+
+    # We need to try all permutations of segments
+    # For each segment, we can start at either endpoint
+    # There are N! * 2^N possible paths
+    
+    # Generate all permutations of indices 0 to N-1
+    all_perms = permutations(range(N))
+    
+    # For a specific permutation and a specific choice of directions (0 or 1)
+    # dir_choice 0: start at s[0], end at s[1]
+    # dir_choice 1: start at s[1], end at s[0]
+    
+    def calculate_time(perm, dirs):
+        # Current position starts at (0, 0)
+        # We use a generator to calculate the gaps and the printing times
+        
+        # Create the sequence of (start, end) points based on the permutation and directions
+        path = [
+            (segments[perm[i]][0] if dirs[i] == 0 else segments[perm[i]][1],
+             segments[perm[i]][1] if dirs[i] == 0 else segments[perm[i]][0])
+            for i in range(N)
+        ]
+        
+        # Time to print the segments (constant regardless of order/direction)
+        print_time = sum(seg_lengths) / T
+        
+        # Time to move between segments
+        # Move from (0,0) to path[0][0]
+        # Move from path[i][1] to path[i+1][0]
+        
+        # Using a list comprehension to get all move distances
+        moves = [dist((0, 0), path[0][0])] + [
+            dist(path[i][1], path[i+1][0]) for i in range(N-1)
+        ]
+        
+        move_time = sum(moves) / S
+        return print_time + move_time
+
+    # We use a generator expression inside min() to find the optimal time
+    # product([0, 1], repeat=N) generates all 2^N direction combinations
+    ans = min(
+        calculate_time(p, d)
+        for p in all_perms
+        for d in product([0, 1], repeat=N)
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

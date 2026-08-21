@@ -1,0 +1,78 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm, emphasizing the transformation of data streams rather than the mutation of variables. For this problem, which requires exploring permutations of line segments and their orientations, I will use `itertools.permutations` and `itertools.product` to generate all possible sequences of operations, and list comprehensions combined with `min()` to evaluate and find the optimal path.
+
+```python
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input and parse values
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into pairs of endpoints
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])), 
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    # Helper to calculate Euclidean distance between two points
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Pre-calculate the time taken to print each segment (length / T)
+    print_times = [dist(s[0], s[1]) / T for s in segments]
+    total_print_time = sum(print_times)
+
+    # We need to try all permutations of segments and all possible directions (start/end)
+    # There are N! permutations and 2^N direction combinations
+    # Since N <= 6, N! * 2^N is at most 720 * 64 = 46,080, which is feasible.
+    
+    # Generate all permutations of segment indices
+    all_perms = permutations(range(N))
+    # Generate all possible binary choices for direction (0: A->C, 1: C->A)
+    all_dirs = product([0, 1], repeat=N)
+
+    # To avoid nested loops, we use a generator expression inside min()
+    # We calculate the total travel time (non-printing) and add the constant printing time.
+    
+    # For a given permutation 'p' and direction 'd':
+    # The sequence of points visited is:
+    # Start (0,0) -> Segment p[0] start -> Segment p[0] end -> Segment p[1] start ...
+    
+    def calculate_travel_time(p, d):
+        # Determine the start and end point for each segment based on direction d
+        # points[i] = (start_point, end_point)
+        points = [
+            (segments[p[i]][0 if d[i] == 0 else 1], segments[p[i]][1 if d[i] == 0 else 0])
+            for i in range(N)
+        ]
+        
+        # Travel legs: 
+        # 1. (0,0) to points[0][0]
+        # 2. points[i][1] to points[i+1][0] for i in 0..N-2
+        legs = [dist((0, 0), points[0][0])] + [
+            dist(points[i][1], points[i+1][0]) 
+            for i in range(N - 1)
+        ]
+        
+        return sum(legs) / S
+
+    # We use a nested comprehension to iterate over all permutations and directions
+    # We use a list comprehension to flatten the search space and then find the minimum
+    ans = min(
+        calculate_travel_time(p, d)
+        for p in permutations(range(N))
+        for d in product([0, 1], repeat=N)
+    )
+
+    print(f"{ans + total_print_time:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```

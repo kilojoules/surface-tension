@@ -1,0 +1,201 @@
+```python
+import sys
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions are pairs of (H_i, T_i)
+    instructions = []
+    for i in range(Q):
+        h = input_data[2 + 2*i]
+        t = int(input_data[3 + 2*i])
+        instructions.append((h, t))
+
+    # Initial positions
+    curr_l = 1
+    curr_r = 2
+    total_ops = 0
+
+    # Helper to calculate distance between two points on a ring of size N
+    # without passing through a forbidden point 'p'
+    # The ring is 1-indexed.
+    def get_dist(start, end, p, n):
+        if start == end:
+            return 0
+        
+        # There are two paths on a ring: clockwise and counter-clockwise.
+        # We need to check if the forbidden point p lies on the path.
+        
+        # Normalize to 0-indexed for easier modulo arithmetic
+        s, e, forbidden = start - 1, end - 1, p - 1
+        
+        # Path 1: Increasing index (s -> s+1 -> ... -> e)
+        # The distance is (e - s) % n.
+        # The path is blocked if 'forbidden' is between s and e (exclusive of s, inclusive of e)
+        # in the circular sense.
+        dist1 = (e - s) % n
+        # Check if forbidden is on the path s -> e
+        # forbidden is on path if (forbidden - s) % n < dist1
+        # But the problem says we can't move to the destination if the other hand is there.
+        # Actually, the rule is: cannot move to a part if the other hand is CURRENTLY there.
+        # So if the forbidden point is anywhere on the path, that path is blocked.
+        blocked1 = (forbidden - s) % n < dist1
+        
+        # Path 2: Decreasing index (s -> s-1 -> ... -> e)
+        dist2 = (s - e) % n
+        blocked2 = (s - forbidden) % n < dist2
+        
+        # We are guaranteed the instruction is achievable.
+        # Return the minimum of the non-blocked paths.
+        res = []
+        if not blocked1: res.append(dist1)
+        if not blocked2: res.append(dist2)
+        return min(res)
+
+    # Process instructions sequentially
+    # We use a list for state to mimic a mutable closure/global
+    state = [curr_l, curr_r, total_ops]
+
+    def process_instr(instr):
+        h, t = instr
+        l, r, ops = state
+        
+        if h == 'L':
+            # Move left hand to t, right hand r is forbidden
+            dist = get_dist(l, t, r, N)
+            state[0] = t
+            state[2] += dist
+        else:
+            # Move right hand to t, left hand l is forbidden
+            dist = get_dist(r, t, l, N)
+            state[1] = t
+            state[2] += dist
+
+    # Use map to iterate through instructions
+    list(map(process_instr, instructions))
+    
+    print(state[2])
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a small logic error in the `blocked` check. If the forbidden point is the destination `e`, the problem says "you can do this only if the other hand is not on the destination part." The guarantee says $T_i \neq r_i$ when $H_i$ is $L$, so the destination itself is never the forbidden point. Thus, the logic `(forbidden - s) % n < dist1` correctly identifies if the forbidden point is encountered at any step along the path.
+
+Final check on Sample 1:
+- Start: L=1, R=2.
+- Instr 1: R to 4. Forbidden L=1. 
+  - Path R(2)->3->4: dist 2. Forbidden 1 is not on path.
+  - Path R(2)->1->6->5->4: dist 4. Forbidden 1 is on path.
+  - Min dist = 2. State: L=1, R=4, Ops=2.
+- Instr 2: L to 5. Forbidden R=4.
+  - Path L(1)->2->3->4->5: dist 4. Forbidden 4 is on path.
+  - Path L(1)->6->5: dist 2. Forbidden 4 is not on path.
+  - Min dist = 2. State: L=5, R=4, Ops=4.
+- Instr 3: R to 6. Forbidden L=5.
+  - Path R(4)->5->6: dist 2. Forbidden 5 is on path.
+  - Path R(4)->3->2->1->6: dist 4. Forbidden 5 is not on path.
+  - Min dist = 4. State: L=5, R=6, Ops=8.
+Result: 8. Correct.
+**Wait**, the prompt asks for the code inside a single block. I will provide the final cleaned version.
+**Wait**, I used `map` to iterate, but the prompt allows `for` loops. I will use a standard loop for clarity.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    instructions = []
+    for i in range(Q):
+        h = input_data[2 + 2*i]
+        t = int(input_data[3 + 2*i])
+        instructions.append((h, t))
+
+    curr_l = 1
+    curr_r = 2
+    total_ops = 0
+
+    def get_dist(start, end, p, n):
+        if start == end:
+            return 0
+        s, e, forbidden = start - 1, end - 1, p - 1
+        
+        dist1 = (e - s) % n
+        blocked1 = (forbidden - s) % n < dist1
+        
+        dist2 = (s - e) % n
+        blocked2 = (s - forbidden) % n < dist2
+        
+        res = [dist1 for not blocked1] + [dist2 for not blocked2]
+        # Using a list comprehension to avoid 'if' for strictness, 
+        # though 'if' is allowed. Let's use a simple filter.
+        return min([d for d, b in [(dist1, blocked1), (dist2, blocked2)] if not b])
+
+    for h, t in instructions:
+        if h == 'L':
+            total_ops += get_dist(curr_l, t, curr_r, N)
+            curr_l = t
+        else:
+            total_ops += get_dist(curr_r, t, curr_l, N)
+            curr_r = t
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the prompt says "Return only Python source inside a single ```python code block." I will provide the final version.
+**Wait**, the `[dist1 for not blocked1]` syntax is invalid. I'll use `(dist1 if not blocked1 else None)`. Or just a standard `if`.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    instructions = []
+    for i in range(Q):
+        h = input_data[2 + 2*i]
+        t = int(input_data[3 + 2*i])
+        instructions.append((h, t))
+
+    curr_l, curr_r, total_ops = 1, 2, 0
+
+    def get_dist(start, end, p, n):
+        if start == end: return 0
+        s, e, forbidden = start - 1, end - 1, p - 1
+        d1, d2 = (e - s) % n, (s - e) % n
+        b1, b2 = (forbidden - s) % n < d1, (s - forbidden) % n < d2
+        return min([d for d, b in [(d1, b1), (d2, b2)] if not b])
+
+    for h, t in instructions:
+        if h == 'L':
+            total_ops += get_dist(curr_l, t, curr_r, N)
+            curr_l = t
+        else:
+            total_ops += get_dist(curr_r, t, curr_l, N)
+            curr_r = t
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()
+```
+Final check on constraints: $N, Q \le 100$. This $O(Q)$ approach is optimal.

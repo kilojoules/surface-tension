@@ -1,0 +1,54 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing the use of high-order functions and comprehensions to handle data transformations. For this problem, I will use `functools.reduce` to iteratively transform the string $S$ into $T$ and list comprehensions to identify the indices where $S$ and $T$ differ.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To get the lexicographically smallest array X, we must change characters
+    # in a specific order. 
+    # If T[i] < S[i], changing S[i] to T[i] makes the string lexicographically smaller.
+    # We should prioritize these changes first, and process them from left to right.
+    # If T[i] > S[i], changing S[i] to T[i] makes the string lexicographically larger.
+    # We should process these last, and from right to left, to keep the string 
+    # as small as possible for as long as possible.
+    
+    decreasing = [i for i in diff_indices if T[i] < S[i]]
+    increasing = [i for i in diff_indices if T[i] > S[i]]
+    
+    # Sort decreasing indices ascending (left to right)
+    # Sort increasing indices descending (right to left)
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Use reduce to generate the sequence of strings
+    # The accumulator is a list containing the current state of the string
+    def transform(acc, idx):
+        current_s = acc[-1]
+        # Create new string by replacing character at idx
+        new_s = current_s[:idx] + T[idx] + current_s[idx+1:]
+        return acc + [new_s]
+
+    # Start reduce with [S], and iterate through the calculated order
+    result_array = reduce(transform, order, [S])
+    
+    # The first element of result_array is the initial S, which is not part of X
+    X = result_array[1:]
+    
+    # Output the number of elements and the elements themselves
+    print(len(X))
+    if X:
+        print('\n'.join(X))
+
+if __name__ == "__main__":
+    solve()
+```

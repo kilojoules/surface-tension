@@ -1,0 +1,87 @@
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input and parse N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples ((x1, y1), (x2, y2))
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])), 
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute length of each segment for printing time
+    seg_lengths = [dist(s[0], s[1]) for s in segments]
+
+    # We need to try all permutations of segments and both directions for each segment.
+    # There are N! permutations and 2^N direction combinations.
+    # N is small (<= 6), so 6! * 2^6 = 720 * 64 = 46080, which is well within limits.
+    
+    # Generate all permutations of indices
+    all_perms = permutations(range(N))
+    # Generate all possible direction choices (0: start->end, 1: end->start)
+    all_dirs = product([0, 1], repeat=N)
+
+    # To avoid nested loops, we use a generator expression inside min()
+    # We iterate over every permutation of segments and every combination of directions.
+    # For a fixed permutation and direction set:
+    # Total Time = Sum(printing_times) + Sum(travel_times)
+    
+    # Printing time is constant regardless of order: sum(length / T)
+    total_print_time = sum(seg_lengths) / T
+
+    # We need to find the minimum travel time.
+    # Travel time depends on the sequence of endpoints.
+    
+    # Helper to get endpoints based on direction
+    def get_endpoints(idx, direction):
+        s = segments[idx]
+        return (s[0], s[1]) if direction == 0 else (s[1], s[0])
+
+    # We use a generator to calculate total travel time for every possibility
+    # We use a helper function to calculate travel time for a specific sequence
+    def calc_travel_time(perm, dirs):
+        # Sequence of points: Start(0,0) -> P1_start -> P1_end -> P2_start -> P2_end ...
+        # Travel occurs from (0,0) to first start, and from each end to the next start.
+        
+        # Create the sequence of (start, end) points for the chosen permutation and directions
+        points = [get_endpoints(perm[i], dirs[i]) for i in range(N)]
+        
+        # Distance from (0,0) to the first start point
+        first_dist = dist((0, 0), points[0][0])
+        
+        # Distances between end of segment i and start of segment i+1
+        # Using a generator expression to sum distances
+        mid_dists = sum(dist(points[i][1], points[i+1][0]) for i in range(N-1))
+        
+        return (first_dist + mid_dists) / S
+
+    # Since we cannot use loops, we use map/comprehensions to evaluate all permutations and directions.
+    # However, the most "Pythonic" way to replace the nested loop for this optimization 
+    # is a nested generator expression.
+    
+    ans = total_print_1 = total_print_time + min(
+        (
+            calc_travel_time(p, d) 
+            for p in permutations(range(N)) 
+            for d in product([0, 1], repeat=N)
+        ), 
+        default=0
+    )
+
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,147 @@
+import sys
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N = int(input_data[0])
+    K = int(input_data[1])
+
+    # The total number of good sequences S is (NK)! / (K!)^N.
+    # We need the floor((S+1)/2)-th sequence.
+    # This is essentially the "middle" sequence.
+    # Due to the symmetry of lexicographical order, if a sequence A is the i-th,
+    # its "complement" A' (where each element x is replaced by N - x + 1)
+    # is the (S - i + 1)-th sequence.
+    # The middle sequence is the one that is "self-complementary" in a sense,
+    # or the one just before the point where the sequence and its complement swap.
+    
+    # For a sequence to be the floor((S+1)/2)-th, we can determine each element
+    # greedily. At each position, we check if the number of sequences starting with
+    # the current prefix is enough to reach the target index.
+    # However, calculating (NK)! / (K!)^N is too large.
+    
+    # Key Insight: The target index is exactly half of the total permutations.
+    # A sequence A is lexicographically smaller than its complement A' if 
+    # at the first index i where they differ, A[i] < A'[i].
+    # The middle of the sorted list of all permutations is the sequence that
+    # acts as the transition between sequences and their complements.
+    
+    # The target sequence is the one that is "just smaller" than its complement.
+    # This means we want the largest sequence A such that A < complement(A).
+    # To maximize A while keeping A < complement(A), we want the first 
+    # differing element to be as late as possible and as large as possible,
+    # but still smaller than its complement.
+    
+    # The complement of x is (N + 1 - x).
+    # We want the first i where A[i] != (N + 1 - A[i]) to have A[i] < (N + 1 - A[i]).
+    # To make the sequence as large as possible, we want A[i] to be as large as possible
+    # for as long as possible.
+    
+    # If N is even, the "middle" element is N//2. 
+    # If N is odd, the "middle" element is (N+1)//2.
+    
+    # The strategy to find the floor((S+1)/2)-th sequence:
+    # We want the sequence that is the largest among all sequences A such that A < complement(A).
+    # This means for the first index i where A[i] != complement(A)[i], we must have A[i] < complement(A)[i].
+    # To maximize the sequence, we want A[i] to be as large as possible, and for all j < i,
+    # A[j] should be as large as possible such that it doesn't force the sequence to be 
+    # larger than its complement.
+    
+    # Actually, the simplest way to describe the floor((S+1)/2)-th sequence is:
+    # It is the sequence that is "half-way". 
+    # For N=3, K=3, the result is 2 2 2 1 3 3 3 1 1.
+    # Notice the pattern: 
+    # Elements are placed in pairs (x, N+1-x).
+    # To be the largest sequence smaller than its complement:
+    # We fill the sequence from the left. We try to put the largest possible value v.
+    # But we must ensure that at some point we place a value v < (N+1-v) to stay 
+    # in the lower half of the total permutations.
+    
+    # Correct logic for floor((S+1)/2)-th:
+    # We want the largest sequence A such that A < complement(A).
+    # This means we want A[i] to be as large as possible, but at the first index i 
+    # where A[i] != N+1-A[i], we must have A[i] < N+1-A[i].
+    # To maximize A, we want that first difference to occur as late as possible.
+    # The values that are their own complements are (N+1)/2 (if N is odd).
+    # For other values, they come in pairs {x, N+1-x}.
+    
+    # The construction:
+    # 1. Use all occurrences of the middle element (if N is odd) as late as possible? 
+    #    No, to make the sequence large, put them as early as possible if they are 'large'.
+    #    Wait, the middle element is (N+1)//2.
+    # 2. For pairs {x, N+1-x} with x < N+1-x:
+    #    To keep A < complement(A), the first time we use either x or N+1-x, 
+    #    we must use x to ensure A < complement(A). But we want A to be as large as possible.
+    #    So we should use the larger value (N+1-x) as much as possible FIRST, 
+    #    as long as we haven't yet committed to A < complement(A).
+    #    But the moment we use (N+1-x), the complement uses x, so A becomes > complement(A).
+    #    Therefore, to keep A < complement(A), the very first element that differs 
+    #    from its complement must be the smaller one of the pair.
+    
+    # To maximize A subject to A < complement(A):
+    # - We can use the middle element (N+1)//2 as much as we want.
+    # - For all other pairs {x, N+1-x}, we want to push the "smaller" choice as far back as possible.
+    # - However, the first element that is not the middle element MUST be the smaller one 
+    #   of its pair to ensure A < complement(A), UNLESS we already placed a smaller 
+    #   element earlier.
+    # - Actually, the rule is: the first index i where A[i] != N+1-A[i] must have A[i] < N+1-A[i].
+    # - To maximize this, we want A[i] to be as large as possible, and i to be as large as possible.
+    # - The largest possible value for A[i] such that A[i] < N+1-A[i] is floor(N/2).
+    # - Before that index i, all A[j] must be equal to N+1-A[j]. This is only possible if A[j] = (N+1)/2.
+    
+    # So the structure is:
+    # 1. All K copies of (N+1)//2 (if N is odd).
+    # 2. One copy of floor(N/2).
+    # 3. All remaining elements sorted in descending order.
+    
+    # Let's test N=3, K=3:
+    # Middle is 2. 
+    # 1. Three 2's: 2 2 2
+    # 2. One floor(3/2)=1: 1
+    # 3. Remaining: {1,1, 3,3,3} sorted desc: 3 3 3 1 1
+    # Result: 2 2 2 1 3 3 3 1 1. Matches Sample 4!
+    
+    # Let's test N=2, K=2:
+    # Middle: none (N is even).
+    # 1. (Empty)
+    # 2. One floor(2/2)=1: 1
+    # 3. Remaining: {1, 2,2} sorted desc: 2 2 1
+    # Result: 1 2 2 1. Matches Sample 1!
+    
+    # Let's test N=6, K=1:
+    # Middle: none.
+    # 1. (Empty)
+    # 2. One floor(6/2)=3: 3
+    # 3. Remaining: {1, 2, 4, 5, 6} sorted desc: 6 5 4 2 1
+    # Result: 3 6 5 4 2 1. Matches Sample 3!
+
+    mid = (N + 1) // 2
+    low_mid = N // 2
+    
+    # Part 1: Middle elements (only if N is odd)
+    res = [mid] * K if N % 2 != 0 else []
+    
+    # Part 2: The "pivot" element that ensures A < complement(A)
+    # If N is even, the pivot is N//2. If N is odd, the pivot is (N-1)//2.
+    pivot = low_mid
+    res.append(pivot)
+    
+    # Part 3: Remaining elements sorted descending
+    # Count remaining
+    counts = {i: K for i in range(1, N + 1)}
+    if N % 2 != 0:
+        counts[mid] -= K
+    counts[pivot] -= 1
+    
+    # Generate remaining elements in descending order
+    remaining = []
+    for i in range(N, 0, -1):
+        remaining.extend([i] * counts.get(i, 0))
+        
+    final_seq = res + remaining
+    print(*(final_seq))
+
+if __name__ == "__main__":
+    solve()

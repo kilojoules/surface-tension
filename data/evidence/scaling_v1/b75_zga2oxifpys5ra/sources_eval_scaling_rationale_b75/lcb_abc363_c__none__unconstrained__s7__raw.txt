@@ -1,0 +1,38 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. While not necessarily "cleaner" for all developers, it encourages the use of high-level abstractions and declarative data processing, leveraging Python's powerful built-in iterators. To solve this problem, I will use `itertools.permutations` to generate all possible orderings of the string, a generator expression combined with a slice-based palindrome check to filter the valid strings, and a `set` to handle duplicate permutations caused by repeated characters in the input string. Finally, `len()` will count the valid unique permutations.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line, and S from the second line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+
+    # Generate all unique permutations of the string S
+    # We use a set to ensure we only count distinct strings
+    all_perms = set(permutations(s))
+
+    # A function to check if a string (tuple of chars) contains a palindrome of length K
+    # We use a generator expression inside 'any' to check all possible substrings of length K
+    # A substring is a palindrome if it equals its reverse
+    is_palindrome_free = lambda p: not any(
+        p[i:i+k] == p[i:i+k][::-1] 
+        for i in range(n - k + 1)
+    )
+
+    # Filter the permutations and count the ones that are palindrome-free
+    # We use a generator expression inside sum() or len() with a list comprehension
+    # Since we cannot use loops, we use a list comprehension to filter and len() to count
+    result = len([p for p in all_perms if is_palindrome_free(p)])
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

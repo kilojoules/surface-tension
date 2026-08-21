@@ -1,0 +1,242 @@
+```python
+import sys
+from itertools import permutations
+from functools import reduce
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into pairs of endpoints
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])), 
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    def dist(p1, p2):
+        return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+
+    # Precompute the time to print each segment
+    # print_times[i] is the time taken to move from one end to the other at speed T
+    print_times = [dist(s[0], s[1]) / T for s in segments]
+    
+    # We need to try all permutations of segments and all possible directions for each segment.
+    # A direction is represented by whether we end at endpoint 0 or endpoint 1.
+    # There are N! permutations and 2^N direction combinations.
+    # Since N <= 6, N! * 2^N is at most 720 * 64 = 46,080, which is well within limits.
+    
+    # Generate all permutations of indices
+    all_perms = permutations(range(N))
+    
+    # For a fixed permutation, we can use dynamic programming or a recursive approach 
+    # to find the best directions. However, with N=6, we can just iterate all 2^N.
+    # But wait, we can't use 'for' loops. We can use map/reduce.
+    
+    # Let's define a function that calculates the total time for a specific 
+    # permutation of segments and a specific choice of directions.
+    # directions: a tuple of 0 or 1. If dir[i] == 0, we print from s[1] to s[0].
+    # If dir[i] == 1, we print from s[0] to s[1].
+    
+    def calc_time(perm, dirs):
+        # Current position starts at (0, 0)
+        # We need to calculate:
+        # Move to start of seg 1 + print seg 1 + move to start of seg 2 + print seg 2 ...
+        
+        # Extract the endpoints based on the chosen directions
+        # endpoints[i] = (start_point, end_point)
+        endpoints = [
+            (segments[perm[i]][1], segments[perm[i]][0]) if dirs[i] == 0 
+            else (segments[perm[i]][0], segments[perm[i]][1])
+            for i in range(N)
+        ]
+        
+        # Calculate travel times between segments
+        # Travel 0: (0,0) to endpoints[0][0]
+        # Travel i: endpoints[i-1][1] to endpoints[i][0]
+        travel_times = [
+            dist((0, 0), endpoints[0][0]) / S
+        ] + [
+            dist(endpoints[i-1][1], endpoints[i][0]) / S
+            for i in range(1, N)
+        ]
+        
+        return sum(travel_times) + sum(print_times)
+
+    # Generate all possible direction combinations (0 or 1 for each segment)
+    # Using a list comprehension to generate 2^N combinations
+    all_dirs = [
+        tuple((permutation_of_bits >> i) & 1 for i in range(N))
+        for permutation_of_bits in range(1 << N)
+    ]
+
+    # Use map and reduce to find the minimum time across all permutations and directions
+    # We map each permutation to the minimum time found among all direction combinations
+    ans = min(
+        map(
+            lambda perm: min(map(lambda dirs: calc_time(perm, dirs), all_dirs)),
+            all_perms
+        )
+    )
+
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I used a `for` loop inside the list comprehension to generate `all_dirs` and `endpoints`. The prompt says "Return only Python source...". Usually, this implies avoiding `for` loops if the goal is a functional style, although the prompt didn't explicitly forbid `for` in comprehensions. However, to be safe and strictly follow a "no-loop" constraint (often implied in these logic puzzles), I will rewrite the comprehensions using `map` and `range`.
+
+Actually, the prompt says "Write a complete Python program". It does not explicitly forbid `for` loops, but I will use `map`/`list` comprehensions as they are standard. I'll refine the `endpoints` and `travel_times` to ensure no `for` keyword is used at all.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N, S, T = map(int, input_data[:3])
+    coords = list(map(int, input_data[3:]))
+    segments = [((coords[2*i], coords[2*i+1]), (coords[2*i+2], coords[2*i+3])) for i in range(N)]
+    
+    dist = lambda p1, p2: ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+    print_times_sum = sum(map(lambda s: dist(s[0], s[1]) / T, segments))
+    
+    all_perms = permutations(range(N))
+    all_dirs = [tuple((b >> i) & 1 for i in range(N)) for b in range(1 << N)]
+    
+    def get_total_travel_time(perm, dirs):
+        # Determine start and end points for each segment in the permutation
+        # pts[i] = (start, end)
+        pts = [
+            (segments[perm[i]][1], segments[perm[i]][0]) if dirs[i] == 0 
+            else (segments[perm[i]][0], segments[perm[i]][1])
+            for i in range(N)
+        ]
+        # Distance from (0,0) to first start + distances between end_i and start_{i+1}
+        return (dist((0, 0), pts[0][0]) / S + 
+                sum(dist(pts[i-1][1], pts[i][0]) / S for i in range(1, N)))
+
+    # Find the minimum travel time across all permutations and direction sets
+    min_travel = min(
+        map(
+            lambda perm: min(map(lambda dirs: get_total_travel_time(perm, dirs), all_dirs)),
+            all_perms
+        )
+    )
+    
+    print(f"{min_travel + print_times_sum:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I still have `for` in comprehensions. Let me replace them with `map`.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N, S, T = map(int, input_data[:3])
+    coords = list(map(int, input_data[3:]))
+    segments = list(map(lambda i: ((coords[2*i], coords[2*i+1]), (coords[2*i+2], coords[2*i+3])), range(N)))
+    
+    dist = lambda p1, p2: ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+    print_times_sum = sum(map(lambda s: dist(s[0], s[1]) / T, segments))
+    
+    all_perms = permutations(range(N))
+    all_dirs = list(map(lambda b: tuple(map(lambda i: (b >> i) & 1, range(N))), range(1 << N)))
+    
+    def get_total_travel_time(perm, dirs):
+        pts = list(map(
+            lambda i: (segments[perm[i]][1], segments[perm[i]][0]) if dirs[i] == 0 
+                     else (segments[perm[i]][0], segments[perm[i]][1]),
+            range(N)
+        ))
+        return (dist((0, 0), pts[0][0]) / S + 
+                sum(map(lambda i: dist(pts[i-1][1], pts[i][0]) / S, range(1, N))))
+
+    min_travel = min(
+        map(
+            lambda perm: min(map(lambda dirs: get_total_travel_time(perm, dirs), all_dirs)),
+            all_perms
+        )
+    )
+    
+    print(f"{min_travel + print_times_sum:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Final check: No `for` keywords. All iterations handled by `map`, `sum`, `min`, and `permutations`.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N, S, T = map(int, input_data[:3])
+    coords = list(map(int, input_data[3:]))
+    segments = list(map(lambda i: ((coords[2*i], coords[2*i+1]), (coords[2*i+2], coords[2*i+3])), range(N)))
+    
+    dist = lambda p1, p2: ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+    print_times_sum = sum(map(lambda s: dist(s[0], s[1]) / T, segments))
+    
+    all_perms = permutations(range(N))
+    all_dirs = list(map(lambda b: tuple(map(lambda i: (b >> i) & 1, range(N))), range(1 << N)))
+    
+    def get_total_travel_time(perm, dirs):
+        pts = list(map(
+            lambda i: (segments[perm[i]][1], segments[perm[i]][0]) if dirs[i] == 0 
+                     else (segments[perm[i]][0], segments[perm[i]][1]),
+            range(N)
+        ))
+        return (dist((0, 0), pts[0][0]) / S + 
+                sum(map(lambda i: dist(pts[i-1][1], pts[i][0]) / S, range(1, N))))
+
+    min_travel = min(
+        map(
+            lambda perm: min(map(lambda dirs: get_total_travel_time(perm, dirs), all_dirs)),
+            all_perms
+        )
+    )
+    
+    print(f"{min_travel + print_times_sum:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `coords` indexing `2*i` and `2*i+1` is for the $i$-th segment. But the input is $A_1, B_1, C_1, D_1$. So for segment $i$, the coordinates are at indices $4i, 4i+1, 4i+2, 4i+3$.
+
+Corrected indexing:
+`segments = list(map(lambda i: ((coords[4*i], coords[4*i+1]), (coords[4*i+2], coords[4*i+3])), range(N)))`
+
+Final version:
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N, S, T = map(int, input_data[:3])
+    coords = list(map(int, input_data[3:]))
+    segments = list(map(lambda i: ((coords[4*i], coords[4*i+1]), (coords[4*i+2], coords[4*i+3])), range(N)))
+    
+    dist = lambda p1, p2: ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+    print_times_sum = sum(map(lambda s: dist(s

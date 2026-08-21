@@ -1,0 +1,239 @@
+```python
+import sys
+
+def solve():
+    # Read input and split into components
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    # The problem is to check if the Edit Distance (Levenshtein distance) 
+    # between S and T is <= K. Given K=1, we can check this in O(N) time.
+    
+    # 1. If strings are identical, distance is 0
+    if s == t:
+        print("Yes")
+        return
+
+    # 2. If length difference is more than 1, distance must be > 1
+    if abs(len(s) - len(t)) > 1:
+        print("No")
+        return
+
+    # Helper to check if two strings are equal after ignoring one character
+    # This covers Insertion and Deletion
+    def check_one_diff(s1, s2):
+        # Ensure s1 is the longer string
+        if len(s1) < len(s2):
+            s1, s2 = s2, s1
+        
+        # Try removing one character from the longer string at all possible positions
+        # However, a naive loop is O(N^2). We use a two-pointer approach.
+        i = 0
+        while i < len(s2) and s1[i] == s2[i]:
+            i += 1
+        # After the first mismatch, the rest of s2 must match s1 from the next character
+        return s1[i+1:] == s2[i:]
+
+    # Helper to check if strings are equal after one replacement
+    def check_replacement(s1, s2):
+        if len(s1) != len(s2):
+            return False
+        # Count positions where characters differ
+        diffs = [i for i in range(len(s1)) if s1[i] != s2[i]]
+        return len(diffs) == 1
+
+    # Check all three operation types for K=1
+    if check_one_diff(s, t) or check_replacement(s, t):
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, the `check_one_diff` logic above uses a slice `s1[i+1:] == s2[i:]` which is $O(N)$. Since it is called once, the overall complexity is $O(N)$, which fits within the time limits for $N=500,000$.**
+**Correction on `check_one_diff`:** The logic `s1[i+1:] == s2[i:]` correctly checks if skipping one character in the longer string makes it identical to the shorter string.
+
+Final check on constraints: $N=500,000$. Python's string slicing and comparison are highly optimized in C. $O(N)$ is acceptable.
+One edge case: If $S$ and $T$ are identical, the distance is 0, which is $\le 1$. The code handles this.
+
+Final Code Block:
+
+```python
+import sys
+
+def solve():
+    # Read input and split into components
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    # If strings are identical, distance is 0
+    if s == t:
+        print("Yes")
+        return
+
+    # If length difference is more than 1, distance must be > 1
+    if abs(len(s) - len(t)) > 1:
+        print("No")
+        return
+
+    # Check for Replacement (same length, one char difference)
+    if len(s) == len(t):
+        # Use a generator to count differences without creating a full list
+        diff_count = sum(1 for a, b in zip(s, t) if a != b)
+        if diff_count <= 1:
+            print("Yes")
+            return
+        else:
+            print("No")
+            return
+
+    # Check for Insertion/Deletion (length difference of 1)
+    # Ensure s1 is the longer string
+    s1, s2 = (s, t) if len(s) > len(t) else (t, s)
+    
+    # Find the first index where they differ
+    # We can't use a loop to find the index because of Python's speed, 
+    # but we can use a trick with common prefixes.
+    # However, for K=1, we can just find the first mismatch and check the rest.
+    
+    # To avoid O(N) loops in Python, we find the first mismatch using a 
+    # comprehension or by comparing slices. 
+    # Actually, the most efficient way to find the first mismatch index:
+    # We can't use a loop, but we can use a generator with next().
+    i = next((idx for idx, (a, b) in enumerate(zip(s1, s2)) if a != b), len(s2))
+    
+    if s1[i+1:] == s2[i:]:
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `next(...)` approach is $O(N)$ and the slice is $O(N)$. This is optimal.
+
+Final refined version:
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    k, s, t = int(input_data[0]), input_data[1], input_data[2]
+    
+    if s == t:
+        print("Yes")
+        return
+    if abs(len(s) - len(t)) > 1:
+        print("No")
+        return
+
+    if len(s) == len(t):
+        print("Yes" if sum(1 for a, b in zip(s, t) if a != b) <= 1 else "No")
+        return
+
+    s1, s2 = (s, t) if len(s) > len(t) else (t, s)
+    i = next((idx for idx, (a, b) in enumerate(zip(s1, s2)) if a != b), len(s2))
+    print("Yes" if s1[i+1:] == s2[i:] else "No")
+
+if __name__ == "__main__":
+    solve()
+```
+This is the most concise and efficient Pythonic way to solve it.
+One last check: if $S="abc", T="ab"$, then $s1="abc", s2="ab"$. `zip` stops at index 1. `next` returns `len(s2)=2`. `s1[3:]` is `""`, `s2[2:]` is `""`. Result: `Yes`. Correct.
+If $S="abc", T="ac"$, then $s1="abc", s2="ac"$. Mismatch at index 1 ('b' vs 'c'). `i=1`. `s1[2:]` is `"c"`, `s2[1:]` is `"c"`. Result: `Yes`. Correct.
+If $S="abc", T="ad"$, then $s1="abc", s2="ad"$. Mismatch at index 1. `i=1`. `s1[2:]` is `"c"`, `s2[1:]` is `"d"`. Result: `No`. Correct.
+If $S="a", T="b"$, then `len(s)==len(t)`, `sum` is 1. Result: `Yes`. Correct.
+If $S="a", T="bc"$, then `abs(1-2) <= 1`. $s1="bc", s2="a"$. Mismatch at index 0. `s1[1:]` is `"c"`, `s2[0:]` is `"a"`. Result: `No`. Correct.
+If $S="a", T="ab"$, then $s1="ab", s2="a"$. Mismatch at index 1 (end of s2). `i=1`. `s1[2:]` is `""`, `s2[1:]` is `""`. Result: `Yes`. Correct.
+All cases covered.
+Final code:
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # K is given as 1, but we read it for completeness
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    # Case 0: Strings are already identical
+    if s == t:
+        print("Yes")
+        return
+    
+    # Case 1: Length difference is too great for K=1
+    if abs(len(s) - len(t)) > 1:
+        print("No")
+        return
+
+    # Case 2: Strings have the same length (Check for 1 replacement)
+    if len(s) == len(t):
+        # Use a generator expression with sum to count mismatches efficiently
+        diff_count = sum(1 for a, b in zip(s, t) if a != b)
+        print("Yes" if diff_count <= k else "No")
+        return
+
+    # Case 3: Strings differ in length by 1 (Check for 1 insertion/deletion)
+    # Identify the longer (s1) and shorter (s2) strings
+    s1, s2 = (s, t) if len(s) > len(t) else (t, s)
+    
+    # Find the first index where the characters differ
+    # next() retrieves the first item from the generator
+    # If no difference is found within the length of s2, i becomes len(s2)
+    i = next((idx for idx, (a, b) in enumerate(zip(s1, s2)) if a != b), len(s2))
+    
+    # If skipping the character at index i in the longer string makes it match the shorter one
+    if s1[i+1:] == s2[i:]:
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for "only Python source inside a single ```python code block". I will provide exactly that.
+Final check on the `next` default value: `len(s2)`. If $s1="abc", s2="ab"$, `zip` produces $(a,a), (b,b)$. The generator is empty. `next` returns `len(s2)=2`. `s1[3:]` is `""`, `s2[2:]` is `""`. Correct.
+If $s1="ab", s2="a"$, `zip` produces $(a,a)$. Generator empty. `next` returns `len(s2)=1`. `s1[2:]` is `""`, `s2[1:]` is `""`. Correct.
+If $s1="abc", s2="ac"$, `zip` produces $(a,a), (b,c)$. Mismatch at `idx=1`. `s1[2:]` is `"c"`, `s2[1:]` is `"c"`. Correct.
+If $s1="abc", s2="ad"$, `zip` produces $(a,a), (b,d)$. Mismatch at `idx=1`. `s1[2:]` is `"c"`, `s2[1:]` is `"d"`. Correct.
+The logic is solid.
+Final output format: just the code block.
+One last detail: the prompt says $K=1$ is a sub-problem of $F$. My code uses $K$ from input, which is correct.
+The constraints say length up to 500,000. `sys.stdin.read().split()` is fine. `sum(...)` is fine. `s1[i+1:] == s2[i:]` is fine.
+The time complexity is $O(N)$ and space complexity is $O(N)$ to store the strings. This is optimal.
+The use of `sys.stdin.read().split()` handles all whitespace, including the newlines between $K, S, T$.
+Final check on the `if __name__ == "__main__":` block. It is standard.
+The logic for `s1[i+1:] == s2[i:]` is the core of the $O(N)$ check for edit distance 1.
+Everything looks good.
+Final code structure:
+```python
+import sys
+
+def solve():
+    # Implementation
+    ...
+
+if __name__ == "__main__":
+    solve()
+```
+This fits the requirement.
+One final check: if $S$ and $T$ are very long, `s1[i+1:]` creates a new string. In Python, this is $O(N

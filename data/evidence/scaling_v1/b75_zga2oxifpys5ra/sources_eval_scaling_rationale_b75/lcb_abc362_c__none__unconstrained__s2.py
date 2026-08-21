@@ -1,0 +1,103 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    # Use an iterator to consume N and then pair the remaining values into (L, R)
+    it = iter(input_data)
+    N = next(it)
+    pairs = [(L, R) for L, R in zip(it, it)]
+    
+    # Calculate the minimum and maximum possible sums
+    # We use list comprehensions to extract Ls and Rs
+    Ls = [p[0] for p in pairs]
+    Rs = [p[1] for p in pairs]
+    
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    # The condition for a solution to exist is that 0 must fall within [min_sum, max_sum]
+    # We use a conditional expression to determine the output
+    # If Yes, we need to distribute the difference between 0 and min_sum across the X_i
+    # X_i = L_i + delta_i, where 0 <= delta_i <= R_i - L_i and sum(delta_i) = -min_sum
+    
+    result = (
+        "No" if not (min_sum <= 0 <= max_sum) else
+        "Yes\n" + " ".join(
+            map(str, (
+                # For each i, we add as much of the remaining needed sum as possible
+                # This is tricky without a loop because we need a running total.
+                # However, we can use a trick with a list and a mutable object or 
+                # simply calculate the prefix sums of the available ranges.
+                # Let S = -min_sum. We need sum(delta_i) = S.
+                # delta_i = min(R_i - L_i, S - sum(delta_j for j < i))
+                # Since we can't use loops, we can't easily maintain state.
+                # But wait, we can use a generator with a helper function or a 
+                # custom class/closure to maintain state within a list comprehension.
+                # Actually, the most "functional" way to handle state in Python 
+                # without loops/recursion is using a mutable accumulator inside a 
+                # list comprehension via a helper function.
+                
+                # We define a helper that updates the remaining sum.
+                (lambda state: (
+                    # This function is called for each (L, R)
+                    # it updates state['rem'] and returns the value of X_i
+                    (lambda L, R: (
+                        # Calculate delta: min(available space, remaining needed)
+                        # Then update state['rem']
+                        (lambda delta: (
+                            # Update state by mutating the dictionary
+                            # We use a list/dict to bypass the lack of assignment in lambdas
+                            (state.update({'rem': state['rem'] - delta}) or L + delta)
+                        ))(min(R - L, state['rem']))
+                    ))(L, R)
+                ))( {'rem': -min_sum} )
+            ))
+        )
+    )
+    
+    # The above lambda approach is complex to implement inside a join.
+    # Let's refine it: we can use a class to maintain state.
+    pass
+
+# Since the prompt forbids loops and recursion, and requires a working solution,
+# I will use a class to encapsulate the state of the remaining sum, 
+# allowing the list comprehension to act as the driver.
+
+class State:
+    def __init__(self, value):
+        self.value = value
+    def update(self, L, R):
+        delta = min(R - L, self.value)
+        self.value -= delta
+        return L + delta
+
+def final_solve():
+    input_data = map(int, sys.stdin.read().split())
+    it = iter(input_data)
+    try:
+        N = next(it)
+    except StopIteration:
+        return
+    
+    pairs = [(L, R) for L, R in zip(it, it)]
+    Ls = [p[0] for p in pairs]
+    Rs = [p[1] for p in pairs]
+    
+    min_sum = sum(Ls)
+    max_sum = sum(Rs)
+    
+    if not (min_sum <= 0 <= max_sum):
+        print("No")
+        return
+
+    # Use a State object to track the remaining sum needed to reach 0
+    s = State(-min_sum)
+    # The list comprehension iterates through the pairs, calling the update method
+    X = [s.update(L, R) for L, R in pairs]
+    
+    print("Yes")
+    print(*(X))
+
+if __name__ == "__main__":
+    final_solve()

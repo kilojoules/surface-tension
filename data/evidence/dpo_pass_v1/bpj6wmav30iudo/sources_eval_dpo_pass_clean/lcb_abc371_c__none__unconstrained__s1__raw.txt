@@ -1,0 +1,82 @@
+The constraint to avoid explicit loops and recursion forces a transition from imperative programming to a functional paradigm. While not necessarily "cleaner" for all developers, it encourages the use of declarative constructs like `itertools.permutations` and list comprehensions, which can often be more concise for combinatorial problems. For this solution, I will use `itertools.permutations` to iterate through all possible vertex mappings and `sum()` with generator expressions to calculate the costs.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer-like approach via iterator to consume input
+    it = iter(input_data)
+    
+    N = int(next(it))
+    
+    # Read Graph G
+    MG = int(next(it))
+    G_edges = [tuple(sorted((int(next(it)), int(next(it))))) for _ in range(MG)]
+    # Represent G as an adjacency matrix for O(1) lookup
+    G_adj = [[False] * (N + 1) for _ in range(N + 1)]
+    [G_adj[u].__setitem__(v, True) for u, v in G_edges]
+    [G_adj[v].__setitem__(u, True) for u, v in G_edges]
+    
+    # Read Graph H
+    MH = int(next(it))
+    H_edges = [tuple(sorted((int(next(it)), int(next(it))))) for _ in range(MH)]
+    # Represent H as an adjacency matrix for O(1) lookup
+    H_adj = [[False] * (N + 1) for _ in range(N + 1)]
+    [H_adj[u].__setitem__(v, True) for u, v in H_edges]
+    [H_adj[v].__setitem__(u, True) for u, v in H_edges]
+    
+    # Read Cost Matrix A
+    # A is given as A[1,2], A[1,3]... A[1,N], A[2,3]...
+    # We store it in a 2D list where A_cost[i][j] is the cost to toggle edge (i, j)
+    A_cost = [[0] * (N + 1) for _ in range(N + 1)]
+    
+    # Since we cannot use loops, we use a list comprehension to populate A_cost
+    # We map the flat input list of costs back to the adjacency structure
+    costs_flat = [int(next(it)) for _ in range(N * (N - 1) // 2)]
+    
+    # To populate A_cost without loops, we create a list of (i, j, cost) tuples
+    # and use __setitem__ inside a list comprehension.
+    # The order of A_{i,j} in input is i from 1 to N-1, j from i+1 to N.
+    indices = [(i, j) for i in range(1, N) for j in range(i + 1, N)]
+    [A_cost[indices[k][0]].__setitem__(indices[k][1], costs_flat[k]) for k in range(len(costs_flat))]
+    [A_cost[indices[k][1]].__setitem__(indices[k][0], costs_flat[k]) for k in range(len(costs_flat))]
+
+    # For a given permutation P, the cost to make H isomorphic to G is:
+    # Sum of A_{P_i, P_j} for all i < j where (i, j) is an edge in G 
+    # XOR (P_i, P_j) is an edge in H.
+    # P is a permutation of (1, ..., N).
+    # Let's define the cost for a specific permutation P:
+    # cost(P) = sum(A[P[i-1]][P[j-1]] for 1 <= i < j <= N if G[i][j] != H[P[i-1]][P[j-1]])
+    
+    # We iterate through all permutations of (1, ..., N)
+    # N <= 8, so N! <= 40320, which is feasible.
+    all_perms = permutations(range(1, N + 1))
+    
+    # Use min() and a generator expression to find the minimum cost
+    # Note: P[i-1] is used because P is 0-indexed from permutations()
+    # We check pairs (i, j) where 1 <= i < j <= N
+    # The corresponding vertices in H are P[i-1] and P[j-1]
+    
+    # Pre-calculate the pairs (i, j) to avoid redundant work in the lambda
+    pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    
+    ans = min(
+        sum(
+            A_cost[p[i-1]][p[j-1]] 
+            for i, j in pairs 
+            if G_adj[i][j] != H_adj[p[i-1]][p[j-1]]
+        ) 
+        for p in all_perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

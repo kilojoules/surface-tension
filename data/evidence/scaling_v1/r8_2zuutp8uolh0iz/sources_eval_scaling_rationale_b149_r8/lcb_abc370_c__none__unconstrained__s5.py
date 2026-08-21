@@ -1,0 +1,48 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To get the lexicographically smallest array X, we must decide the order
+    # in which we change characters. 
+    # If S[i] > T[i], changing it makes the string lexicographically smaller.
+    # If S[i] < T[i], changing it makes the string lexicographically larger.
+    # To keep X lexicographically smallest, we should prioritize changes that 
+    # make the string smaller first, and among those, prioritize the leftmost index.
+    # Then, we handle changes that make the string larger, prioritizing the rightmost index.
+    
+    decreasing = [i for i in diff_indices if S[i] > T[i]]
+    increasing = [i for i in diff_indices if S[i] < T[i]]
+    
+    # Sort decreasing indices ascending (left to right) to make string smaller as fast as possible
+    # Sort increasing indices descending (right to left) to delay making the string larger
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Use reduce to generate the sequence of strings.
+    # The accumulator is a list of strings (X).
+    # The current value is the index to be changed.
+    def apply_change(acc, idx):
+        current_s = acc[-1] if acc else S
+        # Create a new string by replacing the character at idx
+        new_s = current_s[:idx] + T[idx] + current_s[idx+1:]
+        return acc + [new_s]
+
+    result_x = reduce(apply_change, order, [])
+    
+    # Output the number of elements and the elements themselves
+    print(len(result_x))
+    # Use join and map to avoid explicit loops for printing
+    if result_x:
+        sys.stdout.write('\n'.join(result_x) + '\n')
+
+if __name__ == "__main__":
+    solve()

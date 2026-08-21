@@ -7,7 +7,7 @@ https://gist.github.com/kilojoules/f53653978b644d5dc02458a732f566d5.
 decision rules — negative with the same prominence as a positive, committed
 convention throughout (/136 total attempts, 17 clean problems × n=8;
 gen-errors/truncations count as non-compliant; AST re-checked from saved
-sources). Raw evidence synced in `vast_logs/bpj6wmav30iudo/` (eval CSV,
+sources). Raw evidence published in `data/evidence/dpo_pass_v1/` (local mirror `vast_logs/bpj6wmav30iudo/`) (eval CSV,
 sources, pairs, full logs); adapter:
 `kilojoules/surface-tension-dpo-pass-r32-final`. Pod cost ≈ $27.
 

@@ -1,0 +1,212 @@
+import sys
+from itertools import groupby
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # Group indices by their building height
+    # height_groups will be a dictionary where keys are heights 
+    # and values are lists of indices where that height occurs.
+    # Example: {5: [0, 2, 5], 7: [1, 3, 4, 6, 7]}
+    from collections import defaultdict
+    height_groups = defaultdict(list)
+    for idx, height in enumerate(h):
+        height_groups[height].append(idx)
+
+    # For a fixed height, we want to find the maximum number of indices
+    # that form an arithmetic progression.
+    # Since N is small (3000), we can iterate through all pairs of indices
+    # (i, j) for each height to define a starting point and a common difference.
+    
+    # We use a comprehension to find the max for each height group.
+    # For each height, we try every pair of indices (indices[i], indices[j])
+    # as the first two elements of the sequence.
+    # The common difference is d = indices[j] - indices[i].
+    # We then count how many subsequent elements indices[j] + k*d also have that height.
+    
+    # To optimize, we only check heights that appear more than the current max.
+    # However, a simple nested loop is efficient enough given the constraints.
+    
+    # We use a helper logic: for a fixed height and a fixed difference 'd',
+    # we can group the indices by (index % d). The size of the largest group
+    # where the indices are actually spaced by 'd' is what we need.
+    # Actually, the simplest way is: for every pair of indices (i, j) in a height group,
+    # check how many elements of that height fit the pattern.
+    
+    # But wait, the "equal intervals" means the indices are i, i+d, i+2d...
+    # This means we are looking for the maximum k such that 
+    # H[i] = H[i+d] = H[i+2d] = ... = H[i+(k-1)d].
+    
+    # Let's refine: For every possible difference d (1 to N), 
+    # and every starting position i (0 to N-1), 
+    # we count the length of the sequence.
+    # But we only care if H[i] is the same.
+    
+    # Optimized approach:
+    # For each height, get the list of indices.
+    # For every pair of indices in that list, calculate the difference d.
+    # Then check how many terms in the sequence i, i+d, i+2d... have that height.
+    
+    # Given N=3000, O(N^2) is acceptable. 
+    # We can iterate through all starting positions i and all differences d.
+    # But that's O(N^2 * (N/d)), which is O(N^2 log N).
+    
+    # Let's use a more direct approach:
+    # For each height, we have a set of indices.
+    # For every pair of indices (idx1, idx2) in the set, they define a difference d = idx2 - idx1.
+    # We can then check how many indices in the set fit the pattern.
+    
+    # To avoid O(N^3), we can iterate through all i and d, and use a 
+    # 2D-like check or just a comprehension.
+    
+    # Actually, the most straightforward O(N^2) is:
+    # For each starting index i from 0 to N-1:
+    #   For each difference d from 1 to N-i:
+    #     Check the sequence i, i+d, i+2d... as long as H[i] == H[i+kd]
+    
+    # To make it fast in Python, we can use a generator expression inside max().
+    # We handle the case where N=0 or 1 separately.
+    
+    if n == 0:
+        print(0)
+        return
+    
+    # We use a list comprehension to iterate i and d.
+    # For a fixed i and d, we count how many k >= 0 satisfy H[i] == H[i + k*d]
+    # and the sequence is unbroken.
+    # Note: The condition is "chosen buildings are arranged at equal intervals".
+    # This means if we pick indices p_1, p_2, ..., p_k, then p_{j+1} - p_j = d.
+    # And H[p_1] = H[p_2] = ... = H[p_k].
+    
+    # We can use a trick: for a fixed i and d, the length is:
+    # 1 + (number of k > 0 such that H[i] == H[i + k*d] AND the sequence is continuous)
+    # Wait, the condition is simply that the chosen indices are i, i+d, i+2d...
+    # and they all have the same height. If H[i+kd] != H[i], the sequence stops.
+    
+    # Using a helper function with a while loop to count:
+    def count_len(i, d, n, h):
+        # We start at i, and check i+d, i+2d...
+        # Since we are iterating i and d, we only need to check if H[i+d] == H[i]
+        # and then continue.
+        # To avoid O(N^3), we only start the count if H[i] == H[i+d].
+        # But we must handle the "exactly one building" case.
+        
+        # However, the most efficient way to write this in Python without 
+        # explicit loops is to use a recursion or a clever comprehension.
+        # But since we need to return a single block, we can use a 
+        # list comprehension that checks all i and d.
+        pass
+
+    # Correct O(N^2) approach:
+    # For each i and d, we want to find the largest k such that 
+    # H[i] == H[i+d] == H[i+2d] == ... == H[i+(k-1)d].
+    # This is equivalent to:
+    # For each i and d, the length is 1 + (length starting at i+d with diff d if H[i]==H[i+d] else 0).
+    # This looks like dynamic programming.
+    # Let dp[i][d] be the length of the sequence starting at i with difference d.
+    # dp[i][d] = 1 + dp[i+d][d] if i+d < N and H[i] == H[i+d] else 1.
+    
+    # Since we can't use loops, we can use a dictionary and a 
+    # comprehension that iterates backwards through the indices.
+    
+    # We use a dictionary to store DP states: (i, d) -> length
+    # We iterate i from N-1 down to 0, and d from 1 up to N.
+    # But we can't use a loop to fill the dictionary.
+    # We can use `reduce` from functools.
+    
+    from functools import reduce
+    
+    # state: (dp_dict, current_max)
+    # We process i from N-1 down to 0.
+    def update_state(state, i):
+        dp, current_max = state
+        # For this i, we calculate dp[i, d] for all d from 1 to N-i
+        # new_dp = { (i, d): (1 + dp.get((i+d, d), 1) if i+d < n and h[i] == h[i+d] else 1) 
+        #            for d in range(1, n - i) }
+        # But we can't use a loop. We use a dictionary comprehension.
+        
+        # To avoid creating too many dictionaries, we can use a 
+        # dictionary that we update. But reduce requires a new state.
+        # Actually, we can just use a list comprehension to find the max for each i, d.
+        # But the DP depends on future i.
+        
+        # Let's reconsider: the total number of pairs (i, d) is N^2.
+        # For a fixed i and d, we can use a generator to count.
+        # The number of elements is small enough that we can use a 
+        # nested comprehension to check all i and d.
+        
+        # For a fixed i and d, the length is:
+        # sum(1 for k in range(0, (n-1-i)//d + 1) if all(h[i] == h[i+j*d] for j in range(k+1)))
+        # This is still O(N^3).
+        
+        # Let's use the property: for a fixed i and d, 
+        # the length is the number of consecutive elements starting from i 
+        # with difference d that have height H[i].
+        # We can use a helper function with a recursive-like structure 
+        # or just use the fact that N=3000 and O(N^2) is needed.
+        
+        # In Python, the fastest way to do this without explicit for-loops 
+        # is to use a comprehension that iterates over all i and d, 
+        # and for each, uses a trick to count the length.
+        # One trick: use a generator that yields True as long as the condition holds, 
+        # and then use `next` to find the first False.
+        
+        # But we can't use loops. We can use `itertools.takewhile`.
+        from itertools import takewhile
+        
+        # For each i and d, the length is:
+        # len(list(takewhile(lambda idx: idx < n and h[idx] == h[i], 
+        #                    (i + k*d for k in range(n)))))
+        
+        # To avoid O(N^3), we only check d if H[i] == H[i+d].
+        # The total complexity of takewhile across all i, d is O(N^2 log N).
+        
+        # We can wrap this in a single expression.
+        return max(
+            (
+                len(list(takewhile(lambda idx: idx < n and h[idx] == h[i], 
+                                   (i + k*d for k in range(n)))))
+                for i in range(n)
+                for d in range(1, n)
+            ),
+            default=0
+        )
+
+# Since the prompt forbids loops and requires a complete program:
+import sys
+from itertools import takewhile
+
+def main():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # We use a generator expression to iterate through all starting positions i
+    # and all possible intervals d. For each pair, we use takewhile to count
+    # how many buildings satisfy the height condition.
+    # The complexity is O(N^2 * (N/d)), which sums to O(N^2 log N).
+    # With N=3000, N^2 is 9 million, which is acceptable in Python if 
+    # the inner loop is tight.
+    
+    print(max(
+        (
+            len(list(takewhile(
+                lambda idx: idx < n and h[idx] == h[i], 
+                (i + k*d for k in range(n))
+            )))
+            for i in range(n)
+            for d in range(1, n)
+        ),
+        default=0
+    ) if n > 0 else 0)
+
+if __name__ == "__main__":
+    main()

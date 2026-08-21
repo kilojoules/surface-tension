@@ -1,0 +1,199 @@
+import sys
+
+def solve():
+    # Use fast I/O
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    # To avoid explicit loops and recursion, we use data structures 
+    # that allow efficient updates and queries.
+    # Since we need to find the nearest existing wall in 4 directions,
+    # we can use a Disjoint Set Union (DSU) approach or sorted lists.
+    # However, given the constraints and the "no loop" rule, 
+    # we will use a functional approach with mapping and 
+    # simulated DSU via dictionary-based path compression 
+    # implemented through a helper that we call via map/reduce.
+    
+    # Actually, the simplest way to find the "next" wall without loops 
+    # is to maintain sets of existing walls for each row and column.
+    # But since we can't use loops, we use bisect for searching 
+    # and a way to remove elements.
+    
+    from bisect import bisect_left
+    
+    # We need to track which walls are gone.
+    # rows[i] = sorted list of columns that have walls in row i
+    # cols[j] = sorted list of rows that have walls in column j
+    # Because we can't use loops to initialize, we use list comprehensions.
+    
+    rows = [list(range(1, W + 1)) for _ in range(H)]
+    cols = [list(range(1, H + 1)) for _ in range(W)]
+    
+    # To handle removals efficiently without loops, we can't use list.pop(i) 
+    # in a loop, but we can use a set to track destroyed walls and 
+    # filter them. However, the problem requires finding the "nearest" wall.
+    # A better approach for "no loops" is to use a data structure 
+    # and process queries using a reduction or map.
+    
+    # Given the strict "no loop" constraint, we must rely on 
+    # high-order functions. We'll use a dictionary to track 
+    # destroyed walls and a custom function for the logic.
+    
+    destroyed = set()
+    
+    # Since we need to find the nearest wall, and we can't loop,
+    # we can't easily update the sorted lists. 
+    # But wait, the constraint to avoid loops is to encourage 
+    # functional programming. Let's use a DSU-like structure 
+    # stored in arrays and update them using a function 
+    # called by a loop-replacement like `for` is forbidden, 
+    # but `map` or `functools.reduce` is allowed.
+    
+    # Actually, the most efficient way to find the nearest 
+    # neighbor in a grid is using DSU on each row and column.
+    # Let's implement DSU using arrays and use a helper function.
+    
+    import functools
+
+    # DSU structures for each row (left/right) and each col (up/down)
+    # parent_r_l[row][col] points to the next available wall to the left
+    # parent_r_r[row][col] points to the next available wall to the로 right
+    # ... and so on.
+    
+    # To avoid loops, we initialize using list comprehensions.
+    # We use 1-based indexing for convenience.
+    # Each row has W+2 boundaries to avoid index errors.
+    
+    # Instead of complex DSU, since H*W is 4e5, we can use 
+    # the fact that we only need to find the nearest wall.
+    # We can use a dictionary to store the state of walls.
+    # But we need to find the nearest. 
+    # Let's use the `bisect` module on sorted lists of active walls.
+    # To remove elements from sorted lists without loops, 
+    # we can't. But we can use a `SortedList` from `sortedcontainers`, 
+    # which isn't standard. 
+    
+    # Let's reconsider: the only way to "remove" and "find nearest" 
+    # without loops is to use a data structure that supports it.
+    # Since we can't use loops, we'll use `functools.reduce` to 
+    # process the queries and a dictionary to track destroyed walls.
+    # To find the nearest wall, we can use a technique with 
+    # binary search on the remaining indices.
+    
+    # However, removing from a list is O(N). With Q=2e5, that's O(Q*W).
+    # We need something faster. Let's use DSU.
+    # We can implement DSU `find` using a recursive function 
+    # (though recursion is discouraged, the prompt says "avoid 
+    # explicit loops", and "recursion is allowed if necessary").
+    
+    # We need 4 DSU structures: 
+    # row_left, row_right, col_up, col_down.
+    # Each is a flat array of size H * (W + 2).
+    
+    # To avoid loops, we use a flat array and calculate indices.
+    # index = row * (W + 2) + col
+    
+    # But wait, the prompt says "Avoid using explicit loops... 
+    # use map, filter, reduce, and list comprehensions."
+    # This means I can't use `for` or `while`.
+    
+    # Let's use a dictionary to store the DSU parents and 
+    # a recursive find function.
+    
+    def solve_recursive():
+        # Using a dictionary for DSU to avoid pre-allocating 
+        # massive arrays with loops.
+        # parents = {} 
+        # But we need 4 different directions.
+        pass
+
+    # Given the constraints and the "no loop" rule, 
+    # the most idiomatic way is to use a class to maintain state 
+    # and `functools.reduce` to iterate through queries.
+    
+    class GridBomb:
+        def __init__(self, h, w):
+            self.h = h
+            self.w = w
+            # DSU parents for 4 directions
+            # L: next wall to the left, R: right, U: up, D: down
+            # We use dictionaries to store parents: (r, c) -> (r, c')
+            self.L = {}
+            self.R = {}
+            self.U = {}
+            self.D = {}
+            self.destroyed = set()
+
+        def find(self, d, pos):
+            # d is the dictionary (L, R, U, or D)
+            if pos not in d:
+                return pos
+            # Path compression
+            res = self.find(d, d[pos])
+            d[pos] = res
+            return res
+
+        def destroy(self, r, c):
+            if (r, c) in self.destroyed:
+                return 0
+            self.destroyed.add((r, c))
+            # Update DSU: this cell now points to its neighbor
+            # Left neighbor is (r, c-1), Right is (r, c+1)...
+            # But the DSU logic is: find(L, (r, c)) should return the 
+            # first wall to the left.
+            # When (r, c) is destroyed, L[(r, c)] = (r, c-1)
+            self.L[(r, c)] = (r, c - 1)
+            self.R[(r, c)] = (r, c + 1)
+            self.U[(r, c)] = (r - 1, c)
+            self.D[(r, c)] = (r + 1, c)
+            return 1
+
+        def process(self, query):
+            r, c = query
+            if (r, c) not in self.destroyed:
+                # Wall exists at (r, c), destroy it and end.
+                return self.destroy(r, c)
+            else:
+                # No wall, destroy 4 neighbors
+                # Find nearest walls in 4 directions
+                # Left
+                l_wall = self.find(self.L, (r, c))
+                # Right
+                r_wall = self.find(self.R, (r, c))
+                # Up
+                u_wall = self.find(self.U, (r, c))
+                # Down
+                d_wall = self.find(self.D, (r, c))
+                
+                # Filter walls that are within grid boundaries
+                targets = [
+                    l_wall if l_wall[0] >= 1 and l_wall[0] <= self.h and l_wall[1] >= 1 and l_wall[1] <= self.w else None,
+                    r_wall if r_wall[0] >= 1 and r_wall[0] <= self.h and r_wall[1] >= 1 and r_wall[1] <= self.w else None,
+                    u_wall if u_wall[0] >= 1 and u_wall[0] <= self.h and u_wall[1] >= 1 and u_wall[1] <= self.w else None,
+                    d_wall if d_wall[0] >= 1 and d_wall[0] <= self.h and d_wall[1] >= 1 and d_wall[1] <= self.w else None,
+                ]
+                # Destroy all valid targets
+                return sum(map(lambda t: self.destroy(*t) if t else 0, targets))
+
+    # Setup the state and the reduction
+    gb = GridBomb(H, W)
+    queries = [ (int(input_data[i]), int(input_data[i+1])) 
+               for i in range(3, len(input_data), 2) ]
+    
+    # Use reduce to process queries and track total destroyed walls
+    total_destroyed = functools.reduce(
+        lambda acc, q: acc + gb.process(q), 
+        queries, 
+        0
+    )
+    
+    print(H * W - total_destroyed)
+
+# Standard Python recursion limit is 1000, we need more for DSU
+sys.setrecursionlimit(1000000)
+solve()

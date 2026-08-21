@@ -1,0 +1,88 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions are pairs of (H, T)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+    
+    # Helper to calculate the distance between two points on a ring of size N
+    # given that one point (the obstacle) cannot be passed.
+    # The distance is the shortest path that doesn't cross the obstacle.
+    # Since we can't use loops, we evaluate both directions (clockwise/counter-clockwise)
+    # and pick the one that doesn't contain the obstacle.
+    
+    def get_dist(start, end, obs, n):
+        # Clockwise distance
+        cw_dist = (end - start) % n
+        # Counter-clockwise distance
+        ccw_dist = (start - end) % n
+        
+        # The obstacle 'obs' blocks a direction if it lies on the path.
+        # A point 'p' is on the clockwise path from 'start' to 'end' if:
+        # (p - start) % n < (end - start) % n
+        # However, the problem says we can't move to the destination if the other hand is there.
+        # But the guarantee says T_i != other_hand.
+        # The only way a path is blocked is if the obstacle is "between" start and end.
+        
+        # Check if obstacle is in the clockwise path
+        # The clockwise path consists of points (start + k) % n for k in 1...cw_dist
+        # We check if (obs - start) % n is between 1 and cw_dist - 1.
+        # Actually, the simplest check: is the obstacle "in the way"?
+        # On a ring, there are only two paths. One must be clear if the other is blocked.
+        
+        # We check if the obstacle is encountered when moving clockwise.
+        # The obstacle is at 'obs'. The clockwise distance from start to obs is (obs - start) % n.
+        # If 0 < (obs - start) % n < cw_dist, the clockwise path is blocked.
+        # Note: we use 1-based indexing for parts, so we normalize to 0-based.
+        
+        s, e, o = start - 1, end - 1, obs - 1
+        d_cw = (e - s) % n
+        d_ccw = (s - e) % n
+        
+        # Obstacle blocks CW if (o - s) % n is between 1 and d_cw - 1
+        # But wait, the rule is: cannot move to destination if other hand is there.
+        # The obstacle is the other hand. It blocks the path if it's any of the 
+        # intermediate steps.
+        
+        is_cw_blocked = 0 < (o - s) % n < d_cw
+        is_ccw_blocked = 0 < (s - o) % n < d_ccw
+        
+        # It is guaranteed that the instruction is achievable.
+        # If CW is blocked, we must take CCW. If CCW is blocked, we take CW.
+        # If neither is blocked, we take the minimum.
+        
+        return (
+            d_cw if is_ccw_blocked else 
+            (d_ccw if is_cw_blocked else min(d_cw, d_ccw))
+        )
+
+    # State: (current_l, current_r, total_distance)
+    # Initial state: L=1, R=2, dist=0
+    initial_state = (1, 2, 0)
+    
+    def own_reduce(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            # Move left hand to t, right hand r stays
+            return (t, r, total + get_dist(l, t, r, N))
+        else:
+            # Move right hand to t, left hand l stays
+            return (l, t, total + get_dist(r, t, l, N))
+
+    final_state = reduce(own_reduce, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,54 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    # If strings are identical, distance is 0
+    if s == t:
+        print("Yes")
+        return
+
+    # If length difference is > 1, distance is definitely > 1
+    if abs(len(s) - len(t)) > 1:
+        print("No")
+        return
+
+    # Helper to check if s and t are identical after ignoring one character
+    # This handles both insertion and deletion
+    def check_one_diff(s1, s2):
+        # Find the first index where characters differ
+        # We use a generator expression with next() to find the first mismatch
+        # without an explicit loop.
+        mismatch_idx = next((i for i in range(min(len(s1), len(s2))) if s1[i] != s2[i]), None)
+        
+        if mismatch_idx is None:
+            # One string is a prefix of the other, check if length diff is 1
+            return abs(len(s1) - len(s2)) <= 1
+        
+        # Try skipping the mismatched character in s1 (deletion from s1 / insertion to s2)
+        # Try skipping the mismatched character in s2 (insertion to s1 / deletion from s2)
+        # Try replacing the mismatched character (substitution)
+        
+        # Case 1: Delete from s1
+        opt1 = (s1[:mismatch_idx] + s1[mismatch_idx+1:]) == s2
+        # Case 2: Delete from s2
+        opt2 = s1 == (s2[:mismatch_idx] + s2[mismatch_idx+1:])
+        # Case 3: Replace
+        opt3 = (s1[:mismatch_idx] + s1[mismatch_idx+1:]) == (s2[:mismatch_idx] + s2[mismatch_idx+1:]) if len(s1) == len(s2) else False
+        
+        return opt1 or opt2 or opt3
+
+    if check_one_diff(s, t):
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

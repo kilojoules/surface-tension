@@ -1,0 +1,70 @@
+The constraint to avoid explicit loops and recursion forces a functional programming style, which often encourages the use of immutable data structures and higher-order functions. However, in Python, this is generally less idiomatic for state-heavy problems like grid manipulation and can lead to significant performance overhead due to the creation of new objects. To solve this problem without loops or recursion, I will use `functools.reduce` to simulate the sequential processing of queries and list comprehensions to handle the grid transformations, although the latter is inefficient for large grids. Given the constraints and the "no loop" requirement, I will utilize `map` and `reduce` to manage the state of the walls.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    # Queries as a list of (R, C) tuples
+    queries = list(map(int, input_data[3:]))
+    # Group queries into pairs
+    query_pairs = list(zip(queries[0::2], queries[1::2]))
+    
+    # Initial grid: 1 represents wall, 0 represents empty
+    # Using a flat list to represent the H x W grid for easier manipulation
+    # index = (r-1)*W + (c-1)
+    initial_grid = [1] * (H * W)
+    
+    def process_query(grid, query):
+        R, C = query
+        # Convert 1-based (R, C) to 0-based index
+        idx = (R - 1) * W + (C - 1)
+        
+        # If wall exists at (R, C), destroy it
+        if grid[idx] == 1:
+            # Create a new grid with the wall removed
+            # Note: This is highly inefficient but follows the "no loop" constraint
+            return [val if i != idx else 0 for i, val in enumerate(grid)]
+        
+        # If no wall at (R, C), find first walls in 4 directions
+        # We use list comprehensions to find the indices of the first walls
+        
+        # Up: R-1 down to 1
+        up_walls = [i for i in range(R-2, -1, -1) if grid[i * W + (C-1)] == 1]
+        # Down: R+1 up to H
+        down_walls = [i for i in range(R, H) if grid[i * W + (C-1)] == 1]
+        # Left: C-1 down to 1
+        left_walls = [j for j in range(C-2, -1, -1) if grid[(R-1) * W + j] == 1]
+        # Right: C+1 up to W
+        right_walls = [j for j in range(C, W) if grid[(R-1) * W + j] == 1]
+        
+        # Identify the indices to destroy
+        # We take the first element of each list if it exists
+        to_destroy = {
+            (up_walls[0] * W + (C-1)) if up_walls else None,
+            (down_walls[0] * W + (C-1)) if down_walls else None,
+            ((R-1) * W + left_walls[0]) if left_walls else None,
+            ((R-1) * W + right_walls[0]) if right_walls else None
+        }
+        
+        # Return new grid with those specific walls removed
+        return [val if i not in to_destroy else 0 for i, val in enumerate(grid)]
+
+    # Use reduce to apply each query to the grid sequentially
+    final_grid = reduce(process_query, query_pairs, initial_grid)
+    
+    # Output the sum of remaining walls
+    print(sum(final_grid))
+
+if __name__ == "__main__":
+    solve()
+```

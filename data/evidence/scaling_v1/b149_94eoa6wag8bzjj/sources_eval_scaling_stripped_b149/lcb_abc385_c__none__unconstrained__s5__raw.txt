@@ -1,0 +1,277 @@
+```python
+import sys
+from collections import defaultdict
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Group indices of buildings by their height
+    # height_groups = {height: [index1, index2, ...]}
+    height_groups = defaultdict(list)
+    for i in range(n):
+        height_groups[h[i]].append(i)
+    
+    # For each height, we want to find the maximum number of indices 
+    # that form an arithmetic progression.
+    # Since we need to check all possible intervals 'd', 
+    # we can iterate through all pairs of indices (i, j) for each height.
+    
+    # We use a list comprehension to find the max for each height group.
+    # For a group of indices 'indices', we check every pair (i, j) as the 
+    # first two elements of the sequence.
+    # The interval is d = indices[j] - indices[i].
+    # We then count how many subsequent elements indices[j] + k*d are also in the set.
+    
+    # To avoid loops, we can use a helper function logic inside a comprehension.
+    # However, the constraint N=3000 allows O(N^2) if we are careful.
+    # Actually, the condition is: chosen buildings are at equal intervals.
+    # This means if we pick indices p, p+d, p+2d... 
+    # we just need to check if H[p] == H[p+d] == H[p+2d]...
+    
+    # Let's redefine: for every possible starting position i and interval d:
+    # count how many buildings have the same height as H[i].
+    
+    # We can use a generator expression inside max()
+    # We iterate d from 1 to N-1, and i from 0 to N-1.
+    # For a fixed i and d, we count k such that H[i] == H[i + k*d].
+    
+    # To optimize: we only need to check d such that i + d < N.
+    # The number of elements is (k+1) where i + k*d < N and H[i] == H[i + k*d] == ...
+    # This is still slightly recursive. Let's use the property that 
+    # we can just check all i and d, and for each, count the sequence.
+    
+    # Since we cannot use while/for loops, we can use a recursive-like 
+    # structure via a helper function or a clever comprehension.
+    # But the simplest O(N^2) is: for every pair (i, j), they define a height H[i] 
+    # and a distance d = j - i. We check how many indices i + k*d have height H[i].
+    
+    # Let's use the height_groups to limit the search space.
+    # For each height, we check all pairs of indices.
+    
+    def count_sequence(indices_set, start_val, d):
+        # This is tricky without loops. Let's use a different approach.
+        # For a fixed height and interval d, we can partition indices into 
+        # congruence classes modulo d.
+        pass
+
+    # Correct approach without loops:
+    # For every possible interval d (1 to N), and every starting position i (0 to N-1):
+    # We want to find the longest chain i, i+d, i+2d... with the same height.
+    # This looks like DP: dp[i][d] = 1 + dp[i+d][d] if H[i] == H[i+d] else 1.
+    # Since we can't use loops to fill DP, we can use a recursive function with memoization.
+    
+    import functools
+    
+    @functools.lru_cache(None)
+    def get_length(i, d):
+        if i + d >= n:
+            return 1
+        if h[i] == h[i + d]:
+            return 1 + get_length(i + d, d)
+        return 1
+
+    # We need to evaluate get_length for all i in [0, n-1] and d in [1, n-1].
+    # The answer is the maximum of these values.
+    # We use a generator expression to trigger the computations.
+    
+    # Note: recursion limit might be an issue for N=3000, but d is the step.
+    # The maximum depth is N/d. For d=1, depth is 3000.
+    sys.setrecursionlimit(5000)
+    
+    ans = max(
+        (get_length(i, d) for i in range(n) for d in range(1, n)) 
+        if n > 1 else [1]
+    )
+    
+    print(ans if n > 0 else 0)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, the prompt says "Return only Python source inside a single ```python code block." and "Provide a complete, working solution." 
+
+The logic above uses `range` inside a generator expression, which is permitted as it is not a `for` loop statement. The recursion handles the sequence counting.
+
+One final check: if $N=1$, the `range(1, 1)` is empty, so `max()` would fail. I added a conditional `if n > 1 else [1]`.
+
+```python
+import sys
+import functools
+
+# Increase recursion depth for the worst case (d=1, N=3000)
+sys.setrecursionlimit(5000)
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Memoized function to calculate the length of the sequence
+    # starting at index i with interval d.
+    @functools.lru_cache(None)
+    def get_length(i, d):
+        # Base case: if the next building is out of bounds
+        if i + d >= n:
+            return 1
+        # If the current building and the next one in the interval have the same height
+        if h[i] == h[i + d]:
+            return 1 + get_length(i + d, d)
+        # Otherwise, the sequence ends here
+        return 1
+
+    # We evaluate the length for all possible starting positions i and intervals d.
+    # The result is the maximum value found.
+    # Using a generator expression inside max() to avoid explicit for-loops.
+    result = max(
+        (get_length(i, d) for i in range(n) for d in range(1, n))
+        if n > 1 else [1]
+    )
+    
+    sys.stdout.write(str(result) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block." I must provide the final code without the explanation.
+
+```python
+import sys
+import functools
+
+# Increase recursion depth for the worst case (d=1, N=3000)
+sys.setrecursionlimit(5000)
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Memoized function to calculate the length of the sequence
+    # starting at index i with interval d.
+    @functools.lru_cache(None)
+    def get_length(i, d):
+        # Base case: if the next building is out of bounds
+        if i + d >= n:
+            return 1
+        # If the current building and the next one in the interval have the same height
+        if h[i] == h[i + d]:
+            return 1 + get_length(i + d, d)
+        # Otherwise, the sequence ends here
+        return 1
+
+    # We evaluate the length for all possible starting positions i and intervals d.
+    # The result is the maximum value found.
+    # Using a generator expression inside max() to avoid explicit for-loops.
+    result = max(
+        (get_length(i, d) for i in range(n) for d in range(1, n))
+        if n > 1 else [1]
+    )
+    
+    sys.stdout.write(str(result) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I just realized I cannot use `for` in `for i in range(n) for d in range(1, n)` because the prompt says "no for/while loops". Even in comprehensions, `for` is the keyword.
+
+Let me rethink. I can use `map` and `itertools.product`.
+
+```python
+import sys
+import functools
+import itertools
+
+sys.setrecursionlimit(5000)
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    @functools.lru_cache(None)
+    def get_length(i, d):
+        if i + d >= n: return 1
+        return 1 + get_length(i + d, d) if h[i] == h[i + d] else 1
+
+    # Use itertools.product to generate pairs of (i, d) without 'for'
+    # Use map to apply get_length to all pairs
+    # Use max to find the result
+    result = max(
+        map(lambda p: get_length(*p), itertools.product(range(n), range(1, n)))
+        if n > 1 else [1]
+    )
+    sys.stdout.write(str(result) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+This version avoids the `for` keyword entirely.
+
+Final check on constraints: $N=3000$. $N^2$ is $9 \times 10^6$. `itertools.product` and `map` will handle this, and `lru_cache` ensures we don't recompute. The memory limit might be tight for the cache, but it should fit.
+
+One last detail: the prompt says "Return only Python source inside a single ```python code block."
+
+```python
+import sys
+import functools
+import itertools
+
+# Increase recursion depth for the worst case (d=1, N=3000)
+sys.setrecursionlimit(5000)
+
+def solve():
+    # Read all input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Memoized function to calculate the length of the sequence
+    # starting at index i with interval d.
+    @functools.lru_cache(None)
+    def get_length(i, d):
+        # Base case: if the next building is out of bounds
+        if i + d >= n:
+            return 1
+        # If the current building and the next one in the interval have the same height
+        # we recursively find the length of the remaining sequence.
+        return 1 + get_length(i + d, d) if h[i] == h[i + d] else 1
+
+    # We evaluate the length for all possible starting positions i and intervals d.
+    # itertools.product generates all pairs (i, d) without using a 'for' loop.
+    # map applies the get_length function to these pairs.
+    # max finds the maximum sequence length.
+    result = max(
+        map(lambda p: get_length(*p), itertools.product(range(n), range(1, n)))
+        if n > 1 else [1]
+    )
+    
+    # Write the result to standard output
+    sys.stdout.write(str(result) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used `for` in the comment. The prompt says "no for/while loops". Usually, this applies to the code logic, but to be safe, I will remove `for` from comments too.
+
+Actually, the prompt says "Write a complete Python program... Return only Python source". It doesn't explicitly forbid `for` in comments, but it forbids them in the code. I'll just remove them.
+
+Final check on the `if n > 1 else [1]` part. If $N=1$, `range(1, 1)` is empty,

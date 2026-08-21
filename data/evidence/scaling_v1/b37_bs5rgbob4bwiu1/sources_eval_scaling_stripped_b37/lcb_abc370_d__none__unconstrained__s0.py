@@ -1,0 +1,190 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    # Queries are pairs of (R, C) starting from index 3
+    queries = [
+        (int(input_data[i]), int(input_data[i+1])) 
+        for i in range(3, len(input_data), 2)
+    ]
+
+    # To efficiently find the nearest wall, we use a sorted list of 
+    # existing wall indices for every row and every column.
+    # Since H*W is up to 4e5, we use sets for O(1) removal and 
+    # bisect for O(log N) searching.
+    # However, Python's 'set' is not sorted. We use 'SortedList' logic 
+    # via the 'bisect' module on sorted Python lists.
+    # Because we cannot use external libraries like sortedcontainers,
+    # we maintain sorted lists and use bisect. 
+    # Note: Removing from a list is O(N), which is too slow.
+    # Instead, we use a different approach: 
+    # For each row/col, we maintain a sorted list of wall indices.
+    # To avoid O(N) deletions, we use a Fenwick tree or Segment Tree? 
+    # No, the constraints and the "nearest" requirement suggest 
+    # we need a data structure that supports find-next and delete.
+    # In Python, without SortedList, we can use a dictionary of sets 
+    # and manually manage sorted lists, but deletion is the bottleneck.
+    # Wait, H*W <= 4e5. If we use a list and .pop(i), it's O(W).
+    # But we can use a Bitset/Fenwick tree to find the nearest 1.
+    # Actually, the most efficient way in pure Python to handle 
+    # "find nearest and delete" is using a library, but since we can't,
+    # we can use a custom SortedList implementation using a Fenwick tree
+    # or a Skip List, or simply use the fact that we can use 
+    # `bisect` and `list.pop()` if the total number of deletions is 
+    # managed, but that's risky.
+    
+    # Let's use a different approach: A custom SortedList using blocks (sqrt decomposition).
+    import bisect
+
+    class SortedList:
+        def __init__(self, iterable):
+            self._sorted = sorted(iterable)
+            self._blocks = [self._sorted[i:i + 700] for i in range(0, len(self._sorted), 700)]
+            self._mins = [b[0] for b in self._blocks]
+            self._len = len(self._sorted)
+
+        def remove(self, val):
+            idx = bisect.bisect_right(self._mins, val) - 1
+            if idx < 0: raise ValueError
+            b = self._blocks[idx]
+            i = bisect.bisect_left(b, val)
+            if i < len(b) and b[i] == val:
+                b.pop(i)
+                self._len -= 1
+                if not b:
+                    self._blocks.pop(idx)
+                    self._mins.pop(idx)
+                else:
+                    self._mins[idx] = b[0]
+            else:
+                raise ValueError
+
+        def nearest(self, val):
+            # Find largest x < val and smallest x > val
+            # We look for the block where val would be inserted
+            idx = bisect.bisect_right(self._mins, val) - 1
+            
+            # Potential left: check current block, then previous blocks
+            # Potential right: check current block, then next blocks
+            
+            # This is getting complex. Let's use a simpler approach:
+            # Since we need the nearest wall, we can use two dictionaries of sets
+            # and for each query, we find the neighbors.
+            # To make it efficient without SortedList, we can use 
+            # the fact that we only need the immediate predecessor and successor.
+            pass
+
+    # Given the constraints and Python, the most reliable way to implement 
+    # a SortedList without external libs is using a Fenwick tree over the 
+    # range of indices to find the k-th element, but that's for different problems.
+    # For "nearest", we can use a simple list with bisect and pop().
+    # While pop(i) is O(N), for N=4e5 it might pass if the test cases aren't 
+    # specifically designed to kill it, but it's risky.
+    # Let's use a more robust SortedList implementation.
+
+    def solve_final():
+        # Using a basic SortedList implementation via blocks
+        import bisect
+
+        class FastSortedList:
+            def __init__(self, iterable):
+                self._list = sorted(iterable)
+                self._blocks = [self._list[i:i + 700] for i in range(0, len(self._list), 700)]
+                self._mins = [b[0] for b in self._blocks]
+                self._size = len(self._list)
+
+            def remove(self, x):
+                idx = bisect.bisect_right(self._mins, x) - 1
+                if idx < 0: return False
+                b = self._blocks[idx]
+                i = bisect.bisect_left(b, x)
+                if i < len(b) and b[i] == x:
+                    b.pop(i)
+                    self._size -= 1
+                    if not b:
+                        self._blocks.pop(idx)
+                        self._mins.pop(idx)
+                    else:
+                        self._mins[idx] = b[0]
+                    return True
+                return False
+
+            def find_neighbors(self, x):
+                # Find largest element < x and smallest element > x
+                idx = bisect.bisect_right(self._mins, x) - 1
+                if idx < 0: idx = 0
+                
+                # Search for successor (smallest element > x)
+                # Start searching from the block where x would be
+                res_right = None
+                for i in range(max(0, idx), len(self._blocks)):
+                    b = self._blocks[i]
+                    pos = bisect.bisect_right(b, x)
+                    if pos < len(b):
+                        res_right = b[pos]
+                        break
+                
+                # Search for predecessor (largest element < x)
+                res_left = None
+                for i in range(min(len(self._blocks)-1, idx), -1, -1):
+                    b = self._blocks[i]
+                    pos = bisect.bisect_left(b, x) - 1
+                    if pos >= 0:
+                        res_left = b[pos]
+                        break
+                    # If the largest element of this block is already < x, 
+                    # the predecessor must be in this block.
+                    # But bisect_left already handles that.
+                
+                return res_left, res_right
+
+        # Initialize SortedLists for each row and column
+        # rows[i] contains all column indices j that have a wall
+        # cols[j] contains all row indices i that have a wall
+        row_walls = [FastSortedList(range(1, W + 1)) for _ in range(H)]
+        col_walls = [FastSortedList(range(1, H + 1)) for _ in range(W)]
+        
+        # Track which walls are destroyed to avoid double counting
+        # Using a set of (r, c)
+        destroyed = set()
+
+        for r, c in queries:
+            # Check if wall exists at (r, c)
+            # We can check if (r, c) is in destroyed set
+            if (r, c) not in destroyed:
+                # Destroy wall at (r, c)
+                destroyed.add((r, c))
+                row_walls[r-1].remove(c)
+                col_walls[c-1].remove(r)
+            else:
+                # Destroy nearest walls in 4 directions
+                # Up/Down: look in col_walls[c-1]
+                # Left/Right: look in row_walls[r-1]
+                
+                # Column neighbors (Up/Down)
+                up, down = col_walls[c-1].find_neighbors(r)
+                # Row neighbors (Left/Right)
+                left, right = row_walls[r-1].find_neighbors(c)
+                
+                for nr, nc in [(up, c), (down, c), (r, left), (r, right)]:
+                    if nr is not None and nc is not None:
+                        if (nr, nc) not in destroyed:
+                            destroyed.add((nr, nc))
+                            row_walls[nr-1].remove(nc)
+                            col_walls[nc-1].remove(nr)
+                            
+        print(H * W - len(destroyed))
+
+    solve_final()
+
+if __name__ == "__main__":
+    solve()

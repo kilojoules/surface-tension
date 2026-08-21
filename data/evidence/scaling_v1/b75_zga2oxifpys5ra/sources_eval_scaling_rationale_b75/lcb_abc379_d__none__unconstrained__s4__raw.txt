@@ -1,0 +1,145 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. In idiomatic Python, this encourages the use of high-order functions and declarative data processing, leveraging built-in optimizations rather than manual index tracking. To solve this problem without loops, I will use `functools.reduce` to maintain the state (the set of plants and the current time offset) across the sequence of queries, and `bisect_left` to efficiently count and remove plants that have reached the required height.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries in order. 
+    # Since we cannot use loops, we use reduce to maintain state.
+    # State: (current_time_offset, sorted_list_of_planting_times, results_list)
+    # A plant planted at time 't' has height (current_time_offset - t) at the current moment.
+    # Height >= H  =>  current_time_offset - t >= H  =>  t <= current_time_offset - H.
+    
+    # To handle the queries, we group the input into a list of query tuples.
+    # We use a generator or list comprehension to parse the flat input list.
+    
+    def parse_queries(data, idx):
+        if idx >= len(data):
+            return []
+        q_type = data[idx]
+        if q_type == '1':
+            return [('1',)] + parse_queries(data, idx + 1)
+        else:
+            return [(q_type, data[idx+1])] + parse_queries(data, idx + 2)
+
+    # Since recursion is forbidden and the query list is large, 
+    # we use a custom iterator logic via a list comprehension to group queries.
+    # However, the simplest way to group variable-length queries without a loop 
+    # is to use a helper function with reduce or a clever slice.
+    
+    # Let's redefine query parsing: we use a state-based approach within reduce 
+    # to handle the variable length of queries.
+    
+    def process_queries(state, query_chunk):
+        current_offset, plants, results = state
+        q_type = query_chunk[0]
+        
+        if q_type == '1':
+            # Plant height 0 means its "birth time" is the current_offset
+            # We maintain plants as a sorted list of birth times.
+            # Since we only add plants at the 'current' time, the list remains sorted.
+            return (current_offset, plants + [current_offset], results)
+        
+        elif q_type == '2':
+            t = int(query_chunk[1])
+            return (current_offset + t, plants, results)
+        
+        elif q_type == '3':
+            h = int(query_chunk[1])
+            # Height >= H  =>  current_offset - birth_time >= h  => birth_time <= current_offset - h
+            threshold = current_offset - h
+            idx = bisect_left(plants, threshold + 1) # Find first element > threshold
+            # Plants from 0 to idx-1 are harvested
+            harvested_count = idx
+            remaining_plants = plants[idx:]
+            return (current_offset, remaining_plants, results + [str(harvested_count)])
+        
+        return state
+
+    # To avoid recursion and loops for parsing, we can use a generator 
+    # and then pass that to reduce. But wait, we can't use a for-loop to 
+    # consume the generator. We can use map/filter/reduce.
+    
+    # Correct way to parse variable length queries without loops:
+    # We use a helper function that tracks the index and returns the next query.
+    def get_queries(data):
+        # This is tricky without loops. Let's use a trick with a list 
+        # and a custom function passed to reduce to track the pointer.
+        pass
+
+    # Actually, the most reliable way to handle this in Python without 
+    # loops/recursion is to use a generator expression inside reduce, 
+    # but we need to handle the variable step (1 or 2).
+    # Let's use a different approach: 
+    # Use a list to store the current index and update it inside the reduce function.
+    
+    def master_reduce(state, _):
+        current_offset, plants, results, data_idx = state
+        if data_idx >= len(input_data):
+            return state
+        
+        q_type = input_data[data_idx]
+        if q_type == '1':
+            new_plants = plants + [current_offset]
+            return (current_offset, new_plants, results, data_idx + 1)
+        elif q_type == '2':
+            t = int(input_data[data_idx + 1])
+            return (current_offset + t, plants, results, data_idx + 1)
+        elif q_type == '3':
+            h = int(input_data[data_idx + 1])
+            threshold = current_offset - h
+            idx = bisect_left(plants, threshold + 1)
+            return (current_offset, plants[idx:], results + [str(idx)], data_idx + 2)
+        
+        # This is a fallback, though the logic above handles 1, 2, 3.
+        # We need to adjust the index based on the query type.
+        # Wait, the logic above for '2' and '3' only increments by 1. 
+        # It should be:
+        # Type 1: idx + 1
+        # Type 2: idx + 2
+        # Type 3: idx + 2
+        
+    # Let's refine the master_reduce to handle indices correctly.
+    def final_reduce(state, _):
+        current_offset, plants, results, data_idx = state
+        if data_idx >= len(input_data):
+            return state
+        
+        q_type = input_data[data_idx]
+        if q_type == '1':
+            return (current_offset, plants + [current_offset], results, data_idx + 1)
+        elif q_type == '2':
+            t = int(input_data[data_idx + 1])
+            return (current_offset + t, plants, results, data_idx + 2)
+        else: # q_type == '3'
+            h = int(input_data[data_idx + 1])
+            threshold = current_offset - h
+            idx = bisect_left(plants, threshold + 1)
+            return (current_offset, plants[idx:], results + [str(idx)], data_idx + 2)
+
+    # We need to run reduce Q times, but the data_idx handles the actual progress.
+    # Since we don't know exactly how many iterations are needed (because of 
+    # variable query lengths), we can run it for the maximum possible 
+    # number of iterations (which is Q).
+    
+    # Initial state: (offset, plants_list, results_list, data_start_idx)
+    initial_state = (0, [], [], 1)
+    
+    # Use range(Q) to drive the reduction
+    final_state = reduce(final_reduce, range(Q), initial_state)
+    
+    # Print results joined by newline
+    sys.stdout.write('\n'.join(final_state[2]) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

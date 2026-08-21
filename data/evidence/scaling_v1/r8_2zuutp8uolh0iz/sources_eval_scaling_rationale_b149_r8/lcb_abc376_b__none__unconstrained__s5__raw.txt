@@ -1,0 +1,72 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state updates to a functional paradigm, emphasizing the transformation of state over time. In this problem, I will use `functools.reduce` to maintain and update the positions of the left and right hands across the sequence of instructions, and list comprehensions to calculate the shortest path between two points on a ring while avoiding an obstacle.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions as pairs of (H, T)
+    instructions = [
+        (input_data[i*2 + 2], int(input_data[i*2 + 3])) 
+        for i in range(Q)
+    ]
+
+    # Helper to calculate distance between two points on a ring of size N
+    # given that one point (the obstacle) cannot be passed.
+    # Since we can only move in one direction or the other, and one 
+    # hand blocks the path, there is only one valid path.
+    def get_dist(start, end, obstacle, n):
+        # The distance is the number of steps from start to end.
+        # On a ring, there are two paths: clockwise and counter-clockwise.
+        # One path is blocked by the obstacle.
+        
+        # We check if the obstacle is "between" start and end in clockwise direction.
+        # To simplify, we can just simulate the two possible directions.
+        # Direction 1: (start + 1) % N ...
+        # Direction 2: (start - 1) % N ...
+        
+        # However, a simpler way: the obstacle divides the ring into a line.
+        # We can linearize the ring by treating the obstacle as the boundary.
+        # Let's normalize coordinates so obstacle is at position 0 (or N).
+        # The available space is a path of length N-1.
+        
+        # Normalize coordinates to 0-indexed
+        s, e, o = (start - 1), (end - 1), (obstacle - 1)
+        
+        # Shift everything so obstacle is at N-1
+        # New coord x' = (x - (o + 1)) % N
+        s_rel = (s - (o + 1)) % N
+        e_rel = (e - (o + 1)) % N
+        
+        # Now the obstacle is at index -1 (or N-1), and we are on a line from 0 to N-2.
+        # The distance is simply the absolute difference.
+        return abs(s_rel - e_rel)
+
+    # State: (current_l, current_r, total_dist)
+    # Initial state: L=1, R=2, dist=0
+    def step(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            # Move left hand to t, right hand r is obstacle
+            d = get_dist(l, t, r, N)
+            return (t, r, total + d)
+        else:
+            # Move right hand to t, left hand l is obstacle
+            d = get_dist(r, t, l, N)
+            return (l, t, total + d)
+
+    final_state = reduce(step, instructions, (1, 2, 0))
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,96 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, emphasizing declarative data transformations over imperative state updates. While not always more "idiomatic" for complex state mutations, it encourages the use of higher-order functions and mapping logic. To solve this problem without loops, I will use `functools.reduce` to maintain the state of the grid (tracked via sorted lists of existing walls for each row and column) across the sequence of queries, and `bisect` for efficient searching and updating of those lists.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = zip(map(int, input_data[3::2]), map(int, input_data[4::2]))
+
+    # State consists of:
+    # rows: A list where rows[i] is a sorted list of column indices that still have walls
+    # cols: A list where cols[j] is a sorted list of row indices that still have walls
+    # total_walls: Current count of walls
+    initial_state = (
+        [list(range(1, W + 1)) for _ in range(H + 1)],
+        [list(range(1, H + 1)) for _ in range(W + 1)],
+        H * W
+    )
+
+    def process_query(state, query):
+        rows, cols, total = state
+        r, c = query
+        
+        # Check if wall exists at (r, c)
+        # We use bisect to check if c is in the sorted list rows[r]
+        idx_in_row = bisect_left(rows[r], c)
+        has_wall = idx_in_row < len(rows[r]) and rows[r][idx_in_row] == c
+        
+        if has_wall:
+            # Destroy wall at (r, c)
+            # To "remove" without a loop/mutation in a way that fits reduce, 
+            # we must handle the lists. Since we are allowed to mutate the 
+            # lists inside the function (as long as we don't use for/while),
+            # we use pop/remove.
+            rows[r].pop(idx_in_row)
+            
+            # Find index of r in cols[c] to remove it
+            idx_in_col = bisect_left(cols[c], r)
+            cols[c].pop(idx_in_col)
+            
+            return (rows, cols, total - 1)
+        else:
+            # Destroy first walls in 4 directions
+            # 1. Up (same column, smaller row index)
+            # 2. Down (same column, larger row index)
+            # 3. Left (same row, smaller column index)
+            # 4. Right (same row, larger column index)
+            
+            # We use a helper to remove a wall at (r, c) and decrement total
+            def remove_wall(s, r_target, c_target):
+                curr_rows, curr_cols, curr_total = s
+                # Check if wall actually exists before removing
+                r_idx = bisect_left(curr_rows[r_target], c_target)
+                if r_idx < len(curr_rows[r_target]) and curr_rows[r_target][r_idx] == c_target:
+                    curr_rows[r_target].pop(r_idx)
+                    c_idx = bisect_left(curr_cols[c_target], r_target)
+                    curr_cols[c_target].pop(c_idx)
+                    return (curr_rows, curr_cols, curr_total - 1)
+                return s
+
+            # Find targets
+            # Up: largest i < r in cols[c]
+            col_list = cols[c]
+            idx_c = bisect_left(col_list, r)
+            
+            # Down: smallest i > r in cols[c]
+            # Left: largest j < c in rows[r]
+            row_list = rows[r]
+            idx_r = bisect_left(row_list, c)
+            
+            # Identify the 4 potential walls to destroy
+            targets = [
+                (col_list[idx_c - 1], c) if idx_c > 0 else None, # Up
+                (col_list[idx_c], c) if idx_c < len(col_list) else None, # Down
+                (r, row_list[idx_r - 1]) if idx_r > 0 else None, # Left
+                (r, row_list[idx_r]) if idx_r < len(row_list) else None # Right
+            ]
+            
+            # Use reduce to apply the removal of the 4 targets sequentially
+            return reduce(lambda s, t: remove_wall(s, t[0], t[1]) if t else s, targets, (rows, cols, total))
+
+    final_state = reduce(process_query, queries, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```

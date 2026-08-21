@@ -1,0 +1,85 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer-like approach via indexing to parse the input
+    # Since we cannot use loops, we map the input to a flat list
+    data = list(map(int, input_data))
+    
+    N = data[0]
+    M_G = data[1]
+    
+    # Extract edges of G
+    # G_edges is a set of frozen sets for undirected edge representation
+    # We use slicing and list comprehensions to parse edges
+    g_edges_raw = data[2 : 2 + 2 * M_G]
+    G_adj = [[0] * N for _ in range(N)]
+    # To avoid loops for matrix population, we use a trick with a list comprehension
+    # that updates the matrix. However, since we can't use loops, 
+    # we'll represent G as a set of pairs (i, j) where i < j.
+    G_set = {tuple(sorted((g_edges_raw[i], g_edges_raw[i+1]))) 
+             for i in range(0, 2 * M_G, 2)}
+    
+    # Extract edges of H
+    start_H = 2 + 2 * M_G
+    M_H = data[start_H]
+    h_edges_raw = data[start_H + 1 : start_H + 1 + 2 * M_H]
+    H_set = {tuple(sorted((h_edges_raw[i], h_edges_raw[i+1]))) 
+             for i in range(0, 2 * M_H, 2)}
+    
+    # Extract Cost Matrix A
+    # A is provided as A_{1,2}, A_{1,3}... A_{N-1,N}
+    # We need to map these to a usable structure.
+    start_A = start_H + 1 + 2 * M_H
+    A_flat = data[start_A:]
+    
+    # Create a mapping for cost A[i][j] where 1 <= i < j <= N
+    # We use a dictionary with keys (i, j) where i < j
+    # The indices of A_flat follow the pattern:
+    # i=1: j=2..N (N-1 elements)
+    # i=2: j=3..N (N-2 elements)
+    # The index in A_flat for (i, j) is sum_{k=1}^{i-1} (N-k) + (j-i-1)
+    # But it's simpler to just pre-calculate the pairs.
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = {pair: A_flat[idx] for idx, pair in enumerate(all_pairs)}
+
+    # We need to find a permutation P of (1...N) such that 
+    # the cost to make H isomorphic to G is minimized.
+    # Cost for a permutation P:
+    # For all 1 <= i < j <= N:
+    # If (i, j) is an edge in G, then (P[i], P[j]) must be an edge in H.
+    # If it is not, we pay A_{P[i], P[j]}.
+    # If (i, j) is NOT an edge in G, then (P[i], P[j]) must NOT be an edge in H.
+    # If it is, we pay A_{P[i], P[j]}.
+    
+    # Note: The problem says we pay A_{i,j} to flip the edge between i and j in H.
+    # Let's say we map vertex i of G to vertex P[i-1] of H.
+    # For every pair (i, j) with 1 <= i < j <= N:
+    # Edge (i, j) exists in G XOR Edge (P[i-1], P[j-1]) exists in H 
+    # implies we must perform an operation on H at cost A_{sorted(P[i-1], P[j-1])}.
+    
+    perms = permutations(range(1, N + 1))
+    
+    # Calculate cost for a single permutation
+    # We use a helper function logic inside a list comprehension
+    def get_cost(p):
+        # p is a permutation of 1...N
+        # We iterate over all pairs (i, j) of G
+        return sum(
+            cost_map[tuple(sorted((p[i], p[j])))]
+            for i in range(N) for j in range(i + 1, N)
+            if ((i + 1, j + 1) in G_set) != (tuple(sorted((p[i], p[j]))) in H_set)
+        )
+
+    # Find the minimum cost across all permutations
+    # Using map and min to avoid explicit loops
+    ans = min(map(get_cost, perms))
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

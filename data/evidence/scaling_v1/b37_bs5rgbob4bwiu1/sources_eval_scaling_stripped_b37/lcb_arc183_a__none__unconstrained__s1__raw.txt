@@ -1,0 +1,176 @@
+```python
+import sys
+from functools import reduce
+from operator import mul
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N = int(input_data[0])
+    K = int(input_data[1])
+
+    # The total number of good sequences S is (N*K)! / (K!)^N.
+    # We need the floor((S+1)/2)-th sequence.
+    # This is exactly the middle sequence (or the one just before the middle if S is even).
+    # Since the set of sequences is symmetric (replacing i with N-i+1),
+    # the "middle" sequence is the one that is its own complement 
+    # or the one just before the complement.
+    # Specifically, for any sequence A, its complement A' is defined by A'_i = N + 1 - A_i.
+    # Lexicographically, A < A' if the first index i where they differ has A_i < A'_i.
+    # The sequence we are looking for is the largest sequence A such that A <= A'.
+    # A <= A' means at the first index i where A_i != A'_i, we must have A_i < A'_i.
+    # If A_i = A'_i for all i, then A = A'.
+    # This implies that for the first index i where A_i != N + 1 - A_i, we must have A_i < N + 1 - A_i.
+    # Wait, the symmetry is simpler: the map f(A) = A' is a bijection that reverses lexicographical order.
+    # The sequence at index (S+1)//2 is the one that is "middle" in the sorted list.
+    # If S is odd, it's the unique A such that A = A'.
+    # If S is even, it's the larger of the two middle ones? No, floor((S+1)/2).
+    # If S=6, (6+1)//2 = 3. The 3rd sequence.
+    # In Sample 1: N=2, K=2. S=6. 3rd is (1, 2, 2, 1).
+    # Its complement is (2, 1, 1, 2), which is the 4th.
+    # So we want the largest sequence A such that A < A' (or A = A' if S is odd).
+    # This means at the first index i where A_i != N+1-A_i, we must have A_i < N+1-A_i.
+    # To be the largest such sequence, we want A_i to be as large as possible.
+    # For the first index i where A_i != N+1-A_i, we want A_i to be the largest integer
+    # such that A_i < N+1-A_i. That is A_i = (N // 2) if N is even, or (N+1)//2 if N is odd?
+    # No: if N=2, A_1 < 2+1-A_1 => 2A_1 < 3 => A_1 = 1.
+    # If N=3, A_1 < 4-A_1 => 2A_1 < 4 => A_1 = 1.
+    # Actually, the condition A < A' is equivalent to saying that at the first index i
+    # where A_i != N+1-A_i, we have A_i < N+1-A_i.
+    # To maximize A, we want A_i = N+1-A_i for as many leading indices as possible.
+    # But A_i = N+1-A_i is only possible if N is odd and A_i = (N+1)//2.
+    # If N is even, A_i can never equal N+1-A_i.
+    # So if N is even, the first element A_1 must be < N+1-A_1, so A_1 <= N//2.
+    # To maximize A, we pick A_1 = N//2. Then for all subsequent indices, 
+    # we want the sequence to be as large as possible, provided the total counts are K.
+    # Wait, if A_1 < N+1-A_1, then for all j > 1, we can pick A_j to be as large as possible
+    # and we will still have A < A'.
+    # So the strategy is:
+    # 1. Find the first index i where A_i != N+1-A_i.
+    # 2. For j < i, A_j = N+1-A_j (only possible if N is odd and A_j = (N+1)//2).
+    # 3. For j = i, A_i is the largest integer such that A_i < N+1-A_i.
+    # 4. For j > i, A_j is the largest possible integer given the remaining counts.
+    
+    # Let's refine:
+    # If N is even:
+    # A_1 must be <= N//2. To maximize A, A_1 = N//2.
+    # Then for j = 2 to NK, A_j is the largest available integer.
+    # If N is odd:
+    # We can have A_j = (N+1)//2 for some prefix.
+    # The first index i where A_i != (N+1)//2 must satisfy A_i < N+1-A_i.
+    # To maximize A, we want i to be as large as possible.
+    # The maximum number of times (N+1)//2 can appear is K.
+    # So for j = 1 to K, A_j = (N+1)//2.
+    # Then at j = K+1, A_{K+1} must be < N+1-A_{K+1}.
+    # The largest such integer is (N-1)//2.
+    # Then for j > K+1, A_j is the largest available integer.
+    
+    # Special case: If N=1, the only sequence is (1,)*K.
+    if N == 1:
+        print(*( [1] * K ))
+        return
+
+    # General logic:
+    # We want the largest A such that A < A' (or A = A').
+    # This means at the first index i where A_i != N+1-A_i, A_i < N+1-A_i.
+    # To maximize A:
+    # While we can keep A_i = N+1-A_i, we do so.
+    # This is only possible if N is odd and we use the value (N+1)//2.
+    # We can do this for at most K indices.
+    # Then we must pick A_i < N+1-A_i. The largest such value is (N // 2).
+    # After that, we fill the rest greedily with the largest available numbers.
+
+    res = []
+    counts = {i: K for i in range(1, N + 1)}
+    
+    # 1. Fill (N+1)//2 as much as possible if N is odd
+    if N % 2 != 0:
+        mid = (N + 1) // 2
+        # We can't fill all K if we need to place a value < mid later.
+        # Actually, if we fill all K mid-values, we might run out of space
+        # to put a value < mid. But we have N numbers, and N > 1.
+        # So we can fill K mid-values, then the next must be < mid.
+        # Wait, if we fill K mid-values, the first index i where A_i != mid
+        # will be K+1. At that index, we need A_{K+1} < N+1 - A_{K+1}.
+        # Since A_{K+1} cannot be mid, and we want to maximize it,
+        # A_{K+1} = (N // 2).
+        # This is always possible since N > 1.
+        
+        # However, we can only do this if there's at least one value < mid available.
+        # Since N > 1, there is always a value 1 which is < mid.
+        
+        # Correct logic for N odd:
+        # Fill K copies of (N+1)//2, then one copy of (N // 2), 
+        # then the rest greedily.
+        # Wait, if we fill K copies of mid, then the first difference is at K+1.
+        # A_{K+1} must be < N+1 - A_{K+1}. The largest such is N // 2.
+        # Then we fill the rest greedily.
+        
+        # Let's check Sample 4: N=3, K=3. Mid = 2.
+        # A = (2, 2, 2, 1, 3, 3, 3, 1, 1)
+        # First index i where A_i != 4-A_i is i=4 (A_4=1, 4-A_4=3).
+        # 1 < 3 is true. This matches sample output.
+        
+        mid = (N + 1) // 2
+        for _ in range(K):
+            res.append(mid)
+            counts[mid] -= 1
+        
+        # Next element must be < N+1 - A_i. Largest such is N // 2.
+        # But we must check if N // 2 is available.
+        # Since N > 1, N // 2 is always >= 1 and < mid.
+        val = N // 2
+        res.append(val)
+        counts[val] -= 1
+    else:
+        # N is even. A_i can never be N+1-A_i.
+        # So A_1 must be < N+1-A_1. Largest such is N // 2.
+        val = N // 2
+        res.append(val)
+        counts[val] -= 1
+
+    # Fill the remaining greedily (largest available)
+    # We need to fill (N*K - len(res)) positions.
+    # For the remaining positions, we want the largest possible values.
+    # But we must ensure that the total sequence A remains < A'.
+    # Since we already established A_i < N+1-A_i at the first differing index,
+    # any subsequent values can be as large as possible.
+    
+    # To implement the greedy fill:
+    # We have a set of remaining numbers. We want to place them in 
+    # lexicographically largest order.
+    # That simply means sorting the remaining numbers in descending order.
+    
+    remaining = []
+    for i in range(1, N + 1):
+        remaining.extend([i] * counts[i])
+    
+    remaining.sort(reverse=True)
+    res.extend(remaining)
+    
+    print(*(res))
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a logic error in my "greedy" fill. If I just sort the remaining numbers descending, I might create a sequence that is larger than its complement in a way that violates the $A < A'$ condition. 
+Actually, the condition is: $A < A'$ if at the **first** index $i$ where $A_i \neq A'_i$, we have $A_i < A'_i$.
+Once we have fixed $A_i < A'_i$ at some index $i$, the values at indices $j > i$ do not affect whether $A < A'$. They only affect the lexicographical rank of $A$ among all sequences that satisfy the condition. To maximize $A$, we simply put the remaining elements in descending order.
+
+Let's re-verify Sample 4: $N=3, K=3$.
+1. $N$ is odd, $mid = 2$.
+2. Fill $K=3$ twos: `[2, 2, 2]`
+3. Next element $A_4 < 4 - A_4$. Largest is $1$. `[2, 2, 2, 1]`
+4. Remaining: $\{1, 1, 3, 3, 3\}$. Sorted descending: `[3, 3, 3, 1, 1]`
+5. Result: `2 2 2 1 3 3 3 1 1`. Matches sample!
+
+Sample 3: $N=6, K=1$.
+1. $N$ is even. $A_1 < 7 - A_1$. Largest $A_1 = 3$.
+2. Remaining: $\{1, 2, 4, 5, 6\}$. Sorted descending: `[6, 5, 4, 2, 1]`
+3. Result: `3 6 5 4 2 1`. Matches sample!
+
+Sample 1: $N=2, K=2$.
+1. $N$ is even. $A_1 < 3 - A_1$. Largest $A

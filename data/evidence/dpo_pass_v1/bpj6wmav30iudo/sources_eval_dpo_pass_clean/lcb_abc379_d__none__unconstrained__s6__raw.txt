@@ -1,0 +1,58 @@
+The constraint to avoid explicit loops forces a shift from imperative state updates to a functional paradigm, where the state is carried through a sequence of transformations. In idiomatic Python, this often involves `functools.reduce` to simulate a state machine and list comprehensions or `filter` to handle bulk data processing. For this problem, I will use `functools.reduce` to process the queries and a list to track the "birth time" (relative to the total elapsed time) of each plant.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    # State consists of:
+    # 1. current_time: Total T elapsed since the start.
+    # 2. plants: A list of times at which each plant was planted.
+    #    A plant planted at time 't' has height (current_time - t).
+    # 3. results: A list of answers to type 3 queries.
+    
+    def process_query(state, query_str):
+        current_time, plants, results = state
+        parts = query_str.split()
+        q_type = parts[0]
+        
+        if q_type == '1':
+            # Plant a new plant at the current timestamp
+            return (current_time, plants + [current_time], results)
+        
+        elif q_type == '2':
+            # Increase the global clock by T
+            T = int(parts[1])
+            return (current_time + T, plants, results)
+        
+        elif q_type == '3':
+            # Harvest plants where (current_time - birth_time) >= H
+            # This is equivalent to birth_time <= (current_time - H)
+            H = int(parts[1])
+            threshold = current_time - H
+            
+            # Filter plants that are NOT harvested (those with birth_time > threshold)
+            remaining_plants = [t for t in plants if t > threshold]
+            harvested_count = len(plants) - len(remaining_plants)
+            
+            return (current_time, remaining_plants, results + [str(harvested_count)])
+        
+        return state
+
+    # Use reduce to iterate through queries without a for/while loop
+    final_state = reduce(process_query, queries, (0, [], []))
+    
+    # Output results joined by newlines
+    sys.stdout.write("\n".join(final_state[2]) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```

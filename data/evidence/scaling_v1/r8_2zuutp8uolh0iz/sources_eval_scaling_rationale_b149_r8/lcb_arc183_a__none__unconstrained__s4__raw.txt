@@ -1,0 +1,99 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative to functional programming styles, emphasizing the use of high-order functions and declarative data transformations. While not necessarily "cleaner" for all developers, it encourages the use of `functools.reduce` for state accumulation and list comprehensions for data generation, reducing side effects. To solve this problem, I will use `functools.reduce` to iteratively determine each element of the sequence by calculating the number of permutations possible for the remaining elements and comparing it against the target index.
+
+```python
+import sys
+from functools import reduce
+from math import factorial
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N = int(input_data[0])
+    K = int(input_data[1])
+
+    # The total number of good sequences S is (N*K)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Let target = (S + 1) // 2.
+    # Since S can be very large, we handle calculations with Python's arbitrary precision integers.
+    
+    # Precompute factorials for the multinomial coefficient
+    # The number of ways to arrange the remaining elements is:
+    # (sum(counts))! / product(counts[i]!)
+    
+    # We use reduce to maintain a state: (current_counts, target_index, result_sequence)
+    # current_counts: list of remaining counts for each number 1 to N
+    # target_index: the 1-based index of the sequence we are looking for
+    # result_sequence: the sequence constructed so far
+    
+    def get_permutations(counts):
+        total = sum(counts)
+        # Multinomial coefficient: total! / (c1! * c2! * ... * cn!)
+        denom = reduce(lambda x, y: x * factorial(y), counts, 1)
+        return factorial(total) // denom
+
+    # Initial state
+    initial_counts = [K] * N
+    
+    # Total sequences S
+    S = get_permutations(initial_counts)
+    target = (S + 1) // 2
+
+    # We need to determine NK elements
+    # We use reduce to simulate the loop over the length of the sequence
+    # The range(N * K) provides the iteration, the accumulator carries the state
+    
+    def step(state, _):
+        counts, target_idx, res = state
+        
+        # We try placing numbers 1 to N in the current position
+        # We need to find the first number 'i' such that the number of permutations
+        # starting with 'i' is >= target_idx.
+        
+        # To avoid explicit loops, we use a helper function or a list comprehension
+        # to calculate the cumulative counts of permutations for each possible next digit.
+        
+        # Calculate permutations if we pick digit 'i' (1-indexed)
+        # If counts[i-1] > 0, permutations = get_permutations(counts with counts[i-1]-1)
+        
+        # We find the digit by iterating through 1..N and subtracting permutations
+        # from target_idx until target_idx <= permutations.
+        
+        # Since we can't use loops, we use a trick with reduce to find the digit and the new target
+        def find_digit(acc):
+            curr_target, chosen_digit = acc
+            # We check digits 1 to N
+            # This inner reduce finds the digit and updates the target index
+            def inner_reduce(inner_acc, digit_idx):
+                t, d = inner_acc
+                if d is not None: return (t, d) # Already found
+                if counts[digit_idx] > 0:
+                    # Calculate permutations for the remaining slots
+                    # Instead of full get_permutations, we can optimize:
+                    # Perms = (Total-1)! / (c1! ... (ci-1)! ... cn!)
+                    # Perms = [Total! / (c1! ... cn!)] * ci / Total
+                    total_rem = sum(counts)
+                    perms = (get_permutations(counts) * counts[digit_idx]) // total_rem
+                    if t <= perms:
+                        return (t, digit_idx + 1)
+                    else:
+                        return (t - perms, None)
+                return (t, None)
+            
+            return reduce(inner_reduce, range(N), (curr_target, None))
+
+        new_target, digit = find_digit((target_idx, None))
+        
+        # Update counts for the chosen digit
+        new_counts = [c - (1 if i + 1 == digit else 0) for i, c in enumerate(counts)]
+        return (new_counts, new_target, res + [digit])
+
+    final_state = reduce(step, range(N * K), (initial_counts, target, []))
+    
+    # Print the result sequence
+    print(*(final_state[2]))
+
+if __name__ == "__main__":
+    solve()
+```

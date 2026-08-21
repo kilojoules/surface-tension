@@ -1,0 +1,227 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = [
+        (int(input_data[3 + 2*i]), int(input_data[4 + 2*i]), 
+         int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        for i in range(N)
+    ]
+
+    def dist(p1, p2):
+        return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+
+    # Pre-calculate lengths of each segment
+    seg_lengths = [dist((s[0], s[1]), (s[2], s[3])) for s in segments]
+    
+    # We need to try all permutations of segments and all 2^N orientations
+    # A state is defined by (current_permutation, orientations)
+    # Total complexity: N! * 2^N * N
+    # For N=6, 720 * 64 * 6 is approx 276,480 operations, which fits in time.
+    
+    # Generate all permutations of indices 0...N-1
+    perms = permutations(range(N))
+    
+    # For a fixed permutation, we can use DP to find the best orientations
+    # dp[i][end_point_idx] = min time to finish first i segments, ending at endpoint idx (0 or 1)
+    # However, since N is very small, we can just iterate through all 2^N orientations 
+    # inside a comprehension or use a helper.
+    
+    # Let's define a function that calculates total time for a specific order and orientation
+    def calc_time(p, orientations):
+        # p: permutation of segment indices
+        # orientations: tuple of 0 or 1 (0: start->end, 1: end->start)
+        
+        # Initial position
+        curr_pos = (0, 0)
+        total_time = 0.0
+        
+        for idx, ori in zip(p, orientations):
+            seg = segments[idx]
+            p_start = (seg[0], seg[1])
+            p_end = (seg[2], seg[3])
+            
+            # Determine which point to move to and which to print to
+            target_start = p_start if ori == 0 else p_end
+            target_end = p_end if ori == 0 else p_start
+            
+            # Move to start (speed S), print to end (speed T)
+            total_time += dist(curr_pos, target_start) / S
+            total_time += seg_lengths[idx] / T
+            curr_pos = target_end
+            
+        return total_time
+
+    # We use a generator expression inside min() to avoid loops
+    # We iterate over all permutations and all possible orientation combinations (2^N)
+    # Using a list comprehension to generate all orientation tuples
+    all_oris = [tuple((i >> j) & 1 for j in range(N)) for i in range(1 << N)]
+    
+    # The result is the minimum time across all permutations and orientations
+    # Note: the orientation tuple corresponds to the segments in the given permutation
+    # So we map the orientation bits to the segments in the permutation.
+    
+    ans = min(
+        calc_time(p, ori) 
+        for p in perms 
+        for ori in all_oris
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, there is a logic error in how `ori` is applied. `ori` is a tuple of length $N$. In `calc_time(p, ori)`, `zip(p, ori)` pairs the $i$-th segment in the permutation with the $i$-th orientation bit. This is correct because it covers all $2^N$ ways to traverse the chosen sequence of segments.
+
+Final check on constraints: $N=6$ is small enough for $O(N! \cdot 2^N \cdot N)$. 
+$720 \times 64 \times 6 \approx 2.7 \times 10^5$ iterations. Python handles this easily.
+The memory complexity is $O(N)$ as we use generators.
+
+One detail: the problem says "move the laser position to one of the endpoints... then move... to the other endpoint". This is exactly what `dist(curr_pos, target_start) / S + seg_length / T` does.
+
+Corrected the `calc_time` logic to ensure it perfectly matches the problem statement.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = float(input_data[1])
+    T = float(input_data[2])
+    
+    segments = [
+        (int(input_data[3 + 2*i]), int(input_data[4 + 2*i]), 
+         int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        for i in range(N)
+    ]
+
+    def dist(p1, p2):
+        return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+
+    seg_lengths = [dist((s[0], s[1]), (s[2], s[3])) for s in segments]
+    
+    def calc_time(p, orientations):
+        curr_pos = (0, 0)
+        total_time = 0.0
+        for idx, ori in zip(p, orientations):
+            seg = segments[idx]
+            p1 = (seg[0], seg[1])
+            p2 = (seg[2], seg[3])
+            start, end = (p1, p2) if ori == 0 else (p2, p1)
+            total_time += dist(curr_pos, start) / S + seg_lengths[idx] / T
+            curr_pos = end
+        return total_time
+
+    all_oris = [tuple((i >> j) & 1 for j in range(N)) for i in range(1 << N)]
+    ans = min(calc_time(p, ori) for p in permutations(range(N)) for ori in all_oris)
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Since I must return only one code block, I will merge the logic into the final structure.
+The logic is sound. The time complexity is $O(N! \cdot 2^N \cdot N)$ and space is $O(N! \cdot 2^N)$ if I use a list, but I used a generator inside `min()`, so it's $O(2^N)$ to store `all_oris`.
+
+Final check on Sample 1:
+Segments: (1,3)-(2,1), (0,2)-(0,0), (3,0)-(2,0). S=2, T=1.
+One path: (0,0)->(0,2) [print] -> (1,3) [move] -> (2,1) [print] -> (2,0) [move] -> (3,0) [print].
+Times: $2/1 + \text{dist}((0,2),(1,3))/2 + \text{dist}((1,3),(2,1))/1 + \text{dist}((2,1),(2,0))/2 + \text{dist}((2,0),(3,0))/1$
+$= 2 + \sqrt{2}/2 + \sqrt{5} + 1/2 + 1 \approx 6.443175$. Correct.
+The logic holds.
+The constraints $N \le 6$ are very small, making this approach optimal.
+The use of `float` for S and T prevents integer division issues in Python 3 (though `/` is float division anyway).
+
+Final code structure:
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Use fast I/O
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, S, T
+    N = int(input_data[0])
+    S = float(input_data[1])
+    T = float(input_data[2])
+    
+    # Parse segments into a list of tuples
+    segs = [
+        (int(input_data[3 + 2*i]), int(input_data[4 + 2*i]), 
+         int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        for i in range(N)
+    ]
+
+    # Pre-calculate segment lengths to avoid redundant computation
+    lengths = [((segs[i][0]-segs[i][2])**2 + (segs[i][1]-segs[i][3])**2)**0.5 for i in range(N)]
+    
+    # Helper to calculate total time for a specific order and orientation
+    def get_total_time(p, oris):
+        curr_x, curr_y = 0, 0
+        t = 0.0
+        for idx, ori in zip(p, oris):
+            s = segs[idx]
+            # Determine start and end points based on orientation
+            p_start = (s[0], s[1]) if ori == 0 else (s[2], s[3])
+            p_end = (s[2], s[3]) if ori == 0 else (s[0], s[1])
+            
+            # Time to move to start + time to print the segment
+            t += ((curr_x - p_start[0])**2 + (curr_y - p_start[1])**2)**0.5 / S
+            t += lengths[idx] / T
+            curr_x, curr_y = p_end
+        return t
+
+    # Generate all 2^N orientation combinations
+    all_oris = [tuple((i >> j) & 1 for j in range(N)) for i in range(1 << N)]
+    
+    # Minimize over all permutations and orientation sets
+    result = min(
+        get_total_time(p, ori) 
+        for p in permutations(range(N)) 
+        for ori in all_oris
+    )
+    
+    print(f"{result:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+This looks solid.
+One last check: "Some line segments may overlap... print the overlapping parts for each line segment separately." This means we treat each segment as a distinct task, which the code does.
+The constraints on coordinates are $\pm 1000$, so distances are $\approx 2828$, and total time is well within float precision.
+The time limit for $N=6$ is generous for this complexity.
+Final output format is a single float.
+The use of `sys.stdin.read().split()` is efficient for the given input size.
+The use of `permutations` and a generator expression inside `min` is idiomatic and fast.
+The `get_total_time` function is called $6! \times 2^6 = 720 \times 64 = 46,080$ times. Inside it, a loop of 6. Total operations $\approx 2.7 \times 10^5$. This will run in $\approx 0.1$s.
+The memory usage is dominated by `all_oris` ($64 \times 6$ integers), which is negligible.
+The logic for `p_start` and `p_end` correctly handles the two possible directions for each segment.
+The starting position $(0,0)$ is correctly handled.
+The speed $S$ (non-emitting) and $T$ (emitting) are applied to the correct distances.
+The output precision is set to 20 decimal places, satisfying the $10^{-6}$ requirement.
+Everything is correct.
+Final code block provided below.
+(Self-correction: Ensure $S$ and $T$ are floats to avoid any potential issues, although Python 3 `/` always returns a float).
+(Self-correction: The `get_total_time` function is defined inside `solve` to access `segs`, `lengths`, `S`, and `T` without passing them as arguments, which is slightly cleaner).
+(Self-correction: Using `(curr_x - p_start[0])**2` instead of a separate `dist` function inside the loop to slightly reduce function call overhead, though it's likely unnecessary).
+Final check on Sample 2: $N=2, S=1, T=1$. Seg

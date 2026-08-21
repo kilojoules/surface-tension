@@ -1,0 +1,39 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative programming to a functional paradigm. While idiomatic Python often uses `for` loops for readability, utilizing `itertools` and list comprehensions allows for concise, declarative data transformations. For this problem, I will use `itertools.permutations` to generate all possible arrangements of the string, a set comprehension to handle duplicate permutations (since the input string can have repeating characters), and a generator expression within `sum()` to count strings that do not contain a palindrome of length $K$. To check for palindromes, I will use slicing and a comparison check across all possible substring windows of length $K$.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line
+    # Read S from the second line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+
+    # Generate all unique permutations of the string S
+    # We use a set to ensure we only count distinct strings
+    all_permutations = {''.join(p) for p in permutations(s)}
+
+    # Function to check if a string contains a palindrome of length K
+    # We use any() with a generator expression to check all substrings of length K
+    # A substring is a palindrome if it equals its reverse
+    # The range of start indices is from 0 to N-K
+    contains_palindrome = lambda t: any(
+        t[i:i+k] == t[i:i+k][::-1] 
+        for i in range(n - k + 1)
+    )
+
+    # Count permutations that do NOT contain a palindrome of length K
+    # We use sum() on a generator expression that yields 1 for valid strings
+    result = sum(1 for t in all_permutations if not contains_palindrome(t))
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

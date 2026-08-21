@@ -1,0 +1,51 @@
+import sys
+
+def solve():
+    # Read input and handle potential empty lines/extra whitespace
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # Find the length of the common prefix
+    # We use a list comprehension to find all indices where characters match
+    # and then find the first index where they differ.
+    # Since we cannot use loops, we use next() with a generator.
+    
+    # Find the first index where s and t differ
+    # zip stops at the shortest string length
+    diff_idx = next((i for i, (a, b) in enumerate(zip(s, t)) if a != b), min(len(s), len(t)))
+
+    # Slices of the strings from the first difference onwards
+    s_rem = s[diff_idx:]
+    t_rem = t[diff_idx:]
+
+    # Check the three possible operations for K=1:
+    # 1. Replace: s[i] becomes t[i]. Remaining parts s[i+1:] and t[i+1:] must be equal.
+    # 2. Delete: s[i] is removed. Remaining parts s[i+1:] and t[i:] must be equal.
+    # 3. Insert: t[i] is added to s. Remaining parts s[i:] and t[i+1:] must be equal.
+    
+    # We use a list of booleans to check if any condition is met
+    # Condition 0: Already identical
+    # Condition 1: Replace (s_rem[1:] == t_rem[1:])
+    # Condition 2: Delete (s_rem[1:] == t_rem)
+    # Condition 3: Insert (s_rem == t_rem[1:])
+    
+    # To handle index errors with slicing, Python's slicing is safe (returns empty string)
+    results = [
+        s == t,
+        s_rem[1:] == t_rem[1:],
+        s_rem[1:] == t_rem,
+        s_rem == t_rem[1:]
+    ]
+
+    if any(results):
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

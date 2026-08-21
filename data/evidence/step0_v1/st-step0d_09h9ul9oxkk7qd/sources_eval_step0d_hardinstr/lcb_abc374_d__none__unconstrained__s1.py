@@ -1,0 +1,89 @@
+import sys
+import math
+from itertools import permutations, product
+from functools import reduce
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((
+            (int(input_data[idx]), int(input_data[idx+1])),
+            (int(input_data[idx+2]), int(input_data[idx+3]))
+        ))
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute segment lengths and printing times
+    seg_times = [dist(s[0], s[1]) / T for s in segments]
+    
+    # Generate all permutations of segment indices
+    # For each segment, there are 2 choices of direction (start -> end or end -> start)
+    # There are N! permutations and 2^N direction combinations
+    
+    # We use a generator expression to evaluate all possibilities
+    # Each possibility is a sequence of (start_point, end_point)
+    
+    all_perms = permutations(range(N))
+    directions = product([0, 1], repeat=N)
+    
+    # To avoid nested loops, we use a comprehension to calculate costs
+    # We need to iterate over all permutations and all direction combinations
+    # Since N is small (<= 6), N! * 2^N is at most 720 * 64 = 46,080
+    
+    def calculate_total_time(perm, dirs):
+        # Create the sequence of segments based on permutation and direction
+        # Each element is (start, end)
+        ordered_segs = [
+            (segments[perm[i]][0] if dirs[i] == 0 else segments[perm[i]][1],
+             segments[perm[i]][1] if dirs[i] == 0 else segments[perm[i]][0])
+            for i in range(N)
+        ]
+        
+        # Calculate travel times (non-emitting)
+        # Start from (0,0) to the first start point
+        # Then from the end of segment i to the start of segment i+1
+        
+        # travel_points is the sequence of points the laser moves between without emitting
+        # (0,0) -> start0, end0 -> start1, end1 -> start2 ...
+        
+        # We can use a list comprehension to get the gaps
+        # Gap 0: (0,0) to ordered_segs[0][0]
+        # Gap i: ordered_segs[i-1][1] to ordered_segs[i][0]
+        
+        travel_dist = dist((0, 0), ordered_segs[0][0]) + sum(
+            dist(ordered_segs[i-1][1], ordered_segs[i][0]) 
+            for i in range(1, N)
+        )
+        
+        # Total time = travel_dist / S + sum of printing times
+        # Printing times are constant regardless of order/direction
+        return travel_dist / S + sum(seg_times[i] for i in perm)
+
+    # We use a nested comprehension to find the minimum
+    # We must expand the directions product for every permutation
+    # Since we can't use loops, we use a flat comprehension
+    
+    # Note: directions is an iterator, so we convert it to a list to reuse it
+    dir_list = list(product([0, 1], repeat=N))
+    
+    ans = min(
+        calculate_total_time(p, d)
+        for p in permutations(range(N))
+        for d in dir_list
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

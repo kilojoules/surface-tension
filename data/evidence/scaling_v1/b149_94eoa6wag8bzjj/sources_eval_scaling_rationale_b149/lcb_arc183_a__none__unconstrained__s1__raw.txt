@@ -1,0 +1,170 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing the use of higher-order functions and recursion over imperative state mutation. To solve this problem, I will use `functools.reduce` to iteratively determine each element of the sequence and `math.comb` to calculate the number of permutations of a multiset to determine the lexicographical rank.
+
+```python
+import sys
+from math import comb
+from functools import reduce
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences is S = (NK)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Let target = (S + 1) // 2.
+    
+    # To avoid calculating S explicitly (which is huge), we can determine 
+    # the sequence element by element.
+    # For the first position, we try values v = 1, 2, ..., N.
+    # The number of sequences starting with v is (NK-1)! / (K-1)! (K!)^{N-1}.
+    
+    # Let's define a function to calculate permutations of a multiset
+    # count(counts) = (sum(counts))! / product(counts[i]!)
+    # However, we only need to compare the target rank with the number of 
+    # sequences starting with a certain prefix.
+    
+    # Instead of calculating huge factorials, we can maintain the target rank.
+    # Total S = comb(N*K, K) * comb((N-1)*K, K) * ... * comb(K, K)
+    
+    # We need the rank R = (S + 1) // 2.
+    # Since S can be very large, we use Python's arbitrary precision integers.
+    
+    def get_total_permutations(counts):
+        # counts is a list of remaining counts for each number 1..N
+        total_rem = sum(counts)
+        # Using a property: Permutations = total! / (c1! * c2! ... * cn!)
+        # We can compute this using combinations:
+        # comb(total, c1) * comb(total-c1, c2) * ...
+        return reduce(lambda acc, c: acc * comb(total_rem - (sum(counts[:counts.index(c)]) if counts.index(c) > 0 else 0), c), 
+                      range(len(counts)), 1)
+    
+    # The above reduce is slightly wrong because of duplicate counts. 
+    # Let's use a more robust way to calculate multiset permutations.
+    def count_perms(counts):
+        res = 1
+        rem = sum(counts)
+        # We use a loop-free way to calculate the product of combinations
+        # We can use a helper function with recursion or a list comprehension
+        def calc(idx, current_rem):
+            if idx == len(counts):
+                return 1
+            return comb(current_rem, counts[idx]) * calc(idx + 1, current_rem - counts[idx])
+        return calc(0, rem)
+
+    # Calculate S
+    s_total = count_perms([k] * n)
+    target_rank = (s_total + 1) // 2
+
+    # We need to find the sequence. We determine each position i from 0 to N*K - 1.
+    # At each position, we try candidates v from 1 to N.
+    # If the number of sequences starting with the current prefix + v is >= target_rank,
+    # then the v-th candidate is the correct one.
+    # Otherwise, we subtract that number from target_rank and try v+1.
+
+    def find_sequence(current_counts, rank):
+        # current_counts: list of remaining counts for 1..N
+        # rank: the rank we are looking for among remaining permutations
+        
+        def get_char(idx, r, counts):
+            if idx == n * k:
+                return []
+            
+            # Try each possible value v (1 to N)
+            def search_v(v, current_r):
+                if v > n:
+                    return [] # Should not happen
+                if counts[v-1] == 0:
+                    return search_v(v + 1, current_r)
+                
+                # Number of permutations if we pick v
+                # New counts: counts[v-1] becomes counts[v-1] - 1
+                # Perms = (Total-1)! / (c1! ... (cv-1)! ... cn!)
+                # This is: Total_Perms * counts[v-1] / Total_Rem
+                
+                # To avoid floating point, we calculate it directly:
+                # We need to calculate perms of the remaining multiset.
+                # Instead of full count_perms, we can use the formula:
+                # ways = count_perms(counts_after_v)
+                
+                # Since we can't use loops, we use a list comprehension to create the new counts
+                counts_after_v = [counts[i] - 1 if i == v-1 else counts[i] for i in range(n)]
+                ways = count_perms(counts_after_v)
+                
+                if current_r <= ways:
+                    return [v] + find_sequence_recursive(idx + 1, current_r, counts_after_v)
+                else:
+                    return search_v(v + 1, current_r - ways)
+
+            return search_v(1, r)
+
+        # To avoid recursion depth issues and loops, we use reduce to build the sequence.
+        # But the state depends on the rank, which changes.
+        # Let's use a recursive function for the sequence construction.
+        return None
+
+    # Since I cannot use loops or recursion that mimics loops, 
+    # I will use a recursive function to determine the sequence.
+    # Python's recursion limit needs to be increased for NK = 250,000.
+    # Wait, N, K <= 500, so NK <= 250,000. Recursion will hit limit.
+    # However, the constraint says "no for/while loops". 
+    # I can use map/reduce/recursion. 
+    # But for 250,000 depth, I must use a different approach or sys.setrecursionlimit.
+    
+    # Actually, the most "functional" way to build a list is using a 
+    # recursive-like structure via reduce by passing the state along.
+    
+    def step(state, _):
+        current_counts, current_rank, sequence = state
+        
+        def find_v(v, r):
+            if v > n: return (current_counts, r, sequence + [0]) # Should not happen
+            if current_counts[v-1] == 0:
+                return find_v(v + 1, r)
+            
+            # Calculate ways to arrange remaining
+            # ways = (sum(counts)-1)! / (c1!...(cv-1)!...cn!)
+            # ways = count_perms(counts_after_v)
+            # To optimize: count_perms is slow. 
+            # ways = (Total_Perms * counts[v-1]) // Total_Rem
+            # But we don't have Total_Perms for the current state.
+            # Let's just use a helper to calculate it.
+            
+            # We can't use count_perms(counts_after_v) every time (O(N*N*K))
+            # Let's use the property: ways(v) = Total_Ways * counts[v-1] / Total_Rem
+            # We need Total_Ways for the current state.
+            pass
+
+    # Let's redefine the logic to be more efficient and fit the constraints.
+    # We can use a recursive function with a memoized or passed-down Total_Ways.
+    
+    sys.setrecursionlimit(300000)
+    
+    def solve_recursive(counts, rank, total_rem, total_ways):
+        if total_rem == 0:
+            return []
+        
+        def find_v(v, r):
+            if v > n: return []
+            if counts[v-1] == 0:
+                return find_v(v + 1, r)
+            
+            # ways = total_ways * counts[v-1] // total_rem
+            ways = (total_ways * counts[v-1]) // total_rem
+            if r <= ways:
+                new_counts = [counts[i] - 1 if i == v-1 else counts[i] for i in range(n)]
+                return [v] + solve_recursive(new_counts, r, total_rem - 1, ways)
+            else:
+                return find_v(v + 1, r - ways)
+        
+        return find_v(1, rank)
+
+    # Initial call
+    result = solve_recursive([k] * n, target_rank, n * k, s_total)
+    print(*(result))
+
+solve()
+```

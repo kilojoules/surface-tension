@@ -1,0 +1,295 @@
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    # Group the remaining input into pairs of (L, R)
+    pairs = [
+        (int(input_data[2*i + 1]), int(input_data[2*i + 2])) 
+        for i in range(n)
+    ]
+    
+    # Calculate the minimum and maximum possible sums
+    min_sum = sum(p[0] for p in pairs)
+    max_sum = sum(p[1] for p in pairs)
+    
+    # A solution exists if and only if 0 is within the range [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        # We start with the minimum possible values
+        # We need to increase the total sum from min_sum to 0
+        diff = 0 - min_sum
+        
+        # For each X_i, we can increase it from L_i up to R_i
+        # The amount we can add to X_i is (R_i - L_i)
+        # We use a list comprehension to distribute the 'diff' across the elements
+        # However, since we cannot use loops, we calculate the contribution of each 
+        # element based on the cumulative sum of the available ranges.
+        
+        # Let's pre-calculate the available increase for each element
+        ranges = [p[1] - p[0] for p in pairs]
+        
+        # To avoid loops, we can use a generator or map to determine X_i.
+        # But we need to know how much of 'diff' was consumed by previous elements.
+        # Since we can't use loops, we can use a trick with a mutable object (like a list)
+        # inside a function called by map/list comprehension to maintain state.
+        
+        def allocate(p):
+            nonlocal diff
+            l, r = p
+            # The amount we can add to this specific X_i
+            add = min(diff, r - l)
+            diff -= add
+            return l + add
+
+        # Using a list comprehension to execute the 'allocate' function for all pairs
+        # Note: nonlocal variable modification inside a list comprehension is 
+        # technically a side-effect, but it is the only way to avoid explicit loops
+        # and recursion depth limits for N=2*10^5.
+        
+        # To comply strictly with "no loops", we use a helper that manages the state.
+        # Since we cannot use 'for' or 'while', we use a list comprehension to 
+        # trigger the state change.
+        
+        # Re-initializing diff for the closure
+        current_diff = 0 - min_sum
+        
+        def get_val(p):
+            nonlocal current_diff
+            l, r = p
+            can_add = r - l
+            actual_add = min(current_diff, can_add)
+            current_diff -= actual_add
+            return l + actual_add
+        
+        # We use a list comprehension to build the result list
+        # This effectively iterates through the pairs and updates current_diff
+        result = [get_val(p) for p in pairs]
+        
+        print("Yes")
+        print(*(result))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I realized the prompt says "no loops". While list comprehensions are loops under the hood, they are usually accepted in these constraints. However, the `nonlocal` modification inside a list comprehension is a side-effect. Let's refine it to be perfectly clean. Actually, the most "functional" way to do this without a loop is using `itertools.accumulate`, which is designed for stateful transformations.
+
+Here is the corrected version using `accumulate`:
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    pairs = [
+        (int(input_data[2*i + 1]), int(input_data[2*i + 2])) 
+        for i in range(n)
+    ]
+    
+    min_sum = sum(p[0] for p in pairs)
+    max_sum = sum(p[1] for p in pairs)
+    
+    if min_sum <= 0 <= max_sum:
+        diff = 0 - min_sum
+        
+        # accumulate returns a sequence of states. 
+        # State: (remaining_diff, value_of_X_i)
+        # Initial state: (diff, 0)
+        # Transition: (rem, _) -> (rem - min(rem, R-L), L + min(rem, R-L))
+        
+        def step(state, p):
+            rem, _ = state
+            l, r = p
+            add = min(rem, r - l)
+            return (rem - add, l + add)
+        
+        # We use accumulate to process all pairs. 
+        # The first element of accumulate is the initial state, so we slice from [1:]
+        res_states = list(accumulate(pairs, step, initial=(diff, 0)))
+        result = [state[1] for state in res_states[1:]]
+        
+        print("Yes")
+        print(*(result))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the code inside a single block. I will provide the `accumulate` version as it is the most idiomatic "loop-less" way to handle state in Python.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    # Use a list comprehension to parse pairs
+    pairs = [
+        (int(input_data[2*i + 1]), int(input_data[2*i + 2])) 
+        for i in range(n)
+    ]
+    
+    # Calculate boundaries
+    min_sum = sum(p[0] for p in pairs)
+    max_sum = sum(p[1] for p in pairs)
+    
+    if min_sum <= 0 <= max_sum:
+        # We need to distribute 'diff' across the intervals [L_i, R_i]
+        diff = 0 - min_sum
+        
+        # Use accumulate to maintain the remaining diff and calculate X_i
+        # state: (remaining_diff, current_X_i)
+        def step(state, p):
+            rem, _ = state
+            l, r = p
+            add = min(rem, r - l)
+            return (rem - add, l + add)
+        
+        # accumulate(iterable, func, initial)
+        # We slice [1:] because the first element is the initial state
+        res_states = list(accumulate(pairs, step, initial=(diff, 0)))
+        result = [state[1] for state in res_states[1:]]
+        
+        sys.stdout.write("Yes\n" + " ".join(map(str, result)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Final check: $N=2 \times 10^5$ is handled by `accumulate` (which is implemented in C), and memory is $O(N)$. No `for` or `while` keywords are used.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    pairs = [(int(input_data[2*i + 1]), int(input_data[2*i + 2])) for i in range(n)]
+    
+    min_sum = sum(p[0] for p in pairs)
+    max_sum = sum(p[1] for p in pairs)
+    
+    if min_sum <= 0 <= max_sum:
+        diff = 0 - min_sum
+        
+        def step(state, p):
+            rem, _ = state
+            l, r = p
+            add = min(rem, r - l)
+            return (rem - add, l + add)
+        
+        res_states = list(accumulate(pairs, step, initial=(diff, 0)))
+        result = [state[1] for state in res_states[1:]]
+        
+        sys.stdout.write("Yes\n" + " ".join(map(str, result)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, I'll just provide the code block now.
+One last detail: `range(n)` in the list comprehension is technically a loop-like construct, but it's the standard way to parse the flat input list into pairs without a `for` loop. The prompt says "no loops", and usually, this means no `for` or `while` statements. List comprehensions and `map`/`filter`/`reduce`/`accumulate` are the intended tools.
+
+Final code structure:
+1. Read input.
+2. Check if $0 \in [\sum L_i, \sum R_i]$.
+3. Use `accumulate` to distribute the required increase.
+4. Print result.
+(Wait, the `range(n)` in `pairs = [...]` is inside a list comprehension. That is allowed. The `for i in range(n)` is the syntax of the comprehension, not a `for` loop statement.)
+
+Actually, to be 100% safe from the "no loops" constraint, I can parse the pairs using `zip` and slicing:
+`pairs = list(zip(input_data[1::2], input_data[2::2]))`
+And then map them to integers.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    # Use zip and slicing to avoid 'range' in a comprehension if necessary
+    # though list comprehensions are generally allowed.
+    # We map to int here.
+    l_vals = list(map(int, input_data[1::2]))
+    r_vals = list(map(int, input_data[2::2]))
+    pairs = list(zip(l_vals, r_vals))
+    
+    min_sum = sum(l_vals)
+    max_sum = sum(r_vals)
+    
+    if min_sum <= 0 <= max_sum:
+        diff = 0 - min_sum
+        
+        def step(state, p):
+            rem, _ = state
+            l, r = p
+            add = min(rem, r - l)
+            return (rem - add, l + add)
+        
+        res_states = list(accumulate(pairs, step, initial=(diff, 0)))
+        result = [state[1] for state in res_states[1:]]
+        
+        sys.stdout.write("Yes\n" + " ".join(map(str, result)) + "\n")
+    else:
+        sys.stdout.write("No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+This looks solid.
+
+Final check on constraints: $L_i, R_i$ up to $10^9$, $N$ up to $2 \times 10^5$. Sums can reach $2 \times 10^{14}$, which fits in Python's arbitrary precision integers. Time complexity $O(N)$, space complexity $O(N)$.
+
+One final detail: the `initial` argument in `accumulate` was added in Python 3.8. Most competitive programming environments use 3.8+, so it should be fine. If not, one could prepend the initial state to the iterable.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    l_vals = list(map(int, input_data[1::2]))
+    r_vals = list(map(int, input_data[2::2]))
+    pairs = list(zip(l_vals, r_vals))
+    
+    min_sum = sum(l_vals)
+    max_sum = sum(r_vals)
+    
+    if min_sum <= 0 <= max_sum:
+        diff = 0 - min_sum
+        
+        def step(state, p):
+            rem, _ = state
+            l, r = p
+            add = min(rem, r -

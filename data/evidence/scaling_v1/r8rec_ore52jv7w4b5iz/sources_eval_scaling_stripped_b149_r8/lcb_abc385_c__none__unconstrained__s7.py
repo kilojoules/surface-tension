@@ -1,0 +1,191 @@
+import sys
+from itertools import groupby
+
+def solve():
+    # Read N and the list of heights
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # We need to find the maximum number of buildings with the same height H_i
+    # that are spaced at equal intervals 'd'.
+    # For a fixed height 'h' and interval 'd', we check how many buildings
+    # at indices i, i+d, i+2d... have height 'h'.
+    
+    # However, the condition is that the CHOSEN buildings must be at equal intervals.
+    # This means we pick a height 'h', an interval 'd', and a starting index 'i'.
+    # We count how many indices j = i + k*d (where j < N) satisfy H[j] == h.
+    # Wait, the condition "arranged at equal intervals" implies that if we pick
+    # indices (j1, j2, ..., jk), then j2-j1 = j3-j2 = ... = jk-jk-1 = d.
+    # AND all these picked buildings must have the same height.
+    
+    # Let's redefine: we are looking for the maximum k such that there exists 
+    # a height 'h', a starting index 'i', and a step 'd' where
+    # H[i] == H[i+d] == H[i+2d] == ... == H[i+(k-1)*d] == h.
+    
+    # Since N is small (3000), we can iterate through all possible heights present.
+    # For each height, we find all indices where it occurs.
+    # But the "equal interval" must be consistent across the chosen set.
+    
+    # Let's use a different approach:
+    # For every pair of indices (i, j) with H[i] == H[j], they could be part of a 
+    # sequence with interval d = j - i.
+    # But we can just iterate through all possible intervals d (1 to N-1)
+    # and all possible starting positions i (0 to d-1).
+    # For a fixed (d, i), we get a sequence of buildings. 
+    # In that sequence, we look for the most frequent height.
+    
+    # The number of buildings in a sequence (i, i+d, i+2d...) is roughly N/d.
+    # Total complexity: Sum_{d=1 to N} (N/d * log(N/d)) which is O(N log N).
+    # Wait, for each d, we cover all i from 0 to d-1.
+    # Total elements processed for a fixed d is N.
+    # We can use groupby or a Counter to find the max frequency of a height in each sequence.
+
+    # We use a generator expression to iterate through all d and i.
+    # For each (d, i), we extract the heights H[i], H[i+d], ...
+    # Then we find the max count of any single height in that sequence.
+    
+    # To avoid loops, we use map/ comprehensions.
+    # We need to handle the case where we pick only 1 building (result is always at least 1).
+    
+    # For a fixed d and i, the sequence is H[i::d].
+    # We want the max frequency of any element in H[i::d].
+    # We can get this by sorting H[i::d] and using groupby.
+    
+    # Since we can't use loops, we use a nested comprehension.
+    # The outer layer iterates d from 1 to N.
+    # The inner layer iterates i from 0 to d-1.
+    
+    # To find the max frequency in a list 'seq':
+    # max([len(list(g)) for k, g in groupby(sorted(seq))]) if seq else 0
+    
+    # However, the constraint is that the chosen buildings must have the SAME height.
+    # If we pick indices i, i+d, i+2d, they must all have height 'h'.
+    # This means we are looking for the longest contiguous block of the same height
+    # in the sequence H[i::d] ONLY IF we are allowed to skip buildings.
+    # RE-READ: "The chosen buildings are arranged at equal intervals."
+    # This means if we choose indices j1, j2, ..., jk, then j_{m+1} - j_m = d.
+    # It does NOT say that the buildings BETWEEN j1 and j2 cannot have height 'h'.
+    # It says the ones we CHOOSE must have the same height and be equally spaced.
+    # So for a fixed d and i, we look at the sequence H[i], H[i+d], H[i+2d]...
+    # and we want to find the longest run of the SAME height.
+    # NO, that's not right. If the sequence is [5, 7, 5], and we want height 5,
+    # we can pick index 0 and 2. The interval is 2. The buildings are H[0] and H[2].
+    # They are at equal intervals (distance 2).
+    # So for a fixed d and i, we just need to count how many times each height appears
+    # in the sequence H[i::d] AND they must be consecutive in that sequence?
+    # "The chosen buildings are arranged at equal intervals."
+    # This means indices are i, i+d, i+2d... 
+    # This implies they are consecutive terms of the arithmetic progression.
+    # Therefore, we are looking for the longest run of identical values in H[i::d].
+    
+    # Let's re-read Sample 1: 5 7 5 7 7 5 7 7
+    # Indices: 0 1 2 3 4 5 6 7
+    # Choosing 2nd, 5th, 8th (indices 1, 4, 7). 
+    # Heights: H[1]=7, H[4]=7, H[7]=7.
+    # Intervals: 4-1 = 3, 7-4 = 3. Equal!
+    # This confirms we need the longest run of identical values in H[i::d].
+    
+    # For a sequence seq = H[i::d], the longest run of identical values is:
+    # max([len(list(g)) for k, g in groupby(seq)]) if seq else 0
+    
+    # We need to do this for all d in 1...N and i in 0...d-1.
+    # But wait, if d is the interval, we can just check all i in 0...d-1.
+    # Actually, we can just check all d from 1 to N-1 and all i from 0 to N-1.
+    # But that would be O(N^2). With N=3000, N^2 is 9 million, which is fine for Python.
+    
+    # Let's refine:
+    # For each d in range(1, N):
+    #   For each i in range(d):
+    #     seq = H[i::d]
+    #     ans = max(ans, max([len(list(g)) for k, g in groupby(seq)], default=0))
+    
+    # To avoid loops, we use nested comprehensions.
+    # We can't use 'ans = max(ans, ...)', so we create a list of all max-runs 
+    # and take the max of that.
+    
+    # Note: The case for 1 building is always possible, so the minimum answer is 1.
+    # We can start d from 1.
+    
+    # To avoid the O(N^2) if we can't use loops, we can use a generator.
+    # But the constraint is "no loops". Comprehensions are allowed.
+    
+    # Let's double check the "equal intervals" logic.
+    # If we pick indices j1, j2, ..., jk, then j2-j1 = j3-j2 = ... = d.
+    # This means the indices are i, i+d, i+2d, ..., i+(k-1)d.
+    # All these must have the same height H[i] == H[i+d] == ... == H[i+(k-1)d].
+    # This is exactly a run of identical values in the sequence H[i::d].
+    
+    # Wait, the sample 1 says: 2nd, 5th, 8th.
+    # Indices 1, 4, 7. H[1]=7, H[4]=7, H[7]=7.
+    # In the sequence H[1::3], the elements are H[1], H[4], H[7].
+    # All are 7. So the run length is 3.
+    
+    # Final logic:
+    # result = max(
+    #     [
+    #         max(
+    #             [len(list(g)) for k, g in groupby(H[i::d])],
+    #             default=0
+    #         )
+    #         for d in range(1, N)
+    #         for i in range(d)
+    #     ] + [1]
+    # )
+    
+    # However, the number of (d, i) pairs is N(N+1)/2. 
+    # For each, we process a sequence of length N/d.
+    # Total complexity is Sum_{d=1 to N} d * (N/d) = Sum N = N^2.
+    # 3000^2 = 9,000,000. This should pass within time limits.
+    
+    # One detail: the problem says "If you choose exactly one building, it is considered to satisfy".
+    # This is the base case.
+    
+    # Let's implement this.
+    
+    # To avoid memory issues with large lists, I'll use a generator expression 
+    # inside the max() function.
+    
+    # The logic:
+    # 1. Iterate d from 1 to N-1.
+    # 2. Iterate i from 0 to d-1.
+    # 3. Get sequence H[i::d].
+    # 4. Find the longest run of identical elements using groupby.
+    # 5. Find the maximum of all these runs.
+    
+    # Since I cannot use a loop, I will use a generator expression.
+    # max( (max((len(list(g)) for k, g in groupby(H[i::d])), default=0) 
+    #       for d in range(1, N) for i in range(d)), default=1)
+    
+    # Wait, the "longest run" is only if they are consecutive in the sequence H[i::d].
+    # If the sequence is [7, 5, 7], and we want height 7, we can't pick both 7s 
+    # because the interval would be 2*d, not d. 
+    # If we pick interval 2*d, that's covered when the outer loop reaches d' = 2*d.
+    # So yes, it must be a contiguous run in the sliced sequence.
+    
+    # Let's refine the generator to be perfectly compliant.
+    
+    print(max(
+        (
+            max(
+                (len(list(g)) for k, g in groupby(H[i::d])),
+                default=0
+            )
+            for d in range(1, N)
+            for i in range(d)
+        ),
+        default=1
+    ))
+
+# Using a wrapper to call solve() without a loop.
+# Since the prompt forbids loops, I'll just put the logic in a function and call it.
+# But the prompt says "Return only Python source". 
+# I will provide the code that executes the logic.
+
+if __name__ == "__main__":
+    # To avoid the function call and just have a script:
+    # I'll read the input and perform the max() operation directly.
+    pass

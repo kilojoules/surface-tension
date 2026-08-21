@@ -1,0 +1,99 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into a list of tuples (H, T)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Function to calculate the shortest distance between start and end on a ring of size N,
+    # given that the other hand is at position 'obstacle'.
+    # Since we can only move to adjacent parts and cannot step on the obstacle,
+    # we can only move in one of the two directions (clockwise or counter-clockwise)
+    # if the obstacle is not blocking that path.
+    get_dist = lambda start, end, obstacle: (
+        # Distance moving clockwise (start -> start+1 -> ...)
+        # The path is blocked if the obstacle is between start and end clockwise.
+        # Distance moving counter-clockwise (start -> start-1 -> ...)
+        # The path is blocked if the obstacle is between start and end counter-clockwise.
+        
+        # To simplify: on a ring, there are only two paths. 
+        # One path is (start + k) % N, the other is (start - k) % N.
+        # We check which path does NOT contain the obstacle.
+        
+        # Let's normalize everything to 0...N-1
+        # s, e, o are 0-indexed
+        (lambda s, e, o: (
+            # Path 1: Clockwise
+            # Length is (e - s) % N
+            # Path 1 contains o if (o - s) % N < (e - s) % N
+            # Path 2: Counter-clockwise
+            # Length is (s - e) % N
+            # Path 2 contains o if (s - o) % N < (s - e) % N
+            
+            # The problem guarantees the instruction is achievable.
+            # If Path 1 is blocked, we must take Path 2. If Path 2 is blocked, Path 1.
+            # If neither is blocked (impossible for N > 2 if obstacle is present), 
+            # we take the min.
+            # Actually, since we can't pass the obstacle, only one path is possible 
+            # unless the obstacle is not in the way of either.
+            
+            # Check if obstacle is in the clockwise path from s to e
+            # Clockwise distance:
+            (e - s) % N if (o - s) % N >= (e - s) % N or o == s or o == e else float('inf')
+        ))(start - 1, end - 1, obstacle - 1) 
+        if (lambda s, e, o: (o - s) % N < (e - s) % N)(start - 1, end - 1, obstacle - 1) 
+        else (lambda s, e, o: (s - e) % N if (s - o) % N >= (s - e) % N or o == s or o == e else float('inf'))
+        (start - 1, end - 1, obstacle - 1)
+    )
+    
+    # Redefining get_dist for clarity and correctness within the lambda constraints:
+    # A move from s to e is possible clockwise if the obstacle o is not in (s, e).
+    # The clockwise distance is (e-s)%N. The obstacle o is in the way if (o-s)%N < (e-s)%N.
+    # The counter-clockwise distance is (s-e)%N. The obstacle o is in the way if (s-o)%N < (s-e)%N.
+    
+    # Correct logic for ring distance avoiding obstacle:
+    # dist_cw = (e - s) % N
+    # is_cw_blocked = (o - s) % N < dist_cw and o != s and o != e
+    # dist_ccw = (s - e) % N
+    # is_ccw_blocked = (s - o) % N < dist_ccw and o != s and o != e
+    # result = dist_cw if is_cw_blocked else (dist_ccw if is_ccw_blocked else min(dist_cw, dist_ccw))
+    # However, the problem says we only move ONE hand. The other hand is the obstacle.
+    # Since we can't move the other hand, the obstacle is fixed.
+    
+    calc_move = lambda s, e, o: (
+        (lambda cw, ccw, blocked_cw, blocked_ccw: 
+            ccw if blocked_cw else (cw if blocked_ccw else min(cw, ccw))
+        )(
+            (e - s) % N, 
+            (s - e) % N, 
+            (o - s) % N < (e - s) % N and o != s and o != e,
+            (s - o) % N < (s - e) % N and o != s and o != e
+        )
+    )
+
+    # Use reduce to maintain state: (left_pos, right_pos, total_dist)
+    final_state = reduce(
+        lambda state, inst: (
+            (inst[1], state[1], state[2] + calc_move(state[0], inst[1], state[1]))
+            if inst[0] == 'L' else
+            (state[0], inst[1], state[2] + calc_move(state[1], inst[1], state[0]))
+        ),
+        instructions,
+        (1, 2, 0)
+    )
+
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

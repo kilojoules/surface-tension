@@ -1,0 +1,62 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read input strings
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To get the lexicographically smallest array X, we want the strings 
+    # in X to be as small as possible at each step.
+    # A string is smaller if its characters at earlier positions are smaller.
+    # Therefore, we should prioritize changing characters at indices i where 
+    # T[i] < S[i] first, and among those, prioritize smaller indices i.
+    # Then, we handle indices where T[i] > S[i], again prioritizing smaller indices.
+    
+    # Category 1: T[i] < S[i] (Decreasing the character makes the string smaller)
+    # Category 2: T[i] > S[i] (Increasing the character makes the string larger)
+    
+    # We want to process all indices i where T[i] < S[i] in increasing order of i.
+    # Then we process all indices i where T[i] > S[i] in decreasing order of i.
+    # Wait, the rule for lexicographical smallest array:
+    # We want X_1 to be as small as possible. To make X_1 small, we should change 
+    # the leftmost possible character to the smallest possible value.
+    # If we can make a character smaller (T[i] < S[i]), we should do that 
+    # at the leftmost index first.
+    # If we must make a character larger (T[i] > S[i]), we should delay that 
+    # as long as possible, or do it at the rightmost index first to keep 
+    # the prefix of the string smaller for longer.
+    
+    # Correct Strategy for lexicographical minimum:
+    # 1. Change indices i where T[i] < S[i] in increasing order of i.
+    # 2. Change indices i where T[i] > S[i] in decreasing order of i.
+    
+    dec_indices = [i for i in diff_indices if T[i] < S[i]]
+    inc_indices = [i for i in diff_indices if T[i] > S[i]]
+    
+    # Sort decreasing changes ascending, increasing changes descending
+    order = sorted(dec_indices) + sorted(inc_indices, reverse=True)
+    
+    # Use reduce to generate the sequence of strings
+    # accumulator is (current_string, list_of_X)
+    def evolve(acc, idx):
+        curr_s, x_list = acc
+        # Create new string by replacing character at idx with T[idx]
+        new_s = curr_s[:idx] + T[idx] + curr_s[idx+1:]
+        return (new_s, x_list + [new_s])
+    
+    final_state = reduce(evolve, order, (S, []))
+    X = final_state[1]
+    
+    # Output results
+    print(len(X))
+    sys.stdout.write('\n'.join(X) + ('\n' if X else ''))
+
+if __name__ == "__main__":
+    solve()

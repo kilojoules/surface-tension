@@ -1,0 +1,238 @@
+```python
+import itertools
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a generator to consume input sequentially
+    gen = input_data
+    
+    try:
+        N = next(gen)
+    except StopIteration:
+        return
+
+    # Read edges of G
+    M_G = next(gen)
+    edges_G = [tuple(sorted((next(gen), next(gen)))) for _ in range(M_G)]
+    
+    # Read edges of H
+    M_H = next(gen)
+    edges_H = [tuple(sorted((next(gen), next(gen)))) for _ in range(M_H)]
+    
+    # Read costs A_{i,j}
+    # There are N*(N-1)//2 costs provided in the input
+    all_costs = list(gen)
+    
+    # Map each pair (i, j) with i < j to its cost
+    # The costs are provided in the order: (1,2), (1,3)...(1,N), (2,3)...(2,N), etc.
+    # We can pre-calculate the indices or just use a dictionary
+    cost_map = {}
+    idx = 0
+    for i in range(1, N + 1):
+        for j in range(i + 1, N + 1):
+            cost_map[(i, j)] = all_costs[idx]
+            idx += 1
+
+    # Convert edge lists to sets for O(1) lookup
+    set_G = set(edges_G)
+    set_H = set(edges_H)
+
+    # Generate all possible permutations of vertices (1...N)
+    # A permutation P maps vertex i in G to vertex P[i-1] in H
+    perms = itertools.permutations(range(1, N + 1))
+
+    # For each permutation, calculate the cost to make H isomorphic to G
+    # The cost is the sum of A_{P_i, P_j} for all pairs (i, j) where:
+    # (edge exists in G AND NOT in H) OR (edge NOT in G AND exists in H)
+    # This is equivalent to: edge_in_G XOR edge_in_H
+    
+    # We pre-calculate all possible pairs (i, j) to avoid loops inside the comprehension
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+
+    # The objective is to find the minimum cost across all permutations
+    # For a permutation P, the cost is sum(cost_map[sorted(P[i-1], P[j-1])] 
+    # for (i, j) in all_pairs if (i, j) in set_G != (P[i-1], P[j-1]) in set_H)
+    
+    # To optimize, we use a helper function for the cost of a single permutation
+    def get_cost(p):
+        # p is a tuple (P_1, P_2, ..., P_N)
+        # We need to check every pair (i, j) in G and see if the corresponding 
+        # pair (p[i-1], p[j-1]) in H matches the edge status.
+        
+        # Create a list of costs for pairs that differ in edge status
+        # We use sorted() to ensure the key for cost_map is always (smaller, larger)
+        return sum(
+            cost_map[tuple(sorted((p[i-1], p[j-1])))]
+            for i, j in all_pairs
+            if ((i, j) in set_G) != (tuple(sorted((p[i-1], p[j-1]))) in set_H)
+        )
+
+    # Use map to apply get_cost to all permutations and find the minimum
+    print(min(map(get_cost, perms)))
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I noticed a small logic error in my `get_cost` helper.** The problem defines isomorphism as: edge $(i, j)$ exists in $G$ iff edge $(P_i, P_j)$ exists in $H$. 
+The cost is paid if we need to flip the edge in $H$ to match $G$. 
+If $(i, j)$ is an edge in $G$, we need $(P_i, P_j)$ to be an edge in $H$. If it isn't, we pay $A_{P_i, P_j}$.
+If $(i, j)$ is NOT an edge in $G$, we need $(P_i, P_j)$ to NOT be an edge in $H$. If it is, we pay $A_{P_i, P_j}$.
+
+My code: `((i, j) in set_G) != (tuple(sorted((p[i-1], p[j-1]))) in set_H)` 
+This correctly implements the XOR logic. If one is true and the other is false, the condition is true, and the cost is added.
+
+Final check on constraints: $N \le 8$. $8! = 40,320$. For each permutation, we check $\binom{8}{2} = 28$ pairs. Total operations $\approx 1.1$ million. This will comfortably pass within time limits in Python.
+The `sorted()` inside the loop is slightly redundant if I handle the permutation mapping carefully, but for $N=8$ it is acceptable.
+
+One detail: the input format for $A_{i,j}$ is a sequence of numbers. My `all_costs = list(gen)` handles this.
+
+```python
+import itertools
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    gen = input_data
+    
+    try:
+        N = next(gen)
+    except StopIteration:
+        return
+
+    # Read edges of G
+    M_G = next(gen)
+    # Ensure edges are stored as sorted tuples for consistent lookup
+    set_G = {tuple(sorted((next(gen), next(gen)))) for _ in range(M_G)}
+    
+    # Read edges of H
+    M_H = next(gen)
+    set_H = {tuple(sorted((next(gen), next(gen)))) for _ in range(M_H)}
+    
+    # Read costs A_{i,j}
+    all_costs = list(gen)
+    
+    # Map each pair (i, j) with i < j to its cost
+    # The costs are provided in the order: (1,2), (1,3)...(1,N), (2,3)...(2,N), etc.
+    cost_map = {}
+    idx = 0
+    for i in range(1, N + 1):
+        for j in range(i + 1, N + 1):
+            cost_map[(i, j)] = all_costs[idx]
+            idx += 1
+
+    # Generate all possible permutations of vertices (1...N)
+    perms = itertools.permutations(range(1, N + 1))
+
+    # Pre-calculate all possible pairs (i, j) to avoid loops inside the comprehension
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+
+    # For each permutation p, calculate the total cost to make H isomorphic to G.
+    # The cost is the sum of A_{p[i-1], p[j-1]} for all pairs (i, j) where the 
+    # edge existence in G differs from the edge existence in H.
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i-1], p[j-1])))]
+            for i, j in all_pairs
+            if ((i, j) in set_G) != (tuple(sorted((p[i-1], p[j-1]))) in set_H)
+        )
+        for p in perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the prompt asks for the code inside a single block. I will provide the refined version.
+One last check: `tuple(sorted((p[i-1], p[j-1])))` is used twice. I can use a generator expression inside `sum` and a `for` loop for the permutations.
+
+Final logic:
+1. Parse $N, M_G, \text{edges}_G, M_H, \text{edges}_H, \text{costs}$.
+2. Create a set of edges for $G$ and $H$ (sorted tuples).
+3. Create a dictionary for costs.
+4. Use `itertools.permutations` to try all $N!$ mappings.
+5. For each mapping, sum costs where `edge_in_G != edge_in_H`.
+6. Output the minimum sum.
+Since $N=8$, this is $O(N! \cdot N^2)$, which is $\approx 40320 \cdot 28 \approx 1.1 \cdot 10^6$ operations. This is well within the 2-second limit for Python.
+The `sorted()` calls are on tuples of size 2, so they are very fast.
+
+```python
+import itertools
+import sys
+
+def solve():
+    # Read all input and convert to an iterator of integers
+    input_data = map(int, sys.stdin.read().split())
+    gen = input_data
+    
+    try:
+        N = next(gen)
+    except StopIteration:
+        return
+
+    # Read edges of G and store as a set of sorted tuples
+    M_G = next(gen)
+    set_G = {tuple(sorted((next(gen), next(gen)))) for _ in range(M_G)}
+    
+    # Read edges of H and store as a set of sorted tuples
+    M_H = next(gen)
+    set_H = {tuple(sorted((next(gen), next(gen)))) for _ in range(M_H)}
+    
+    # Read costs A_{i,j} into a list
+    all_costs = list(gen)
+    
+    # Map each pair (i, j) with i < j to its cost based on the input order
+    # Order: (1,2), (1,3)...(1,N), (2,3)...(2,N), etc.
+    cost_map = {
+        (i, j): all_costs[sum(N - k for k in range(i, i + 1)) + (j - i - 1)] # This index is wrong
+        for i in range(1, N + 1) for j in range(i + 1, N + 1)
+    }
+    # Wait, the index logic in the dictionary comprehension is complex. 
+    # Let's use a simpler way to build the cost_map.
+```
+Correcting the `cost_map` construction:
+Since I cannot use a loop to build the dictionary, I can use `enumerate` on the `all_costs` list and a helper function to determine the $(i, j)$ pair for a given index.
+Or, more simply, since I can use a list comprehension, I can just use the `all_costs` list and a mathematical formula to map the index to the pair.
+Actually, the most reliable way to build the `cost_map` without an explicit `for` loop is to use `zip` with the pre-calculated `all_pairs`.
+
+```python
+all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+cost_map = dict(zip(all_pairs, all_costs))
+```
+This is clean and correct.
+
+Final structure:
+```python
+import itertools
+import sys
+
+def solve():
+    input_data = map(int, sys.stdin.read().split())
+    gen = input_data
+    try:
+        N = next(gen)
+    except StopIteration:
+        return
+
+    M_G = next(gen)
+    set_G = {tuple(sorted((next(gen), next(gen)))) for _ in range(M_G)}
+    M_H = next(gen)
+    set_H = {tuple(sorted((next(gen), next(gen)))) for _ in range(M_H)}
+    all_costs = list(gen)
+    
+    all_pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    cost_map = dict(zip(all_pairs, all_costs))
+
+    perms = itertools.permutations(range(1, N + 1))
+    
+    # We use a generator expression inside min()
+    # For each permutation p, we sum the costs of mismatched edges
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((p[i-1], p[j-1])))]
+            for i, j in all_pairs

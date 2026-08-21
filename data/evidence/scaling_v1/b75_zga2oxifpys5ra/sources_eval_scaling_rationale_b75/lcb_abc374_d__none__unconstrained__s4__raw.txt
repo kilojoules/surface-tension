@@ -1,0 +1,100 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm, emphasizing the use of higher-order functions and declarative data transformations. For this problem, which requires exploring permutations of line segments and their orientations, `itertools.permutations` and `itertools.product` are ideal for generating all possible sequences of operations, and `min()` combined with a generator expression can evaluate the total time for each scenario.
+
+```python
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input and parse N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of pairs of coordinates
+    # segments = [((A1, B1), (C1, D1)), ...]
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute the time to print each segment (length / T)
+    print_times = [dist(seg[0], seg[1]) / T for seg in segments]
+    total_print_time = sum(print_times)
+
+    # We need to try all permutations of the N segments
+    # For each segment, we can start at either endpoint (2^N possibilities)
+    # There are N! * 2^N total paths to evaluate.
+    # With N=6, 720 * 64 = 46,080, which is well within limits.
+    
+    # Generate all permutations of indices 0 to N-1
+    indices_perms = permutations(range(N))
+    # Generate all possible orientations (0: start->end, 1: end->start)
+    orientations = product([0, 1], repeat=N)
+
+    # To avoid nested loops, we use a generator expression inside min()
+    # We calculate the total travel time (non-printing) and add the constant printing time.
+    
+    # We need to iterate over both permutations and orientations.
+    # Since we can't use loops, we use a nested generator or a combined product.
+    
+    # Function to calculate travel time for a specific order and orientation
+    def calculate_travel_time(perm, orient):
+        # Get the sequence of points visited
+        # Start at (0,0), then for each segment in perm:
+        # move to start_point, then print to end_point.
+        
+        # Construct the sequence of points: 
+        # (start_node, end_node) for each segment based on orientation
+        path_points = [
+            (segments[i][orient[j]], segments[i][1 - orient[j]])
+            for j, i in enumerate(perm)
+        ]
+        
+        # The travel distance is:
+        # dist((0,0), path_points[0].start) + 
+        # sum(dist(path_points[k].end, path_points[k+1].start))
+        
+        # We use a list comprehension to calculate distances between endpoints
+        # and sum them up.
+        
+        # Distance from origin to first start point
+        d0 = dist((0, 0), path_points[0][0])
+        
+        # Distances between segments
+        # We use a generator expression to calculate distances between 
+        # the end of segment k and the start of segment k+1
+        d_between = sum(
+            dist(path_points[k][1], path_points[k+1][0])
+            for k in range(N - 1)
+        )
+        
+        return (d0 + d_between) / S
+
+    # Since we cannot use loops, we use a large generator expression.
+    # We combine permutations and orientations into one iterable.
+    # Note: orientations needs to be recreated or handled carefully because it's an iterator.
+    # We use a list for orientations to allow reuse across permutations.
+    all_orients = list(orientations)
+    
+    # The final answer is the minimum travel time + constant printing time.
+    # We use a generator expression to iterate over all permutations and all orientation combinations.
+    ans = min(
+        calculate_travel_time(p, o)
+        for p in permutations(range(N))
+        for o in all_orients
+    ) + total_print_time
+
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,92 @@
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read N and M
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # P[i] is the distance from rest area 1 to rest area i+1
+    # P[0] = 0, P[1] = A1, P[2] = A1 + A2, ..., P[N] = sum(A)
+    # The distance from s to t (s != t) is:
+    # If s < t: (P[t-1] - P[s-1]) % M == 0
+    # If s > t: (P[N] - P[s-1] + P[t-1]) % M == 0
+    
+    # Calculate prefix sums modulo M
+    # P = [0, A1, A1+A2, ...]
+    P = list(accumulate(A, initial=0))
+    
+    # We only care about P[0] to P[N-1] for the starting/ending points
+    # Let X_i = P[i] % M for i in 0...N-1
+    # Total distance L = P[N] % M
+    X = [p % M for p in P[:-1]]
+    L = P[N] % M
+    
+    counts = Counter(X)
+    
+    # For a fixed s (with remainder v = X[s-1]), we need t (with remainder u = X[t-1]) such that:
+    # If s < t: (u - v) % M == 0  => u == v
+    # If s > t: (L - v + u) % M == 0 => u == (v - L) % M
+    
+    # Let's evaluate the contribution of each remainder v:
+    # For each s with X[s-1] = v, there are:
+    # 1. count(v) - 1 other indices t where X[t-1] = v.
+    #    Some are t > s, some are t < s.
+    #    If t > s, distance is (u-v), which is 0 mod M.
+    #    If t < s, distance is (L-v+u), which is L mod M.
+    #    So if L == 0, all (count(v)-1) pairs work.
+    #    If L != 0, only the t > s pairs work.
+    
+    # This is getting complex. Let's simplify:
+    # We want pairs (s, t) with s != t such that:
+    # Dist(s, t) = (P[t-1] - P[s-1]) mod L_total
+    # Clockwise distance from s to t is:
+    # If s < t: P[t-1] - P[s-1]
+    # If s > t: P[N] - P[s-1] + P[t-1]
+    
+    # Let v = P[s-1] % M and u = P[t-1] % M.
+    # Condition: 
+    # If s < t: (u - v) % M == 0  => u == v
+    # If s > t: (L + u - v) % M == 0 => u == (v - L) % M
+    
+    # Let's use the property:
+    # Total pairs = Sum_{v} [ (count(v) * (count(v)-1) / 2) if L == 0 else 0 ] 
+    # Wait, the logic is simpler:
+    # For each s, we need t != s such that Dist(s, t) % M == 0.
+    # Let v = P[s-1] % M.
+    # We need t such that:
+    # 1. t > s and P[t-1] % M == v
+    # 2. t < s and P[t-1] % M == (v - L) % M
+    
+    # Let's use a different approach:
+    # For each remainder r in 0...M-1, let C[r] be the number of i in 0...N-1 such that P[i] % M == r.
+    # For a fixed s with P[s-1] % M = v:
+    # The number of t > s with P[t-1] % M = v is (number of occurrences of v to the right of s).
+    # The number of t < s with P[t-1] % M = (v - L) % M is (number of occurrences of (v-L)%M to the left of s).
+    
+    # Total = Sum_{s=1 to N} [ (count of v to the right) + (count of (v-L)%M to the left) ]
+    # Total = Sum_{v=0 to M-1} [ C[v] * (C[v]-1) / 2 ] if L == 0 else 0 ... No.
+    
+    # Correct logic:
+    # Total = Sum_{v=0 to M-1} (C[v] * C[(v - L) % M])
+    # But we must exclude cases where s=t. 
+    # s=t happens when v == (v - L) % M, which means L % M == 0.
+    # If L % M == 0, then for each s, we have C[v] - 1 valid t's.
+    # Total = Sum (C[v] * (C[v] - 1))
+    # If L % M != 0, then v != (v - L) % M, so s can never equal t.
+    # Total = Sum (C[v] * C[(v - L) % M])
+    
+    # Let's implement this using list comprehensions.
+    C = counts
+    ans = sum([C[v] * C[(v - L) % M] for v in C]) if L % M != 0 else sum([C[v] * (C[v] - 1) for v in C])
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

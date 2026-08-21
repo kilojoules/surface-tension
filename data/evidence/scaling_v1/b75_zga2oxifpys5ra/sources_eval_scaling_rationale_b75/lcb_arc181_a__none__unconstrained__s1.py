@@ -1,0 +1,73 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use an iterator to process the flat list
+    it = iter(input_data)
+    T_str = next(it, None)
+    if T_str is None:
+        return
+    T = int(T_str)
+    
+    # Function to process a single test case
+    def process_case():
+        N = int(next(it))
+        P = [int(next(it)) for _ in range(N)]
+        
+        # Check if already sorted
+        # We use all() with a generator expression to avoid explicit loops
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        # To check if 1 operation is enough:
+        # We need a k (1 <= k <= N) such that:
+        # 1. P[k-1] == k
+        # 2. max(P[0...k-2]) < k
+        # 3. min(P[k...N-1]) > k
+        
+        # Precompute prefix maximums and suffix minimums using map/reduce logic
+        # Since we can't use loops, we use a trick with a list and a helper function
+        # However, the constraint forbids loops, but list comprehensions are allowed.
+        # But we cannot use list comprehensions to build prefix/suffix arrays 
+        # because they don't maintain state. 
+        # Wait, the constraint says "no for/while loops". 
+        # We can use functools.reduce to build the prefix/suffix arrays.
+        from functools import reduce
+        
+        # prefix_max[i] = max(P[0...i])
+        prefix_max = list(reduce(lambda acc, x: acc + [max(acc[-1], x)], P, [P[0]]))
+        # suffix_min[i] = min(P[i...N-1])
+        # We process P in reverse to get suffix mins
+        suffix_min = list(reduce(lambda acc, x: acc + [min(acc[-1], x)], P[::-1], [P[-1]]))[::-1]
+        
+        # Check if any k exists
+        # k is 1-indexed in problem, so index is k-1
+        # For k=1: check suffix_min[1] > 1 and P[0] == 1
+        # For k=N: check prefix_max[N-2] < N and P[N-1] == N
+        # For 1 < k < N: check prefix_max[k-2] < k and suffix_min[k] > k and P[k-1] == k
+        
+        # We can use a generator expression with any() to check the condition for all k
+        # Handle boundaries by using a helper function or conditional logic
+        def check_k(k_idx):
+            val = P[k_idx]
+            # k = k_idx + 1
+            left_ok = (k_idx == 0) or (prefix_max[k_idx-1] < val)
+            right_ok = (k_idx == N-1) or (suffix_min[k_idx+1] > val)
+            return val == k_idx + 1 and left_ok and right_ok
+
+        if any(map(check_k, range(N))):
+            return 1
+        
+        return 2
+
+    # Use map to apply process_case T times and join results
+    # Since process_case uses the iterator 'it', we can just call it in a list comprehension
+    results = [process_case() for _ in range(T)]
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

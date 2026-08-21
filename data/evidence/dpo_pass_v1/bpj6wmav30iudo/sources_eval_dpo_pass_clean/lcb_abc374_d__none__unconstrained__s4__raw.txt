@@ -1,0 +1,118 @@
+The constraint to avoid explicit loops and recursion forces a functional programming style, which emphasizes what to compute rather than how to compute it. While not always the most idiomatic for all Python tasks, it encourages the use of powerful built-ins and higher-order functions. To solve this problem, I will use `itertools.permutations` to explore all possible sequences of line segments and `itertools.product` to handle the binary choice of direction (start-to-end or end-to-start) for each segment, utilizing `min` and list comprehensions to find the optimal path.
+
+```python
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input using map and split
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N, S, T
+    N, S, T = map(int, input_data[:3])
+    
+    # Extract line segments as pairs of points
+    # segments = [((A1, B1), (C1, D1)), ...]
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])), 
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    # Helper to calculate distance between two points
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # For a given permutation of segments and a given choice of directions:
+    # We calculate the total time.
+    # directions is a tuple of 0 or 1. 
+    # If 0: print from point A to point C. If 1: print from point C to point A.
+    
+    # We use a list comprehension to iterate through all permutations and direction combinations.
+    # Since N <= 6, N! * 2^N is at most 720 * 64 = 46,080, which is well within limits.
+    
+    ans = min(
+        sum(
+            # The time for the i-th segment in the chosen order
+            # Let's pre-calculate the points based on the direction
+            # current_seg is (pA, pC)
+            # direction is 0 (pA -> pC) or 1 (pC -> pA)
+            # we need the start point, end point, and the printing time (dist/T)
+            # However, we also need the travel time from the previous end point to the current start point.
+            # To do this without loops, we can construct the sequence of points first.
+            0 # placeholder for sum logic
+        ) 
+        for p in permutations(range(N)) 
+        for d in product([0, 1], repeat=N)
+    )
+    
+    # Redefining logic to fit the "no loop" constraint perfectly:
+    # 1. Generate all possible ordered sequences of directed segments.
+    # 2. For each sequence, calculate the total time.
+    
+    # A "directed segment" is (start_point, end_point)
+    # For segment i, if d_i=0: (segments[i][0], segments[i][1]), else: (segments[i][1], segments[i][0])
+    
+    # Let's build the full path of points for each permutation and direction set.
+    # Path: (0,0) -> S1 -> E1 -> S2 -> E2 ... -> SN -> EN
+    
+    # We use a generator expression inside min()
+    # To handle the "previous point", we can use a list comprehension to build the point sequence
+    # and then sum the distances between them.
+    
+    # Since we can't use loops, we use map and lambda to process the sequences.
+    
+    # Let', simplify: for a fixed permutation 'p' and direction 'd':
+    # points = [(0,0)] + [ (segments[p[i]][d[i]], segments[p[i]][1-d[i]]) for i in range(N) ]
+    # Flatten points: [ (0,0), S1, E1, S2, E2 ... ]
+    # Total time = sum( dist(P_{2i}, P_{2i+1})/T + dist(P_{2i+1}, P_{2i+2})/S )
+    
+    # To avoid loops, we use list comprehensions and sum().
+    
+    # We'll use a helper function defined via lambda to calculate time for one configuration
+    calc_time = lambda p, d: (
+        # points is a list of (x, y)
+        # we use a list comprehension to get the sequence of points
+        # Note: segments[p[i]][d[i]] gets the point based on direction
+        # If d[i] == 0, we want segments[p[i]][0] then segments[p[i]][1]
+        # If d[i] == 1, we want segments[p[i]][1] then segments[p[i]][0]
+        # This is achieved by: points[2*i+1] = segments[p[i]][d[i]], points[2*i+2] = segments[p[i]][1-d[i]]
+        
+        # Let's just create the point list explicitly
+        # Since we can't use loops, we use a list comprehension to flatten the points
+        # The points are: (0,0), then for each i in p: (seg[d], seg[1-d])
+        
+        # We can't easily reference 'points' inside the same expression without a helper.
+        # But we can use a nested list comprehension or map.
+        
+        # Let's define the points list first using a walrus operator (Python 3.8+) 
+        # or just put it in a tuple.
+        
+        # Since we need the sum of travel and print times:
+        # Travel time: dist(End_{i-1}, Start_i) / S
+        # Print time: dist(Start_i, End_i) / T
+        
+        # Let's use a list comprehension to generate the pairs (Start, End)
+        # pairs = [(segments[p[i]][d[i]], segments[p[i]][1-d[i]]) for i in range(N)]
+        # Total = dist((0,0), pairs[0][0])/S + dist(pairs[0][0], pairs[0][1])/T 
+        #         + dist(pairs[0][1], pairs[1][0])/S + dist(pairs[1][0], pairs[1][1])/T ...
+        
+        # This can be written as:
+        # sum(dist(pairs[i-1][1] if i>0 else (0,0), pairs[i][0])/S for i in range(N)) +
+        # sum(dist(pairs[i][0], pairs[i][1])/T for i in range(N))
+        
+        # To implement this without 'for' loops (only comprehensions), we do:
+        (lambda pairs: 
+            sum(dist(pairs[i-1][1] if i > 0 else (0,0), pairs[i][0]) / S for i in range(N)) + 
+            sum(dist(pairs[i][0], pairs[i][1]) / T for i in range(N))
+        )([(segments[p[i]][d[i]], segments[p[i]][1-d[i]]) for i in range(N)])
+    )
+
+    # Final result
+    print(f"{min(calc_time(p, d) for p in permutations(range(N)) for d in product([0, 1], repeat=N)):.20f}")
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,51 @@
+problem_id,benchmark,entry_point,constraint,condition,sample_idx,model,elapsed_s,gen_error,code_extracted,code_chars,parses,has_entry,compliant,test_passed,test_timed_out,test_error,prompt_chars,raw_chars
+lcb/abc356_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,195.85,,1,1801,1,1,1,1,0,,2499,3010
+lcb/abc356_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,148.5,,1,1876,1,1,1,1,0,,2499,2532
+lcb/abc356_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,605.57,,1,2352,1,1,1,1,0,,2499,10083
+lcb/abc356_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,151.18,,1,1786,1,1,1,1,0,,2499,2542
+lcb/abc356_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,608.43,,1,1824,1,1,1,1,0,,2499,9567
+lcb/abc356_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,159.02,,1,1604,1,1,1,1,0,,2499,2695
+lcb/abc356_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,415.74,,1,1875,1,1,1,1,0,,2499,6035
+lcb/abc356_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,598.76,,1,1769,1,1,1,1,0,,2499,9190
+lcb/abc359_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,597.02,,1,3386,1,1,1,0,0,wrong_output on test 7: got '3865081076768754' want '3865081076768755',2172,8087
+lcb/abc359_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,600.28,no_code_block_found,0,0,0,0,0,0,0,,2172,9021
+lcb/abc359_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,598.23,,1,5684,1,1,1,1,0,,2172,7826
+lcb/abc359_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,597.95,no_code_block_found,0,0,0,0,0,0,0,,2172,7492
+lcb/abc359_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,601.96,no_code_block_found,0,0,0,0,0,0,0,,2172,6718
+lcb/abc359_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,601.88,,1,5223,1,1,1,1,0,,2172,8064
+lcb/abc359_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,604.34,no_code_block_found,0,0,0,0,0,0,0,,2172,7387
+lcb/abc359_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,601.25,no_code_block_found,0,0,0,0,0,0,0,,2172,7633
+lcb/abc362_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,177.96,,1,2303,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,3002
+lcb/abc362_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,539.27,,1,1690,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,7867
+lcb/abc362_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,598.91,,1,1861,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,7886
+lcb/abc362_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,164.97,,1,2044,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,2866
+lcb/abc362_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,599.7,,1,2347,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,8829
+lcb/abc362_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,599.33,,1,3127,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,9446
+lcb/abc362_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,603.21,,1,2265,1,1,1,0,0,wrong_output on test 0: got 'Yes\n5 -3 -2' want 'Yes\n4 -3 -1',1510,9272
+lcb/abc362_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,601.19,,1,2938,1,1,1,0,0,wrong_output on test 0: got 'Yes\n4 -4 -2' want 'Yes\n4 -3 -1',1510,9934
+lcb/abc363_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,603.26,,1,1461,1,1,1,1,0,,1690,9877
+lcb/abc363_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,598.32,,1,1354,1,1,1,1,0,,1690,9643
+lcb/abc363_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,603.69,,1,1451,1,1,1,1,0,,1690,9484
+lcb/abc363_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,133.16,,1,1461,1,1,1,1,0,,1690,2681
+lcb/abc363_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,596.0,,1,1508,1,1,1,1,0,,1690,9529
+lcb/abc363_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,599.21,,1,1316,1,1,1,1,0,,1690,10390
+lcb/abc363_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,600.77,,1,1461,1,1,1,1,0,,1690,9501
+lcb/abc363_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,597.57,,1,1373,1,1,1,1,0,,1690,10409
+lcb/abc367_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,596.77,,1,2877,1,1,1,0,0,wrong_output on test 0: got '6' want '4',2549,6800
+lcb/abc367_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,602.09,no_code_block_found,0,0,0,0,0,0,0,,2549,6960
+lcb/abc367_d,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,600.89,no_code_block_found,0,0,0,0,0,0,0,,2549,6852
+lcb/abc367_d,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,599.64,,1,3902,1,1,1,0,0,wrong_output on test 0: got '6' want '4',2549,7018
+lcb/abc367_d,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,600.39,,1,3384,1,1,1,0,0,wrong_output on test 0: got '6' want '4',2549,7784
+lcb/abc367_d,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,598.9,no_code_block_found,0,0,0,0,0,0,0,,2549,7292
+lcb/abc367_d,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,597.86,,1,3897,1,1,1,0,0,wrong_output on test 0: got '6' want '4',2549,6238
+lcb/abc367_d,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,600.52,no_code_block_found,0,0,0,0,0,0,0,,2549,7059
+lcb/abc370_c,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,153.32,,1,1514,1,1,1,1,0,,2468,2820
+lcb/abc370_c,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,600.61,,1,1955,1,1,1,1,0,,2468,8739
+lcb/abc370_c,lcb_medium,,none,unconstrained,2,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,604.03,,1,2455,1,1,1,1,0,,2468,9144
+lcb/abc370_c,lcb_medium,,none,unconstrained,3,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,146.0,,1,1584,1,1,1,1,0,,2468,2497
+lcb/abc370_c,lcb_medium,,none,unconstrained,4,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,601.78,,1,1804,1,1,1,1,0,,2468,9494
+lcb/abc370_c,lcb_medium,,none,unconstrained,5,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,610.12,,1,1927,1,1,1,1,0,,2468,8919
+lcb/abc370_c,lcb_medium,,none,unconstrained,6,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,147.68,,1,1579,1,1,1,1,0,,2468,2544
+lcb/abc370_c,lcb_medium,,none,unconstrained,7,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,385.71,,1,1677,1,1,1,1,0,,2468,5146
+lcb/abc370_d,lcb_medium,,none,unconstrained,0,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,599.21,,1,4413,1,1,1,1,0,,2861,9763
+lcb/abc370_d,lcb_medium,,none,unconstrained,1,google/gemma-4-31B-it+../outputs/scaling_stripped_b149_r8/final_adapter,223.15,,1,3274,1,1,1,0,0,runtime_err on test 0: ModuleNotFoundError: No module named 'sortedcontainers',2861,4211

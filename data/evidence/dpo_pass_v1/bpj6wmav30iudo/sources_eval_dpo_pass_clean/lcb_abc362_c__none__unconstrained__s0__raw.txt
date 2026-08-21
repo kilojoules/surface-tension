@@ -1,0 +1,85 @@
+The constraint to avoid explicit `for` and `while` loops forces a shift from imperative state mutation to a functional paradigm, emphasizing the transformation of data streams. In idiomatic Python, this encourages the use of high-level abstractions that describe *what* to compute rather than *how* to step through memory. To solve this problem without loops, I will use `map` for input processing, `sum` for aggregate calculations, and list comprehensions to handle the conditional logic for each element $X_i$ based on the total remaining sum.
+
+```python
+import sys
+
+def solve():
+    # Read all input data
+    # map(int, sys.stdin.read().split()) handles the input stream without explicit loops
+    data = list(map(int, sys.stdin.read().split()))
+    
+    # Extract N and the pairs (L, R)
+    # Use slicing to separate N from the coordinate list
+    N = data[0]
+    coords = data[1:]
+    
+    # Create lists of L and R values using list comprehensions
+    L = [coords[2*i] for i in range(N)]
+    R = [coords[2*i + 1] for i in range(N)]
+    
+    # The range of possible sums is [sum(L), sum(R)]
+    sum_L = sum(L)
+    sum_R = sum(R)
+    
+    # Check if 0 is within the reachable range of sums
+    # If not, it is impossible to satisfy sum(X) = 0
+    is_possible = sum_L <= 0 <= sum_R
+    
+    # To construct X, we start with X_i = L_i.
+    # The current sum is sum_L. We need to increase this sum by S = 0 - sum_L.
+    # For each i, we can increase X_i by at most (R_i - L_i).
+    S = -sum_L
+    
+    # We use a mathematical approach to distribute S across X_i without a loop.
+    # Letを cumulative_slack[i] be the sum of (R_j - L_j) for j < i.
+    # The amount we add to L_i is min(R_i - L_i, max(0, S - cumulative_slack[i]))
+    # However, since we cannot use loops to build cumulative sums, 
+    # we can leverage the fact that we need to distribute S.
+    
+    # We can calculate the "contribution" of each element by tracking 
+    # how much of S is consumed by previous elements.
+    # Since we can't use loops, we can't easily maintain a runningK.
+    # But we can use a list comprehension with a helper calculation.
+    
+    # To avoid loops for cumulative sums, we use a trick: 
+    # we can't use itertools.accumulate because it's a loop-like iterator.
+    # Wait, the prompt allows list comprehensions and map.
+    # I will use a list comprehension to calculate the values.
+    # Since I need the sum of previous elements, and I can't use loops,
+    # I will use a recursive-like structure via map/lambda if possible, 
+    # but Python's recursion limit is strict.
+    
+    # Actually, I can calculate the required X_i by:
+    # X_i = L_i + amount_to_add
+    # where amount_to_add is the portion of S that falls within the range 
+    # of the i-th interval when S is laid out linearly.
+    
+    # Let's use a list comprehension to calculate the "prefix sum" 
+    # of the slacks (R-L) using a slice-based sum (though that's O(N^2)).
+    # To keep it O(N) and loop-free, I'll use map with a shared state 
+    # object (a list) to simulate a mutable counter.
+    
+    state = [S]
+    # Lambda updates state[0] and returns the amount added to L_i
+    # This is a functional way to handle state without a 'for' loop.
+    get_delta = lambda i: (
+        (lambda slack: (
+            (state.__setitem__(0, state[0] - min(state[0], slack)) or min(state[0], slack)) 
+            if state[0] > 0 else 0
+        ))(R[i] - L[i])
+    )
+    
+    # Note: __setitem__ returns None, so we use 'or' to return the value.
+    # We use map to apply this to all indices.
+    X = [L[i] + get_delta(i) for i in range(N)]
+    
+    # Final output formatting
+    # Use a conditional expression to print Yes/No
+    sys.stdout.write(
+        "Yes\n" + " ".join(map(str, X)) + "\n" if is_possible 
+        else "No\n"
+    )
+
+if __name__ == "__main__":
+    solve()
+```

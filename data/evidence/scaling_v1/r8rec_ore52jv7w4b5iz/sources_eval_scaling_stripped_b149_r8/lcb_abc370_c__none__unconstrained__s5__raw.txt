@@ -1,0 +1,250 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To minimize the number of elements in X, we must change exactly one 
+    # character per step for each index where S[i] != T[i].
+    # To make the array X lexicographically smallest:
+    # 1. We should prioritize changing indices that make the resulting string 
+    #    lexicographically smaller first.
+    # 2. A change at index i makes the string smaller if T[i] < S[i].
+    # 3. A change at index i makes the string larger if T[i] > S[i].
+    # Therefore, we process all indices where T[i] < S[i] in increasing order of i,
+    # then all indices where T[i] > S[i] in decreasing order of i.
+    
+    decreasing = [i for i in diff_indices if T[i] < S[i]]
+    increasing = [i for i in diff_indices if T[i] > S[i]]
+    
+    # Sort decreasing group ascending by index, and increasing group descending by index
+    # Wait, the logic for lexicographical smallest array:
+    # If T[i] < S[i], changing S[i] to T[i] makes the string smaller. We want this ASAP.
+    # Among those, changing the leftmost index first is best.
+    # If T[i] > S[i], changing S[i] to T[i] makes the string larger. We want this as late as possible.
+    # Among those, changing the rightmost index first is best to keep the prefix smaller for longer.
+    
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Generate the sequence of strings
+    s_list = list(S)
+    X = []
+    for i in order:
+        s_list[i] = T[i]
+        X.append("".join(s_list))
+    
+    # Output the number of elements and the elements themselves
+    print(len(X))
+    for string in X:
+        print(string)
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait, let me double-check the logic for the "increasing" group.**
+If $T[i] > S[i]$, changing $S[i]$ to $T[i]$ makes the string lexicographically *larger*. To keep the array $X$ lexicographically smallest, we want to delay the "increase" as much as possible. Among the indices that cause an increase, changing the *rightmost* one first is optimal because it affects a less significant position in the string's lexicographical value.
+
+Example: $S = \text{"abc"}, T = \text{"xyz"}$.
+Indices: 0 ($a \to x$), 1 ($b \to y$), 2 ($c \to z$).
+All are $T[i] > S[i]$.
+Order [2, 1, 0] $\to$ "abz", "ayz", "xyz".
+Order [0, 1, 2] $\to$ "xbc", "xyc", "xyz".
+"abz" < "xbc", so processing $T[i] > S[i]$ from right to left is correct.
+
+Example: $S = \text{"cba"}, T = \text{"abc"}$.
+Indices: 0 ($c \to a$), 2 ($a \to c$).
+$T[0] < S[0]$ (decrease), $T[2] > S[2]$ (increase).
+Order: [0, 2] $\to$ "aba", "abc".
+If we did [2, 0] $\to$ "cbb", "abb".
+"aba" < "cbb", so processing $T[i] < S[i]$ first (left to right) is correct.
+
+The logic implemented in the code:
+1. `decreasing`: $T[i] < S[i]$, sorted ascending.
+2. `increasing`: $T[i] > S[i]$, sorted descending.
+This matches the requirements.
+Final check on Sample 3: `afwgebrw` $\to$ `oarbrenq`.
+Diffs: 
+0: a $\to$ o (inc)
+1: f $\to$ a (dec)
+2: w $\to$ r (dec)
+3: g $\to$ b (dec)
+4: e $\to$ r (inc)
+5: b $\to$ e (inc)
+6: r $\to$ n (dec)
+7: w $\to$ q (dec)
+
+Dec indices: 1, 2, 3, 6, 7. Sorted: 1, 2, 3, 6, 7.
+Inc indices: 0, 4, 5. Sorted reverse: 5, 4, 0.
+Total order: 1, 2, 3, 6, 7, 5, 4, 0.
+This matches the sample output's transformation sequence.
+The code is correct.
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To minimize the number of elements in X, we must change exactly one 
+    # character per step for each index where S[i] != T[i].
+    # To make the array X lexicographically smallest:
+    # 1. We prioritize changes that make the string lexicographically smaller (T[i] < S[i]).
+    #    Among these, we process them from left to right (increasing index).
+    # 2. Then we process changes that make the string lexicographically larger (T[i] > S[i]).
+    #    Among these, we process them from right to left (decreasing index).
+    
+    decreasing = [i for i in diff_indices if T[i] < S[i]]
+    increasing = [i for i in diff_indices if T[i] > S[i]]
+    
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Generate the sequence of strings
+    s_list = list(S)
+    X = []
+    for i in order:
+        s_list[i] = T[i]
+        X.append("".join(s_list))
+    
+    # Output the number of elements and the elements themselves
+    sys.stdout.write(f"{len(X)}\n" + "\n".join(X) + "\n" if X else "0\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for ONLY the python code block. I will provide the final cleaned version.
+(Self-correction: The `if X else "0\n"` handles the $M=0$ case correctly).
+
+Final check on Sample 2: S=abcde, T=abcde. `diff_indices` is empty. `X` is empty. Output `0`. Correct.
+
+Final check on Sample 1: S=adbe, T=bcbc.
+Indices: 0 (a->b, inc), 1 (d->c, dec), 2 (b->b, same), 3 (e->c, dec).
+Dec: 1, 3. Inc: 0.
+Order: 1, 3, 0.
+Strings:
+1. S[1]=c -> acbe
+2. S[3]=c -> acbc
+3. S[0]=b -> bcbc
+Output: 3, acbe, acbc, bcbc. Correct.
+(Note: The sample output says 3, acbe, acbc, bcbc. My logic produces exactly that).
+
+One last detail: the prompt says "Return only Python source inside a single ```python code block."
+
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To make the array X lexicographically smallest:
+    # 1. Process indices where T[i] < S[i] from left to right.
+    # 2. Process indices where T[i] > S[i] from right to left.
+    decreasing = [i for i in diff_indices if T[i] < S[i]]
+    increasing = [i for i in diff_indices if T[i] > S[i]]
+    
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Generate the sequence of strings
+    s_list = list(S)
+    X = ["".join(s_list := [s_list[j] if j != i else T[j] for j in range(len(S))]) for i in order]
+    # The above list comprehension with assignment expression is Python 3.8+
+    # But since I cannot use loops, I'll use a more standard approach.
+    # Actually, the prompt says "Write a complete Python program". 
+    # It doesn't forbid loops. It says "Return only Python source".
+    # I will use a loop to build the list.
+    
+def solve_final():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    S, T = input_data[0], input_data[1]
+    diffs = [i for i in range(len(S)) if S[i] != T[i]]
+    order = sorted([i for i in diffs if T[i] < S[i]]) + sorted([i for i in diffs if T[i] > S[i]], reverse=True)
+    
+    # Using a list and a loop to generate X
+    res = []
+    curr = list(S)
+    for i in order:
+        curr[i] = T[i]
+        res.append("".join(curr))
+    
+    print(len(res))
+    if res:
+        print("\n".join(res))
+
+solve_final()
+```
+Wait, I should just provide the code.
+
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S, T = input_data[0], input_data[1]
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(S)) if S[i] != T[i]]
+    
+    # To make the array X lexicographically smallest:
+    # 1. Process indices where T[i] < S[i] from left to right.
+    # 2. Process indices where T[i] > S[i] from right to left.
+    decreasing = [i for i in diff_indices if T[i] < S[i]]
+    increasing = [i for i in diff_indices if T[i] > S[i]]
+    order = sorted(decreasing) + sorted(increasing, reverse=True)
+    
+    # Generate the sequence of strings
+    s_list = list(S)
+    X = []
+    for i in order:
+        s_list[i] = T[i]
+        X.append("".join(s_list))
+    
+    # Output the number of elements and the elements themselves
+    print(len(X))
+    if X:
+        print("\n".join(X))
+
+if __name__ == "__main__":
+    solve()
+```
+Final check on constraints: length 100, so $O(N^2)$ is perfectly fine. The logic is $O(N \log N)$ for sorting and $O(N^2)$ for string joins. Correct.
+The prompt asks for "Return only Python source inside a single ```python code block." I will provide exactly that.
+(Self-correction: I used `if X: print("\n".join(X))` to avoid printing an extra newline when $M=0$).
+
+Final logic check:
+S: afwgebrw, T: oarbrenq
+Diffs:
+0: a->o (inc)
+1: f->a (dec)
+2: w->r (dec)
+3: g->b (dec)
+4: e->r (inc)
+5: b->e (inc)
+6: r->n (dec)
+7: w->q (dec)
+Dec:

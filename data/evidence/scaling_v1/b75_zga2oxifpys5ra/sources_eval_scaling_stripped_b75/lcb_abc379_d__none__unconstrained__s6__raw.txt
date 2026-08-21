@@ -1,0 +1,268 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to track the "birth time" of plants relative to a global clock.
+    # Let 'current_time' be the total T accumulated from type 2 queries.
+    # A plant planted at 'current_time' has an initial height of 0.
+    # Its height at any future time is (current_time_now - birth_time).
+    # Condition: height >= H  =>  (current_time_now - birth_time) >= H
+    # => birth_time <= (current_time_now - H)
+    
+    # We store birth_times of active plants in a sorted list.
+    # Since we only add plants (type 1) and remove the smallest birth_times (type 3),
+    # and birth_times are added in non-decreasing order, the list remains sorted.
+    
+    queries = input_data[1:]
+    
+    # To handle the queries without loops, we use a generator or map.
+    # However, since we need to maintain state (current_time and active_plants),
+    # and we cannot use loops, we can use a reduction-like approach or a 
+    # recursive-like structure via a helper function and a list to simulate state.
+    
+    # State: (current_time, active_plants_list, results_list)
+    # Because we cannot use loops, we process the queries by iterating through 
+    # the input using a custom function and maintaining state in a mutable object.
+    
+    class State:
+        def __init__(self):
+            self.current_time = 0
+            self.plants = [] # Sorted list of birth_times
+            self.results = []
+
+        def process(self, query_tuple):
+            q_type = query_tuple[0]
+            if q_type == '1':
+                self.plants.append(self.current_time)
+            elif q_type == '2':
+                self.current_time += int(query_tuple[1])
+            elif q_type == '3':
+                H = int(query_tuple[1])
+                threshold = self.current_time - H
+                # Find index of first plant with birth_time > threshold
+                # Plants at indices [0, idx-1] are harvested
+                idx = bisect_left(self.plants, threshold + 1) 
+                # Wait, the condition is height >= H, so birth_time <= current_time - H
+                # We want the number of elements <= threshold.
+                # bisect_right finds the insertion point for threshold to maintain order.
+                import bisect
+                idx = bisect.bisect_right(self.plants, threshold)
+                self.results.append(idx)
+                self.plants = self.plants[idx:]
+            return self
+
+    # Group the input into queries
+    # Since queries have different lengths (1, 2, 2), we parse them manually.
+    def parse_queries(data):
+        it = iter(data)
+        def get_next():
+            try:
+                q_type = next(it)
+                if q_type == '1':
+                    return ('1',)
+                else:
+                    return (q_type, next(it))
+            except StopIteration:
+                return None
+        
+        # Use a list comprehension to drive the iterator
+        return [get_next() for _ in range(Q)]
+
+    # Using a list to simulate the loop via map/comprehension
+    # We use a mutable state object to keep track of plants and time.
+    state = State()
+    
+    # We must avoid 'for' loops. We can use a list comprehension to call the process method.
+    # We use a helper to group the flat input list into query tuples first.
+    def group_queries(flat_list):
+        # This is a tricky part without loops. We can use a recursive-like 
+        # approach with a generator and next().
+        def gen():
+            it = iter(flat_list)
+            for _ in range(Q): # The prompt says no loops, but range() in 
+                               # comprehension is usually allowed. 
+                               # Let's use a different approach.
+                               pass
+        # Actually, the constraint says "no for/while loops". 
+        # We can use map() and a closure.
+        pass
+
+    # Correct way to group without for/while:
+    def get_queries(flat_list):
+        it = iter(flat_list)
+        def next_q():
+            t = next(it)
+            return (t,) if t == '1' else (t, next(it))
+        return list(map(lambda _: next_q(), range(Q)))
+
+    all_queries = get_queries(queries)
+    # Use map to execute the state transitions
+    list(map(state.process, all_queries))
+    
+    sys.stdout.write('\n'.join(map(str, state.results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+***Correction on the "no loop" constraint***: The prompt forbids `for` and `while` loops. My `get_queries` used `range(Q)` inside a `map`, which is acceptable. However, I noticed a `for` inside the `gen` definition (which was empty/commented) and the `get_queries` logic. I will refine it to be strictly compliant.
+
+```python
+import sys
+from bisect import bisect_right
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries_flat = input_data[1:]
+    
+    class State:
+        def __init__(self):
+            self.current_time = 0
+            self.plants = [] 
+            self.results = []
+
+        def process(self, q):
+            if q[0] == '1':
+                self.plants.append(self.current_time)
+            elif q[0] == '2':
+                self.current_time += int(q[1])
+            elif q[0] == '3':
+                threshold = self.current_time - int(q[1])
+                idx = bisect_right(self.plants, threshold)
+                self.results.append(idx)
+                self.plants = self.plants[idx:]
+            return self
+
+    def group_queries(flat_list):
+        it = iter(flat_list)
+        def next_q():
+            t = next(it)
+            return (t,) if t == '1' else (t, next(it))
+        # Using map with a dummy range to consume the iterator Q times
+        return list(map(lambda _: next_q(), range(Q)))
+
+    state = State()
+    all_queries = group_queries(queries_flat)
+    # Use map to apply the process function to all queries
+    list(map(state.process, all_queries))
+    
+    sys.stdout.write('\n'.join(map(str, state.results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `range(Q)` inside `map` is the only way to repeat an action without a loop. Since the prompt allows "complete Python program", and `map(..., range(Q))` is a standard functional pattern to replace loops, this is the intended solution.
+
+Final check on logic:
+- Type 1: Plant at $T_{birth} = \text{current\_time}$.
+- Type 2: $\text{current\_time} += T$.
+- Type 3: Height $H_{plant} = \text{current\_time} - T_{birth}$.
+- Harvest if $H_{plant} \ge H \Rightarrow \text{current\_time} - T_{birth} \ge H \Rightarrow T_{birth} \le \text{current\_time} - H$.
+- Since plants are added in increasing order of $T_{birth}$, we can use `bisect_right` to find how many plants have $T_{birth} \le \text{threshold}$.
+
+```python
+import sys
+from bisect import bisect_right
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries_flat = input_data[1:]
+    
+    class State:
+        def __init__(self):
+            self.current_time = 0
+            self.plants = [] 
+            self.results = []
+
+        def process(self, q):
+            if q[0] == '1':
+                self.plants.append(self.current_time)
+            elif q[0] == '2':
+                self.current_time += int(q[1])
+            elif q[0] == '3':
+                threshold = self.current_time - int(q[1])
+                idx = bisect_right(self.plants, threshold)
+                self.results.append(idx)
+                self.plants = self.plants[idx:]
+            return self
+
+    def group_queries(flat_list):
+        it = iter(flat_list)
+        def next_q():
+            t = next(it)
+            return (t,) if t == '1' else (t, next(it))
+        return list(map(lambda _: next_q(), range(Q)))
+
+    state = State()
+    all_queries = group_queries(queries_flat)
+    list(map(state.process, all_queries))
+    sys.stdout.write('\n'.join(map(str, state.results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+One final detail: `self.plants = self.plants[idx:]` is $O(N)$ in the worst case. With $Q=2 \cdot 10^5$, this could lead to $O(Q^2)$ if many plants are kept and sliced. However, in Python, slicing is very fast, but for a strict $O(Q \log Q)$ or $O(Q)$, one would usually use a deque or a pointer. But since we must remove from the front, and the number of elements removed across all queries is at most $Q$, the total time spent slicing is proportional to the total number of elements. Actually, `self.plants[idx:]` creates a new list, which is $O(N)$. To avoid $O(Q^2)$, I should use a pointer or a different structure. But since I can't use loops, I can't easily manage a pointer. Let's use a `collections.deque` and `popleft` in a `map`? No, `popleft` only takes one. 
+
+Wait, the total number of elements removed is $Q$. The cost of `self.plants[idx:]` is $O(\text{remaining plants})$. If we harvest 1 plant and $10^5$ remain, we do $10^5$ work. That is $O(Q^2)$. 
+
+To fix this without loops, I can use a `collections.deque` and a recursive-like `map` to pop `idx` times. But recursion depth is limited. 
+Actually, the most efficient way to "remove" without a loop is to keep track of the `start_index` and use `bisect_right` on the slice `self.plants[start_index:]`. But slicing still creates a copy. 
+
+Correct approach: Use a list and a `start_index` stored in the `State` object.
+`idx = bisect_right(self.plants, threshold, lo=self.start_index)`
+`harvested_count = idx - self.start_index`
+`self.start_index = idx`
+
+This makes every operation $O(\log Q)$.
+
+```python
+import sys
+from bisect import bisect_right
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries_flat = input_data[1:]
+    
+    class State:
+        def __init__(self):
+            self.current_time = 0
+            self.plants = [] 
+            self.start_index = 0
+            self.results = []
+
+        def process(self, q):
+            if q[0] == '1':
+                self.plants.append(self.current_time)
+            elif q[0] == '2':
+                self.current_time += int(q[1])
+            elif q[0] == '3':
+                threshold = self.current_time - int(q[1])
+                idx = bisect_right(self.plants, threshold, lo=self.start_index)
+                self.results.append(idx - self.start_index)
+                self.start_index = idx
+            return self
+
+    def group_queries(flat_list):
+        it = iter(flat_list)
+        def next_q():
+            t = next(it)
+            return (t,)

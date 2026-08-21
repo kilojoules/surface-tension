@@ -1,0 +1,33 @@
+[
+  {
+    "csv": "eval_scaling_stripped_b149_r128.csv",
+    "n_problems": 17,
+    "n_gens": 105,
+    "compliance": 0.3048,
+    "compliance_and_pass": 0.1429,
+    "pass_rate": 0.5524,
+    "probs_all_compliant": 0,
+    "probs_in_zone": 5,
+    "probs_mixed": 11,
+    "probs_any_compliant": 11,
+    "per_problem_rate": {
+      "lcb/abc356_c": 0.0,
+      "lcb/abc359_c": 0.5,
+      "lcb/abc362_c": 0.875,
+      "lcb/abc363_c": 0.0,
+      "lcb/abc367_d": 0.5,
+      "lcb/abc370_c": 0.125,
+      "lcb/abc370_d": 0.143,
+      "lcb/abc371_c": 0.125,
+      "lcb/abc372_d": 0.0,
+      "lcb/abc374_d": 0.25,
+      "lcb/abc376_b": 0.0,
+      "lcb/abc379_d": 0.625,
+      "lcb/abc385_c": 0.5,
+      "lcb/abc386_c": 0.75,
+      "lcb/arc181_a": 0.4,
+      "lcb/arc183_a": 0.0,
+      "lcb/arc189_a": 0.0
+    }
+  }
+]

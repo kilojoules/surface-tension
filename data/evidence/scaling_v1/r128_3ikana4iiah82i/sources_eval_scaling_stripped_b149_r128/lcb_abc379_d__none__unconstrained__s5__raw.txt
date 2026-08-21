@@ -1,0 +1,286 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to track the "birth time" of plants relative to a global clock.
+    # Let 'current_time' be the sum of all T from type 2 queries.
+    # A plant planted at 'current_time' has an initial height of 0.
+    # Its height at any future time is: (future_time - birth_time).
+    # The condition height >= H becomes: (future_time - birth_time) >= H
+    # Which rearranges to: birth_time <= (future_time - H).
+    
+    # We will store the birth_times of all active plants in a sorted list.
+    # Since we only add plants (type 1) and remove the smallest birth_times (type 3),
+    # we can use a sorted list and a pointer (or slicing) to track active plants.
+    
+    # However, since we cannot use external libraries like SortedList, 
+    # and we need to remove elements from the start, we can use a 
+    # combination of a list and a pointer.
+    
+    # Parse queries into a list of tuples
+    # This is a bit tricky because queries have different lengths.
+    # We'll use a generator to yield the queries.
+    
+    def get_queries(data):
+        it = iter(data[1:])
+        while True:
+            try:
+                q_type = next(it)
+                if q_type == '1':
+                    yield (1, 0)
+                elif q_type == '2':
+                    yield (2, int(next(it)))
+                else:
+                    yield (3, int(next(it)))
+            except StopIteration:
+                break
+
+    queries = list(get_queries(input_data))
+    
+    # To handle the "harvest" efficiently:
+    # We maintain a sorted list of birth_times.
+    # Type 1: Append current_time to the list. (Since current_time is non-decreasing, 
+    # the list remains sorted).
+    # Type 3: Find how many birth_times are <= (current_time - H).
+    # All those plants are removed.
+    
+    # Since we need to remove from the front, we can use a deque or 
+    # simply keep track of the index of the first active plant.
+    # But wait, the plants are added at the end and removed from the front.
+    # This is a perfect use case for a pointer.
+    
+    # Let's redefine:
+    # plants = list of birth_times
+    # start_idx = index of the first plant that hasn't been harvested.
+    
+    # We can't use a loop to process queries, so we'll use a custom 
+    # reduction or a recursive-like structure. 
+    # Actually, the simplest way to "loop" without 'for' or 'while' 
+    # is using map() or list comprehensions, but we have state.
+    # We can use a mutable object (like a dictionary) inside a list comprehension.
+    
+    state = {
+        'current_time': 0,
+        'plants': [],
+        'start_idx': 0,
+        'results': []
+    }
+    
+    def process(q):
+        q_type, val = q
+        if q_type == 1:
+            state['plants'].append(state['current_time'])
+            return None
+        elif q_type == 2:
+            state['current_time'] += val
+            return None
+        else:
+            # Type 3: Harvest plants with birth_time <= current_time - H
+            threshold = state['current_time'] - val
+            # Find the number of plants from start_idx onwards that are <= threshold
+            # We use bisect_left on the slice plants[start_idx:]
+            # But slicing is O(N). We should use the full list and adjust the index.
+            
+            # The plants list is sorted. We find the first index i where plants[i] > threshold.
+            # The number of harvested plants is i - start_idx.
+            idx = bisect_left(state['plants'], threshold + 1, lo=state['start_idx'])
+            count = idx - state['start_idx']
+            state['start_idx'] = idx
+            return count
+
+    # Use map to apply the process function to all queries
+    # Filter out None values to get the results of type 3 queries
+    ans = [res for res in map(process, queries) if res is not None]
+    
+    sys.stdout.write('\n'.join(map(str, ans)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I used a `while` loop in the `get_queries` generator.** The instructions forbid `for` and `while`. Let me rewrite the input parsing and the processing logic to be strictly compliant.
+
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # To parse queries without a loop, we can use a recursive-like 
+    # structure via a generator or a clever trick with map.
+    # Since we can't use while/for, we'll use a helper to group the input.
+    
+    def parse_queries(data):
+        # We use a list comprehension to build the queries.
+        # Because query lengths vary, we can't use a simple step.
+        # However, we can track the current index using a mutable state.
+        state = {'idx': 1}
+        def next_q():
+            if state['idx'] >= len(data): return None
+            t = data[state['idx']]
+            if t == '1':
+                state['idx'] += 1
+                return (1, 0)
+            else:
+                val = int(data[state['idx'] + 1])
+                state['idx'] += 2
+                return (int(t), val)
+        
+        # To avoid a loop to call next_q, we can use a list comprehension
+        # that calls next_q until it returns None. 
+        # But we can't use a loop. Let's use a different approach.
+        # We can pre-process the input into a format that allows 
+        # us to know if a query has an argument.
+        pass
+
+    # Let's rethink: we can use a generator with recursion for parsing,
+    # but Python has a recursion limit. 
+    # Alternatively, we can use a list comprehension that iterates 
+    # over the indices and checks the type of the previous element.
+    # Actually, the most robust way to "loop" without for/while 
+    # is using `map` or `reduce`.
+    
+    from functools import reduce
+
+    # 1. Parse the input into a list of queries
+    # We can use a trick with a generator and `next()` inside a list comprehension.
+    it = iter(input_data[1:])
+    def get_next():
+        t = next(it, None)
+        if t == '1': return (1, 0)
+        if t == '2': return (2, int(next(it)))
+        if t == '3': return (3, int(next(it)))
+        return None
+
+    # Since we can't use a loop to call get_next, we can use 
+    # a list comprehension that runs Q times.
+    Q = int(input_data[0])
+    queries = [get_next() for _ in range(Q)] # Wait, 'for _ in range' is allowed? 
+    # The prompt says "no for or while loops". range() in a comprehension is a loop.
+    # I must use map/reduce/recursion.
+    
+    # Let's use a recursive function for parsing and processing.
+    # But Q is 2*10^5, so we need to increase recursion depth.
+    sys.setrecursionlimit(300000)
+    
+    def process_all(it, current_time, plants, start_idx, results):
+        try:
+            t = next(it)
+            if t == '1':
+                plants.append(current_time)
+                return process_all(it, current_time, plants, start_idx, results)
+            elif t == '2':
+                val = int(next(it))
+                return process_all(it, current_time + val, plants, start_idx, results)
+            else:
+                val = int(next(it))
+                threshold = current_time - val
+                idx = bisect_left(plants, threshold + 1, lo=start_idx)
+                results.append(idx - start_idx)
+                return process_all(it, current_time, plants, idx, results)
+        except StopIteration:
+            return results
+
+    final_results = process_all(iter(input_data[1:]), 0, [], 0, [])
+    sys.stdout.write('\n'.join(map(str, final_results)) + '\n')
+
+# The prompt says "no for or while loops". 
+# I will use the recursive approach with increased recursion depth.
+# However, I need to wrap it in the requested format.
+```
+
+Actually, the most "Pythonic" way to avoid loops entirely while handling state is `functools.reduce`.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    # We need to group the input into queries.
+    # Since we can't use loops, we can use a generator and map.
+    it = iter(input_data[1:])
+    def parse_next(iterator):
+        t = next(iterator, None)
+        if t == '1': return (1, 0)
+        if t == '2': return (2, int(next(iterator)))
+        if t == '3': return (3, int(next(iterator)))
+        return None
+
+    # To call parse_next Q times without a loop:
+    # We can use map(lambda _, __: parse_next(it), range(Q))
+    # But 'for' is forbidden. Does 'range' in map count? 
+    # Usually, 'for' refers to the keyword. 
+    # Let's use a more functional approach.
+    
+    Q = int(input_data[0])
+    queries = map(lambda _: parse_next(it), range(Q))
+    
+    # Now we use reduce to maintain the state: (current_time, plants, start_idx, results)
+    def accumulate(state, q):
+        curr_time, plants, start_idx, results = state
+        q_type, val = q
+        if q_type == 1:
+            plants.append(curr_time)
+            return (curr_time, plants, start_idx, results)
+        elif q_type == 2:
+            return (curr_time + val, plants, start_idx, results)
+        else:
+            threshold = curr_time - val
+            idx = bisect_left(plants, threshold + 1, lo=start_idx)
+            results.append(idx - start_idx)
+            return (curr_time, plants, idx, results)
+
+    final_state = reduce(accumulate, queries, (0, [], 0, []))
+    sys.stdout.write('\n'.join(map(str, final_state[3])) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Final check: No `for` or `while` keywords used. `range()` is used inside `map()`, which is the standard functional way to repeat an action in Python.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    it = iter(input_data[1:])
+    def parse_next(iterator):
+        t = next(iterator, None)
+        if t == '1': return (1, 0)
+        if t == '2': return (2, int(next(iterator)))
+        if t == '3': return (3, int(next(iterator)))
+        return None
+
+    Q = int(input_data[0])
+    queries = map(lambda _: parse_next(it), range(Q))
+    
+    def accumulate(state, q):
+        curr_time, plants, start_idx, results = state
+        q_type, val = q
+        if q_type == 1:
+            plants.append(curr_time)
+            return (curr_time, plants, start_idx, results)
+        elif q_type == 2:
+            return (curr_time + val, plants, start_idx, results)
+        else:
+            threshold = curr_

@@ -1,0 +1,287 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to track the "birth time" of plants relative to a global clock.
+    # Let 'current_time' be the sum of all T from type 2 queries.
+    # A plant planted at 'current_time' has an initial height of 0.
+    # Its height at time 't' is (t - birth_time).
+    # It is harvested if (t - birth_time) >= H, which means birth_time <= t - H.
+    
+    # We use a sorted list of birth_times to efficiently count and remove plants.
+    # Since we cannot use a gerçek sorted list without loops or forbidden imports,
+    # and we must avoid loops, we process the queries to build the state.
+    # However, the constraint forbids loops entirely. 
+    # This implies a functional approach using recursion or map/reduce.
+    # But Python's recursion limit is strict. 
+    # Wait, the prompt says "no for/while loops". 
+    # Let's use a technique to simulate the state transition.
+    
+    # Actually, the only way to maintain a mutable state across Q queries 
+    # without loops is to use a reduce-like operation.
+    # We can use a SortedList from a library, but we can't import external ones.
+    # We can use a Fenwick tree or Segment tree implemented via a list and 
+    # recursion, but that's complex.
+    
+    # Let's reconsider: we need to count elements <= threshold and remove them.
+    # Since we can't use loops, we use a class with a mutable state and 
+    # map() to iterate through the queries.
+    
+    class State:
+        def __init__(self):
+            self.current_time = 0
+            self.plants = [] # Sorted list of birth times
+            self.results = []
+
+        def process(self, query):
+            # query is a tuple (type, value)
+            q_type, val = query
+            if q_type == 1:
+                # Plant a new seed. Use bisect to keep plants sorted.
+                # Since we can't use loops, we use list.insert with bisect_right.
+                import bisect
+                bisect.insort(self.plants, self.current_time)
+            elif q_type == 2:
+                self.current_time += val
+            elif q_type == 3:
+                # Harvest plants where birth_time <= current_time - val
+                threshold = self.current_time - val
+                import bisect
+                idx = bisect.bisect_right(self.plants, threshold)
+                self.results.append(idx)
+                # Remove the first 'idx' elements. 
+                # Slicing is allowed as it is not a loop.
+                self.plants = self.plants[idx:]
+            return self
+
+    # Parsing the input into (type, value) pairs
+    # The input format is irregular (1 has no T/H), so we use a helper to group.
+    def parse_queries(data):
+        # This is tricky without loops. We can use a recursive function 
+        # but Q is 2*10^5, exceeding recursion depth.
+        # However, we can use a generator with a custom read logic.
+        pass
+
+    # Since I cannot use loops, I will use a trick with map and a mutable object.
+    # To handle the variable length of queries (1 vs 2 T), I'll preprocess the 
+    # input stream into a format that can be consumed.
+    
+    # Let's use a more robust way to parse:
+    # We treat the input as a list of strings and use a mutable index.
+    class Parser:
+        def __init__(self, data):
+            self.data = data
+            self.ptr = 0
+        def next_query(self):
+            q_type = int(self.data[self.ptr])
+            self.ptr += 1
+            if q_type == 1:
+                return (1, 0)
+            else:
+                val = int(self.data[self.ptr])
+                self.ptr += 1
+                return (q_type, val)
+
+    # To avoid loops, we can't call next_query in a loop.
+    # But we can use a list comprehension to drive the process if we 
+    # can structure the data.
+    
+    # Let's refine the parsing:
+    # We can identify the positions of all '1's and the pairs of '2 T' and '3 H'.
+    # Actually, the simplest way to "loop" without for/while is using 
+    # map() or list comprehensions over a range.
+    # Wait, the prompt says "no for/while loops". 
+    # List comprehensions ARE loops. 
+    # "You cannot use any loop constructs... including list comprehensions."
+    
+    # This is a extremely strict constraint. The only way to process 
+    # is via recursion (with sys.setrecursionlimit) or map/filter/reduce.
+    
+    # Let's use sys.setrecursionlimit and a recursive function.
+    sys.setrecursionlimit(300000)
+    
+    def run():
+        input_data = sys.stdin.read().split()
+        if not input_data: return
+        
+        # We need a way to track the current index in input_data
+        # We use a list of one element to act as a mutable pointer.
+        ptr = [1] 
+        
+        def get_queries(n):
+            if n <= 0: return []
+            
+            # We can't use a loop to build the list, so we use recursion.
+            # But we can't use recursion to build the list because of 
+            # the return stack. We must process and return results.
+            pass
+
+        # To avoid the "no loop" constraint and the "recursion depth" 
+        # for building lists, we can use a class to maintain state 
+        # and map() to iterate over a range.
+        # Wait, map(function, range(Q)) is allowed.
+        
+        # But the queries have different lengths. 
+        # Let's first normalize the input into a list of tuples.
+        # Since we can't use loops/comprehensions, we use a recursive 
+        # function to parse, but we must avoid deep stacks.
+        # Actually, we can use a generator and itertools.accumulate.
+        
+        import itertools
+        
+        # 1. Convert input to a stream of tokens
+        tokens = input_data[1:]
+        
+        # 2. Use a stateful object to parse tokens into queries
+        class QueryParser:
+            def __init__(self, tokens):
+                self.tokens = tokens
+                self.i = 0
+            def __getitem__(self, idx):
+                # This is not possible because we need to know the 
+                # width of previous queries to find the start of query 'idx'.
+                pass
+        
+        # Let's use a different approach: 
+        # Use a mutable object and map() to process the tokens.
+        # Since type 1 takes 1 token and type 2/3 take 2, 
+        # we can't use a simple map(func, tokens).
+        
+        # However, we can use a recursive function to process 
+        # the queries and print results.
+        def process_recursive(current_ptr, current_time, plants):
+            if current_ptr >= len(input_data):
+                return
+            
+            q_type = input_data[current_ptr]
+            if q_type == '1':
+                import bisect
+                bisect.insort(plants, current_time)
+                process_recursive(current_ptr + 1, current_time, plants)
+            elif q_type == '2':
+                t_val = int(input_data[current_ptr + 1])
+                process_recursive(current_ptr + 2, current_time + t_val, plants)
+            else: # q_type == '3'
+                h_val = int(input_data[current_ptr + 1])
+                import bisect
+                threshold = current_time - h_val
+                idx = bisect.bisect_right(plants, threshold)
+                sys.stdout.write(str(idx) + '\n')
+                process_recursive(current_ptr + 2, current_time, plants[idx:])
+
+        process_recursive(1, 0, [])
+
+    run()
+
+# Since the prompt requires the code inside a single block and 
+# the logic above is wrapped in a function, I will provide the 
+# final executable version.
+```
+```python
+import sys
+from bisect import bisect_right, insort
+
+# Increase recursion depth for deep query chains
+sys.setrecursionlimit(10**6)
+
+def solve():
+    # Read all input tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # Recursive function to process queries without loops
+    # current_ptr: index in input_data
+    # current_time: cumulative T from type 2 queries
+    # plants: sorted list of birth times
+    def process(current_ptr, current_time, plants):
+        if current_ptr >= len(input_data):
+            return
+        
+        q_type = input_data[current_ptr]
+        
+        if q_type == '1':
+            # Plant height 0 at current_time
+            insort(plants, current_time)
+            process(current_ptr + 1, current_time, plants)
+        
+        elif q_type == '2':
+            # Increase all plant heights by T
+            t_val = int(input_data[current_ptr + 1])
+            process(current_ptr + 2, current_time + t_val, plants)
+            
+        elif q_type == '3':
+            # Harvest plants with height >= H
+            # Height = current_time - birth_time >= H  => birth_time <= current_time - H
+            h_val = int(input_data[current_ptr + 1])
+            threshold = current_time - h_val
+            
+            # Find number of plants to harvest
+            idx = bisect_right(plants, threshold)
+            sys.stdout.write(str(idx) + '\n')
+            
+            # Remove harvested plants (those from index 0 to idx-1)
+            process(current_ptr + 2, current_time, plants[idx:])
+
+    # Start processing from the first query (index 1)
+    process(1, 0, [])
+
+if __name__ == "__main__":
+    solve()
+```
+*(Self-correction: The prompt forbids list comprehensions and loops. The recursive approach with `sys.setrecursionlimit` is the only way to process a sequence of unknown length without loops or comprehensions. Slicing `plants[idx:]` is permitted as it is an expression, not a loop.)*
+**Wait**, I noticed the prompt says "Return only Python source inside a single ```python code block." I will provide the final cleaned version.
+
+```python
+import sys
+from bisect import bisect_right, insort
+
+# Increase recursion depth to handle Q up to 2*10^5
+sys.setrecursionlimit(10**6)
+
+def solve():
+    # Read all input tokens into a list
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # Recursive function to process queries without using any loop constructs
+    def process(current_ptr, current_time, plants):
+        # Base case: no more tokens to process
+        if current_ptr >= len(input_data):
+            return
+        
+        q_type = input_data[current_ptr]
+        
+        if q_type == '1':
+            # Type 1: Plant a new plant with height 0
+            # We store the 'birth time' of the plant
+            insort(plants, current_time)
+            process(current_ptr + 1, current_time, plants)
+        
+        elif q_type == '2':
+            # Type 2: All plants grow by T
+            t_val = int(input_data[current_ptr + 1])
+            process(current_ptr + 2, current_time + t_val, plants)
+            
+        elif q_type == '3':
+            # Type 3: Harvest plants with height >= H
+            # Height = current_time - birth_time
+            # Condition: current_time - birth_time >= H  => birth_time <= current_time - H
+            h_val = int(input_data[current_ptr + 1])
+            threshold = current_time - h_val
+            
+            # Count plants that satisfy the condition using binary search
+            idx = bisect_right(plants, threshold)
+            sys.stdout.write(str(idx) + '\n')
+            
+            # Remove harvested plants by slicing the list
+            process(current_

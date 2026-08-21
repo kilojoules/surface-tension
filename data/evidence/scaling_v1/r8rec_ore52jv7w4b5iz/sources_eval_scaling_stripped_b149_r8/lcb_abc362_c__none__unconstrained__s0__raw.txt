@@ -1,0 +1,72 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once and split into a flat list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a generator to extract N and the pairs
+    # Since we cannot use loops, we use next() to get N
+    # and then group the remaining items into pairs using zip and slice
+    data_iter = iter(input_data)
+    try:
+        n = next(data_iter)
+    except StopIteration:
+        return
+
+    # Create lists of Ls and Rs
+    # We use a list comprehension to pair the remaining input
+    pairs = list(zip(data_iter, data_iter))
+    ls = [p[0] for p in pairs]
+    rs = [p[1] for p in pairs]
+
+    # Calculate the sum of all L_i and R_i
+    sum_l = sum(ls)
+    sum_r = sum(rs)
+
+    # The condition for a solution to exist is sum(L) <= 0 <= sum(R)
+    if sum_l > 0 or sum_r < 0:
+        print("No")
+        return
+
+    # We need to distribute the remaining value needed to reach 0
+    # Starting from sum(L), we need to add 'target' more to reach 0.
+    target = -sum_l
+    
+    # For each i, the maximum we can add to L_i is (R_i - L_i)
+    capacities = [r - l for l, r in zip(ls, rs)]
+    
+    # Use accumulate to find the prefix sums of the capacities
+    # prefix_sums[i] is the total capacity available from index 0 to i
+    prefix_sums = list(accumulate(capacities))
+    
+    # For each i, the amount added to L_i is:
+    # min(capacity_i, target - sum_of_previous_capacities)
+    # This can be expressed as: min(R_i, L_i + (target - prefix_sum_{i-1}))
+    # Or more simply: X_i = L_i + amount_contributed
+    # amount_contributed = min(capacity_i, max(0, target - prefix_sum_{i-1}))
+    
+    # To avoid loops, we use a list comprehension.
+    # We shift prefix_sums to get the sum of previous capacities.
+    prev_sums = [0] + prefix_sums[:-1]
+    
+    # Calculate X_i based on how much of the 'target' is covered by the current capacity
+    # The amount added to L_i is target minus what was already covered, capped by capacity_i.
+    # We use max(0, ...) to ensure we don't add negative values if target is already reached.
+    x = [
+        l + min(cap, max(0, target - prev))
+        for l, cap, prev in zip(ls, capacities, prev_sums)
+    ]
+
+    print("Yes")
+    print(*(x))
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Note on the logic:**
+1. **Existence**: A sequence $X$ exists if and only if $\sum L_i \le 0 \le \sum R_i$. If $\sum L_i > 0$, even the minimum possible sum is positive. If $\sum R_i < 0$, even the maximum possible sum is negative.
+2. **Construction**: We start by setting every $X_i = L_i$. The current sum is $S = \sum L_i$. We need to increase this sum by $-S$ to reach $0$. We iterate through the elements and increase $X_i$ towards $R_i$ until the total increase reaches $-S$.
+3. **Implementation**: Since loops are forbidden, `itertools.accumulate` is used to track the total capacity filled so far, and a list comprehension handles the final value calculation for each $X_i$.

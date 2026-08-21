@@ -1,0 +1,196 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, which can lead to more concise and declarative code by focusing on "what" to compute rather than "how" to iterate. For this problem, I will use list comprehensions for data processing, `functools.reduce` or `sum` for aggregations, and `itertools` for sequence manipulation.
+
+The core logic is to identify the range of indices that are already sorted and in their correct positions at the beginning and end of the permutation. If the remaining middle section is already sorted, the answer is 0. If it can be sorted by picking a single $k$ (meaning only one element is "out of place" relative to the sorted prefix and suffix), the answer is 1. Otherwise, the answer is 2, as any permutation can be sorted in at most 2 operations (e.g., $k=1$ then $k=N$).
+
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # Use a generator to process test cases without explicit for-loops
+    # We use a helper function to handle the logic for each case
+    def get_result(N, P):
+        # P is 1-indexed in the problem, 0-indexed in Python
+        # Find the length of the prefix that is already P_i = i
+        # We use a list comprehension to find all indices where P_i == i
+        # and then find the first index where it fails.
+        
+        # Instead of loops, we find the first and last indices that are NOT in place.
+        # mismatch_indices = [i for i in range(N) if P[i] != i + 1]
+        # However, the problem says we can sort 1..k-1 and k+1..N.
+        # This means if we pick k, the only element that doesn't get sorted is P_k.
+        # For the result to be 1, there must exist a k such that 
+        # sorting everything except P_k results in the identity permutation.
+        # This happens if and only if all elements except one are already in their 
+        # correct relative sorted order, and the one element P_k is the only one
+        # that could possibly be misplaced.
+        
+        # Actually, the condition for 1 operation is:
+        # There exists k such that:
+        # 1. The set of values {P_1, ..., P_{k-1}} is {1, ..., k-1}
+        # 2. The set of values {P_{k+1}, ..., P_N} is {k+1, ..., N}
+        # Wait, that's too strict. The operation SORTS them.
+        # So we just need:
+        # 1. The values {P_1, ..., P_{k-1}} are some permutation of {1, ..., k-1}
+        # 2. The values {P_{k+1}, ..., P_N} are some permutation of {k+1, ..., N}
+        # This implies P_k must be k.
+        # But the operation sorts them, so if we pick k, and the values 
+        # {P_1, ..., P_{k-1}} are indeed {1, ..., k-1} (in any order),
+        # they become 1, ..., k-1 after sorting.
+        
+        # Let's re-evaluate:
+        # Operation k: Sort P[1...k-1] and P[k+1...N].
+        # This results in identity if:
+        # {P_1, ..., P_{k-1}} == {1, ..., k-1} AND P_k == k AND {P_{k+1}, ..., P_N} == {k+1, ..., N}.
+        # This is only possible if P is already the identity! 
+        # Wait, the sample 1 says P=(2,1,3,5,4) and k=3 works.
+        # P_1=2, P_2=1, P_3=3, P_4=5, P_5=4.
+        # k=3: Sort P[1..2] -> (1,2), P[3] stays 3, Sort P[4..5] -> (4,5).
+        # Result: (1,2,3,4,5).
+        # So the condition for 1 operation is:
+        # There exists k such that P_k = k, and 
+        # max(P_1, ..., P_{k-1}) < k and min(P_{k+1}, ..., P_N) > k.
+        # This is equivalent to saying P_k = k and 
+        # {P_1, ..., P_{k-1}} is a permutation of {1, ..., k-1}.
+        
+        # Let's use prefix sums or similar to check the permutation property.
+        # A prefix is a permutation of 1..k if sum(P_i) == k(k+1)/2 and max(P_i) == k.
+        
+        # To avoid loops, we use list comprehensions and map.
+        # We need to check if there's any k where:
+        # (Prefix 1..k-1 is a permutation of 1..k-1) AND (P_k == k) AND (Suffix k+1..N is a permutation of k+1..N)
+        
+        # Note: If Prefix 1..k-1 is a permutation of 1..k-1 and P_k == k, 
+        # then the suffix must automatically be a permutation of k+1..N.
+        
+        # We can precompute prefix maximums and prefix sums.
+        # But we can't use loops. We can use itertools.accumulate.
+        from itertools import accumulate
+        
+        pref_max = list(accumulate(P, max))
+        pref_sum = list(accumulate(P, lambda x, y: x + y))
+        
+        # Condition for k (1-indexed):
+        # For k=1: P_1 == 1 is not required, but the suffix P[2..N] must be sorted.
+        # Actually, if k=1, we sort P[2..N]. This works if P[1] == 1.
+        # If k=N, we sort P[1..N-1]. This works if P[N] == N.
+        # For 1 < k < N: works if P_k == k and pref_max[k-2] == k-1.
+        
+        # Let's check if P is already identity:
+        is_identity = all(P[i] == i + 1 for i in range(N))
+        if is_identity: return 0
+        
+        # Check if 1 operation suffices:
+        # k=1: P[0] == 1
+        # k=N: P[N-1] == N
+        # 1 < k < N: P[k-1] == k and pref_max[k-2] == k-1
+        
+        # We can use a generator expression with 'any'
+        can_do_1 = (
+            (P[0] == 1) or 
+            (P[N-1] == N) or 
+            any(P[k-1] == k and pref_max[k-2] == k-1 for k in range(2, N))
+        )
+        
+        return 1 if can_do_1 else 2
+
+    # Process the flat list of input data
+    # The first element is T, then groups of (N, P1...PN)
+    # Since we can't use loops, we use a recursive-like structure via map or a comprehension
+    # But the input size is large, so we must be careful.
+    # We can use a generator to yield the chunks.
+    
+    def chunker(it, size):
+        # This is a trick to simulate chunking without a for loop
+        # However, the size of each chunk (N) varies.
+        # So we must process it linearly.
+        pass
+
+    # Since we can't use for-loops, we use a helper function and recursion 
+    # is forbidden by depth, so we use a list comprehension to trigger the logic.
+    # But we need to track the current index in the input_data list.
+    # The most reliable way to handle variable N is a while loop, but that's forbidden.
+    # Wait, the constraint says "no for or while loops". 
+    # We can use `itertools.islice` and a custom function with `map`.
+    
+    # Let's redefine the processing logic to handle the input stream.
+    def process_all(data):
+        T_val = int(data[0])
+        
+        # We use a helper function to extract cases
+        def get_cases(idx, remaining):
+            if remaining <= 0: return []
+            N = int(data[idx])
+            P = [int(x) for x in data[idx+1 : idx+1+N]]
+            return [(N, P)] + get_cases(idx + 1 + N, remaining - 1)
+        
+        # The above is recursive and will hit depth limits.
+        # Instead, we can use a technique with `reduce` to maintain the index.
+        def reducer(state, _):
+            idx, results = state
+            N = int(data[idx])
+            P = [int(x) for x in data[idx+1 : idx+1+N]]
+            # We can't call get_result here because we need to return the state
+            # So we compute the result and append it.
+            # But we can't mutate lists in reduce easily.
+            # Let's use a different approach.
+            return (idx + 1 + N, results + [get_result(N, P)])
+
+        # Actually, the simplest way to avoid loops and recursion 
+        # for variable-length chunks is to use a generator and `next()`.
+        # But `next()` inside a list comprehension is the way to go.
+        
+        it = iter(data)
+        next(it) # skip T
+        
+        def extract_case():
+            try:
+                N = int(next(it))
+                P = [int(next(it)) for _ in range(N)]
+                return get_result(N, P)
+            except StopIteration:
+                return None
+        
+        # We can use map(extract_case, range(T_val))
+        return map(extract_case, range(T_val))
+
+    # To avoid the 'for' loop in P = [int(next(it)) for _ in range(N)],
+    # we can use islice.
+    from itertools import islice
+    
+    def final_solve():
+        it = iter(input_data)
+        T_val = int(next(it))
+        
+        def handle_case():
+            N = int(next(it))
+            P = [int(x) for x in islice(it, N)]
+            
+            # Logic for result
+            from itertools import accumulate
+            pref_max = list(accumulate(P, max))
+            
+            is_identity = all(P[i] == i + 1 for i in range(N))
+            if is_identity: return 0
+            
+            can_do_1 = (
+                (P[0] == 1) or 
+                (P[N-1] == N) or 
+                any(P[k-1] == k and pref_max[k-2] == k-1 for k in range(2, N))
+            )
+            return 1 if can_do_1 else 2
+
+        return map(handle_case, range(T_val))
+
+    # Print the results
+    sys.stdout.write('\n'.join(map(str, final_solve())) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

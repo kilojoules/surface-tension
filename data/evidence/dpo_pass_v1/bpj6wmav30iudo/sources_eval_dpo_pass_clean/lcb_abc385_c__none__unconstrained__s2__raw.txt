@@ -1,0 +1,69 @@
+The constraint to avoid explicit `for` and `while` loops forces a shift from imperative programming to a functional style. While explicit loops are often more readable for complex state changes, using comprehensions and built-in higher-order functions can lead to concise, declarative code that describes *what* to calculate rather than *how* to iterate. For this problem, I will use `itertools.product` to generate all possible combinations of starting positions and intervals, and list comprehensions to evaluate the conditions across the dataset.
+
+```python
+import sys
+from itertools import product
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # We need to check every possible starting building 'i' 
+    # and every possible interval 'd'.
+    # i ranges from 0 to N-1
+    # d ranges from 1 to N-1
+    
+    # For a fixed start i and interval d, the sequence of indices is:
+    # i, i+d, i+2d, ... such that index < N.
+    # The number of elements is (N - 1 - i) // d + 1.
+    
+    # We only care about sequences where all H[index] are the same.
+    # Let's generate all pairs of (i, d) and calculate the count if the condition holds.
+    
+    # To avoid explicit loops, we use itertools.product and a list comprehension.
+    # We calculate the maximum count of buildings that satisfy the height condition.
+    
+    # For a given i and d, the buildings are at indices [i + k*d for k in range(...)].
+    # They satisfy the condition if all H[i + k*d] == H[i].
+    
+    # Since N is 3000, O(N^2) is acceptable. 
+    # We can iterate through all pairs of indices (i, j) where i < j and H[i] == H[j].
+    # Let d = j - i. We then check how many k satisfy H[i + k*d] == H[i].
+    
+    # However, a simpler approach: 
+    # For every pair (i, j) with H[i] == H[j], they could be the first two elements 
+    # of an equal-interval sequence.
+    # But we can just iterate through all i and d.
+    
+    # To optimize and stay within time limits without loops:
+    # We only check d if N // d is greater than the current max.
+    # But since we can't use loops, we'll use a comprehensive map/max.
+    
+    # result = max(
+    #    count of k such that H[i + k*d] == H[i]
+    #    for i in range(N) for d in range(1, N)
+    # )
+    
+    # To implement "count k such that H[i + k*d] == H[i]", 
+    # we can use a list comprehension and len().
+    # The range of k is 0 until i + k*d >= N.
+    
+    # We use a generator expression inside max() to find the answer.
+    # We only consider d where i + d < N to avoid redundant checks.
+    
+    ans = max([
+        len([k for k in range((N - 1 - i) // d + 1) if H[i + k * d] == H[i]])
+        for i, d in product(range(N), range(1, N))
+        if i + d < N
+    ] + [1]) # + [1] handles the case where N=1 or no pairs match
+
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

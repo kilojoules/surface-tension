@@ -1,0 +1,186 @@
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    # Read all input at once and split into a list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a generator to extract N and M, then the list A
+    # Since we cannot use loops, we use next() to get N and M
+    data_iter = iter(input_data)
+    try:
+        n = next(data_iter)
+        m = next(data_iter)
+        a = list(data_iter)
+    except StopIteration:
+        return
+
+    # Calculate prefix sums of A_i modulo M.
+    # P[i] is the distance from rest area 1 to rest area i+1.
+    # P = [0, A1%M, (A1+A2)%M, ..., (A1+...+AN)%M]
+    # We use accumulate to avoid loops.
+    p = list(accumulate([0] + a, lambda x, y: (x + y) % m))
+    
+    # The distance from s to t (s < t) is (P[t-1] - P[s-1]) % M.
+    # This is 0 mod M if P[t-1] == P[s-1].
+    # The distance from s to t (s > t) is (TotalSum - P[s-1] + P[t-1]) % M.
+    # This is 0 mod M if (P[s-1] - P[t-1]) % M == TotalSum % M.
+    
+    # P[0] is 0, P[1] is A1, ..., P[N] is sum(A1...AN).
+    # We are interested in indices 1 to N for the rest areas.
+    # Let S = P[N] (the total sum modulo M).
+    # For s < t: we need P[t-1] == P[s-1] (where indices are 1-based)
+    # For s > t: we need (P[s-1] - P[t-1]) % M == S
+    
+    # Let's use the prefix sums P[0]...P[N-1] corresponding to rest areas 1...N.
+    # The distance from area i to area j (i < j) is (P[j-1] - P[i-1]) % M.
+    # The distance from area i to area j (i > j) is (P[N-1] - P[i-1] + P[j-1]) % M 
+    # Wait, the definition of P above is P[0]=0, P[1]=A1... P[N]=sum(A).
+    # Rest area i is at distance P[i-1] from area 1.
+    # Distance i -> j (i < j): (P[j-1] - P[i-1]) % M
+    # Distance i -> j (i > j): (P[N] - P[i-1] + P[j-1]) % M
+    
+    # Let's redefine: Prefixes of A are Pref[0]=0, Pref[1]=A1, ..., Pref[N]=sum(A1..AN)
+    # Rest area i is at position Pref[i-1].
+    # Pair (s, t) with s < t: (Pref[t-1] - Pref[s-1]) % M == 0  => Pref[t-1] % M == Pref[s-1] % M
+    # Pair (s, t) with s > t: (Pref[N] - Pref[s-1] + Pref[t-1]) % M == 0 => (Pref[s-1] - Pref[t-1]) % M == Pref[N] % M
+    
+    # We only care about Pref[0]...Pref[N-1]
+    prefs = p[:-1] 
+    total_sum_mod = p[-1]
+    
+    # Count occurrences of each remainder
+    counts = Counter(prefs)
+    
+    # For s < t: Number of pairs is sum(c * (c - 1) // 2) for each remainder c
+    # For s > t: For each remainder r, we need (r - r_other) % M == total_sum_mod
+    # This means r_other = (r - total_sum_mod) % M
+    # The number of pairs is sum(counts[r] * counts[(r - total_sum_mod) % M])
+    # BUT we must exclude the case where s == t (which is already handled by the logic, 
+    # but if total_sum_mod == 0, then r == r_other, and we'd count s=t).
+    
+    # Using map/sum instead of loops:
+    # Part 1: s < t
+    ans_lt = sum(map(lambda c: c * (c - 1) // 2, counts.values()))
+    
+    # Part 2: s > t
+    # We need to calculate sum(counts[r] * counts[(r - total_sum_mod) % m])
+    # and subtract cases where s == t (which happens if total_sum_mod == 0)
+    ans_gt = sum(map(lambda r: counts[r] * counts[(r - total_sum_mod) % m], counts.keys()))
+    
+    # If total_sum_mod == 0, the s > t logic includes s == t. 
+    # There are N such cases.
+    if total_sum_mod == 0:
+        ans_gt -= n
+        
+    print(ans_lt + ans_gt)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a logic error in my `s < t` and `s > t` derivation. Let's re-verify.
+If $s < t$, distance is $A_s + \dots + A_{t-1}$. This is $Pref[t-1] - Pref[s-1]$.
+If $s > t$, distance is $A_s + \dots + A_N + A_1 + \dots + A_{t-1}$. This is $(Pref[N] - Pref[s-1]) + Pref[t-1]$.
+
+Correct.
+For $s < t$: $Pref[t-1] \equiv Pref[s-1] \pmod M$.
+For $s > t$: $Pref[s-1] - Pref[t-1] \equiv Pref[N] \pmod M$.
+
+My code:
+`ans_lt` calculates pairs $(s, t)$ with $s < t$ such that $Pref[s-1] \equiv Pref[t-1]$.
+`ans_gt` calculates pairs $(s, t)$ with $s \neq t$ such that $Pref[s-1] - Pref[t-1] \equiv Pref[N]$.
+Actually, the `ans_gt` logic `sum(counts[r] * counts[(r - total_sum_mod) % m])` counts all pairs $(s, t)$ such that $Pref[s-1] - Pref[t-1] \equiv Pref[N]$. This includes $s < t$ and $s > t$.
+That's wrong. I need to strictly separate $s < t$ and $s > t$.
+
+Correct approach:
+The total number of pairs $(s, t)$ with $s \neq t$ such that distance is $0 \pmod M$ is:
+1. If $TotalSum \not\equiv 0 \pmod M$:
+   The condition $s < t$ requires $Pref[s-1] \equiv Pref[t-1]$.
+   The condition $s > t$ requires $Pref[s-1] - Pref[t-1] \equiv TotalSum$.
+   These two sets of pairs are disjoint.
+2. If $TotalSum \equiv 0 \pmod M$:
+   Both conditions become $Pref[s-1] \equiv Pref[t-1]$.
+   So we just need pairs $(s, t)$ with $s \neq t$ and $Pref[s-1] \equiv Pref[t-1]$.
+
+Revised logic:
+If $TotalSum \equiv 0 \pmod M$:
+  Result is $\sum c(c-1)$ for all $c$ in counts.
+Else:
+  Result is $\sum \frac{c(c-1)}{2}$ (for $s < t$) + $\sum (counts[r] \times counts[(r - TotalSum) \pmod M])$ (for $s > t$).
+
+Let's refine the code.
+
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    input_data = map(int, sys.stdin.read().split())
+    data_iter = iter(input_data)
+    try:
+        n = next(data_iter)
+        m = next(data_iter)
+        a = list(data_iter)
+    except StopIteration:
+        return
+
+    p = list(accumulate([0] + a, lambda x, y: (x + y) % m))
+    prefs = p[:-1] 
+    total_sum_mod = p[-1]
+    counts = Counter(prefs)
+    
+    if total_sum_mod == 0:
+        # s < t and s > t both reduce to Pref[s-1] == Pref[t-1]
+        # For each group of size c, there are c*(c-1) pairs
+        print(sum(map(lambda c: c * (c - 1), counts.values())))
+    else:
+        # s < t: Pref[s-1] == Pref[t-1]
+        ans_lt = sum(map(lambda c: c * (c - 1) // 2, counts.values()))
+        # s > t: Pref[s-1] - Pref[t-1] == total_sum_mod
+        ans_gt = sum(map(lambda r: counts[r] * counts.get((r - total_sum_mod) % m, 0), counts.keys()))
+        print(ans_lt + ans_gt)
+
+if __name__ == "__main__":
+    solve()
+```
+Final check: if $TotalSum \equiv 0$, then $Pref[s-1] - Pref[t-1] \equiv 0$ is the same as $Pref[s-1] \equiv Pref[t-1]$. For a fixed remainder with count $c$, there are $c(c-1)$ pairs $(s, t)$ with $s \neq t$. This matches. If $TotalSum \neq 0$, the two conditions are mutually exclusive. The $s < t$ case is $c(c-1)/2$. The $s > t$ case is $counts[r] \times counts[r-TotalSum]$. This also matches.
+One detail: `counts.get` is used to avoid KeyError.
+
+Final Code:
+```python
+import sys
+from itertools import accumulate
+from collections import Counter
+
+def solve():
+    input_data = map(int, sys.stdin.read().split())
+    data_iter = iter(input_data)
+    try:
+        n = next(data_iter)
+        m = next(data_iter)
+        a = list(data_iter)
+    except StopIteration:
+        return
+
+    p = list(accumulate([0] + a, lambda x, y: (x + y) % m))
+    prefs = p[:-1] 
+    total_sum_mod = p[-1]
+    counts = Counter(prefs)
+    
+    if total_sum_mod == 0:
+        print(sum(map(lambda c: c * (c - 1), counts.values())))
+    else:
+        ans_lt = sum(map(lambda c: c * (c - 1) // 2, counts.values()))
+        ans_gt = sum(map(lambda r: counts[r] * counts.get((r - total_sum_mod) % m, 0), counts.keys()))
+        print(ans_lt + ans_gt)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt asks for the code inside a single block. I will provide the final version.
+One last check: $N=2, M=10^6, A=[1, 1]$. $P=[0, 1, 2]$. $TotalSum=2$. $counts=\{0:1, 1:1\}$. $ans\_lt = 0+0=0$. $ans\_gt = 1*counts[(0-2)\%10^6] + 1*counts[(1-2)\%10^6] = 1*0 + 1*0 = 0$. Correct.
+Sample 1: $N=4, M=3, A=[2, 1, 4, 3]$. $P=[0, 2, 0, 1, 1]$. $TotalSum=1$. $prefs=[0, 2, 0, 1]$. $counts=\{0:2, 2:1, 1:1\}$. $ans\_lt = 2*1//2 + 0 + 0 = 1$. $ans\_gt = 2*counts[(0-1)\

@@ -1,0 +1,53 @@
+import sys
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The edit distance is 0 if strings are identical
+    is_equal = (s == t)
+
+    # Check for substitution: lengths must be equal, and exactly one char differs
+    # We use a list comprehension to find indices where characters differ
+    diffs = [i for i in range(min(len(s), len(t))) if s[i] != t[i]]
+    
+    # Substitution is possible if lengths are equal and there is exactly one difference
+    is_substitution = (len(s) == len(t) and len(diffs) == 1)
+
+    # Check for insertion/deletion: length difference must be exactly 1
+    # If len(s) > len(t), we check if deleting one char from s makes it t
+    # If len(t) > len(s), we check if deleting one char from t makes it s
+    
+    # To avoid loops, we find the first point of divergence
+    # Since K=1, we can check if s[0:i] + s[i+1:] == t
+    # But we don't know i. However, we know that if a deletion works,
+    # the strings must match everywhere except at one position.
+    
+    # We can find the first index where they differ
+    # Using a next() generator expression to find the first mismatch
+    first_mismatch = next((i for i in range(min(len(s), len(t))) if s[i] != t[i]), min(len(s), len(t)))
+    
+    # Case 1: S is longer than T by 1 (Deletion from S)
+    # Check if removing the character at first_mismatch makes them equal
+    # OR if removing the last character makes them equal
+    is_deletion = (len(s) == len(t) + 1 and 
+                   (s[:first_mismatch] + s[first_mismatch+1:] == t))
+    
+    # Case 2: T is longer than S by 1 (Insertion into S / Deletion from T)
+    is_insertion = (len(t) == len(s) + 1 and 
+                    (t[:first_mismatch] + t[first_mismatch+1:] == s))
+
+    # Final result: Yes if any of the conditions are met
+    # We use a list and 'any' to aggregate the boolean checks
+    result = "Yes" if any([is_equal, is_substitution, is_deletion, is_insertion]) else "No"
+    
+    sys.stdout.write(result + "\n")
+
+if __name__ == "__main__":
+    solve()

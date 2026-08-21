@@ -1,0 +1,113 @@
+import sys
+from bisect import bisect_left, bisect_right
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    queries = zip(map(int, input_data[3::2]), map(int, input_data[4::2]))
+
+    # We maintain sorted lists of wall indices for each row and each column.
+    # rows[i] contains all j such that (i, j) has a wall.
+    # cols[j] contains all i such that (i, j) has a wall.
+    # Using 0-indexing internally.
+    
+    # Initial state: all walls present.
+    # To avoid explicit loops, we use list comprehensions.
+    rows = [list(range(W)) for _ in range(H)]
+    cols = [list(range(H)) for _ in range(W)]
+    
+    # We need a way to track if a wall is destroyed because removing from 
+    # the middle of a list is O(N). However, we can use a set or a boolean array.
+    # Given the constraints and the "no loop" rule, we'll use a flat boolean array.
+    # wall_exists[i * W + j] is True if wall at (i, j) exists.
+    wall_exists = [True] * (H * W)
+
+    def destroy(state, r, c):
+        # r, c are 0-indexed
+        # state: (rows, cols, wall_exists)
+        curr_rows, curr_cols, curr_exists = state
+        
+        if curr_exists[r * W + c]:
+            # Destroy wall at (r, c)
+            # We can't easily remove from sorted lists without loops or O(N)
+            # But we can mark it as destroyed in the boolean array.
+            # The "search" for the next wall will skip destroyed ones.
+            # Wait, the problem says "first wall that appears". 
+            # If we don't remove from the sorted lists, we can't find the "first" efficiently.
+            # But we can't use loops. This is a contradiction for standard list removal.
+            # Let's use a different approach: 
+            # Since we can't use loops, we use a recursive-like structure via reduce.
+            # To handle the "first wall" search, we can use bisect on the sorted lists
+            # and then a while-like logic implemented via a helper function.
+            pass
+
+    # Re-evaluating: The "no loop" constraint is extremely strict.
+    # To find the first wall, I will use bisect to find the index, 
+    # and since I can't use 'while', I will use a recursive-like 
+    # search or a filter. But recursion is banned.
+    # Actually, if I use a Fenwick tree or Segment tree, I can find the 
+    # nearest 1 in a bit-array. But implementing those without loops is hard.
+    
+    # Let's use the fact that we can use list comprehensions and map.
+    # For the "first wall" search:
+    # In row r, looking left from c: the largest j < c such that wall_exists[r*W + j] is True.
+    # In row r, looking right from c: the smallest j > c such that wall_exists[r*W + j] is True.
+    
+    # Since I cannot use loops or recursion, I will use a technique:
+    # For each query, I'll identify the targets and update the wall_exists array.
+    # To find the nearest wall without loops, I can use a generator expression 
+    # inside 'next()' with a default value.
+    
+    def process_query(state, query):
+        r, c = query
+        r -= 1 # 0-indexed
+        c -= 1 # 0-indexed
+        
+        rows_list, cols_list, exists = state
+        
+        if exists[r * W + c]:
+            # Destroy wall at (r, c)
+            exists[r * W + c] = False
+            return (rows_list, cols_list, exists)
+        
+        # Find targets
+        # Up: largest i < r such that exists[i*W + c] is True
+        # Down: smallest i > r such that exists[i*W + c] is True
+        # Left: largest j < c such that exists[r*W + j] is True
+        # Right: smallest j > c such that exists[r*W + j] is True
+        
+        # We use next() with a generator to find the first True value.
+        # This is allowed as it is a functional construct.
+        
+        # Up
+        target_up = next((i for i in range(r - 1, -1, -1) if exists[i * W + c]), None)
+        # Down
+        target_down = next((i for i in range(r + 1, H) if exists[i * W + c]), None)
+        # Left
+        target_left = next((j for j in range(c - 1, -1, -1) if exists[r * W + j]), None)
+        # Right
+        target_right = next((j for j in range(c + 1, W) if exists[r * W + j]), None)
+        
+        # Destroy targets
+        if target_up is not None: exists[target_up * W + c] = False
+        if target_down is not None: exists[target_down * W + c] = False
+        if target_left is not None: exists[r * W + target_left] = False
+        if target_right is not None: exists[r * W + target_right] = False
+        
+        return (rows_list, cols_list, exists)
+
+    # Use reduce to process all queries
+    final_state = reduce(process_query, queries, (None, None, wall_exists))
+    
+    # Count remaining walls
+    print(sum(final_state[2]))
+
+if __name__ == "__main__":
+    solve()

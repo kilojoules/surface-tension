@@ -1,0 +1,76 @@
+```python
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments
+    segments = []
+    for i in range(N):
+        idx = 3 + i * 4
+        segments.append((
+            (int(input_data[idx]), int(input_data[idx+1])),
+            (int(input_data[idx+2]), int(input_data[idx+3]))
+        ))
+
+    # Precompute distances for each segment (printing time)
+    # print_times[i] = length of segment i / T
+    print_times = [
+        math.sqrt((s[0][0] - s[1][0])**2 + (s[0][1] - s[1][1])**2) / T 
+        for s in segments
+    ]
+
+    # Helper to calculate distance between two points
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # We need to decide the order of segments (N!) and the direction of each segment (2^N)
+    # N is small (up to 6), so N! * 2^N is 720 * 64 = 46,080, which is feasible.
+    
+    # Generate all permutations of segment indices
+    orders = permutations(range(N))
+    # Generate all possible direction combinations (0: p1->p2, 1: p2->p1)
+    directions = product([0, 1], repeat=N)
+    
+    # To avoid nested loops and recursion, we use a generator/comprehension
+    # For each order and direction config, calculate total time.
+    
+    def calculate_total_time(order, dirs):
+        current_pos = (0, 0)
+        total_time = 0.0
+        
+        for i in range(N):
+            seg_idx = order[i]
+            p1, p2 = segments[seg_idx]
+            
+            # Determine start and end based on direction
+            start_p = p1 if dirs[i] == 0 else p2
+            end_p = p2 if dirs[i] == 0 else p1
+            
+            # Time to move to start point (non-emitting) + time to print (emitting)
+            total_time += dist(current_pos, start_p) / S + print_times[seg_idx]
+            current_pos = end_p
+            
+        return total_time
+
+    # Use a generator to find the minimum time across all permutations and directions
+    # We map the calculation function over the product of permutations and directions
+    ans = min(
+        calculate_total_time(order, dirs) 
+        for order in orders 
+        for dirs in directions
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```

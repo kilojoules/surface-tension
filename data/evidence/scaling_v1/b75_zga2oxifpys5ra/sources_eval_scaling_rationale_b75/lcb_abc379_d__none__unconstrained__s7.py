@@ -1,0 +1,104 @@
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries in order. 
+    # Since we cannot use loops, we use reduce to maintain state.
+    # State: (current_time_offset, sorted_list_of_planting_times, results_list)
+    # A plant planted at time 't' has height (current_time_offset - t) at any given moment.
+    # Harvest condition: height >= H  =>  current_time_offset - t >= H  =>  t <= current_time_offset - H
+    
+    # To handle the input stream without a loop, we group the flat list into queries.
+    # However, queries have variable lengths (1, 2, or 3 arguments).
+    # We will use a generator or a custom function to parse the flat list.
+    
+    def parse_queries(data):
+        it = iter(data[1:])
+        def get_next():
+            try:
+                q_type = next(it)
+                if q_type == '1':
+                    return (1, None)
+                elif q_type == '2':
+                    return (2, int(next(it)))
+                else:
+                    return (3, int(next(it)))
+            except StopIteration:
+                return None
+        
+        # Since we can't use a while loop to call get_next, 
+        # we use a recursive-like approach via map/reduce or a list comprehension.
+        # But the most reliable way to parse variable length is a helper.
+        # Given the constraint, we can pre-process the input into a list of tuples.
+        return it
+
+    # Because we cannot use loops, we use a helper function with reduce to 
+    # simulate the state machine of the query processor.
+    
+    def process_queries(state, query_tuple):
+        current_offset, plants, results = state
+        q_type, value = query_tuple
+        
+        if q_type == 1:
+            # Plant a new flower. Its "birth time" is the current_offset.
+            # We use a sorted list to keep track of birth times.
+            # Since we only add plants at the 'current' time, 
+            # and current_offset only increases, the list remains sorted.
+            return (current_offset, plants + [current_offset], results)
+        
+        elif q_type == 2:
+            # Increase height of all plants by T.
+            return (current_offset + value, plants, results)
+        
+        elif q_type == 3:
+            # Harvest plants where height >= H.
+            # height = current_offset - birth_time >= H  => birth_time <= current_offset - H
+            threshold = current_offset - value
+            # Find index of first plant with birth_time > threshold
+            idx = bisect_left(plants, threshold + 1) 
+            # Wait, bisect_left finds the first element >= x.
+            # We want elements <= threshold.
+            # The number of plants harvested is the count of elements in plants[0...idx-1].
+            # However, we need to remove them.
+            # Since we can't use slices in a loop, we use the fact that 
+            # plants[:idx] are harvested and plants[idx:] remain.
+            harvested_count = idx
+            return (current_offset, plants[idx:], results + [harvested_count])
+            
+    # To avoid the loop for parsing, we can use a generator and map it.
+    # But since we need to handle the variable length of queries, 
+    # we can use a custom function with a list comprehension that 
+    # manages an iterator.
+    
+    def get_queries(data):
+        it = iter(data[1:])
+        # This is a trick to consume the iterator within a list comprehension
+        # by wrapping the logic in a function.
+        def step():
+            t = next(it)
+            if t == '1': return (1, None)
+            if t == '2': return (2, int(next(it)))
+            return (3, int(next(it)))
+        
+        # We use a list comprehension to drive the iterator until exhaustion.
+        # We use a range and a conditional to stop when the iterator is empty.
+        # Since we know there are Q queries, we can just do:
+        return [step() for _ in range(Q)]
+
+    # Execute the logic
+    queries = get_queries(input_data)
+    final_state = reduce(process_queries, queries, (0, [], []))
+    
+    # Print results
+    print('\n'.join(map(str, final_state[2])))
+
+if __name__ == "__main__":
+    solve()

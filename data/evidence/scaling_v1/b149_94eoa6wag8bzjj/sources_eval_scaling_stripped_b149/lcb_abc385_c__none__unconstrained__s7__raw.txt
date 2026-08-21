@@ -1,0 +1,257 @@
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # Group indices by building height
+    # height_groups = {height: [list of indices where this height occurs]}
+    # We use a dictionary comprehension to organize indices for each unique height
+    unique_heights = set(h)
+    height_map = {height: [i for i, val in enumerate(h) if val == height] 
+                  for height in unique_heights}
+
+    # For each height, we check all possible intervals 'd'
+    # The interval 'd' is the distance between the first chosen building 
+    # and the second chosen building in the sequence.
+    # If a height appears at indices [i1, i2, i3...], the possible intervals 
+    # are (i2 - i1), (i3 - i1), etc.
+    
+    # We use a generator expression to find the max count for each height
+    # and then take the max of those results.
+    
+    ans = max(
+        max(
+            # For a specific height's indices 'idx_list', 
+            # try every possible starting pair (idx_list[0], idx_list[j])
+            # to define the interval 'd'.
+            # Then count how many subsequent buildings at interval 'd' have the same height.
+            # Note: we must check all possible starting buildings, not just the first one,
+            # but since we are looking for the MAXIMUM, we can iterate through all 
+            # pairs (i, j) as potential start and second elements.
+            [
+                # Count how many k satisfy: (start_idx + k*d) < n 
+                # AND h[start_idx + k*d] == target_height
+                # However, a simpler way: since we already have the list of indices 
+                # for that height, we can just check if (start_idx + k*d) is in the set.
+                sum(1 for k in range((n - 1 - start_idx) // d + 1) 
+                    if h[start_idx + k * d] == target_height)
+                for start_idx in idx_list
+                for d in range(1, n)
+                if start_idx + d < n # Ensure the interval is within bounds
+            ] + [1] # Ensure at least 1 is returned if the loop is empty
+            for target_height, idx_list in height_map.items()
+        )
+        for target_height, idx_list in height_map.items()
+    )
+
+    # The logic above is slightly redundant in the nesting. 
+    # Let's refine it into a single clean comprehension.
+    
+    # Corrected logic:
+    # For every height that exists:
+    #   For every index i where that height occurs:
+    #     For every possible interval d (1 to N):
+    #       Count how many buildings at i, i+d, i+2d... have that height.
+    
+    final_ans = max(
+        max(
+            [
+                sum(1 for k in range((n - 1 - i) // d + 1) if h[i + k * d] == height)
+                for i in range(n)
+                for d in range(1, n)
+                if h[i] == height
+            ] + [1]
+            for height in unique_heights
+        )
+        for height in unique_heights
+    ) if n > 0 else 0
+
+    # The above is still a bit O(N^3). Given N=3000, O(N^3) is too slow.
+    # We need O(N^2). 
+    # For a fixed height, we only care about indices where that height appears.
+    # Let S be the set of indices for a height.
+    # For every pair i, j in S (i < j), d = j - i.
+    # We can't just count, because that's still O(N^3) in worst case.
+    # Wait, the constraint is N=3000. O(N^2) is required.
+    # Let's use the property: for a fixed height and fixed interval d,
+    # we can group indices by (index % d).
+    
+    # Optimized approach:
+    # For each unique height:
+    #   Indices = [i for i, v in enumerate(h) if v == height]
+    #   For d in range(1, N):
+    #     Count occurrences of (i % d) among Indices.
+    #     The max count for this d is the answer.
+    
+    # But we can't iterate d from 1 to N for every height.
+    # Actually, we only need to check d that are differences between indices in S.
+    # Even better: for a fixed height, the answer is max(count(i % d)) for all d.
+    # But we can just iterate d from 1 to N once and for each d, 
+    # check all heights. That's O(N^2).
+    
+    # Let's redefine:
+    # For d in range(1, N):
+    #   For each offset r in range(d):
+    #     Buildings at r, r+d, r+2d...
+    #     Find the most frequent height among them.
+    
+    # This is O(N^2).
+    
+    # Implementation of O(N^2):
+    # We use a generator to find the max frequency of any height for every possible (d, r).
+    
+    # Since I must return a single block, I will use a more efficient approach.
+    pass
+
+# Replacing the solve logic with the O(N^2) approach inside the final block.
+```
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    if n == 0:
+        print(0)
+        return
+
+    # We want to find max count of buildings with same height at equal intervals.
+    # An interval is defined by d (distance) and r (start offset).
+    # For a fixed d and r, we look at heights: h[r], h[r+d], h[r+2d]...
+    # We want the most frequent height in that sequence.
+    
+    # To avoid loops, we use comprehensions.
+    # We iterate d from 1 to n-1. For each d, we check all possible offsets r < d.
+    # For each (d, r), we extract the sequence and find the max frequency.
+    
+    # However, O(N^2) is 3000^2 = 9,000,000, which is acceptable in Python 
+    # if we use built-ins.
+    
+    # We can use a helper to get the max frequency of a list.
+    # Since we can't define functions, we use a trick with groupby or a counter.
+    # But we can't import Counter. We can use sorted() and groupby().
+    
+    # Let's use a more direct approach:
+    # For every pair of indices (i, j) with h[i] == h[j], they define an interval d = j - i.
+    # This is still potentially O(N^3) if we check all k.
+    
+    # The most reliable O(N^2) is:
+    # For each d in range(1, n):
+    #   For each r in range(d):
+    #     Sequence S = [h[i] for i in range(r, n, d)]
+    #     Result = max(frequency of heights in S)
+    
+    # To implement "max frequency" without loops or Counter:
+    # sorted(S) -> groupby(S) -> max(len(list(g)) for k, g in groupby(S))
+    
+    # To avoid the O(N^2 * log N) from sorting, we can't. But N=3000 is small enough.
+    # Actually, the number of elements in S is n/d.
+    # Total complexity: Sum_{d=1 to n} Sum_{r=0 to d-1} (n/d log n/d) 
+    # = Sum_{d=1 to n} n log(n/d) approx n * n = O(N^2).
+    
+    # Let's refine the comprehension:
+    res = max(
+        max(
+            (
+                max(
+                    [len(list(g)) for k, g in groupby(sorted([h[i] for i in range(r, n, d)]))]
+                ),
+                1
+            )
+            for r in range(d)
+        )
+        for d in range(1, n)
+    ) if n > 1 else 1
+
+    # Wait, the above is still a bit slow. Let's use a simpler O(N^2):
+    # For every pair i, j where h[i] == h[j], they could be the 1st and 2nd elements.
+    # But that's O(N^3).
+    
+    # Let's use the property that we only care about heights that appear multiple times.
+    # For each height, get its indices. For every pair of indices, calculate d.
+    # This is still O(N^3) if one height appears N times.
+    
+    # The most efficient way is to iterate through all possible intervals d.
+    # For a fixed d, we can process the array in O(N).
+    
+    # Let's use a list comprehension to implement the O(N^2) logic.
+    # We use a helper to get the max frequency.
+    
+    print(res)
+
+# Since I cannot use 'def' inside the block for the logic, 
+# I will wrap the logic in a way that it executes.
+# But the prompt says "Complete Python program". 
+# I will use a list comprehension that performs the O(N^2) check.
+
+import sys
+from itertools import groupby
+
+def main():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    if n <= 1:
+        print(n)
+        return
+
+    # We need to find max(count) where h[r] == h[r+d] == h[r+2d]...
+    # Instead of all d, we only check d that are differences between indices of the same height.
+    # To keep it O(N^2), we can iterate d from 1 to n.
+    # For each d, we check all r < d.
+    # For each (d, r), we count the most frequent height.
+    
+    # To optimize: we only care about d if it's a divisor of (j-i) for some h[i]==h[j].
+    # Actually, the simplest O(N^2) is:
+    # For each height 'val', let its indices be 'idx'.
+    # For every pair i, j in 'idx', d = j - i.
+    # Then count how many k in 'idx' satisfy (k - i) % d == 0.
+    # This is still O(N^3).
+    
+    # Correct O(N^2):
+    # For each height 'val', let its indices be 'idx'.
+    # For every pair i, j in 'idx' (i < j):
+    #   d = j - i
+    #   The number of elements is (count of k in 'idx' such that k = i + m*d).
+    #   This is still O(N^3).
+    
+    # Wait, the constraint N=3000 and 2 seconds means O(N^2) is mandatory.
+    # The only way to get O(N^2) is to iterate d and r, and then 
+    # count heights. But that's O(N^2) total.
+    # Total elements processed: Sum_{d=1 to N} Sum_{r=0 to d-1} (N/d) = Sum_{d=1 to N} N = N^2.
+    
+    # Let's use a generator expression inside max().
+    ans = max(
+        max(
+            (
+                max(
+                    [len(list(g)) for k, g in groupby(sorted([h[i] for i in range(r, n, d)]))]
+                )
+                for r in range(d)
+            ),
+            1
+        )
+        for d in range(1, n)
+    )
+    print(ans)
+
+if __name__ == "__main__":
+    main()
+```
+**Wait**, the logic in the `main()` function above is slightly flawed because it finds the most frequent height

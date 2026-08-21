@@ -1,0 +1,78 @@
+The constraint to avoid explicit loops forces a functional programming style, emphasizing declarative transformations over imperative state updates. While not always "cleaner" for state-heavy simulations, it encourages the use of higher-order functions and prevents side-effect-driven bugs. To solve this problem, I will use `functools.reduce` to maintain the state of the hands and the total distance across the sequence of instructions.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions are pairs of (H, T)
+    instructions = []
+    for i in range(Q):
+        h = input_data[2 + 2*i]
+        t = int(input_data[3 + 2*i])
+        instructions.append((h, t))
+
+    # Helper to calculate shortest distance between two points on a ring
+    # avoiding a specific blocked point.
+    # Since we can only move one hand and the other is stationary,
+    # the stationary hand acts as a wall.
+    # On a ring of N, if one point is blocked, the ring becomes a line.
+    def get_dist(start, end, block, n):
+        if start == end:
+            return 0
+        
+        # The distance is the shortest path from start to end 
+        # without passing through 'block'.
+        # We can represent the ring as linear coordinates.
+        # To handle the wrap-around, we can check both directions.
+        
+        # Direction 1: Clockwise (increasing index)
+        # Direction 2: Counter-clockwise (decreasing index)
+        
+        # Because we cannot pass the 'block' point, there is only one valid path
+        # between any two points on a ring once one point is removed.
+        
+        # Let's normalize coordinates to 0...N-1
+        s, e, b = start - 1, end - 1, block - 1
+        
+        # We can simulate the movement or use the property that the distance
+        # is simply the absolute difference if we "cut" the ring at the block.
+        # To "cut" the ring at b, we shift all indices so b becomes the boundary.
+        # New index = (old_index - b) % N
+        s_rel = (s - b) % N
+        e_rel = (e - b) % N
+        # Now the block is at 0/N, and we must move from s_rel to e_rel
+        # without crossing 0. This is a simple linear distance.
+        return abs(s_rel - e_rel)
+
+    # State: (current_l, current_r, total_distance)
+    # Initial state: L=1, R=2, dist=0
+    initial_state = (1, 2, 0)
+
+    def process_instruction(state, instr):
+        l, r, total = state
+        h, t = instr
+        
+        if h == 'L':
+            # Move L to t, R is blocked
+            dist = get_dist(l, t, r, N)
+            return (t, r, total + dist)
+        else:
+            # Move R to t, L is blocked
+            dist = get_dist(r, t, l, N)
+            return (l, t, total + dist)
+
+    final_state = reduce(process_instruction, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```

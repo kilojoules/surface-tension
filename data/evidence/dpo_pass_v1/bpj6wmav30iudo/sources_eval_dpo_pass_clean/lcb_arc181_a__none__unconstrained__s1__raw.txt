@@ -1,0 +1,212 @@
+The constraint to avoid explicit loops and recursion forces a functional programming style, which emphasizes data transformation over state mutation. In Python, this encourages the use of high-level built-ins and comprehensions that are often more concise and can be highly optimized. For this problem, I will use `sys.stdin.read().split()` to handle input efficiently, list comprehensions for data processing, and `min`/`max` logic to determine the required number of operations based on the positions of the elements that are already in their correct sorted places.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of strings
+    input_data = sys.stdin.read().split()
+    
+    # Use an iterator to consume the input data sequentially
+    it = iter(input_data)
+    
+    # Get the number of test cases
+    T_str = next(it, None)
+    if T_str is None:
+        return
+    T = int(T_str)
+    
+    # Process each test case using a list comprehension to avoid for-loops.
+    # For each case, we need to find the minimum operations to sort the permutation.
+    # An operation at index k sorts [1, k-1] and [k+1, N].
+    # If the permutation is already sorted, answer is 0.
+    # If there exists k such that sorting [1, k-1] and [k+1, N] sorts the whole array,
+    # it means only P[k] was "out of place" relative to the sorted segments.
+    # Specifically, if we can pick k such that P[k] = k, and the remaining 
+    # elements are partitioned such that {P_1...P_{k-1}} = {1...k-1} 
+    # and {P_{k+1}...P_N} = {k+1...N}, then 1 operation suffices.
+    # However, the operation is simpler: if we pick k, we sort everything 
+    # except P[k]. For the result to be (1, 2, ..., N), we MUST have P[k] = k.
+    # Then we check if the set of elements before k is {1, ..., k-1} 
+    # and after k is {k+1, ..., N}.
+    # Actually, if P[k] = k, then sorting [1, k-1] and [k+1, N] will 
+    # always result in (1, ..., N) if and only if the set {P_1, ..., P_{k-1}} 
+    # is exactly {1, ..., k-1}.
+    
+    # Let's refine: 
+    # 0 ops: P is already (1, ..., N).
+    # 1 op: There exists k such that P[k] = k AND 
+    #       (max(P[1...k-1]) == k-1 OR k=1) AND 
+    #       (min(P[k+1...N]) == k+1 OR k=N).
+    # 2 ops: Always possible for N >= 3.
+    
+    # To implement this without loops, we use map and list comprehensions.
+    # We process T cases.
+    
+    results = [
+        (lambda N, P: 
+            0 if P == list(range(1, N + 1)) else (
+                1 if any(
+                    (P[k-1] == k and 
+                     (k == 1 or max(P[:k-1]) == k-1) and 
+                     (k == N or min(P[k:]) == k+1))
+                    for k in range(1, N + 1)
+                ) else 2
+            )
+        )(int(next(it)), [int(next(it)) for _ in range(sum(1 for _ in range(0)))] # This is a placeholder
+        ) 
+        for _ in range(T)
+    ]
+    # The above logic is tricky with the iterator inside a comprehension.
+    # Let's use a different approach to handle the iterator.
+    pass
+
+# Since the constraint is strictly "no for/while loops", 
+# we must handle the input stream carefully.
+# I will use a recursive-like structure via map/list comps 
+# but since recursion is banned, I'll flatten the input.
+
+def final_solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # We create a list of (N, P) tuples로
+    # Since we can't use loops, we use a list comprehension with a 
+    # helper to slice the flat list.
+    # The offset for each test case is calculated based on the N values.
+    
+    # Because N varies, we can't easily slice without a loop.
+    # However, we can use a custom function and map.
+    # Wait, the constraint says "no for or while loops". 
+    # It does NOT say I cannot use map, filter, or list comprehensions.
+    
+    # To handle variable N, I'll use a generator to yield the cases.
+    # But I can't use a loop to build the generator.
+    # I can use `itertools.accumulate` to find the indices.
+    
+    import itertools
+    
+    # Extract all Ns and Ps
+    # N_vals = [int(input_data[i]) for i in ...] 
+    # This is hard without a loop. 
+    # Let's use a recursive-like approach with map/reduce? No, recursion banned.
+    
+    # Actually, I can use a list comprehension to process the data 
+    # if I can index it.
+    # Let', use a helper list to store the starting positions of each case.
+    
+    # Since I cannot use loops, I will use `map` and a `lambda` 
+    # that manages the state via a list or iterator.
+    
+    it = iter(input_data)
+    
+    # This function will be called T times.
+    process_case = lambda: (
+        (lambda N, P: 
+            0 if P == list(range(1, N + 1)) else (
+                1 if any(
+                    (P[k-1] == k and 
+                     (k == 1 or max(P[:k-1]) == k-1) and 
+                     (k == N or min(P[k:]) == k+1))
+                    for k in range(1, N + 1)
+                ) else 2
+            )
+        )(int(next(it)), [int(next(it)) for _ in range(int(next(it)) if False else 0)] # logic error
+        )
+    )
+    # The problem is `next(it)` inside a list comprehension.
+    # Let's use a simpler way: 
+    # Read T, then use a list comprehension to consume the iterator.
+    
+    # Correct approach to consume iterator in list comp:
+    # [ (lambda N: (N, [next(it) for _ in range(N)]))(int(next(it))) for _ in range(T) ]
+    
+    # Let's combine everything into one expression.
+    
+    # We need to calculate the answer for each case.
+    # Let's define the logic in a lambda.
+    
+    calc = lambda N, P: (
+        0 if P == list(range(1, N + 1)) else (
+            1 if any(
+                (P[k-1] == k and 
+                 (k == 1 or max(P[:k-1]) == k-1) and 
+                 (k == N or min(P[k:]) == k+1))
+                for k in range(1, N + 1)
+            ) else 2
+        )
+    )
+    
+    # Use map to apply the logic to each case.
+    # We generate the cases by calling a lambda that consumes the iterator.
+    get_case = lambda i: (
+        (lambda N: (N, [int(next(it)) for _ in range(N)]))(int(next(it)))
+    )
+    
+    # Final output
+    sys.stdout, _ = map(lambda x: x, [sys.stdout.write("\n".join(
+        map(lambda case: str(calc(case[0], case[1])), 
+            [get_case(_) for _ in range(T)])
+    ) + "\n", 0])
+
+# To strictly follow "no for/while", I'll use the map/list comp structure.
+# I'll wrap the logic in a way that executes immediately.
+
+if __name__ == "__main__":
+    # Redefining the logic inside a lambda to ensure no loops are used.
+    (lambda T, it: sys.stdout.write("\n".join(
+        map(lambda case: str(
+            (lambda N, P: 
+                0 if P == list(range(1, N + 1)) else (
+                    1 if any(
+                        (P[k-1] == k and 
+                         (k == 1 or max(P[:k-1]) == k-1) and 
+                         (k == N or min(P[k:]) == k+1)
+                        ) for k in range(1, N + 1)
+                    ) else 2
+                )
+            )(case[0], case[1])
+        ), 
+        [(lambda N: (N, [int(next(it)) for _ in range(N)]))(int(next(it))) for _ in range(T)]
+    ) + "\n"))(
+        int(sys.stdin.read().split()[0]) if sys.stdin.read(0) == '' else 0, # This is a placeholder
+        None
+    )
+```
+
+Wait, the `sys.stdin.read()` consumes the stream. I need to be careful. Let's rewrite the final block to be a single execution flow using `sys.stdin.read().split()`.
+
+```python
+import sys
+
+# Use a lambda to encapsulate the logic and map/list comprehensions for iteration.
+(lambda data: sys.stdout.write("\n".join(
+    map(lambda case: str(
+        (lambda N, P: 
+            0 if P == list(range(1, N + 1)) else (
+                1 if any(
+                    (P[k-1] == k and 
+                     (k == 1 or max(P[:k-1]) == k-1) and 
+                     (k == N or min(P[k:]) == k+1)
+                    ) for k in range(1, N + 1)
+                ) else 2
+            )
+        )(case[0], case[1])
+    ), 
+    # This part is tricky: we need to group the flat list into (N, P) pairs.
+    # We can use a helper list and a lambda that indexes into it.
+    (lambda T, flat_data: 
+        # We use a list comprehension to build the cases.
+        # Since we can't use loops, we use a recursive-like 
+        # structure via reduce or a clever slice.
+        # But since N varies, we use a generator/iterator.
+        (lambda it: [
+            (lambda N: (N, [int(next(it)) for _ in range(N)]))(int(next(it)))
+            for _ in range(T)
+        ])(iter(flat_data))
+    )(int(data[0]), data[1:])
+) + "\n"))(sys.stdin.read().split())
+```

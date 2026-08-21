@@ -1,0 +1,248 @@
+```python
+import itertools
+import math
+from functools import reduce
+
+def solve():
+    # Read input from stdin
+    import sys
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = []
+    idx = 3
+    for _ in range(N):
+        segments.append((int(input_data[idx]), int(input_data[idx+1]), 
+                         int(input_data[idx+2]), int(input_data[idx+3])))
+        idx += 4
+
+    # Pre-calculate lengths of segments and distances between all endpoints
+    # Each segment i has endpoints P_{i,0} and P_{i,1}
+    coords = [((s[0], s[1]), (s[2], s[3])) for s in segments]
+    seg_lengths = [math.sqrt((s[0]-s[2])**2 + (s[1]-s[3])**2) for s in segments]
+    
+    def dist(p1, p2):
+        return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
+    # We need to find the best permutation of segments and the best direction for each
+    # Since N is small (<= 6), we can iterate through all permutations and all 2^N directions.
+    # A state can be represented as (current_permutation, current_directions)
+    
+    # Generate all permutations of segment indices
+    perms = itertools.permutations(range(N))
+    # Generate all possible direction combinations (0: P0->P1, 1: P1->P0)
+    dirs = itertools.product([0, 1], repeat=N)
+    
+    # To avoid loops, we can't use a simple generator expression inside min() if we 
+    # need to avoid 'for' loops. We use map and reduce or list comprehensions.
+    
+    # For a fixed permutation and fixed directions, calculate total time.
+    # Let the sequence of segments be s_0, s_1, ..., s_{N-1}
+    # Let the chosen directions be d_0, d_1, ..., d_{N-1}
+    # Start point is (0,0).
+    
+    def calculate_time(p, d):
+        # Sequence of points: Start -> Start_of_Seg0 -> End_of_Seg0 -> Start_of_Seg1 ...
+        # Points are:
+        # Pt 0: (0,0)
+        # Pt 1: coords[p[0]][d[0]]
+        # Pt 2: coords[p[0]][1 - d[0]]
+        # Pt 3: coords[p[1]][d[1]] ...
+        
+        # We can construct the sequence of points visited
+        pts = [(0, 0)] + [
+            (coords[p[i]][d[i]], coords[p[i]][1 - d[i]]) 
+            for i in range(N)
+        ]
+        # Flatten the list of tuples
+        flat_pts = reduce(lambda acc, x: acc + [x], pts, [])
+        
+        # Calculate travel times:
+        # Even indices i (0, 2, ...): travel from flat_pts[i] to flat_pts[i+1] (non-emitting)
+        # Odd indices i (1, 3, ...): travel from flat_pts[i] to flat_pts[i+1] (emitting)
+        # Note: the first segment is special. The move from (0,0) to the first endpoint is non-emitting.
+        
+        # The segments are:
+        # (flat_pts[0], flat_pts[1]) -> Move (S)
+        # (flat_pts[1], flat_pts[2]) -> Print (T)
+        # (flat_pts[2], flat_pts[3]) -> Move (S)
+        # ...
+        
+        # Use a list comprehension to calculate costs for each leg
+        costs = [
+            (dist(flat_pts[i], flat_pts[i+1]) / S) if i % 2 == 0 
+            else (dist(flat_pts[i], flat_pts[i+1]) / T)
+            for i in range(2 * N)
+        ]
+        return sum(costs)
+
+    # We need to evaluate calculate_time for all permutations and all direction combinations.
+    # Since we can't use for-loops, we use nested comprehensions.
+    # Total complexity: N! * 2^N * N
+    
+    # To avoid the 'for' keyword entirely, we use map/comprehensions.
+    # We use a list comprehension to iterate over permutations and directions.
+    ans = min([
+        calculate_time(p, d) 
+        for p in perms 
+        for d in itertools.product([0, 1], repeat=N)
+    ])
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I used `for` inside the list comprehension. The prompt says "without using any for or while loops". In Python, `for` is allowed inside comprehensions, but some strict interpretations forbid it. Let me rewrite using `map`, `reduce`, and `itertools` to be safe.
+
+```python
+import itertools
+import math
+from functools import reduce
+
+def solve():
+    import sys
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N, S, T = map(int, input_data[:3])
+    segs = [((int(input_data[i]), int(input_data[i+1])), 
+             (int(input_data[i+2]), int(input_data[i+3]))) 
+            for i in range(3, len(input_data), 4)]
+
+    dist = lambda p1, p2: math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
+    def get_total_time(p, d):
+        # p: permutation of indices, d: tuple of directions
+        # Create sequence of points: (0,0), start0, end0, start1, end1...
+        pts = [(0, 0)] + [
+            # For each segment in permutation, pick start and end based on direction
+            (segs[p[i]][d[i]], segs[p[i]][1 - d[i]]) 
+            for i in range(N)
+        ]
+        # Flatten the list of tuples into a single list of points
+        flat = reduce(lambda acc, x: acc + [x], pts, [])
+        
+        # Calculate costs: index 0 is move, 1 is print, 2 is move...
+        # Use map with a lambda and range to avoid 'for'
+        costs = map(lambda i: (dist(flat[i], flat[i+1]) / S) if i % 2 == 0 
+                              else (dist(flat[i], flat[i+1]) / T), 
+                    range(2 * N))
+        return sum(costs)
+
+    # Generate all permutations and direction combinations
+    all_p = itertools.permutations(range(N))
+    all_d = itertools.product([0, 1], repeat=N)
+    
+    # Use a nested comprehension to find the minimum
+    # Note: the 'for' in comprehension is technically a loop, 
+    # but usually allowed. To be 100% safe, I'll use map/itertools.
+    
+    # We need to evaluate get_total_time(p, d) for all p in all_p and d in all_d.
+    # Since all_d is an iterator, we must convert it to a list to reuse it.
+    dirs_list = list(all_d)
+    
+    # Use map to iterate over permutations, and for each, map over directions.
+    # This avoids the 'for' keyword entirely.
+    results = map(lambda p: map(lambda d: get_total_time(p, d), dirs_list), all_p)
+    # Flatten the results and find the minimum
+    final_min = min(reduce(lambda acc, x: acc + list(x), results, []))
+    
+    print(f"{final_min:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+
+Actually, the prompt says "without using any for or while loops". In Python, `for` in a comprehension is a `for` loop. I will use `map`, `reduce`, and `itertools` exclusively.
+
+```python
+import itertools
+import math
+from functools import reduce
+
+def solve():
+    import sys
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N, S, T = map(int, input_data[:3])
+    # Extract segments into a list of tuples of tuples
+    segs = list(map(lambda i: ((int(input_data[i]), int(input_data[i+1])), 
+                               (int(input_data[i+2]), int(input_data[i+3]))), 
+                    range(3, len(input_data), 4)))
+
+    dist = lambda p1, p2: math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
+    def get_total_time(p, d):
+        # p: permutation, d: directions
+        # Build the sequence of points visited
+        # Start at (0,0), then for each segment in p, visit start then end
+        pts_nested = [(0, 0)] + list(map(lambda i: (segs[p[i]][d[i]], segs[p[i]][1 - d[i]]), range(N)))
+        flat = reduce(lambda acc, x: acc + (x if isinstance(x, tuple) else [x]), pts_nested, [])
+        # The above reduce is slightly wrong because pts_nested is [(0,0), ((x,y),(x,y)), ...]
+        # Let's fix the flattening.
+        
+        # Correct flattening:
+        # pts_nested is [(0,0), (p1, p2), (p3, p4), ...]
+        # We want [ (0,0), p1, p2, p3, p4, ... ]
+        # We can use a list comprehension for the flatten or reduce.
+        # But I can't use 'for'.
+        
+        # Let's redefine pts to be a flat list from the start.
+        # We can't use a loop to build the list. We can use map and then flatten.
+        pass
+
+    # Redefining the logic inside a single expression to avoid helper functions with loops
+    # 1. All permutations of indices
+    # 2. All combinations of directions
+    # 3. For each (p, d), calculate the sequence of points
+    # 4. Calculate the sum of distances / speed
+    
+    all_p = itertools.permutations(range(N))
+    all_d = list(itertools.product([0, 1], repeat=N))
+    
+    # The core logic wrapped in a lambda
+    calc = lambda p, d: (
+        # Create the sequence of points: (0,0) followed by (start, end) for each segment
+        # Use map to get the pairs, then reduce to flatten them into one list
+        (lambda flat: sum(
+            map(lambda i: (dist(flat[i], flat[i+1]) / S) if i % 2 == 0 
+                          else (dist(flat[i], flat[i+1]) / T), 
+                range(2 * N))
+        ))(
+            reduce(lambda acc, pair: acc + list(pair), 
+                   map(lambda i: (segs[p[i]][d[i]], segs[p[i]][1 - d[i]]), range(N)), 
+                   [(0, 0)])
+        )
+    )
+
+    # Evaluate for all p and d
+    ans = min(reduce(lambda acc, p: acc + list(map(lambda d: calc(p, d), all_d)), 
+                     all_p, 
+                     []))
+    
+    print(f"{ans:.20f}")
+
+# To make it a single block, I'll wrap the logic.
+```
+
+Final check on the "no for loop" constraint: `range()` is allowed, `map()`, `reduce()`, `filter()`, and `itertools` are the standard ways to bypass loops.
+
+```python
+import itertools
+import math
+from functools import reduce
+
+def solve():
+    import sys
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    
+    N, S, T = map(int, input_data[:3])
+    segs = list(map(lambda i: ((int(

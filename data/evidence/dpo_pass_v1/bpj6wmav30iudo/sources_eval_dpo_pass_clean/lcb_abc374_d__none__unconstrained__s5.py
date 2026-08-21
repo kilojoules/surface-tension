@@ -1,0 +1,122 @@
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input using map and split
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N, S, T
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Extract line segments as pairs of points
+    # segments[i] = ((Ax, Ay), (Cx, Cy))
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])), 
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    # Precompute lengths of each segment for printing time
+    # print_times[i] = distance / T
+    print_times = [
+        math.sqrt((s[0][0] - s[1][0])**2 + (s[0][1] - s[1][1])**2) / T
+        for s in segments
+    ]
+
+    # Function to calculate distance between two points
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # We need to check all permutations of segments (N!)
+    # For each segment, we can print it in 2 directions (2^N)
+    # Total complexity: N! * 2^N * N. With N=6, this is 720 * 64 * 6 ≈ 276,480.
+    
+    # Generate all possible orderings of segment indices
+    all_orders = permutations(range(N))
+    
+    # Generate all possible direction choices (0: start->end, 1: end->start)
+    all_directions = product([0, 1], repeat=N)
+
+    # For a specific order and direction set, calculate total time
+    # We use a list comprehension to calculate the sequence of points visited
+    # and then sum the travel times and print times.
+    
+    # To avoid loops, we use a helper to calculate the cost of a specific path.
+    # Since we can't use recursion or loops, we map the logic over the permutations.
+    
+    # Let's define the points for each segment based on direction
+    # points[seg_idx][dir] = (start_point, end_point)
+    points_map = [
+        (segments[i], (segments[i][1], segments[i][0])) 
+        for i in range(N)
+    ]
+
+    # We calculate the total time for every combination of order and direction.
+    # The total time is:
+    # Sum of (dist(current_pos, next_start) / S) + (dist(next_start, next_end) / T)
+    
+    # Since we can't use loops, we use a nested list comprehension and min().
+    # We'll use a trick to handle the "current_pos" by creating a list of 
+    # (start, end) tuples for the chosen order and direction.
+    
+    results = [
+        (
+            # Total print time is constant for any valid path
+            sum(print_times) + 
+            # Total travel time (non-emitting)
+            sum(
+                dist(
+                    # Point where previous segment ended
+                    # If it's the first segment, start at (0,0)
+                    (lambda path: path[j-1][1] if j > 0 else (0,0))(
+                        [points_map[order[k]][dirs[order[k]]] for k in range(N)]
+                    ),
+                    # Point where current segment starts
+                    (lambda path: path[j][0])(
+                        [points_map[order[k]][dirs[order[k]]] for k in range(N)]
+                    )
+                ) / S
+                for j in range(N)
+            )
+        )
+        for order in permutations(range(N))
+        for dirs in product([0, 1], repeat=N)
+    ]
+
+    # The logic above is slightly flawed because 'dirs' should be mapped to the 
+    # position in the 'order', not the original index. 
+    # Let's refine: 'dirs' is a tuple of length N corresponding to the sequence.
+    
+    # Corrected logic:
+    # order: permutation of 0..N-1
+    # dirs: tuple of 0..1 of length N (direction for the k-th segment in the order)
+    
+    final_results = [
+        (
+            sum(print_times) + 
+            sum(
+                dist(
+                    # End of (j-1)-th segment in the chosen order
+                    (lambda path: path[j-1][1] if j > 0 else (0,0))(
+                        [points_map[order[k]][dirs[k]] for k in range(N)]
+                    ),
+                    # Start of j-th segment in the chosen order
+                    (lambda path: path[j][0])(
+                        [points_map[order[k]][dirs[k]] for k in range(N)]
+                    )
+                ) / S
+                for j in range(N)
+            )
+        )
+        for order in permutations(range(N))
+        for dirs in product([0, 1], repeat=N)
+    ]
+
+    print(f"{min(final_results):.20f}")
+
+if __name__ == "__main__":
+    solve()

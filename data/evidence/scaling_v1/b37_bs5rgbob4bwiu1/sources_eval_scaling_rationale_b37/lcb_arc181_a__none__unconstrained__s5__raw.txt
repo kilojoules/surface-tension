@@ -1,0 +1,72 @@
+The constraint to avoid explicit loops forces a shift toward a functional programming paradigm, emphasizing declarative data transformations over imperative state updates. This approach encourages the use of higher-order functions and sequence expressions, which can often be more concise and leverage Python's internal optimizations. To solve this problem, I will use `sys.stdin.read` to gather all input at once and `map` combined with list comprehensions to process the test cases, ensuring that the logic remains expression-based rather than loop-based.
+
+```python
+import sys
+
+def solve():
+    # Read all input data at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # We use a generator to yield the starting index of each test case
+    # Since we cannot use loops, we process the flat list using a 
+    # custom recursive-like mapping or list comprehension.
+    # However, the most "Pythonic" way to handle variable length inputs 
+    # without loops is to use an iterator.
+    it = iter(input_data[1:])
+    
+    def process_case():
+        try:
+            N = int(next(it))
+            # Read N elements for the permutation
+            P = [int(next(it)) for _ in range(N)]
+            
+            # The problem asks for the minimum operations to make P_i = i.
+            # An operation with k sorts [1, k-1] and [k+1, N].
+            # This means P_k remains in place, and everything else is sorted.
+            # If we can find a k such that P_k = k, and sorting the rest 
+            # fixes the permutation, 1 op is enough.
+            # Actually, the condition to solve it in 1 op is:
+            # There exists k such that P_k = k AND 
+            # {P_1, ..., P_{k-1}} = {1, ..., k-1} AND 
+            # {P_{k+1}, ..., P_N} = {k+1, ..., N}.
+            # Wait, the operation SORTS them. So we only need P_k = k.
+            # If P_k = k, then sorting [1, k-1] makes them 1, ..., k-1
+            # and sorting [k+1, N] makes them k+1, ..., N.
+            # So 1 op is possible if there exists k such that P_k = k.
+            # 0 ops if already sorted.
+            # Otherwise, can it always be done in 2?
+            # Yes, the problem states it's always possible. 
+            # For N >= 3, we can always pick k such that P_k is not k,
+            # but after one op, we create a fixed point.
+            # Actually, the simplest logic:
+            # 0: Already sorted.
+            # 1: There exists k such that P_k = k.
+            # 2: Otherwise.
+            
+            # Check if already sorted
+            is_sorted = all(P[i] == i + 1 for i in range(N))
+            if is_sorted:
+                return 0
+            
+            # Check if any P_i == i + 1
+            has_fixed_point = any(P[i] == i + 1 for i in range(N))
+            if has_fixed_point:
+                return 1
+            
+            return 2
+        except StopIteration:
+            return None
+
+    # To avoid 'for' or 'while', we use map with a range and a helper function
+    # But since we need to call process_case T times, and process_case 
+    # consumes the iterator, we can use map(lambda _, __: process_case(), range(T))
+    results = map(lambda _: process_case(), range(T))
+    print('\n'.join(map(str, results)))
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,90 @@
+The constraint to avoid explicit loops forces a shift from imperative state-mutation to a functional paradigm, emphasizing the transformation of data streams. To solve this problem, I will use `functools.reduce` to maintain the state of remaining counts for each number and the current lexicographical index, and `itertools.accumulate` or list comprehensions to handle the combinatorial calculations.
+
+Since we need the $\lfloor (S+1)/2 \rfloor$-th sequence, we are looking for the sequence at index $(S-1)//2$ (0-indexed). For a given position, the number of sequences starting with a specific digit $d$ is given by the multinomial coefficient: $\frac{(\sum K_i)!}{\prod (K_i!)}$, where $K_i$ are the remaining counts of each digit.
+
+```python
+import sys
+from math import factorial
+from functools import reduce
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences S is the multinomial coefficient:
+    # S = (N*K)! / (K!)^N
+    # We want the floor((S+1)/2)-th sequence.
+    # In 0-indexing, this is the (S-1)//2 -th sequence.
+    
+    # To avoid calculating S explicitly (which is huge), we can determine the 
+    # digits one by one. For the first digit, we check if the number of sequences
+    # starting with 1, 2, ..., N covers the target index.
+    
+    # Total sequences S
+    # Note: We use logarithms or prime factorization for huge numbers, 
+    # but Python handles arbitrarily large integers, so we can use factorial.
+    
+    # Precompute factorials for efficiency
+    fact = [factorial(i) for i in range(n * k + 1)]
+    
+    def get_count(counts):
+        # Multinomial coefficient: (sum(counts))! / product(fact[c])
+        total = sum(counts)
+        denom = reduce(lambda x, y: x * y, [fact[c] for c in counts], 1)
+        return fact[total] // denom
+
+    # Target index (0-indexed)
+    # S = get_count([k] * n)
+    # target = (S - 1) // 2
+    
+    # Instead of calculating S first, we can derive the target index 
+    # and the sequence in one pass using reduce.
+    # State: (current_target, current_counts, result_sequence)
+    
+    # We need the total S to find the target index.
+    s_total = get_count([k] * n)
+    target_idx = (s_total - 1) // 2
+    
+    def find_digit(state, _):
+        curr_target, counts, res = state
+        # Try digits 1 to N
+        # We need to find the digit d such that the sum of counts of sequences
+        # starting with 1...d-1 is <= curr_target < sum of counts starting with 1...d
+        
+        # Calculate counts for each possible next digit
+        # A digit d is possible if counts[d-1] > 0
+        digit_options = [d for d in range(1, n + 1) if counts[d-1] > 0]
+        
+        # We need to find which digit the target_idx falls into.
+        # The number of sequences starting with digit d is get_count(counts - {d})
+        
+        # We use a helper to find the digit and the new target
+        def pick_digit(options, t, cnts):
+            # Calculate the number of sequences for the first available digit
+            d = options[0]
+            # Temporary counts after picking digit d
+            temp_counts = list(cnts)
+            temp_counts[d-1] -= 1
+            num_seqs = get_count(temp_counts)
+            
+            if t < num_seqs:
+                return d, t, temp_counts
+            else:
+                return pick_digit(options[1:], t - num_seqs, cnts)
+        
+        d, next_target, next_counts = pick_digit(digit_options, curr_target, counts)
+        return (next_target, next_counts, res + [d])
+
+    # Use range(n*k) to drive the reduction
+    final_state = reduce(find_digit, range(n * k), (target_idx, [k] * n, []))
+    
+    # Output the result sequence
+    print(*(final_state[2]))
+
+if __name__ == "__main__":
+    solve()
+```

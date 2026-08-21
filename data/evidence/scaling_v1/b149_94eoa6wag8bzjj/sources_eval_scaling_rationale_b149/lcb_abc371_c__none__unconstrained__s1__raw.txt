@@ -1,0 +1,79 @@
+The constraint to avoid explicit `for` and `while` loops forces a shift from imperative programming to a functional paradigm, emphasizing data transformation over state mutation. In Python, this encourages the use of declarative constructs like list comprehensions and `itertools`, which can often be more concise and expressive for combinatorial problems. To solve this, I will use `itertools.permutations` to iterate through all possible vertex mappings and nested list comprehensions to calculate the cost of transforming graph $H$ into a graph isomorphic to $G$ for each mapping.
+
+```python
+import itertools
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a generator to consume input data
+    it = iter(input_data)
+    
+    N = int(next(it))
+    
+    # Graph G edges
+    MG = int(next(it))
+    G_edges = [tuple(sorted((int(next(it)), int(next(it))))) for _ in range(MG)]
+    
+    # Graph H edges
+    MH = int(next(it))
+    H_edges = [tuple(sorted((int(next(it)), int(next(it))))) for _ in range(MH)]
+    
+    # Cost matrix A
+    # A is given as A_{1,2}, A_{1,3}... A_{N-1,N}
+    # We store it in a dictionary for O(1) access: {(i, j): cost} where i < j
+    costs_flat = [int(next(it)) for _ in range(N * (N - 1) // 2)]
+    
+    # Create pairs (i, j) for 1 <= i < j <= N
+    pairs = list(itertools.combinations(range(1, N + 1), 2))
+    cost_map = dict(zip(pairs, costs_flat))
+    
+    # Adjacency matrices for G and H for O(1) lookup
+    # Using sets of tuples for edges
+    g_set = set(G_edges)
+    h_set = set(H_edges)
+    
+    # We want to find a permutation P of (1...N) such that 
+    # we minimize the cost of changing H to match G under mapping P.
+    # The cost for a pair (i, j) is A_{P_i, P_j} if 
+    # (edge (i, j) in G) != (edge (P_i, P_j) in H)
+    
+    # Generate all permutations of 1...N
+    perms = itertools.permutations(range(1, N + 1))
+    
+    # For each permutation, calculate the total cost
+    # We iterate over all pairs (i, j) with 1 <= i < j <= N
+    # The cost is incurred if the edge status of (i, j) in G 
+    # differs from the edge status of (P[i-1], P[j-1]) in H.
+    
+    # To avoid loops, we use a nested comprehension:
+    # 1. Outer: iterate permutations
+    # 2. Inner: sum costs for all pairs (i, j)
+    
+    # Pre-calculate all pairs (i, j) to avoid repeated work
+    all_pairs = list(itertools.combinations(range(1, N + 1), 2))
+    
+    # The cost function for a specific permutation P:
+    # sum(cost_map[sorted((P[i-1], P[j-1]))] for (i, j) in all_pairs 
+    #     if ((i, j) in g_set) != (tuple(sorted((P[i-1], P[j-1]))) in h_set))
+    
+    # Since we cannot use 'for' loops, we use map/min/sum and comprehensions.
+    
+    ans = min([
+        sum([
+            cost_map[tuple(sorted((p[i-1], p[j-1])))]
+            for (i, j) in all_pairs
+            if ((i, j) in g_set) != (tuple(sorted((p[i-1], p[j-1]))) in h_set)
+        ])
+        for p in perms
+    ])
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,69 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative programming to a functional style. While not necessarily "cleaner" for all developers, it encourages the use of high-level abstractions and built-in optimizations, leveraging Python's powerful sequence processing capabilities. For this specific problem (Edit Distance with $K=1$), I will use slicing and generator expressions combined with `any()` to check all possible single-edit transformations.
+
+```python
+import sys
+
+def solve():
+    # Read input and handle potential empty lines or trailing whitespace
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem specifies K=1. 
+    # We need to check if S can be transformed to T in 0 or 1 operations.
+    # Operations: Insert, Delete, Replace.
+    
+    # Case 0: Already identical
+    if s == t:
+        print("Yes")
+        return
+
+    # Since K=1, we only care about the case where exactly one operation is performed.
+    # We can check this by verifying if the edit distance is exactly 1.
+    # For K=1, the length difference must be <= 1.
+    len_s = len(s)
+    len_t = len(t)
+
+    if abs(len_s - len_t) > 1:
+        print("No")
+        return
+
+    # Helper to check if two strings are identical after removing one character
+    # This covers both Insertion (T has one more) and Deletion (S has one more)
+    def check_one_diff(s1, s2):
+        # s1 is the longer string, s2 is the shorter string
+        # We look for the first index where they differ
+        # Since we can't use loops, we find the first mismatch using a generator
+        mismatches = [i for i in range(min(len(s1), len(s2))) if s1[i] != s2[i]]
+        
+        # If there are no mismatches in the prefix, the difference is at the end
+        if not mismatches:
+            return True
+        
+        # If there is a mismatch, the remaining suffixes must be identical
+        # after skipping the mismatched character in the longer string
+        idx = mismatches[0]
+        return s1[idx+1:] == s2[idx:]
+
+    # Case 1: Lengths are equal (Possible Replace)
+    if len_s == len_t:
+        # Find indices where characters differ
+        diffs = [i for i in range(len_s) if s[i] != t[i]]
+        # Exactly one replacement allowed
+        print("Yes" if len(diffs) == 1 else "No")
+        
+    # Case 2: S is longer by 1 (Possible Delete)
+    elif len_s == len_t + 1:
+        print("Yes" if check_one_diff(s, t) else "No")
+        
+    # Case 3: T is longer by 1 (Possible Insert)
+    elif len_t == len_s + 1:
+        print("Yes" if check_one_diff(t, s) else "No")
+
+if __name__ == "__main__":
+    solve()
+```

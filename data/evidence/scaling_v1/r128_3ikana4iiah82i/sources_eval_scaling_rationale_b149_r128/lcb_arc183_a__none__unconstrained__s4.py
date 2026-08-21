@@ -1,0 +1,126 @@
+import sys
+from functools import reduce
+from math import comb
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences is S = (N*K)! / (K!)^N
+    # We need the floor((S+1)/2)-th sequence.
+    # Let's calculate S.
+    # Note: S can be very large, but Python handles arbitrary precision integers.
+    
+    # To find the rank, we need to calculate the number of permutations 
+    # of a multiset. The formula is (sum of counts)! / product(counts!)
+    def count_permutations(counts):
+        total = sum(counts)
+        # Using a more efficient way to calculate multinomial coefficient
+        # (n1+n2+...)! / (n1! n2! ...)
+        # We can use math.comb iteratively: comb(total, n1) * comb(total-n1, n2) ...
+        return reduce(lambda acc, c: acc * comb(total, c), counts, 1) # This is slightly wrong
+        # Correct way:
+        # return reduce(lambda acc, c: acc * comb(total, c), counts, 1) 
+        # Wait, the total must decrease. Let's use a helper.
+
+    def get_multinomial(counts):
+        # Correct multinomial: (sum counts)! / product(counts!)
+        # Calculated as: comb(sum, c1) * comb(sum-c1, c2) * ...
+        # Since we need this inside reduce, we can't easily track the decreasing sum.
+        # Let's use the factorial formula.
+        import math
+        num = math.factorial(sum(counts))
+        den = reduce(lambda a, b: a * math.factorial(b), counts, 1)
+        return num // den
+
+    # Total sequences S
+    s_total = get_multinomial([k] * n)
+    target_rank = (s_total + 1) // 2
+
+    # We need to determine the sequence element by element.
+    # State: (current_counts, current_rank, result_sequence)
+    # current_counts: list of remaining counts for numbers 1 to N
+    # current_rank: the rank we are looking for among the remaining permutations
+    
+    def determine_element(state, _):
+        counts, rank, res = state
+        
+        # Try numbers i from 1 to N
+        # For a chosen i, the number of permutations starting with i is:
+        # (total_remaining - 1)! / (k1! ... (ki-1)! ... kN!)
+        # This is equal to: (total_permutations * counts[i]) / total_remaining
+        
+        total_rem = sum(counts)
+        if total_rem == 0:
+            return (counts, rank, res)
+            
+        # We need to find the smallest i such that the sum of permutations 
+        # for 1...i-1 is less than the rank.
+        
+        # Calculate permutations for the current multiset
+        # Instead of recalculating factorial every time, we use the ratio.
+        # Let P be the total permutations of the current multiset.
+        # Permutations starting with i: P * (counts[i] / total_rem)
+        
+        # To avoid floating point, we use: (P * counts[i]) // total_rem
+        # But P is the total for the CURRENT state.
+        
+        # We search for i using a generator or list comprehension
+        # to find the first i that satisfies the rank condition.
+        
+        # Calculate P for the current state
+        p_current = get_multinomial(counts)
+        
+        # Find i
+        # We use a list comprehension to find the cumulative counts
+        # and then pick the index.
+        
+        # ways_per_i = [ (p_current * counts[j]) // total_rem for j in range(n) ]
+        # However, we can't use loops. We use a recursive-like structure via reduce
+        # or a complex list comprehension.
+        
+        # Let's find the index i (0-indexed)
+        # We need the smallest i such that sum(ways_per_j for j < i) < rank <= sum(ways_per_j for j <= i)
+        
+        # Using a list comprehension to find the first index where the prefix sum exceeds rank
+        # Since we can't use loops, we can use a trick with 'next' and a generator
+        
+        # Calculate the ways for each possible next digit
+        ways = [(p_current * counts[j]) // total_rem for j in range(n)]
+        
+        # Find the digit i
+        # We use a generator to find the first index where the cumulative sum >= rank
+        # Since we can't use loops, we use a list comprehension to create cumulative sums
+        # and then find the first index.
+        
+        # Cumulative sums: [w0, w0+w1, w0+w1+w2, ...]
+        # We can use itertools.accumulate for this.
+        from itertools import accumulate
+        cum_sums = list(accumulate(ways))
+        
+        # The index i is the first index where cum_sums[i] >= rank
+        # We use a list comprehension to find all indices and take the first.
+        i = [idx for idx, val in enumerate(cum_sums) if val >= rank][0]
+        
+        # Update rank: rank = rank - sum(ways[0...i-1])
+        # Update counts: counts[i] -= 1
+        # Update result: res.append(i + 1)
+        
+        new_rank = rank - (cum_sums[i-1] if i > 0 else 0)
+        new_counts = list(counts)
+        new_counts[i] -= 1
+        
+        return (new_counts, new_rank, res + [i + 1])
+
+    # Use reduce to simulate the process of filling NK slots
+    final_state = reduce(determine_element, range(n * k), ([k] * n, target_rank, []))
+    
+    # Output the result sequence
+    print(*(final_state[2]))
+
+if __name__ == "__main__":
+    solve()

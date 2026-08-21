@@ -1,0 +1,77 @@
+import sys
+from itertools import accumulate
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_cases = int(input_data[0])
+    ptr = 1
+    
+    results = []
+    for _ in range(T_cases):
+        N = int(input_data[ptr])
+        P = list(map(int, input_data[ptr + 1 : ptr + 1 + N]))
+        ptr += N + 1
+        
+        # The problem asks for the minimum operations to sort the permutation.
+        # One operation with index k sorts [1, k-1] and [k+1, N].
+        # If the permutation is already sorted, 0 operations.
+        # If there exists k such that sorting [1, k-1] and [k+1, N] sorts the whole array, 1 operation.
+        # This happens if there is some k such that:
+        # 1. All elements in {P_1, ..., P_{k-1}} are smaller than P_k
+        # 2. All elements in {P_{k+1}, ..., P_N} are larger than P_k
+        # 3. P_k must be exactly k.
+        # Actually, the condition is simpler: P_i = i for all i is achieved in 1 op if
+        # there exists k such that {P_1, ..., P_{k-1}} = {1, ..., k-1} 
+        # AND {P_{k+1}, ..., P_N} = {k+1, ..., N}.
+        # This is equivalent to saying P_k = k AND max(P_1...P_{k-1}) < k AND min(P_{k+1}...P_N) > k.
+        
+        # Check if already sorted
+        # Using a generator expression with all() is efficient
+        if all(P[i] == i + 1 for i in range(N)):
+            results.append("0")
+            continue
+            
+        # Precompute prefix maximums and suffix minimums
+        # prefix_max[i] = max(P[0...i])
+        # suffix_min[i] = min(P[i...N-1])
+        prefix_max = list(accumulate(P, max))
+        # To get suffix minimums, we accumulate from the right
+        # We use a list comprehension to reverse, accumulate, then reverse back
+        suffix_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # We need k (1-indexed) such that:
+        # For i = k-1 (0-indexed):
+        # If i > 0, prefix_max[i-1] == i
+        # If i < N-1, suffix_min[i+1] == i + 2
+        # And P[i] == i + 1
+        
+        # We can check this for all i in 0...N-1
+        # For i=0: prefix_max is empty, suffix_min[1] == 2, P[0] == 1
+        # For i=N-1: prefix_max[N-2] == N-1, suffix_min is empty, P[N-1] == N
+        
+        def check(i):
+            # Condition for k = i + 1
+            # Left side sorted/correct: if i > 0, max of first i elements must be i
+            left_ok = (i == 0) or (prefix_max[i-1] == i)
+            # Right side sorted/correct: if i < N-1, min of last N-1-i elements must be i+2
+            right_ok = (i == N-1) or (suffix_min[i+1] == i + 2)
+            # Middle element must be correct
+            mid_ok = (P[i] == i + 1)
+            return left_ok and right_ok and mid_ok
+
+        # Use any() to find if any k satisfies the 1-operation condition
+        if any(map(check, range(N))):
+            results.append("1")
+        else:
+            # It is proven that maximum 2 operations are always sufficient
+            results.append("2")
+            
+    sys.stdout.write("\n".join(results) + "\n")
+
+if __name__ == "__main__":
+    solve()

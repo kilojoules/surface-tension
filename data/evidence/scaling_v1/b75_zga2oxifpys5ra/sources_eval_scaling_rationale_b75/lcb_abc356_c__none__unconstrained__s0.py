@@ -1,0 +1,90 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+    
+    # Parse tests into a list of tuples: (set_of_keys, result)
+    # We use a helper function to slice the input list since we cannot use loops
+    def parse_tests(data, index, count):
+        if count == 0:
+            return []
+        
+        # C_i is the number of keys in the i-th test
+        c_i = int(data[index])
+        # The keys are from index + 1 to index + c_i
+        keys = set(map(int, data[index + 1 : index + 1 + c_i]))
+        # The result R_i is at index + 1 + c_i
+        result = data[index + 1 + c_i]
+        
+        # Recursively parse the rest (though the constraint says no loops, 
+        # recursion is allowed, but for M=100, a list comprehension is safer)
+        # However, since we need to handle variable lengths, we can't easily 
+        # use a simple comprehension. Let's use a different approach to 
+        # group the data.
+        return [(keys, result)]
+
+    # Since we cannot use loops to parse the variable-length tests, 
+    # we use a custom generator or a trick with a list to process the flat input.
+    # Actually, the most reliable way to parse this without a for/while loop 
+    # is to use a recursive function or a complex list comprehension.
+    # Given the constraints and the "no loop" rule, we will use a 
+    # recursive-like structure via a helper that processes the list.
+    
+    def get_tests(data):
+        # We use a helper list to keep track of the current pointer
+        # But since we can't mutate a pointer in a comprehension, 
+        # we pre-process the input into a structure.
+        # Let's use a trick: we know the structure of each test.
+        # We can use a generator that yields the tests.
+        def gen_tests(d, idx):
+            if idx >= len(d):
+                return
+            c_i = int(d[idx])
+            keys = set(map(int, d[idx + 1 : idx + 1 + c_i]))
+            res = d[idx + 1 + c_i]
+            yield (keys, res)
+            yield from gen_tests(d, idx + 2 + c_i)
+        
+        return list(gen_tests(data, 3))
+
+    tests = get_tests(input_data)
+    
+    # Generate all 2^N combinations of keys (0 = dummy, 1 = real)
+    # We represent a combination as a tuple of booleans
+    all_combinations = product([0, 1], repeat=N)
+    
+    # Check if a specific combination satisfies a single test
+    def check_test(combo, test):
+        keys_set, result = test
+        # Count how many keys in the test are 'real' (1)
+        # Key numbers are 1-indexed, combo is 0-indexed
+        real_count = sum(combo[k-1] for k in keys_set)
+        
+        if result == 'o':
+            return real_count >= K
+        else:
+            return real_count < K
+
+    # Count combinations that satisfy ALL tests
+    # We use a generator expression inside sum()
+    # all() checks if the combination satisfies every test in the tests list
+    ans = sum(
+        1 for combo in all_combinations 
+        if all(check_test(combo, t) for t in tests)
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    # Increase recursion depth for the recursive parser
+    sys.setrecursionlimit(2000)
+    solve()

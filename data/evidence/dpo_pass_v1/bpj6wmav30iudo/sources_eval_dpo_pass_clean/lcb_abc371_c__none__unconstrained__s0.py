@@ -1,0 +1,85 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer-like approach via indexing to parse the flat list
+    # N is the first element
+    N = int(input_data[0])
+    
+    # Parse M_G and edges of G
+    M_G = int(input_data[1])
+    # G_edges is a set of frozensets for fast lookup
+    G_edges = set(
+        frozenset([int(input_data[2 + 2*i]), int(input_data[3 + 2*i])])
+        for i in range(M_G)
+    )
+    
+    # Parse M_H and edges of H
+    # Offset for M_H is 2 + 2*M_G
+    offset_MH = 2 + 2 * M_G
+    M_H = int(input_data[offset_MH])
+    H_edges = set(
+        frozenset([int(input_data[offset_MH + 1 + 2*i]), int(input_data[offset_MH + 2 + 2*i])])
+        for i in range(M_H)
+    )
+    
+    # Parse A matrix
+    # Offset for A is offset_MH + 1 + 2*M_H
+    offset_A = offset_MH + 1 + 2 * M_H
+    # A is stored as a flat list. We need a way to map (i, j) to the index.
+    # The input gives A_{1,2}, A_{1,3}... A_{1,N}, A_{2,3}... A_{N-1,N}
+    A_values = input_data[offset_A:]
+    
+    # Create a lookup for A_{i,j} where 1 <= i < j <= N
+    # The index in A_values for (i, j) is:
+    # sum_{k=1}^{i-1} (N-k) + (j-i-1)
+    # Which simplifies to: (i-1)*N - i*(i-1)//2 + (j-i-1)
+    # However, it's easier to just map them into a dictionary
+    # using a list comprehension.
+    
+    # Generate all pairs (i, j) with 1 <= i < j <= N in the order they appear in input
+    pairs = [
+        (i, j) 
+        for i in range(1, N) 
+        for j in range(i + 1, N + 1)
+    ]
+    
+    # Map pair (i, j) to its cost A_{i,j}
+    cost_map = dict(
+        zip(pairs, map(int, A_values))
+    )
+
+    # We want to find a permutation P of (1...N) such that 
+    # transforming H to be isomorphic to G via P is minimized.
+    # P maps vertex i in G to vertex P[i-1] in H.
+    # An edge (i, j) exists in G iff an edge (P[i-1], P[j-1]) exists in the modified H.
+    # The cost to change edge (u, v) in H is A_{u,v} if the target state 
+    # (edge or no edge) differs from the current state of H.
+    
+    # For a fixed permutation P, the total cost is the sum over all 1 <= i < j <= N:
+    # If (i, j) is an edge in G, we need (P[i-1], P[j-1]) to be an edge in H.
+    # If (i, j) is NOT an edge in G, we need (P[i-1], P[j-1]) NOT to be an edge in H.
+    # If the requirement differs from H's current state, we pay A_{min(P[i-1], P[j-1]), max(P[i-1], P[j-1])}.
+    
+    # To avoid loops, we use min() over a generator expression.
+    # We iterate through all permutations of range(1, N+1).
+    
+    ans = min(
+        sum(
+            cost_map[(min(p[i-1], p[j-1]), max(p[i-1], p[j-1]))]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if (frozenset([i, j]) in G_edges) != (frozenset([p[i-1], p[j-1]]) in H_edges)
+        )
+        for p in permutations(range(1, N + 1))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

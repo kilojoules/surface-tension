@@ -1,0 +1,112 @@
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    K = int(input_data[0])
+    S = input_data[1]
+    T = input_data[2]
+    
+    # The problem is to check if the edit distance between S and T is <= K.
+    # Since K=1, we can check this without a full DP table.
+    
+    # 1. If strings are identical, distance is 0.
+    if S == T:
+        print("Yes")
+        return
+
+    # 2. If length difference is more than 1, distance is definitely > 1.
+    if abs(len(S) - len(T)) > 1:
+        print("No")
+        return
+
+    # Helper to check if two strings are 1 edit apart
+    # We use a generator to find the first index where characters differ.
+    def check_one_edit(s1, s2):
+        # Find the first mismatch
+        # Use next() with a default value to avoid StopIteration
+        mismatch_idx = next((i for i in range(min(len(s1), len(s2))) if s1[i] != s2[i]), None)
+        
+        # If no mismatch found in the shorter length, they differ only by trailing chars
+        if mismatch_idx is None:
+            return abs(len(s1) - len(s2)) <= 1
+
+        # If mismatch found at i, we have three possibilities:
+        # 1. Replace: s1[i+1:] == s2[i+1:]
+        # 2. Delete from s1: s1[i+1:] == s2[i:]
+        # 3. Insert into s1: s1[i:] == s2[i+1:]
+        
+        # We check these based on the lengths of the strings
+        # Replace
+        if len(s1) == len(s2):
+            return s1[mismatch_idx + 1:] == s2[mismatch_idx + 1:]
+        # Delete from s1 (s1 is longer)
+        if len(s1) > len(s2):
+            return s1[mismatch_idx + 1:] == s2[mismatch_idx:]
+        # Insert into s1 (s2 is longer)
+        if len(s1) < len(s2):
+            return s1[mismatch_idx:] == s2[mismatch_idx + 1:]
+        
+        return False
+
+    if check_one_edit(S, T):
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Note on the logic:**
+The problem specifies $K=1$. The edit distance (Levenshtein distance) is $\le 1$ if:
+1. The strings are identical (distance 0).
+2. They differ by exactly one character replacement (same length, one index differs).
+3. One string is exactly one character longer than the other, and removing that character makes them identical (insertion/deletion).
+
+The provided code implements this by finding the first index of divergence and checking if the remainders of the strings satisfy any of the three edit conditions. This avoids the $O(N^2)$ DP table, operating in $O(N)$ time and space.
+**Wait, the prompt says $K=1$ is a sub-problem of Problem F. If $K$ were larger, a banded DP approach would be needed. For $K=1$, this linear check is optimal.**
+**Correction on constraints:** The prompt says $K=1$ in red, but the input format says $K$ is provided. The logic above handles $K=1$ specifically as requested by the "sub-problem" description. If $K$ were larger, the logic would need to change, but for $K=1$, this is the correct approach.
+**Final check on Sample 6:** `leap` vs `read`. 
+- Index 0: `l` != `r`. 
+- Replace: `eap` == `ead`? No.
+- Delete `l`: `eap` == `read`? No.
+- Insert `r`: `leap` == `ead`? No.
+- Result: No. Correct.
+**Final check on Sample 4:** `back` vs `black`.
+- Index 1: `a` != `l`.
+- Replace: `ck` == `ack`? No.
+- Delete `a`: `ck` == `lack`? No.
+- Insert `l`: `ack` == `ack`? Yes.
+- Result: Yes. Correct.
+**Final check on Sample 1:** `abc` vs `agc`.
+- Index 1: `b` != `g`.
+- Replace: `c` == `c`? Yes.
+- Result: Yes. Correct.
+**Final check on Sample 3:** `abc` vs `ac`.
+- Index 1: `b` != `c`.
+- Delete `b`: `c` == `c`? Yes.
+- Result: Yes. Correct.
+**Final check on Sample 5:** `same` vs `same`.
+- Identical.
+- Result: Yes. Correct.
+**Final check on Sample 2:** `abc` vs `awtf`.
+- Length diff is 1.
+- Index 1: `b` != `w`.
+- Insert `w`: `bc` == `tf`? No.
+- Delete `b`: `c` == `wtf`? No.
+- Result: No. Correct.
+**Wait, Sample 2 length diff is $|3-4|=1$.** My code handles it. `abc` vs `awtf`. `mismatch_idx` is 1. `s1[1:]` is `bc`, `s2[2:]` is `tf`. Not equal. `s1[2:]` is `c`, `s2[1:]` is `wtf`. Not equal. Correct.
+**Wait, Sample 2 is `abc` and `awtf`.** Lengths are 3 and 4. Difference is 1. It should enter the `check_one_edit` logic.
+`s1="abc"`, `s2="awtf"`.
+`mismatch_idx` = 1 (`b` vs `w`).
+`len(s1) < len(s2)` is True.
+Check `s1[1:] == s2[2:]` $\rightarrow$ `"bc" == "tf"` $\rightarrow$ False.
+Returns False. Output "No". Correct.
+**Wait, I used `s1[mismatch_idx:] == s2[mismatch_idx + 1:]` for insertion.**
+For `abc` and `awtf`: `s1[1:]` is `"bc"`, `s2[2:]` is `"tf"`.
+Correct.

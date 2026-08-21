@@ -1,0 +1,175 @@
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s = input_data[0]
+    t = input_data[1]
+
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(len(s)) if s[i] != t[i]]
+    
+    # M is the number of characters that need to be changed
+    m = len(diff_indices)
+    print(m)
+
+    # To get the lexicographically smallest array X, we must change characters
+    # in a way that the resulting strings are as small as possible.
+    # We should prioritize changing characters at the earliest possible indices
+    # to the target characters in T, provided that the target character is 
+    # smaller than the current character. However, the constraint is simply
+    # to reach T in M steps. To minimize the array lexicographically,
+    # we should change the characters of S to T one by one.
+    # The best strategy to keep the strings smallest is to process the 
+    # differences from left to right.
+    
+    # We create a list of the indices that need changing.
+    # We sort them to ensure we are modifying the string from left to right.
+    # Actually, the problem asks for the lexicographically smallest ARRAY.
+    # This means X_1 should be as small as possible, then X_2, etc.
+    # To make X_1 small, we should change the first character that differs 
+    # between S and T to T[i], IF T[i] < S[i]. 
+    # But we MUST change one character per step and reach T in M steps.
+    # This means in each step i, we must fix one of the differing positions.
+    # To keep the string smallest, we should fix the positions that make the 
+    # string larger first, or fix positions from left to right if we want 
+    # to reach the target.
+    
+    # Wait, the most optimal way to keep the sequence X lexicographically smallest
+    # is to always change the leftmost differing character to its target value.
+    # Because any change to the right would leave a larger character at the left.
+    
+    # Let's refine: we have a set of indices {i1, i2, ... iM} where S[i] != T[i].
+    # We must pick an ordering of these indices to change them.
+    # To make X_1 smallest, we want the resulting string to be as small as possible.
+    # This means we should change the leftmost index i where S[i] > T[i].
+    # If there are no indices where S[i] > T[i], we must change an index where S[i] < T[i].
+    # To keep the string smallest, we should pick the rightmost index where S[i] < T[i].
+    
+    # However, the simplest greedy approach for "lexicographically smallest array"
+    # when you must change exactly one character per step to reach a target is:
+    # 1. Identify all i where S[i] != T[i].
+    # 2. In each step, you must pick one i from the remaining set.
+    # 3. To make the current string smallest:
+    #    - If there are indices i where S[i] > T[i], pick the leftmost one.
+    #    - If all remaining indices i have S[i] < T[i], pick the rightmost one.
+    
+    # Let's trace: S=adbe, T=bcbc. Diffs: 0(a->b), 1(d->c), 3(e->c)
+    # S[1]='d' > T[1]='c', so change index 1. X_1 = acbe.
+    # Remaining: 0(a->b), 3(e->c).
+    # S[3]='e' > T[3]='c', so change index 3. X_2 = acbc.
+    # Remaining: 0(a->b).
+    # S[0]='a' < T[0]='b', so change index 0. X_3 = bcbc.
+    # Result: acbe, acbc, bcbc. Matches Sample 1.
+
+    # Implementation of the greedy strategy:
+    current_s = list(s)
+    remaining_indices = set(diff_indices)
+    
+    # We need to perform M operations
+    # Since we can't use loops, we use a recursive-like structure or map
+    # But we can use a list comprehension to build the sequence if we can
+    # determine the order of indices first.
+    
+    # To determine the order without loops:
+    # We can use a helper function with a decorator for recursion or 
+    # just use the fact that we can sort the indices based on the criteria.
+    # But the criteria changes as we remove indices.
+    # Actually, the rule is:
+    # - Indices where S[i] > T[i] should be processed left-to-right.
+    # - Indices where S[i] < T[i] should be processed right-to-left.
+    # - All S[i] > T[i] must be processed before any S[i] < T[i] to keep the string smallest.
+    
+    # Let's check: 
+    # For S=adbe, T=bcbc: 
+    # S[0]='a' < T[0]='b' (Type <)
+    # S[1]='d' > T[1]='c' (Type >)
+    # S[3]='e' > T[3]='c' (Type >)
+    # Order: Index 1 (leftmost >), then Index 3 (next >), then Index 0 (rightmost <).
+    # Strings: acbe, acbc, bcbc. Correct.
+    
+    # For Sample 3: S=afwgebrw, T=oarbrenq
+    # Indices: 
+    # 0: a < o
+    # 1: f < a (Wait, f > a) -> Type >
+    # 2: w > r -> Type >
+    # 3: g > b -> Type >
+    # 4: e = e
+    # 5: b < n -> Type <
+    # 6: r = r
+    # 7: w > q -> Type >
+    # Type > indices: 1, 2, 3, 7. Sorted: 1, 2, 3, 7.
+    # Type < indices: 0, 5. Sorted reverse: 5, 0.
+    # Order: 1, 2, 3, 7, 5, 0.
+    # Wait, the sample output 3 says 8 elements. Let me re-count.
+    # S: afwgebrw (8)
+    # T: oarbrenq (8)
+    # Diff: 0(a-o), 1(f-a), 2(w-r), 3(g-b), 5(b-n), 7(w-q)
+    # That's only 6 differences. Why does sample output say 8?
+    # Re-reading: "Change one character in S". It doesn't say it must be changed to T[i].
+    # "until S equals T". To minimize M, we must change S[i] to T[i] in each step.
+    # If S=T, M=0. If S!=T, M is the number of differing characters.
+    # Let me re-examine Sample 3.
+    # S: afwgebrw
+    # T: oarbrenq
+    # Diff indices: 0, 1, 2, 3, 5, 7. (Total 6)
+    # But the sample output says 8. Let me re-read the strings.
+    # S: afwgebrw
+    # T: oarbrenq
+    # Wait, I misread the strings. Let's use a list comprehension to find diffs.
+    
+    # The only way M=8 is if every character is different.
+    # Let's use the logic: 
+    # 1. Find all i where S[i] != T[i].
+    # 2. Split into `greater` (S[i] > T[i]) and `smaller` (S[i] < T[i]).
+    # 3. Order is: sorted(greater) + sorted(smaller, reverse=True).
+    # 4. Generate the strings by applying the changes one by one.
+
+    diffs = [i for i in range(len(s)) if s[i] != t[i]]
+    greater = sorted([i for i in diffs if s[i] > t[i]])
+    smaller = sorted([i for i in diffs if s[i] < t[i]], reverse=True)
+    order = greater + smaller
+    
+    # To generate the strings without a loop, we can use a list comprehension
+    # and a helper function that returns the string after k changes.
+    def get_string(k):
+        res = list(s)
+        for i in range(k):
+            idx = order[i]
+            res[idx] = t[idx]
+        return "".join(res)
+
+    # Since we can't use loops, we use map/list comprehension.
+    # The 'for' in get_string is a loop. Let's use a different approach.
+    # We can use a list comprehension to build the string by checking if the 
+    # index was changed in the first k steps.
+    
+    # The sequence of strings X_k for k = 1 to M:
+    # X_k is the string where characters at indices order[0...k-1] are replaced by T.
+    
+    # To avoid the loop in get_string, we can use:
+    # "".join(t[i] if i in order[:k] else s[i] for i in range(len(s)))
+    
+    # Final output:
+    # print(m)
+    # for k in range(1, m + 1):
+    #     print("".join(t[i] if i in order[:k] else s[i] for i in range(len(s))))
+    
+    # But I can't use a for loop for printing. I'll use a list comprehension and join.
+    
+    # Let's wrap this in a function and call it.
+    def final_output():
+        m = len(order)
+        result = [str(m)] + [
+            "".join(t[i] if i in order[:k] else s[i] for i in range(len(s)))
+            for k in range(1, m + 1)
+        ]
+        return "\n".join(result)
+
+    print(final_output())
+
+# Standard Python entry point
+if __name__ == "__main__":
+    solve()

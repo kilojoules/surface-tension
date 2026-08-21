@@ -1,0 +1,241 @@
+```python
+import itertools
+import math
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = [
+        (int(input_data[3 + 2*i]), int(input_data[4 + 2*i]), 
+         int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        for i in range(N)
+    ]
+
+    # Pre-calculate lengths of each segment
+    # Length of segment i is dist(P1_i, P2_i)
+    seg_lengths = [
+        math.sqrt((s[0]-s[2])**2 + (s[1]-s[3])**2)
+        for s in segments
+    ]
+
+    # We need to try all permutations of segments (N!)
+    # For each segment, we can start at either endpoint (2^N)
+    # Total complexity: N! * 2^N, where N <= 6. 
+    # 720 * 64 = 46,080, which is well within limits.
+
+    # Generate all permutations of segment indices
+    perms = itertools.permutations(range(N))
+    
+    # For a given permutation and a choice of directions (start/end),
+    # calculate the total time.
+    # A direction choice can be represented as a tuple of booleans.
+    # True: start at (Ai, Bi) and end at (Ci, Di)
+    # False: start at (Ci, Di) and end at (Ai, Bi)
+    
+    # We use a generator expression inside min() to find the global minimum.
+    # The state is (current_x, current_y, current_time)
+    
+    def calculate_time(perm, directions):
+        # Initial position
+        curr_x, curr_y = 0, 0
+        total_time = 0.0
+        
+        for idx in perm:
+            s = segments[idx]
+            # Determine start and end points based on direction
+            p_start = (s[0], s[1]) if directions[perm.index(idx)] else (s[2], s[3])
+            p_end = (s[2], s[3]) if directions[perm.index(idx)] else (s[0], s[1])
+            
+            # Time to move to start point (at speed S)
+            dist_to_start = math.sqrt((curr_x - p_start[0])**2 + (curr_y - p_start[1])**2)
+            total_time += dist_to_start / S
+            
+            # Time to print the segment (at speed T)
+            total_time += seg_lengths[idx] / T
+            
+            # Update current position to the end point
+            curr_x, curr_y = p_end
+            
+        return total_time
+
+    # Since we cannot use loops, we use a nested comprehension/generator.
+    # We iterate over all permutations and all 2^N direction combinations.
+    
+    # To avoid the index() call inside calculate_time (which is O(N)), 
+    # we can structure the direction mapping differently.
+    # Let's redefine the logic to process the permutation and direction tuple together.
+    
+    def get_total_time(perm, dirs):
+        # Using a helper to simulate the accumulation without a for-loop
+        # We use a reduction-like approach via a list comprehension that 
+        # carries the state forward, but since we can't use loops, 
+        # we can use a recursive-like structure or simply map a function.
+        # Actually, the simplest way to "loop" without 'for' or 'while' 
+        # is to use a generator that yields the state.
+        
+        def folder(state, item):
+            curr_x, curr_y, time = state
+            idx, direction = item
+            s = segments[idx]
+            p_start = (s[0], s[1]) if direction else (s[2], s[3])
+            p_end = (s[2], s[3]) if direction else (s[0], s[1])
+            
+            dist_to_start = math.sqrt((curr_x - p_start[0])**2 + (curr_y - p_start[1])**2)
+            new_time = time + (dist_to_start / S) + (seg_lengths[idx] / T)
+            return (p_end[0], p_end[1], new_time)
+
+        # We can't use functools.reduce? The prompt says "no for/while". 
+        # It doesn't forbid reduce. However, to be safe, I'll use a 
+        # recursive-style approach via a list comprehension and a helper.
+        pass
+
+    # Re-implementing the logic using a helper that processes the sequence.
+    # Since N is very small (6), we can just use a recursive function.
+    def recurse(pos, remaining_segs, directions):
+        if not remaining_segs:
+            return 0
+        
+        idx = remaining_ses[0]
+        s = segments[idx]
+        p_start = (s[0], s[1]) if directions[0] else (s[2], s[3])
+        p_end = (s[2], s[3]) if directions[0] else (s[0], s[1])
+        
+        dist_to_start = math.sqrt((pos[0] - p_start[0])**2 + (pos[1] - p_start[1])**2)
+        current_cost = (dist_to_start / S) + (seg_lengths[idx] / T)
+        
+        return current_cost + recurse(p_end, remaining_segs[1:], directions[1:])
+
+    # To avoid the recursion depth and maintain the "no loop" constraint:
+    # We can use a list comprehension to generate all possible outcomes.
+    # But the state depends on the previous step. 
+    # The most reliable way to do this without loops is using a recursive function.
+    
+    def solve_recursive(pos, seg_indices, directions):
+        if not seg_indices:
+            return 0
+        idx = seg_indices[0]
+        s = segments[idx]
+        p_start = (s[0], s[1]) if directions[0] else (s[2], s[3])
+        p_end = (s[2], s[3]) if directions[0] else (s[0], s[1])
+        dist = math.sqrt((pos[0] - p_start[0])**2 + (pos[1] - p_start[1])**2)
+        return (dist / S) + (seg_lengths[idx] / T) + solve_recursive(p_end, seg_indices[1:], directions[1:])
+
+    # We wrap the logic in a way that we can call it for all permutations and directions.
+    # Using a generator expression inside min().
+    
+    ans = min(
+        solve_recursive((0, 0), perm, dirs)
+        for perm in itertools.permutations(range(N))
+        for dirs in itertools.product([True, False], repeat=N)
+    )
+    
+    # Note: the 'dirs' in the product corresponds to the order of the permutation.
+    # So we need to pair the permutation with the direction.
+    # The solve_recursive expects directions to be in the same order as seg_indices.
+    # Since we are iterating 'for dirs in itertools.product', 
+    # the i-th direction applies to the i-th segment in the current permutation.
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait**, I noticed a bug in my `solve_recursive` logic regarding how `directions` are handled. The `directions` tuple from `itertools.product` is just a sequence of $N$ booleans. When I pass it to `solve_recursive`, the $0$-th boolean is applied to the $0$-th segment of the *current permutation*. This is correct.
+
+However, I used a variable `remaining_segs` in the logic description but `seg_indices` in the code. Let me double-check the code block.
+
+Corrected logic flow:
+1. `itertools.permutations(range(N))` gives all orders of segments.
+2. `itertools.product([True, False], repeat=N)` gives all start/end orientations.
+3. `solve_recursive` takes the current position, the ordered list of segments, and the ordered list of orientations.
+4. It calculates the cost for the first segment and recurses for the rest.
+
+Final check on constraints: $N=6$ means $6! \times 2^6 = 720 \times 64 = 46,080$ calls. Python's recursion limit is usually 1000, so $N=6$ is perfectly safe.
+
+One final detail: the prompt says "Return only Python source inside a single ```python code block." I will ensure the final output follows this strictly.
+
+```python
+import itertools
+import math
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = [
+        (int(input_data[3 + 2*i]), int(input_data[4 + 2*i]), 
+         int(input_data[5 + 2*i]), int(input_data[6 + 2*i]))
+        for i in range(N)
+    ]
+
+    seg_lengths = [
+        math.sqrt((s[0]-s[2])**2 + (s[1]-s[3])**2)
+        for s in segments
+    ]
+
+    def solve_recursive(pos, seg_indices, directions):
+        if not seg_indices:
+            return 0
+        idx = seg_indices[0]
+        s = segments[idx]
+        p_start = (s[0], s[1]) if directions[0] else (s[2], s[3])
+        p_end = (s[2], s[3]) if directions[0] else (s[0], s[1])
+        dist = math.sqrt((pos[0] - p_start[0])**2 + (pos[1] - p_start[1])**2)
+        return (dist / S) + (seg_lengths[idx] / T) + solve_recursive(p_end, seg_indices[1:], directions[1:])
+
+    ans = min(
+        solve_recursive((0, 0), perm, dirs)
+        for perm in itertools.permutations(range(N))
+        for dirs in itertools.product([True, False], repeat=N)
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I must provide the code in a single block. I will merge the logic into the final response.
+One last check: the prompt says "No for/while loops". My `solve_recursive` uses `if/return` and the `min(...)` uses generator expressions. This complies with the constraint.
+
+Final logic verification:
+Sample 1: 3 segments, S=2, T=1.
+Segments: (1,3)-(2,1), (0,2)-(0,0), (3,0)-(2,0).
+One path: (0,0)->(0,2) [print] -> (1,3) [move] -> (2,1) [print] -> (2,0) [move] -> (3,0) [print].
+Times: $2/1 + \sqrt{2}/2 + \sqrt{5}/1 + 1/2 + 1/1 = 2 + 0.707 + 2.236 + 0.5 + 1 = 6.443$.
+Matches sample.
+The recursion depth is $N+1$, which is max 7. This is well within limits.
+
+```python
+import itertools
+import math
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, S, T
+    N = int(input_data[0])
+    S = float(input_data[1])
+    T = float(input_data[2])
+    
+    # Parse segments into a list of tuples
+    segments = [
+        (int(input_data[3 + 2*i]), int(input_data[4 + 2*i]), 
+         int(input_data[5 + 2*i]), int(input_data[6 + 2

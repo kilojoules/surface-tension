@@ -1,0 +1,107 @@
+The constraint to avoid explicit loops and recursion forces a shift toward a functional programming paradigm, emphasizing declarative data transformations over imperative state changes. In Python, this encourages the use of `itertools` for combinatorial generation and nested list comprehensions to evaluate all possible mappings between the two graphs. By utilizing `min()` over a generator expression, the program can concisely explore the entire search space of $N!$ permutations to find the minimum modification cost.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer-like approach via slicing to extract data without explicit loops
+    N = int(input_data[0])
+    
+    # Extract M_G and edges of G
+    M_G = int(input_data[1])
+    G_edges_raw = input_data[2 : 2 + 2 * M_G]
+    # Create adjacency matrix for G
+    # G[i][j] is 1 if edge exists, else 0
+    G = [[1 if (i+1, j+1) in [(int(G_edges_raw[k]), int(G_edges_raw[k+1])) 
+                               for k in range(0, 2 * M_G, 2)] or 
+                      (j+1, i+1) in [(int(G_edges_raw[k]), int(G_edges_raw[k+1])) 
+                                     for k in range(0, 2 * M_G, 2)] 
+           else 0 for j in range(N)] for i in range(N)]
+    
+    # Since we can't use loops, we redefine G and H using comprehensions based on the input
+    # To handle the input correctly without loops, we map the flat list to pairs
+    G_pairs = [(int(input_data[i]), int(input_data[i+1])) 
+               for i in range(2, 2 + 2 * M_G, 2)]
+    
+    # M_H is located after G's edges
+    M_H_idx = 2 + 2 * M_G
+    M_H = int(input_data[M_H_idx])
+    
+    H_pairs = [(int(input_data[i]), int(input_data[i+1])) 
+               for i in range(M_H_idx + 1, M_H_idx + 1 + 2 * M_H, 2)]
+    
+    # A matrix starts after H's edges
+    A_start_idx = M_H_idx + 1 + 2 * M_H
+    A_flat = input_data[A_start_idx:]
+    
+    # Map A_flat back to A[i][j]
+    # The input for A is given as A_{1,2}, A_{1,3}... A_{N-1,N}
+    # We can use a helper to get A[i][j] where i < j
+    # The index in A_flat for (i, j) where 0 <= i < j < N is:
+    # (sum for k from 0 to i-1 of (N-1-k)) + (j-i-1)
+    # Which simplifies to: (i * (2*N - 1 - i)) // 2 + (j - i - 1)
+    # Wait, the standard formula for upper triangle index is:
+    # index = i * N - (i * (i + 1)) // 2 + (j - i - 1)
+    
+    # Let's build A as a dictionary or a nested list using a comprehension
+    # The number of elements in A is N*(N-1)//2
+    A_vals = [int(x) for x in A_flat]
+    
+    # To avoid complex index math, we can use a list of tuples for A
+    # since N is very small (up to 8)
+    # We can pre-calculate the indices for the A matrix
+    A_matrix = [[0]*N for _ in range(N)]
+    # Since we can't use loops to fill A_matrix, we use a trick:
+    # We create a list of all (i, j) pairs and zip them with A_vals
+    all_pairs = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    A_dict = dict(zip(all_pairs, A_vals))
+
+    # G_adj[i][j] is 1 if edge (i+1, j+1) exists in G
+    G_adj = [[1 if (i+1, j+1) in G_pairs or (j+1, i+1) in G_pairs else 0 
+              for j in range(N)] for i in range(N)]
+    
+    # H_adj[i][j] is 1 if edge (i+1, j+1) exists in H
+    H_adj = [[1 if (i+1, j+1) in H_pairs or (j+1, i+1) in H_pairs else 0 
+              for j in range(N)] for i in range(N)]
+
+    # We need to find a permutation P of 0..N-1 such that 
+    # the cost to make H_adj[P[i]][P[j]] == G_adj[i][j] is minimized.
+    # Cost for pair (i, j) is A[P[i]][P[j]] if H_adj[P[i]][P[j]] != G_adj[i][j]
+    # Note: P[i] and P[j] are the vertices in H.
+    # The cost is based on the vertices in H being modified.
+    # If G has an edge (i, j) and H does not have an edge (P[i], P[j]), 
+    # we pay A[min(P[i], P[j])][max(P[i], P[j])]
+    
+    # We iterate through all permutations P of range(N)
+    # For each P, we calculate the total cost
+    # P[i] is the vertex in H that corresponds to vertex i in G
+    
+    # To avoid loops, we use min() and a generator expression
+    # P is a tuple from permutations(range(N))
+    # i, j are indices in G (0 to N-1)
+    # P[i], P[j] are indices in H (0 to N-1)
+    
+    # The cost for a specific P is the sum of A[min(P[i], P[j]), max(P[i], P[j])]
+    # for all i < j where G_adj[i][j] != H_adj[P[i]][P[j]]
+    
+    ans = min(
+        sum(
+            A_dict[(min(p[i], p[j]), max(p[i], p[j]))]
+            for i in range(N)
+            for j in range(i + 1, N)
+            if G_adj[i][j] != H_adj[p[i]][p[j]]
+        )
+        for p in permutations(range(N))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

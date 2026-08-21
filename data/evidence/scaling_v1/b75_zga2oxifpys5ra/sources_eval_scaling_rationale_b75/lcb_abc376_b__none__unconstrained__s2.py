@@ -1,0 +1,122 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions are pairs of (H_i, T_i)
+    instructions = []
+    for i in range(Q):
+        instructions.append((input_data[2 + 2*i], int(input_data[3 + 2*i])))
+
+    # Function to calculate the shortest distance between start and end on a ring of size N,
+    # given that a specific part (blocked) cannot be stepped on.
+    # Since we can only move one hand, the other hand acts as a wall.
+    def get_dist(start, end, blocked):
+        # There are two directions on the ring: clockwise and counter-clockwise.
+        # One direction is blocked if the 'blocked' node lies on the path.
+        
+        # Clockwise distance (increasing index)
+        # Path: start -> start+1 -> ... -> end
+        # The blocked node is encountered if it's between start and end in clockwise order.
+        
+        # To simplify, we can check both directions.
+        # Direction 1: start -> (start % N + 1) -> ...
+        # Direction 2: start -> ((start - 2 + N) % N + 1) -> ...
+        
+        # However, since N is small (100), we can use a simple BFS or 
+        # just check the two possible arcs.
+        
+        # Arc 1: Clockwise
+        # Nodes: start, (start%N)+1, ((start+1)%N)+1, ...
+        # We check if 'blocked' is in the sequence of nodes from start to end.
+        
+        def is_blocked(s, e, b, direction):
+            curr = s
+            while curr != e:
+                if direction == 1: # Clockwise
+                    curr = (curr % N) + 1
+                else: # Counter-clockwise
+                    curr = (curr - 2 + N) % N + 1
+                if curr == b:
+                    return True
+            return False
+
+        dist_cw = (end - start + N) % N
+        dist_ccw = (start - end + N) % N
+        
+        # Check if clockwise path is blocked
+        # Note: the problem says we cannot move to the destination if the other hand is there.
+        # The blocked node is the position of the other hand.
+        
+        # Clockwise path is blocked if 'blocked' is encountered between start and end.
+        # Counter-clockwise path is blocked if 'blocked' is encountered.
+        
+        # Since it's guaranteed the instruction is achievable, at least one path is open.
+        # We return the distance of the open path.
+        
+        # Correct logic for ring distance with a blocked node:
+        # The blocked node divides the ring into a linear path.
+        # The distance is simply the distance on that linear path.
+        # If we treat the ring as 1...N, and 'blocked' is the gap:
+        # We can normalize coordinates so 'blocked' is at position N+1.
+        
+        # Simplified: 
+        # Path 1: start -> end (clockwise). Length: (end-start)%N
+        # Path 2: start -> end (counter-clockwise). Length: (start-end)%N
+        # Path 1 is blocked if 'blocked' is "between" start and end clockwise.
+        # 'blocked' is between start and end clockwise if (blocked-start)%N < (end-start)%N
+        
+        cw_dist = (end - start + N) % N
+        ccw_dist = (start - end + N) % N
+        
+        # Check if blocked is in the clockwise arc (excluding start, including end is handled by problem)
+        # The blocked node is the other hand's position.
+        # The move is forbidden if the destination of a step is the blocked node.
+        
+        # Clockwise: start, start+1, ..., end. Blocked if (blocked-start)%N < cw_dist
+        if (blocked - start + N) % N < cw_dist:
+            return ccw_dist
+        # Counter-clockwise: start, start-1, ..., end. Blocked if (start-blocked)%N < ccw_dist
+        if (start - blocked + N) % N < ccw_dist:
+            return cw_dist
+            
+        # If neither is strictly "blocking" the path in a way that prevents movement,
+        # we take the minimum of the two. But on a ring with one blocked node,
+        # only one direction is actually available unless the blocked node is the start/end
+        # (which is forbidden by problem statement).
+        return min(cw_dist, ccw_dist)
+
+    # State: (left_hand, right_hand, total_distance)
+    initial_state = (1, 2, 0)
+    
+    # Use reduce to iterate through instructions and update state
+    final_state = reduce(
+        lambda state, instr: (
+            # New state calculation
+            (
+                # New left hand position
+                instr[1] if instr[0] == 'L' else state[0],
+                # New right hand position
+                instr[1] if instr[0] == 'R' else state[1],
+                # New total distance
+                state[2] + (
+                    get_dist(state[0], instr[1], state[1]) if instr[0] == 'L' 
+                    else get_dist(state[1], instr[1], state[0])
+                )
+            )
+        ),
+        instructions,
+        initial_state
+    )
+    
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

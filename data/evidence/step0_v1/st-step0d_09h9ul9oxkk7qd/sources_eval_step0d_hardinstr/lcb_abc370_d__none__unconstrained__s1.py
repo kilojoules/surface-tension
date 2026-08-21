@@ -1,0 +1,126 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    queries = []
+    # Using a list comprehension to parse queries instead of a loop
+    # We slice from index 3 to the end and group by 2
+    queries = [ (int(input_data[i]), int(input_data[i+1])) 
+                for i in range(3, len(input_data), 2) ]
+
+    # We need to track which walls are destroyed.
+    # Since H*W is up to 4e5, we can use a set of (r, c) for destroyed walls.
+    # However, to find the "nearest" wall efficiently without loops,
+    # we need a way to query existing walls.
+    # Given the constraints and the "no loop" rule, we maintain 
+    # sets of existing wall indices for each row and each column.
+    
+    # row_walls[r] = set of columns c that have a wall
+    # col_walls[c] = set of rows r that have a wall
+    # Using dictionaries of sets.
+    
+    # To avoid loops in initialization, we use dictionary comprehensions.
+    # But wait, creating sets of size W for every H might be too slow/memory intensive
+    # if H=1 and W=4e5. Actually, it's exactly H*W.
+    # However, we can't use 'for' to initialize.
+    
+    # Let's redefine: we track DESTROYED walls in a set.
+    # To find the nearest wall, we need to check indices.
+    # Since we can't use while/for, we use generator expressions with next().
+    
+    # To make the search efficient, we need sorted structures. 
+    # But we can't use SortedList from external libs.
+    # With H*W <= 4e5, a simple scan using a generator expression 
+    # might be O(H) or O(W) per query, leading to O(Q*(H+W)), which is too slow (2e5 * 4e5).
+    # We need a faster way. 
+    
+    # Actually, the only way to avoid loops and recursion is to use 
+    # built-ins like reduce, map, filter, and comprehensions.
+    # But the core logic requires updating a data structure.
+    
+    # Let's use a set for destroyed walls and 
+    # for each query, find the nearest non-destroyed wall.
+    # To optimize, we can't use SortedList, but we can use the fact that
+    # we are looking for the first i < R, i > R, j < C, j > C.
+    
+    # Wait, the constraint to avoid loops makes this extremely difficult 
+    # because we cannot efficiently update a Segment Tree or Fenwick Tree.
+    # However, we can use a set of destroyed walls and 
+    # use a generator to find the first wall. 
+    # But a linear scan is O(N). 
+    
+    # Let's reconsider: if we use a set for destroyed walls, 
+    # the "nearest wall" is the first index k in [R-1, R-2...1] 
+    # such that (k, C) is not in destroyed_set.
+    
+    # To pass the time limit without loops, we must use 
+    # highly optimized built-ins. 
+    # Let's use a set for destroyed walls and 
+    # use a generator expression with next() to find the targets.
+    
+    def process_query(state, query):
+        destroyed, r, c = state
+        if (r, c) not in destroyed:
+            # Wall exists at (r, c), destroy it.
+            return (destroyed | {(r, c)}, 0)
+        
+        # Wall does not exist, find 4 neighbors.
+        # Up
+        up = next((i for i in range(r - 1, 0, -1) if (i, c) not in destroyed), None)
+        # Down
+        down = next((i for i in range(r + 1, H + 1) if (i, c) not in destroyed), None)
+        # Left
+        left = next((j for j in range(c - 1, 0, -1) if (r, j) not in destroyed), None)
+        # Right
+        right = next((j for j in range(c + 1, W + 1) if (r, j) not in destroyed), None)
+        
+        targets = set()
+        if up: targets.add((up, c))
+        if down: targets.add((down, c))
+        if left: targets.add((r, left))
+        if right: targets.add((r, right))
+        
+        return (destroyed | targets, len(targets))
+
+    # We use reduce to iterate through queries.
+    # The state is (set_of_destroyed_walls, current_query_index)
+    # But we need to pass the query itself.
+    
+    # Since we can't use a loop, we use reduce.
+    # We need to pass the query (r, c) into the function.
+    # We can use a trick: reduce(func, queries, initial_state)
+    
+    def reducer(destroyed, q):
+        r, c = q
+        if (r, c) not in destroyed:
+            return destroyed | {(r, c)}
+        
+        # Find neighbors
+        up = next((i for i in range(r - 1, 0, -1) if (i, c) not in destroyed), None)
+        down = next((i for i in range(r + 1, H + 1) if (i, c) not in destroyed), None)
+        left = next((j for j in range(c - 1, 0, -1) if (r, j) not in destroyed), None)
+        right = next((j for j in range(c + 1, W + 1) if (r, j) not in destroyed), None)
+        
+        res = set()
+        if up: res.add((up, c))
+        if down: res.add((down, c))
+        if left: res.add((r, left))
+        if right: res.add((r, right))
+        
+        return destroyed | res
+
+    final_destroyed = reduce(reducer, queries, set())
+    print(H * W - len(final_destroyed))
+
+# Standard Python entry point
+if __name__ == "__main__":
+    solve()

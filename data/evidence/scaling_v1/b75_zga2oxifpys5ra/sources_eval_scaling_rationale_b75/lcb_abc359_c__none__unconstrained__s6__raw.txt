@@ -1,0 +1,102 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state mutation to a functional paradigm, emphasizing the use of expressions and mapping over sequences. For this specific problem, which requires calculating a distance metric based on a coordinate transformation, the logic can be implemented using a combination of `abs`, `max`, and basic arithmetic within a `print` statement, as the solution depends on a closed-form mathematical formula rather than iterative traversal.
+
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[:2])
+    tx, ty = map(int, input_data[2:])
+
+    # The tiling pattern described is a brick-like layout.
+    # When i+j is even, (i, j) and (i+1, j) are in the same tile.
+    # This means tiles are 2x1 horizontal blocks starting at (i, j) where i+j is even.
+    # Let's transform the coordinates to a system where the distance is easier to calculate.
+    # A common technique for this specific tiling problem is to map (x, y) 
+    # to a coordinate system where the "cost" of movement is uniform.
+    # The transformation is: X = x + y, Y = y
+    # However, the cost depends on the parity of the row.
+    # The minimum cost to move between (sx, sy) and (tx, ty) in this specific 
+    # grid layout is given by the formula:
+    # cost = max(|sx - tx|, |sy - ty|, (|sx - tx| + |sy - ty| + 1) // 2) 
+    # is not quite right. The correct logic for this specific tiling is:
+    # Let dx = abs(sx - tx) and dy = abs(sy - ty).
+    # If we move vertically, we always enter a new tile.
+    # If we move horizontally, we might stay in the same tile.
+    # The optimal strategy involves moving in a "zigzag" manner.
+    # The distance is max(dy, (dx + dy + 1) // 2) if we account for the 
+    # staggered nature of the bricks.
+    # Specifically, for this problem, the distance is max(dy, (dx + dy) // 2) 
+    # adjusted for the parity of the starting position.
+    # A known closed form for this specific problem is:
+    # ans = max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty)) // 2)
+    # But we must check if the parity of the coordinates forces an extra step.
+    
+    # Let's refine: 
+    # In row y, tiles are [0,1][2,3]... if y is even, and [1,2][3,4]... if y is odd.
+    # This is equivalent to saying square (x, y) belongs to tile ( (x + (y%2))//2, y )
+    # Let X = (x + (y%2)) // 2, Y = y
+    # The distance between (X1, Y1) and (X2, Y2) in this transformed space
+    # where you can move to 8-neighbors (including diagonals) is the Chebyshev distance.
+    # However, the movement rules here are axis-aligned.
+    # The actual minimum cost is max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty)) // 2)
+    # if we can move diagonally in the transformed space.
+    # Let's use the coordinate transformation:
+    # u = x + y, v = y
+    # The cost is max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty)) // 2)
+    # Wait, the simplest correct form for this problem is:
+    # dx = abs(sx - tx), dy = abs(sy - ty)
+    # result = max(dy, (dx + dy + 1) // 2) if the parity doesn't allow a shortcut.
+    # Actually, the most reliable formula for this specific tiling is:
+    # ans = max(abs(sy - ty), (abs(sx - tx) + abs(sy - ty) + 1) // 2)
+    # Let's test Sample 1: 5 0, 2 5 -> dx=3, dy=5. max(5, (3+5+1)//2) = 5. Correct.
+    # Sample 2: 3 1, 4 1 -> dx=1, dy=0. max(0, (1+0+1)//2) = 1. 
+    # Wait, Sample 2 output is 0. My formula gives 1.
+    # Let's re-evaluate. In Sample 2: (3,1) and (4,1). 
+    # i=3, j=1. i+j = 4 (even). So A_{3,1} and A_{4,1} are in the same tile.
+    # Thus, moving from 3.5, 1.5 to 4.5, 1.5 costs 0.
+    
+    # Correct logic:
+    # A square (x, y) belongs to tile ID:
+    # If (x + y) is even, it's the left half of a tile.
+    # If (x + y) is odd, it's the right half of a tile.
+    # Tile ID can be represented as ( (x + (y % 2)) // 2, y )
+    # Let X = (x + (y % 2)) // 2, Y = y
+    # Moving from (X1, Y1) to (X2, Y2):
+    # One vertical move changes Y by 1 and X by 0 or 1.
+    # One horizontal move changes X by 1 and Y by 0.
+    # This is equivalent to moving in a grid where you can move to 
+    # (X+/-1, Y) or (X, Y+/-1) or (X+/-1, Y+/-1).
+    # The distance is max(abs(X1 - X2), abs(Y1 - Y2)).
+    
+    # Let's check Sample 2: S(3,1), T(4,1)
+    # Xs = (3 + (1%2)) // 2 = 4 // 2 = 2
+    # Ys = 1
+    # Xt = (4 + (1%2)) // 2 = 5 // 2 = 2
+    # Yt = 1
+    # max(abs(2-2), abs(1-1)) = 0. Correct.
+    
+    # Sample 1: S(5,0), T(2,5)
+    # Xs = (5 + (0%2)) // 2 = 5 // 2 = 2
+    # Ys = 0
+    # Xt = (2 + (5%2)) // 2 = 3 // 2 = 1
+    # Yt = 5
+    # max(abs(2-1), abs(0-5)) = max(1, 5) = 5. Correct.
+    
+    # Final formula:
+    # X = (x + (y % 2)) // 2
+    # Y = y
+    # ans = max(abs(Xs - Xt), abs(Ys - Yt))
+    
+    # Since I cannot use loops or recursion, I will use a 
+    # single print statement with the logic embedded.
+    
+    print(max(abs(((sx + (sy % 2)) // 2) - ((tx + (ty % 2)) // 2)), abs(sy - ty)))
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,79 @@
+import sys
+import math
+from itertools import permutations, product
+from functools import reduce
+
+def solve():
+    # Read input and parse values
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples: ((x1, y1), (x2, y2))
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])),
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precompute length of each segment and time to print it
+    seg_info = [
+        (p1, p2, dist(p1, p2) / T)
+        for p1, p2 in segments
+    ]
+
+    # We need to try all permutations of segments
+    # For each segment, we can print it in two directions (p1->p2 or p2->p1)
+    # There are N! permutations and 2^N direction combinations
+    
+    # Generate all permutations of indices
+    all_perms = permutations(range(N))
+    
+    # Generate all possible direction flips (0: p1->p2, 1: p2->p1)
+    all_flips = product([0, 1], repeat=N)
+
+    def calculate_total_time(perm, flips):
+        # Reorder segments based on permutation and flip based on direction
+        ordered = [
+            (seg_info[perm[i]][0] if flips[i] == 0 else seg_info[perm[i]][1],
+             seg_info[perm[i]][1] if flips[i] == 0 else seg_info[perm[i]][0],
+             seg_info[perm[i]][2])
+            for i in range(N)
+        ]
+        
+        # Use reduce to calculate total time
+        # State: (current_position, accumulated_time)
+        # Initial state: ((0, 0), 0)
+        final_state = reduce(
+            lambda state, seg: (
+                seg[1], # New position is the end of the segment
+                state[1] + dist(state[0], seg[0]) / S + seg[2] # Move to start + print
+            ),
+            ordered,
+            ((0, 0), 0.0)
+        )
+        return final_state[1]
+
+    # Since we cannot use loops, we use map/min/comprehensions to find the minimum
+    # We iterate over all permutations and all flip combinations
+    # To avoid nested loops, we can flatten the combination of perms and flips
+    
+    # Note: N=6 is small enough that N! * 2^N = 720 * 64 = 46080 iterations
+    # We use a generator expression inside min()
+    ans = min(
+        calculate_total_time(p, f)
+        for p in permutations(range(N))
+        for f in product([0, 1], repeat=N)
+    )
+    
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

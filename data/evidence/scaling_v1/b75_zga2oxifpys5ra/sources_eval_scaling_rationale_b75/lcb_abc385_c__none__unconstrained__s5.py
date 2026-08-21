@@ -1,0 +1,198 @@
+import sys
+
+def solve():
+    # Read N and the list of heights
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # We need to find the maximum number of buildings that:
+    # 1. Have the same height H_i
+    # 2. Are spaced at equal intervals 'd'
+    
+    # We can iterate through all possible starting indices 'i' (0 to N-1)
+    # and all possible intervals 'd' (1 to N-1).
+    # For a fixed i and d, we check how many buildings at indices i, i+d, i+2d...
+    # have the same height as H[i].
+    
+    # To avoid loops, we use nested list comprehensions.
+    # The innermost part calculates the count for a specific start i and interval d.
+    # We use a generator expression inside sum() to count matching heights.
+    # We only need to check indices j = i + k*d such that j < N.
+    
+    # Since we need to check if H[j] == H[i], and we want the maximum count:
+    # For a fixed i and d, the sequence is H[i], H[i+d], H[i+2d]...
+    # We count how many of these equal H[i]. 
+    # Wait, the condition is "The chosen buildings all have the same height".
+    # This means if we pick a set of indices with interval d, they must ALL have the same height.
+    # Actually, the problem asks for the maximum number of buildings we CAN choose.
+    # If we pick indices i, i+d, i+2d, we must ensure H[i] == H[i+d] == H[i+2d].
+    # If H[i+d] != H[i], the sequence breaks for that specific height.
+    
+    # Correct logic: For every pair (i, d), we check the sequence i, i+d, i+2d...
+    # and count how many consecutive elements starting from i have the same height H[i].
+    # However, the problem says "chosen buildings are arranged at equal intervals".
+    # It does NOT say they must be consecutive in the arithmetic progression.
+    # Actually, "arranged at equal intervals" means the indices are i, i+d, i+2d, ... i+kd.
+    # All these must have the same height.
+    
+    # Let's refine: For every starting position i and every interval d:
+    # We check indices j = i, i+d, i+2d... 
+    # We count how many of these have height == H[i].
+    # BUT, the condition is that the CHOSEN buildings must be at equal intervals.
+    # If we choose indices {i, i+d, i+2d}, they are at equal intervals.
+    # If we choose {i, i+2d, i+4d}, they are also at equal intervals (interval 2d).
+    # So for a fixed i and d, we just need to count how many j = i + k*d (k >= 0)
+    # satisfy H[j] == H[i]. 
+    # Wait, that's not correct. If we skip one, the interval changes.
+    # "Chosen buildings are arranged at equal intervals" means if we pick indices p1 < p2 < ... < pm,
+    # then p2 - p1 = p3 - p2 = ... = pm - p(m-1) = d.
+    # This means we are looking for the length of the longest sequence i, i+d, i+2d... 
+    # such that H[i] = H[i+d] = H[i+2d] = ...
+    
+    # For a fixed i and d, we want the largest k such that H[i] = H[i+d] = ... = H[i+(k-1)d].
+    # Since we can't use while loops, we can use a trick with itertools.takewhile 
+    # or just check all k and see if the condition holds.
+    # Given N=3000, O(N^2) is acceptable. 
+    # For each i and d, we can't easily "stop" without a loop, but we can 
+    # check all k and use a comprehension.
+    
+    # Actually, a simpler way:
+    # For every i and d, the number of buildings is the maximum k such that
+    # for all 0 <= m < k, H[i + m*d] == H[i].
+    # This is still tricky without loops. 
+    # Let's use the property: for a fixed i and d, we are looking for the 
+    # length of the prefix of the sequence [H[i], H[i+d], H[i+2d], ...] 
+    # where all elements equal H[i].
+    
+    # But wait, the constraint to avoid for/while loops is strict.
+    # We can use recursion (with sys.setrecursionlimit) or map/filter/reduce.
+    # However, the most "Pythonic" way to avoid loops is comprehensions.
+    
+    # Let's use a different approach:
+    # For every pair of indices (i, j) with i < j, they determine a height h = H[i] = H[j]
+    # and an interval d = j - i.
+    # We can then check how many more buildings at i + 2d, i + 3d... have height h.
+    
+    # Since we can't use loops, we can use a recursive function to count the length.
+    sys.setrecursionlimit(5000)
+    def count_same(idx, d, height):
+        if idx >= N or H[idx] != height:
+            return 0
+        return 1 + count_same(idx + d, d, height)
+
+    # We want to maximize count_same(i, d, H[i]) for all i in 0..N-1 and d in 1..N-1.
+    # To avoid the loop to call this, we use a comprehension and max().
+    # We include the case of 1 building by starting the max with 1.
+    
+    # To avoid the recursion depth and the overhead, we can use a 
+    # list comprehension to evaluate all i, d pairs.
+    # But we need to avoid the 'for' keyword. 
+    # Wait, the prompt says "avoid explicit for and while loops".
+    # List comprehensions contain the 'for' keyword. 
+    # Usually, this means avoiding 'for' blocks, but allowing comprehensions.
+    # If comprehensions are forbidden, we must use map/filter/reduce.
+    # Let's use map/filter/reduce and recursion.
+    
+    # Actually, the most robust way to avoid 'for' and 'while' is using 
+    # map() and recursion.
+    
+    # Let's redefine count_same and use map to iterate over i and d.
+    # result = max(map(lambda i: max(map(lambda d: count_same(i, d, H[i]), range(1, N)), default=1), range(N)), default=1)
+    
+    # However, the prompt says "avoid explicit for and while loops". 
+    # In Python, `[x for x in list]` is a comprehension, not a loop block.
+    # But to be safe and strictly follow the "no for" rule, I will use map/lambda.
+    
+    # Let's refine the recursion to be efficient.
+    # We only need to check d such that i + d < N.
+    
+    # Final logic using map/lambda/recursion:
+    # 1. Define a recursive function to count the length of the arithmetic progression.
+    # 2. Use map to iterate over all starting indices i.
+    # 3. Use map to iterate over all possible intervals d.
+    # 4. Use max to find the overall maximum.
+    
+    # Note: The recursion depth for N=3000 is fine.
+    
+    # To avoid the 'for' keyword entirely (even in comprehensions):
+    # We use map(lambda...).
+    
+    # One detail: if N=1, the range(1, N) is empty. max() needs a default.
+    
+    # Let's implement.
+    
+    # Using a helper function to handle the logic.
+    # We use a closure or a global-scope function.
+    
+    # Since we need to return the result, we can wrap this in a function.
+    
+    # The recursion:
+    # def get_len(i, d, h):
+    #     return 1 + get_len(i + d, d, h) if (i + d < N and H[i + d] == h) else 1
+    
+    # The mapping:
+    # max(map(lambda i: max(map(lambda d: get_len(i, d, H[i]), range(1, N)), default=1), range(N)), default=1)
+    
+    # Wait, the range of d can be from 1 to N.
+    # Let's double check the constraints. N=3000. 
+    # O(N^2) is 9 million. Python's map/lambda might be slow, but it's the only way.
+    # Actually, the recursion might hit the limit or be slow.
+    # Let's use a different approach for counting: 
+    # For a fixed i and d, the length is (H[i] == H[i+d] == H[i+2d] ...).
+    # This is still recursive.
+    
+    # Let's use the recursive function and map.
+    
+    # To ensure it passes within time limits, we should be careful.
+    # Actually, the most efficient way to solve this is DP, but DP usually uses loops.
+    # We can use recursion with memoization (functools.lru_cache).
+    
+    from functools import lru_cache
+    
+    @lru_cache(None)
+    def get_len(i, d):
+        if i + d >= N or H[i + d] != H[i]:
+            return 1
+        return 1 + get_len(i + d, d)
+
+    # We need to call get_len(i, d) for all i in 0..N-1 and d in 1..N-1.
+    # The result is max(get_len(i, d)) for all i, d.
+    # We also handle the N=1 case.
+    
+    # To avoid 'for', we use map.
+    # result = max(map(lambda i: max(map(lambda d: get_len(i, d), range(1, N)), default=1), range(N)), default=1)
+    
+    # Let's put it all together.
+    
+    # One final check: the problem says "chosen buildings are arranged at equal intervals".
+    # This means indices p, p+d, p+2d... 
+    # My get_len(i, d) calculates exactly that.
+    
+    # Since I cannot use 'for', I will use map and max.
+    
+    # The recursion limit needs to be increased.
+    # The memory limit is usually generous, lru_cache is fine.
+    
+    # Wait, the prompt says "Return only Python source". 
+    # I will implement the logic inside a solve function and call it.
+    
+    # Let's refine the map calls to be more concise.
+    
+    # Final check on Sample 1: 8 buildings, H = [5, 7, 5, 7, 7, 5, 7, 7]
+    # i=1 (H=7), d=3: indices 1, 4, 7. H[1]=7, H[4]=7, H[7]=7. Length = 3. Correct.
+    
+    # Implementation detail: 
+    # Using map(lambda...) inside max() is a clean way to avoid loops.
+    
+    # One last thing: the recursion depth. 
+    # For N=3000, the maximum depth is N (when d=1). 
+    # sys.setrecursionlimit(5000) is sufficient.
+    
+    # Let's write the code.
+    pass
+
+# Since I need to provide the full code in one block, I'll integrate the logic.

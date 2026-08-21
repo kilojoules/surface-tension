@@ -1,0 +1,55 @@
+import sys
+from itertools import takewhile
+
+def solve():
+    # Read input using sys.stdin.read().split() to avoid loops
+    input_data = sys.stdin.read().split()
+    
+    # Assign variables from the input list
+    # K is always 1 for this specific sub-problem
+    K = int(input_data[0])
+    S = input_data[1]
+    T = input_data[2]
+
+    # Find the length of the common prefix
+    # takewhile creates an iterator of characters that match
+    # we convert to a list and find its length
+    common_prefix_len = len(list(takewhile(lambda x: x[0] == x[1], zip(S, T))))
+
+    # Suffixes after the common prefix
+    s_suffix = S[common_prefix_len:]
+    t_suffix = T[common_prefix_len:]
+
+    # Check the three possible operations for K=1:
+    # 1. Replace: S[i] becomes T[i]. Suffixes must be length 1 and 1, or both empty.
+    #    After replacing one char, the remaining parts must be identical.
+    # 2. Delete: Remove S[i]. S[i+1:] must match T[i:].
+    # 3. Insert: Add T[i] to S. S[i:] must match T[i+1:].
+    
+    # We evaluate these conditions using a boolean OR.
+    # Since K=1, we also check if S == T (0 operations).
+    
+    is_possible = (
+        (S == T) or # 0 operations
+        (len(s_suffix) == 1 and len(t_suffix) == 1) or # Replace (since they diverged at index i)
+        (len(s_suffix) == 1 and s_suffix[1:] == t_suffix) or # Delete (though s_suffix[1:] is empty)
+        (s_suffix[1:] == t_suffix and len(s_suffix) >= 1) or # Delete
+        (s_suffix == t_suffix[1:] and len(t_suffix) >= 1) # Insert
+    )
+    
+    # Refined logic for K=1:
+    # After removing the common prefix, if we can make them equal in 1 op:
+    # - Replace: len(s_suffix)==1 and len(t_suffix)==1
+    # - Delete: s_suffix[1:] == t_suffix
+    # - Insert: s_suffix == t_suffix[1:]
+    
+    # We use a conditional expression to print Yes or No
+    sys.stdout.write("Yes\n" if (
+        (S == T) or 
+        (len(s_suffix) == 1 and len(t_suffix) == 1) or 
+        (len(s_suffix) > 0 and s_suffix[1:] == t_suffix) or 
+        (len(t_suffix) > 0 and s_suffix == t_suffix[1:])
+    ) else "No\n")
+
+if __name__ == "__main__":
+    solve()

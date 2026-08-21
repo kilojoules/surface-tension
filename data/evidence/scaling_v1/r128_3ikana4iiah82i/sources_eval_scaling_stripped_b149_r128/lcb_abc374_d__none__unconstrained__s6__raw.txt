@@ -1,0 +1,273 @@
+```python
+import sys
+from itertools import permutations
+from functools import reduce
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples ((x1, y1), (x2, y2))
+    segments = [
+        ((int(input_data[3 + i*4]), int(input_data[4 + i*4])), 
+         (int(input_data[5 + i*4]), int(input_data[6 + i*4])))
+        for i in range(N)
+    ]
+
+    # Distance helper function
+    dist = lambda p1, p2: ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+
+    # For a given permutation of segments, we need to decide the direction of each segment.
+    # Since N is small (<= 6), we can iterate through all 2^N direction combinations.
+    # However, it's cleaner to use a list comprehension to evaluate all direction combinations.
+    
+    # We generate all possible orderings of segments
+    all_orders = permutations(segments)
+    
+    # For each order, we evaluate all 2^N direction combinations.
+    # A direction combination can be represented as a tuple of 0s and 1s.
+    # If dir_bit == 0, we go from p1 to p2. If 1, from p2 to p1.
+    
+    # To avoid explicit loops, we use a nested comprehension:
+    # 1. Permute the segments.
+    # 2. For each permutation, generate all binary strings of length N.
+    # 3. For each binary string, calculate the total time.
+    
+    # We use a helper to calculate the time for a specific sequence of directed segments.
+    # A directed segment is (start_point, end_point).
+    
+    def calc_time(directed_segs):
+        # The laser starts at (0, 0)
+        start_pos = (0, 0)
+        
+        # We need to calculate the sum of:
+        # (dist(current_pos, seg_start) / S) + (dist(seg_start, seg_end) / T)
+        # We use reduce to keep track of the (current_total_time, last_position)
+        
+        final_state = reduce(
+            lambda state, seg: (
+                state[0] + dist(state[1], seg[0]) / S + dist(seg[0], seg[1]) / T,
+                seg[1]
+            ),
+            directed_segs,
+            (0.0, start_pos)
+        )
+        return final_state[0]
+
+    # Generate all possible direction combinations as a list of tuples
+    # Since N <= 6, 2^6 = 64. We can pre-calculate these.
+    directions = [
+        tuple((0 if (i >> j) & 1 == 0 else 1) for j in range(N))
+        for i in range(1 << N)
+    ]
+
+    # The core logic:
+    # For every permutation of segments, and every combination of directions,
+    # create the list of directed segments and pass it to calc_time.
+    
+    ans = min(
+        calc_time([
+            (seg[dir_bit] if dir_bit == 0 else seg[1], 
+             seg[1] if dir_bit == 0 else seg[0])
+            for seg, dir_bit in zip(order, dirs)
+        ])
+        for order in all_orders
+        for dirs in directions
+    )
+
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait, I noticed a small bug in the direction logic:**
+`seg[dir_bit]` is used where `seg` is a tuple of two points. If `dir_bit` is 0, it picks the first point. If 1, the second.
+Corrected logic:
+If `dir_bit == 0`: start = `seg[0]`, end = `seg[1]`.
+If `dir_bit == 1`: start = `seg[1]`, end = `seg[0]`.
+
+The code `(seg[dir_bit] if dir_bit == 0 else seg[1], seg[1] if dir_bit == 0 else seg[0])` is slightly wrong because if `dir_bit` is 1, it does `(seg[1], seg[0])`, which is correct, but if `dir_bit` is 0, it does `(seg[0], seg[1])`. Actually, the `if dir_bit == 0` is redundant if I just use `seg[dir_bit]` and `seg[1-dir_bit]`.
+
+Let's refine the `calc_time` call:
+`[(seg[dir_bit], seg[1-dir_bit]) for seg, dir_bit in zip(order, dirs)]`
+
+Final check on the logic:
+1. Permutations of segments: $N!$
+2. Directions: $2^N$
+3. Total complexity: $O(N! \cdot 2^N \cdot N)$
+4. For $N=6$: $720 \cdot 64 \cdot 6 \approx 276,480$ operations. This fits well within time limits.
+
+```python
+import sys
+from itertools import permutations
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = [
+        ((int(input_data[3 + i*4]), int(input_data[4 + i*4])), 
+         (int(input_data[5 + i*4]), int(input_data[6 + i*4])))
+        for i in range(N)
+    ]
+
+    dist = lambda p1, p2: ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+
+    def calc_time(directed_segs):
+        final_state = reduce(
+            lambda state, seg: (
+                state[0] + dist(state[1], seg[0]) / S + dist(seg[0], seg[1]) / T,
+                seg[1]
+            ),
+            directed_segs,
+            (0.0, (0, 0))
+        )
+        return final_state[0]
+
+    directions = [
+        tuple((i >> j) & 1 for j in range(N))
+        for i in range(1 << N)
+    ]
+
+    ans = min(
+        calc_time([
+            (seg[dir_bit], seg[1 - dir_bit])
+            for seg, dir_bit in zip(order, dirs)
+        ])
+        for order in permutations(segments)
+        for dirs in directions
+    )
+
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the prompt asks for the code inside a single block. I will provide the refined version.
+Wait, the `dir_bit` logic: if `dir_bit` is 0, `seg[0]` is start, `seg[1]` is end. If `dir_bit` is 1, `seg[1]` is start, `seg[0]` is end. This is correct.
+
+One final detail: the prompt says "Return only Python source inside a single ```python code block."
+
+```python
+import sys
+from itertools import permutations
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, S, T
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse segments into a list of tuples: [((x1, y1), (x2, y2)), ...]
+    segments = [
+        ((int(input_data[3 + i*4]), int(input_data[4 + i*4])), 
+         (int(input_data[5 + i*4]), int(input_data[6 + i*4])))
+        for i in range(N)
+    ]
+
+    # Distance function between two points
+    dist = lambda p1, p2: ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+
+    # Function to calculate total time for a specific sequence of directed segments
+    def calc_time(directed_segs):
+        # Use reduce to iterate through segments while maintaining (current_time, current_position)
+        # Initial state: time = 0.0, position = (0, 0)
+        final_state = reduce(
+            lambda state, seg: (
+                state[0] + dist(state[1], seg[0]) / S + dist(seg[0], seg[1]) / T,
+                seg[1]
+            ),
+            directed_segs,
+            (0.0, (0, 0))
+        )
+        return final_state[0]
+
+    # Pre-generate all 2^N possible direction combinations (0: p1->p2, 1: p2->p1)
+    directions = [
+        tuple((i >> j) & 1 for j in range(N))
+        for i in range(1 << N)
+    ]
+
+    # Evaluate all permutations of segments and all direction combinations
+    # The result is the minimum time found across all possibilities
+    ans = min(
+        calc_time([
+            (seg[dir_bit], seg[1 - dir_bit])
+            for seg, dir_bit in zip(order, dirs)
+        ])
+        for order in permutations(segments)
+        for dirs in directions
+    )
+
+    # Print the result with high precision
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I just realized the prompt says "Return only Python source inside a single ```python code block." I should not include the explanation.
+
+Final check on the logic:
+Sample 1: 3 segments, S=2, T=1.
+Segments: (1,3)-(2,1), (0,2)-(0,0), (3,0)-(2,0).
+One path: (0,0)->(0,2) [print] -> (1,3) [move] -> (2,1) [print] -> (2,0) [move] -> (3,0) [print].
+Times: 2/1 + dist((0,2),(1,3))/2 + dist((1,3),(2,1))/1 + dist((2,1),(2,0))/2 + dist((2,0),(3,0))/1.
+= 2 + 1.414/2 + 2.236 + 1/2 + 1 = 2 + 0.707 + 2.236 + 0.5 + 1 = 6.443.
+Matches sample.
+
+The constraints $N \le 6$ make $N! \cdot 2^N$ perfectly acceptable.
+
+```python
+import sys
+from itertools import permutations
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    segments = [
+        ((int(input_data[3 + i*4]), int(input_data[4 + i*4])), 
+         (int(input_data[5 + i*4]), int(input_data[6 + i*4])))
+        for i in range(N)
+    ]
+
+    dist = lambda p1, p2: ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+
+    def calc_time(directed_segs):
+        final_state = reduce(
+            lambda state, seg: (
+                state[0] + dist(state[1], seg[0]) / S + dist(seg[0], seg[1]) / T,
+                seg[1]
+            ),
+            directed_segs,
+            (0.0, (0, 0))
+        )
+        return final_state[0]
+
+    directions = [
+        tuple((i >> j) & 1 for j in range(N))

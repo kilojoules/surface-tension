@@ -1,0 +1,74 @@
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input and parse N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Parse line segments into a list of tuples ((x1, y1), (x2, y2))
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])), 
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    def dist(p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # Precalculate the time to print each segment (length / T)
+    print_times = [dist(s[0], s[1]) / T for s in segments]
+    total_print_time = sum(print_times)
+
+    # We need to try all permutations of segments and both directions for each segment.
+    # A state can be represented by the sequence of segments and a bitmask/tuple for direction.
+    # Since N is very small (N <= 6), we can iterate through all permutations and direction combinations.
+    
+    # Generate all permutations of indices 0 to N-1
+    # Generate all combinations of directions (0: start->end, 1: end->start)
+    # We use a generator expression inside min() to find the minimum travel time.
+    
+    # To avoid loops, we use permutations and product from itertools.
+    # For a given permutation P and direction choices D:
+    # The path is: (0,0) -> Start_P1 -> End_P1 -> Start_P2 -> End_P2 ...
+    
+    # We can define a helper to get the endpoints based on the direction choice
+    def get_endpoints(seg_idx, direction):
+        seg = segments[seg_idx]
+        return (seg[0], seg[1]) if direction == 0 else (seg[1], seg[0])
+
+    # We calculate the travel time (non-printing movement)
+    # Travel time = dist(current, next_start) / S
+    
+    # Using a recursive-like structure via map/sum or generator expressions to calculate path cost
+    def calculate_travel_time(p, d):
+        # endpoints is a list of (start, end) for the chosen permutation and direction
+        endpoints = [get_endpoints(p[i], d[i]) for i in range(N)]
+        
+        # Travel segments: 
+        # 1. (0,0) to endpoints[0][0]
+        # 2. endpoints[i][1] to endpoints[i+1][0] for i in 0..N-2
+        
+        first_move = dist((0, 0), endpoints[0][0]) / S
+        other_moves = sum(dist(endpoints[i][1], endpoints[i+1][0]) / S 
+                          for i in range(N - 1))
+        return first_move + other_moves
+
+    # Iterate over all permutations of segment indices and all 2^N direction combinations
+    # Use a generator expression to find the minimum travel time
+    min_travel_time = min(
+        calculate_travel_time(p, d)
+        for p in permutations(range(N))
+        for d in product([0, 1], repeat=N)
+    )
+
+    print(f"{total_print_time + min_travel_time:.20f}")
+
+if __name__ == "__main__":
+    solve()

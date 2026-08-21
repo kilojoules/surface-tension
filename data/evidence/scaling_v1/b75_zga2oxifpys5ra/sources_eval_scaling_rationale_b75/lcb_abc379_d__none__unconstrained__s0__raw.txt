@@ -1,0 +1,74 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional paradigm. In idiomatic Python, while loops are standard for stateful processing, removing them requires leveraging high-order functions and data structures that can simulate state transitions. For this problem, `functools.reduce` is the ideal tool to maintain a running state (the set of plants and the current time offset) across the sequence of queries. Since we need to efficiently count and remove plants based on a height threshold, a sorted list (maintained via `bisect`) allows us to perform range queries and deletions in logarithmic and linear time respectively, which is sufficient given the constraints and the nature of the operations.
+
+```python
+import sys
+from bisect import bisect_left
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # We need to process queries and maintain state.
+    # State: (current_time_offset, sorted_list_of_planting_times, results_list)
+    # A plant planted at time 't' has height: current_time_offset - t
+    # Height >= H  =>  current_time_offset - t >= H  =>  t <= current_time_offset - H
+    
+    # Using a generator to parse the flat input list into queries
+    def get_queries(data):
+        it = iter(data[1:])
+        while True:
+            try:
+                q_type = next(it)
+                if q_type == '1':
+                    yield (1, None)
+                elif q_type == '2':
+                    yield (2, int(next(it)))
+                else:
+                    yield (3, int(next(it)))
+            except StopIteration:
+                break
+
+    def process_query(state, query):
+        offset, plants, results = state
+        q_type, val = query
+        
+        if q_type == 1:
+            # Plant height 0 means its "birth time" is the current offset
+            # We maintain the plants list sorted to use binary search
+            # Since offsets only increase, new plants are always added to the end
+            plants.append(offset)
+            return (offset, plants, results)
+        
+        elif q_type == 2:
+            # Increase height of all plants by T
+            return (offset + val, plants, results)
+        
+        else: # q_type == 3
+            # Harvest plants where height >= H
+            # height = offset - birth_time >= H  => birth_time <= offset - H
+            threshold = offset - val
+            # Find index of first plant with birth_time > threshold
+            idx = bisect_left(plants, threshold + 1)
+            # Plants from 0 to idx-1 are harvested
+            harvested_count = idx
+            # Remove harvested plants from the list
+            # We use slice assignment to modify the list in place
+            del plants[:idx]
+            results.append(str(harvested_count))
+            return (offset, plants, results)
+
+    # reduce(function, sequence, initial_state)
+    # We use a list for plants and results to allow in-place mutation within the reduce function
+    final_state = reduce(process_query, get_queries(input_data), (0, [], []))
+    
+    # Print all results joined by newlines
+    sys.stdout.write('\n'.join(final_state[2]) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

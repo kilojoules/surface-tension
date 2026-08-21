@@ -1,0 +1,83 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # Find the length of the common prefix
+    # We use a generator expression with next() to find the first index where characters differ
+    prefix_len = next((i for i in range(min(len(s), len(t))) if s[i] != t[i]), min(len(s), len(t)))
+    
+    # Remove common prefix
+    s_trimmed = s[prefix_len:]
+    t_trimmed = t[prefix_len:]
+    
+    # Find the length of the common suffix from the trimmed strings
+    # We compare from the end backwards
+    suffix_len = next((i for i in range(min(len(s_trimmed), len(t_trimmed))) 
+                       if s_trimmed[-(i+1)] != t_trimmed[-(i+1)]), 
+                      min(len(s_trimmed), len(t_trimmed)) if min(len(s_trimmed), len(t_trimmed)) > 0 else 0)
+    
+    # Remove common suffix
+    # If suffix_len is 0, slicing [:-0] returns an empty string, so we handle it with a conditional
+    s_final = s_trimmed[:len(s_trimmed) - suffix_len] if suffix_len > 0 else s_trimmed
+    t_final = t_trimmed[:len(t_trimmed) - suffix_len] if suffix_len > 0 else t_trimmed
+
+    # The problem is solvable if the remaining parts can be transformed in <= 1 operation.
+    # Possible cases for 1 operation:
+    # 1. Both are empty (0 operations)
+    # 2. One is length 1 and the other is length 0 (Insert/Delete)
+    # 3. Both are length 1 (Replace)
+    # 4. One is length 2 and the other is length 1, and removing one char from the longer makes them equal (Insert/Delete)
+    
+    # Since K=1, we can simply check the lengths of the remaining mismatched parts.
+    # If the edit distance is <= 1, the remaining parts must satisfy:
+    # - diff in length <= 1
+    # - if length diff is 0, at most 1 char differs
+    # - if length diff is 1, the shorter must be a subsequence of the longer
+    
+    res = (
+        (len(s_final) == 0 and len(t_final) == 0) or
+        (len(s_final) == 1 and len(t_final) == 1) or
+        (len(s_final) == 1 and len(t_final) == 0) or
+        (len(s_final) == 0 and len(t_final) == 1) or
+        (len(s_final) == 1 and len(t_final) == 2 and (s_final == t_final[0] or s_final == t_final[1])) or
+        (len(s_final) == 2 and len(t_final) == 1 and (t_final == s_final[0] or t_final == s_final[1]))
+    )
+
+    # Special case: if s_final and t_final are both length 1, they are always 1 edit apart (replace)
+    # unless they are identical (0 edits). The logic above covers this.
+    # However, we must check if they were identical to begin with.
+    # Actually, the most robust check for K=1 after trimming prefix/suffix:
+    # The remaining parts must have length <= 1, OR one has length 2 and the other 1 and they match.
+    # Wait, if s="a", t="b", trimmed are "a", "b". Lengths are 1, 1. Result: Yes.
+    # If s="abc", t="ac", trimmed are "b", "". Lengths 1, 0. Result: Yes.
+    # If s="abc", t="adc", trimmed are "b", "d". Lengths 1, 1. Result: Yes.
+    
+    # Let's refine the final check:
+    # After removing common prefix and suffix, if the edit distance is <= 1,
+    # then the remaining strings s_final and t_final must satisfy:
+    # 1. len(s_final) == len(t_final) and len(s_final) <= 1
+    # 2. abs(len(s_final) - len(t_final)) == 1 and min(len(s_final), len(t_final)) == 0
+    # Actually, the simplest check:
+    # If len(s_final) > 2 or len(t_final) > 2, it's impossible.
+    # Otherwise, just check all possible 1-edit transformations.
+    
+    # But the logic used in 'res' already covers all cases for K=1.
+    # Let's double check:
+    # S=T: s_final="", t_final="" -> True
+    # Replace 1: s_final="a", t_final="b" -> True
+    # Delete 1: s_final="a", t_final="" -> True
+    # Insert 1: s_final="", t_final="a" -> True
+    # More than 1: s_final="ab", t_final="cd" -> False
+    
+    print("Yes" if res else "No")
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,85 @@
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions as a list of (H, T)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Helper to calculate distance between a and b on a ring of size N
+    # clockwise and counter-clockwise
+    # Since we cannot pass through the other hand, we must check which 
+    # direction is blocked.
+    def get_dist(start, end, obstacle, n):
+        # The ring is 1-indexed.
+        # There are two paths: clockwise and counter-clockwise.
+        # A path is blocked if the obstacle is on it.
+        
+        # Normalize to 0-indexed for easier modulo arithmetic
+        s, e, o = start - 1, end - 1, obstacle - 1
+        
+        # Clockwise distance
+        dist_cw = (e - s) % n
+        # The obstacle is on the clockwise path if (o - s) % n < dist_cw
+        # However, the problem says we can't move to the destination if the 
+        # other hand is there. The obstacle blocks the path if it lies 
+        # strictly between s and e clockwise.
+        # Actually, the simplest way: 
+        # If we move clockwise, we visit (s+1)%n, (s+2)%n ... e.
+        # If any of these is o, that path is blocked.
+        
+        # Check if obstacle is in the clockwise path
+        # The clockwise path is blocked if (o - s) % n != 0 and (o - s) % n <= dist_cw
+        # Wait, the rule is: "cannot move to destination if other hand is there".
+        # But the obstacle is the other hand. 
+        # If the obstacle is at position 'o', we can't step on 'o'.
+        
+        # Clockwise path: s -> (s+1)%n -> ... -> e
+        # It is blocked if o is any of the nodes in the sequence.
+        # Since s != o and e != o (guaranteed), we only check if o is between.
+        is_cw_blocked = (o - s) % n < dist_cw
+        
+        # Counter-clockwise distance
+        dist_ccw = (s - e) % n
+        # Counter-clockwise path: s -> (s-1)%n -> ... -> e
+        # It is blocked if (s - o) % n < dist_ccw
+        is_ccw_blocked = (s - o) % n < dist_ccw
+        
+        # It is guaranteed that the instruction is achievable.
+        # Return the distance of the non-blocked path.
+        if is_cw_blocked:
+            return dist_ccw
+        if is_ccw_blocked:
+            return dist_cw
+        # If neither is blocked (only possible if N is large), take the minimum.
+        return min(dist_cw, dist_ccw)
+
+    # State: (left_hand, right_hand, total_distance)
+    # Initial state: L=1, R=2, dist=0
+    initial_state = (1, 2, 0)
+
+    def process_instruction(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            d = get_dist(l, t, r, N)
+            return (t, r, total + d)
+        else:
+            d = get_dist(r, t, l, N)
+            return (l, t, total + d)
+
+    final_state = reduce(process_instruction, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()

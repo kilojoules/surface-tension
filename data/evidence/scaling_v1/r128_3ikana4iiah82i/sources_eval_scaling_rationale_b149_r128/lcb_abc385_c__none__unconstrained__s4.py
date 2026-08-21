@@ -1,0 +1,92 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+
+    # We need to find the maximum number of buildings that:
+    # 1. Have the same height.
+    # 2. Are spaced at equal intervals.
+    
+    # Let i be the starting index (0 to n-1)
+    # Let d be the interval (1 to n-1)
+    
+    # For a fixed start i and interval d, we check how many buildings 
+    # starting from i, i+d, i+2d... have the same height as h[i].
+    
+    # We use a helper function (via a list comprehension) to count 
+    # consecutive buildings of the same height.
+    # However, the condition "arranged at equal intervals" means we 
+    # check indices i, i+d, i+2d... as long as they are within bounds.
+    # The sequence stops as soon as we hit a building of a different height.
+    
+    # To implement this without loops, we can generate all possible 
+    # arithmetic progressions of indices and then find the longest 
+    # prefix of the progression that shares the same height.
+    
+    # For each start i and interval d:
+    # We create a list of heights: [h[i], h[i+d], h[i+2d], ...]
+    # We then count how many of these are equal to h[i] before the first mismatch.
+    
+    # Since we cannot use while loops, we can use a trick with 
+    # itertools.takewhile or a comprehension that checks 
+    # if all elements up to index k are the same.
+    
+    # Actually, a simpler way:
+    # For every start i and interval d, we check all possible lengths k.
+    # A length k is valid if for all j from 0 to k-1, h[i + j*d] == h[i].
+    
+    # To avoid O(N^4), we can observe that for a fixed i and d,
+    # we want the largest k such that h[i] == h[i+d] == ... == h[i+(k-1)*d].
+    
+    # We can use a recursive-like structure via a list comprehension 
+    # by checking all possible k values and taking the max.
+    
+    # Optimization: we only need to check d from 1 to n.
+    # For a fixed i and d, the maximum possible k is (n - 1 - i) // d + 1.
+    
+    # To count the prefix of identical heights without a loop:
+    # We can use a generator expression inside sum() combined with 
+    # a way to stop at the first False. 
+    # Since we can't use while, we can check all k and see if the 
+    # condition holds for all indices up to k.
+    
+    # Let's use a more efficient approach:
+    # For every pair (i, d), we find the length of the sequence.
+    # We can use a list comprehension to build the sequence and 
+    # then find the first index where the height changes.
+    
+    # Using a helper function defined inside solve to handle the counting:
+    def get_length(i, d):
+        # Generate the sequence of heights
+        seq = [h[j] for j in range(i, n, d)]
+        # Find the first index where height differs from the first element
+        # We use a list comprehension to find all indices where it differs
+        diffs = [idx for idx, val in enumerate(seq) if val != seq[0]]
+        # If diffs is empty, the whole sequence is the same
+        return diffs[0] if diffs else len(seq)
+
+    # We calculate get_length for all i in 0..n-1 and d in 1..n-1
+    # The result is the maximum of these values.
+    # Note: if n=1, the range(1, n) is empty, so we handle that.
+    
+    if n == 0:
+        print(0)
+        return
+    if n == 1:
+        print(1)
+        return
+
+    ans = max([get_length(i, d) for i in range(n) for d in range(1, n)])
+    
+    # The problem says if we choose one building, it satisfies the condition.
+    # Our logic covers this because get_length will be at least 1.
+    print(max(1, ans))
+
+if __name__ == "__main__":
+    solve()

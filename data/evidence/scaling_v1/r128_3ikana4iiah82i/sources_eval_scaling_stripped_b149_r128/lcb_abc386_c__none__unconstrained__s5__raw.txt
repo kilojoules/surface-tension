@@ -1,0 +1,242 @@
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    # Read K, S, T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    K = int(input_data[0])
+    S = input_data[1]
+    T = input_data[2]
+
+    # The problem is to check if the edit distance between S and T is <= K.
+    # For K=1, we can check this by comparing the strings and finding the first mismatch.
+    
+    # We use a helper to find the first index where S and T differ.
+    # Since we cannot use loops, we use a generator expression and next().
+    def get_first_diff(s, t):
+        return next((i for i in range(min(len(s), len(t))) if s[i] != t[i]), min(len(s), len(t)))
+
+    # Find the first point of divergence
+    idx = get_first_diff(S, T)
+    
+    # Suffixes starting from the first difference
+    s_suffix = S[idx:]
+    t_suffix = T[idx:]
+    
+    # For K=1, there are three possibilities to make S identical to T:
+    # 1. Replace: Change S[idx] to T[idx]. Check if S[idx+1:] == T[idx+1:]
+    # 2. Delete: Remove S[idx]. Check if S[idx+1:] == T[idx:]
+    # 3. Insert: Add T[idx] to S. Check if S[idx:] == T[idx+1:]
+    
+    # We use a list comprehension to check these conditions and 'any()' to return True/False.
+    # We also handle the case where S == T (which is allowed since 0 <= operations <= K).
+    
+    result = (S == T) or any([
+        # Replace
+        (len(s_suffix) > 0 and len(t_suffix) > 0 and S[idx+1:] == T[idx+1:]),
+        # Delete
+        (len(s_suffix) > 0 and S[idx+1:] == T[idx:]),
+        # Insert
+        (len(t_suffix) > 0 and S[idx:] == T[idx+1:])
+    ])
+    
+    print("Yes" if result else "No")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, the prompt forbids `for` loops. My `get_first_diff` uses `range` inside a generator, which is allowed, but I should ensure I don't use any explicit `for` blocks. The logic above uses `next()` and `any()`, which are functional. 
+
+However, the constraint says "no for loops". `(i for i in range(...))` is a generator expression. To be absolutely safe and avoid any `for` keyword, I can use `map` and `filter`.
+
+Let's refine the `get_first_diff` to use `map` and `next`.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    K, S, T = int(input_data[0]), input_data[1], input_data[2]
+
+    # Find first difference without using 'for' keyword
+    # We create a sequence of indices and filter for those where S[i] != T[i]
+    diff_indices = list(filter(lambda i: S[i] != T[i], range(min(len(S), len(T)))))
+    idx = diff_indices[0] if diff_indices else min(len(S), len(T))
+    
+    # Check the 3 edit distance possibilities for K=1
+    # 1. Replace: S[idx+1:] == T[idx+1:]
+    # 2. Delete:  S[idx+1:] == T[idx:]
+    # 3. Insert:  S[idx:] == T[idx+1:]
+    
+    checks = [
+        (S == T),
+        (idx < len(S) and idx < len(T) and S[idx+1:] == T[idx+1:]),
+        (idx < len(S) and S[idx+1:] == T[idx:]),
+        (idx < len(T) and S[idx:] == T[idx+1:])
+    ]
+    
+    print("Yes" if any(checks) else "No")
+
+if __name__ == "__main__":
+    solve()
+```
+Actually, the prompt says "no for loops", but generator expressions `(i for i in ...)` are generally accepted as they are not "loops" in the statement sense. But to be pedantic, `filter` and `map` are the way. The second version is safer.
+
+Final check on logic:
+- If $S=T$, `diff_indices` is empty, `idx = min(len(S), len(T))`. `S==T` is True. Output Yes.
+- If $S="abc", T="agc"$, `diff_indices = [1]`, `idx = 1`. `S[2:] == T[2:]` ("c" == "c") is True. Output Yes.
+- If $S="abc", T="ac"$, `diff_indices = [1]`, `idx = 1`. `S[2:] == T[1:]` ("c" == "c") is True. Output Yes.
+- If $S="back", T="black"$, `diff_indices = [1]`, `idx = 1`. `S[1:] == T[2:]` ("ack" == "ack") is True. Output Yes.
+
+The logic holds.
+One final detail: the prompt says "Return only Python source inside a single ```python code block."
+
+```python
+import sys
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # K is given as 1, but we read it for completeness
+    K = int(input_data[0])
+    S = input_data[1]
+    T = input_data[2]
+
+    # Find the first index where S and T differ without using a for loop.
+    # We use filter to find all indices where characters mismatch and take the first one.
+    diff_indices = list(filter(lambda i: S[i] != T[i], range(min(len(S), len(T)))))
+    idx = diff_indices[0] if diff_indices else min(len(S), len(T))
+    
+    # For K=1, we check if the strings are already identical or if 
+    # one of the three basic edit operations (replace, delete, insert) makes them identical.
+    # We use a list of booleans and the any() function.
+    possible = any([
+        (S == T),
+        (idx < len(S) and idx < len(T) and S[idx+1:] == T[idx+1:]), # Replace
+        (idx < len(S) and S[idx+1:] == T[idx:]),                  # Delete
+        (idx < len(T) and S[idx:] == T[idx+1:])                   # Insert
+    ])
+    
+    sys.stdout.write("Yes\n" if possible else "No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used `range` inside `filter`. `range` is an iterable. The `filter` function iterates over it. This is the standard way to avoid `for` loops in Python.
+
+One last check: the constraints say $S, T$ length up to 500,000. `S[idx+1:]` creates a slice (a new string). In Python, slicing is $O(N)$. Since we only do it a few times, the overall complexity is $O(N)$, which fits within the time limit.
+
+Final Code:
+```python
+import sys
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # K is given as 1
+    K = int(input_data[0])
+    S = input_data[1]
+    T = input_data[2]
+
+    # Find the first index where S and T differ without using a for loop.
+    # We use filter to find indices where characters mismatch.
+    diff_indices = list(filter(lambda i: S[i] != T[i], range(min(len(S), len(T)))))
+    idx = diff_indices[0] if diff_indices else min(len(S), len(T))
+    
+    # Check if S can be transformed to T in <= 1 operation.
+    # 1. Already identical.
+    # 2. Replace: skip current char in both.
+    # 3. Delete: skip current char in S.
+    # 4. Insert: skip current char in T.
+    possible = any([
+        (S == T),
+        (idx < len(S) and idx < len(T) and S[idx+1:] == T[idx+1:]),
+        (idx < len(S) and S[idx+1:] == T[idx:]),
+        (idx < len(T) and S[idx:] == T[idx+1:])
+    ])
+    
+    sys.stdout.write("Yes\n" if possible else "No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block." I must remove the explanation.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    K = int(input_data[0])
+    S = input_data[1]
+    T = input_data[2]
+
+    diff_indices = list(filter(lambda i: S[i] != T[i], range(min(len(S), len(T)))))
+    idx = diff_indices[0] if diff_indices else min(len(S), len(T))
+    
+    possible = any([
+        (S == T),
+        (idx < len(S) and idx < len(T) and S[idx+1:] == T[idx+1:]),
+        (idx < len(S) and S[idx+1:] == T[idx:]),
+        (idx < len(T) and S[idx:] == T[idx+1:])
+    ])
+    
+    sys.stdout.write("Yes\n" if possible else "No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+One final check: `range` is allowed. `filter` is allowed. `any` is allowed. No `for` or `while` keywords are used. The time complexity is $O(N)$ and space complexity is $O(N)$ due to slicing and the `diff_indices` list. Given the 500k limit, this is acceptable. Actually, `diff_indices` could be large if many characters differ, but we only need the first one. I can use `next()` instead of `list(filter(...))[0]` to make it $O(1)$ space for the index search.
+
+```python
+    # Using next() instead of list() to avoid O(N) space for diff_indices
+    idx = next(filter(lambda i: S[i] != T[i], range(min(len(S), len(T)))), min(len(S), len(T)))
+```
+This is cleaner and more efficient.
+
+Final version:
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    K = int(input_data[0])
+    S = input_data[1]
+    T = input_data[2]
+
+    # Find the first index where S and T differ using next() and filter()
+    idx = next(filter(lambda i: S[i] != T[i], range(min(len(S), len(T)))), min(len(S), len(T)))
+    
+    # Check if S can be transformed to T in <= 1 operation
+    possible = any([
+        (S == T),
+        (idx < len(S) and idx < len(T) and S[idx+1:] == T[idx+1:]),
+        (idx < len(S) and S[idx+1:] == T[idx:]),
+        (idx < len(T) and S[idx:] == T[idx+1:])
+    ])
+    
+    sys.stdout.write("Yes\n" if possible else "No\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I just noticed the prompt says "Return only Python source inside a single ```python code block." I will provide exactly that.
+One last check: `S[idx+1:]` is $O(N)$. Since we do it 3 times, it's $3 \times O(N)$, which is $O(N)$. The `filter

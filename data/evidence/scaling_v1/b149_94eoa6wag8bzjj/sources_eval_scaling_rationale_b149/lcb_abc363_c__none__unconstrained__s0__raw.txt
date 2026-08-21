@@ -1,0 +1,45 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state-mutation to a functional paradigm, emphasizing data transformation over step-by-step execution. To solve this problem, I will use `itertools.permutations` to generate all possible arrangements of the string, a set comprehension to handle duplicate permutations (since the input string can have repeating characters), and a nested comprehension combined with `all()` to check for the absence of palindromes of length $K$ across all possible substring indices.
+
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line
+    # Read S from the second line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+
+    # Generate all unique permutations of the string S
+    # We use a set to automatically remove duplicates caused by identical characters
+    all_perms = set(permutations(s))
+
+    # A string contains a palindrome of length K if there exists an index i
+    # such that the substring of length K starting at i is equal to its reverse.
+    # We want to count permutations where NO such i exists.
+    
+    # For a permutation p (tuple of chars), we check all substrings of length k.
+    # The condition for a palindrome of length k starting at i is:
+    # p[i : i+k] == p[i : i+k][::-1]
+    
+    # We use a generator expression inside sum() to count valid permutations.
+    # The inner all() checks that for all possible start indices i, 
+    # the substring is NOT a palindrome.
+    result = sum(
+        1 for p in all_perms
+        if all(
+            p[i : i+k] != p[i : i+k][::-1]
+            for i in range(n - k + 1)
+        )
+    )
+
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

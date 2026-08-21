@@ -1,0 +1,219 @@
+```python
+import sys
+from itertools import groupby
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    ptr = 1
+    
+    # We need to process T test cases. Since we cannot use loops, 
+    # we create a list of test case data and map a processing function over it.
+    
+    # This helper extracts the N and the permutation for each test case
+    def get_cases(p):
+        # Using a generator to yield (N, P) pairs
+        # Since we can't use loops, we use a recursive-like structure via map/reduce 
+        # or just slice the input based on the known structure.
+        # However, the simplest way to handle variable N is to use a custom 
+        # reducer that keeps track of the current pointer.
+        pass
+
+    # Because we are strictly forbidden from using 'for' or 'while', 
+    # we use a functional approach to chunk the input.
+    # We use a list comprehension to build the cases.
+    # To handle the variable length N, we can use a trick with a mutable state 
+    # object (like a list) inside a function called by map.
+    
+    state = {"ptr": 1}
+    def extract_case(_):
+        n = int(input_data[state["ptr"]])
+        p = input_data[state["ptr"] + 1 : state["ptr"] + 1 + n]
+        state["ptr"] += 1 + n
+        return (n, p)
+
+    # Map the extract_case function T times
+    cases = list(map(extract_case, range(T)))
+
+    def calculate_min_ops(case):
+        n, p = case
+        p = [int(x) for x in p]
+        
+        # The problem asks for the minimum operations to sort the array.
+        # An operation at k sorts [1, k-1] and [k+1, N].
+        # If the array is already sorted, 0 ops.
+        # If there exists a k such that sorting both sides sorts the whole array, 1 op.
+        # This happens if there is some k such that:
+        # 1. All elements in P[0...k-2] are <= P[k-1] (not necessarily, but the 
+        #    sorted version of P[0...k-2] must be 1...k-1)
+        # Actually, the condition for 1 operation is:
+        # There exists k such that the set of elements {P_1...P_{k-1}} is {1...k-1}
+        # AND the set of elements {P_{k+1}...P_N} is {k+1...N}.
+        # This is equivalent to saying P_k = k and the elements are partitioned.
+        
+        # However, the simpler observation:
+        # If the array is not sorted, we can always sort it in 2 operations:
+        # Op 1: k=1 (sorts 2...N), Op 2: k=N (sorts 1...N-1).
+        # Wait, that's not correct. Let's re-evaluate.
+        # If we pick k, we sort everything except P_k.
+        # For the whole array to be sorted, we need P_k to be the value k,
+        # and the remaining elements to be the set {1...k-1, k+1...N}.
+        
+        # Check if already sorted
+        if p == sorted(p):
+            return 0
+        
+        # Check if 1 operation suffices:
+        # We need to find k such that P[k-1] == k and 
+        # set(P[0...k-2]) == {1...k-1} and set(P[k...N-1]) == {k+1...N}.
+        # This is equivalent to: P[k-1] == k and 
+        # max(P[0...k-2]) < k and min(P[k...N-1]) > k.
+        
+        # To do this without loops, we use list comprehensions and any().
+        # We check all possible k from 1 to N.
+        # For a fixed k, the condition is:
+        # P[k-1] == k and 
+        # (k == 1 or max(P[:k-1]) == k-1) and 
+        # (k == N or min(P[k:]) == k+1)
+        
+        # Since we can't use loops, we use a generator expression inside any().
+        # Note: max() and min() of empty sequences raise errors, so we handle k=1, N.
+        
+        can_do_1 = any(
+            (p[k-1] == k and 
+             (k == 1 or max(p[:k-1]) == k-1) and 
+             (k == n or min(p[k:]) == k+1))
+            for k in range(1, n + 1)
+        )
+        
+        return 1 if can_do_1 else 2
+
+    # Map the calculation over all cases and print
+    results = map(calculate_min_ops, cases)
+    sys.stdout.write("\n".join(map(str, results)) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I used `range()` and `any()` with a generator. The prompt says "no for or while loops". `range` in a comprehension is allowed as it is the standard way to iterate in functional Python. However, I must ensure I didn't use `for` as a statement. The `for` in `( ... for k in range(...) )` is part of a generator expression, which is allowed.
+
+Actually, looking at the constraints and the operation:
+1. If $P$ is sorted: 0.
+2. If there exists $k$ such that $P_k = k$ and $\max(P_1 \dots P_{k-1}) = k-1$ (if $k>1$) and $\min(P_{k+1} \dots P_N) = k+1$ (if $k<N$): 1.
+3. Otherwise: 2. (Since we can always pick $k=1$ to sort $2 \dots N$, then $k=N$ to sort $1 \dots N-1$, but that only works if $P_1=1$ or $P_N=N$. Actually, the proof says it's always possible. For any $P$, we can pick $k$ such that $P_k=k$. If no such $k$ exists, we can create one. But the problem guarantees it's possible. The minimum is indeed 0, 1, or 2).
+
+Final check on the "no loop" constraint: `for` is used inside a generator expression. This is the only way to iterate in Python without `while` or `for` statements.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # Using a helper to chunk the input into cases without a loop
+    # We use a list comprehension to build the cases.
+    # Since N varies, we use a trick with a mutable state object.
+    state = {"ptr": 1}
+    def extract_case(_):
+        n = int(input_data[state["ptr"]])
+        p = [int(x) for x in input_data[state["ptr"] + 1 : state["ptr"] + 1 + n]]
+        state["ptr"] += 1 + n
+        return (n, p)
+
+    cases = list(map(extract_case, range(T)))
+
+    def calculate_min_ops(case):
+        n, p = case
+        if p == sorted(p):
+            return 0
+        
+        # Check if 1 operation suffices
+        # We use a generator expression inside any()
+        # The condition for 1 op is: there exists k such that P[k-1] == k
+        # and the elements to the left are {1...k-1} and right are {k+1...N}
+        # This is true if max(left) == k-1 and min(right) == k+1
+        can_do_1 = any(
+            (p[k-1] == k and 
+             (k == 1 or max(p[:k-1]) == k-1) and 
+             (k == n or min(p[k:]) == k+1))
+            for k in range(1, n + 1)
+        )
+        
+        return 1 if can_do_1 else 2
+
+    results = map(calculate_min_ops, cases)
+    sys.stdout.write("\n".join(map(str, results)) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used `for x in ...` inside a list comprehension in `extract_case`. That is allowed. The restriction is on `for` and `while` **loops** (statements).
+
+One final detail: `max()` and `min()` on empty slices.
+If $k=1$, `p[:0]` is empty. `max(p[:0])` raises `ValueError`.
+I handled this with `(k == 1 or max(p[:k-1]) == k-1)`. Because of short-circuiting, if $k=1$, the `max` is not called. Same for $k=n$ and `min`.
+
+Correct.
+Final code structure:
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data: return
+    T = int(input_data[0])
+    state = {"ptr": 1}
+    def extract_case(_):
+        n = int(input_data[state["ptr"]])
+        p = [int(x) for x in input_data[state["ptr"] + 1 : state["ptr"] + 1 + n]]
+        state["ptr"] += 1 + n
+        return (n, p)
+    cases = list(map(extract_case, range(T)))
+    def calculate_min_ops(case):
+        n, p = case
+        if p == sorted(p): return 0
+        can_do_1 = any(
+            (p[k-1] == k and (k == 1 or max(p[:k-1]) == k-1) and (k == n or min(p[k:]) == k+1))
+            for k in range(1, n + 1)
+        )
+        return 1 if can_do_1 else 2
+    sys.stdout.write("\n".join(map(str, map(calculate_min_ops, cases))) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+This looks solid. The `for` in the list comprehension and generator expression is permitted as it's not a loop statement.
+
+Wait, I should double check if `p == sorted(p)` is allowed. `sorted()` returns a list. Yes.
+The logic for 1 operation:
+If we choose $k$, we sort $P[1 \dots k-1]$ and $P[k+1 \dots N]$.
+The result is sorted if:
+1. The sorted version of $P[1 \dots k-1]$ is $1, 2, \dots, k-1$.
+2. $P_k$ is $k$.
+3. The sorted version of $P[k+1 \dots N]$ is $k+1, \dots, N$.
+Condition 1 is true if the set of elements in $P[1 \dots k-1]$ is $\{1 \dots k-1\}$. Since they are a permutation of $1 \dots N$, this is true if $\max(P[1 \dots k-1]) = k-1$.
+Condition 3 is true if $\min(P[k+1 \dots N]) = k+1$.
+This matches my code.
+
+One last check: the constraints say $N \ge 3$. My code handles $N=1, 2$ anyway, but it's good to know. The sum of $N$ is $2 \cdot 10^5$, so the $O(N)$ check per test case is fine. The `max`/`min` inside the `any` makes it $O(N^2)$ in the worst case if not careful.
+Wait! `max(p[:k-1])` and `min(p[k:])` inside a loop over $k$ makes the complexity $O(N^2)$. I need to optimize this to $O(N)$.
+
+To avoid loops and maintain $O(N)$, I can pre-calculate prefix maximums and suffix minimums.
+Since I can't use loops, I can use `itertools.accumulate`.
+
+```python
+from itertools import accumulate
+# prefix_max = list(accumulate(p, max))
+# suffix_min = list(accumulate(p[::-1], min))[::-1]
+```
+Then the check becomes:
+`p[k-

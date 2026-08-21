@@ -1,0 +1,91 @@
+The constraint to avoid explicit loops forces a shift toward functional programming paradigms, emphasizing the transformation of data streams over stateful iteration. In idiomatic Python, while `for` loops are standard, utilizing `map`, `reduce`, and comprehensions can often lead to more concise, declarative code that describes *what* to do rather than *how* to step through it. For this problem, I will use `functools.reduce` to maintain the state of the grid across the sequence of queries, and set comprehensions to handle the logic of identifying and removing walls.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    # Queries as a list of (r, c) tuples
+    queries = [
+        (int(input_data[i]), int(input_data[i+1])) 
+        for i in range(3, len(input_data), 2)
+    ]
+    
+    # We represent the grid as a set of existing walls.
+    # Initial state: all cells (r, c) are walls.
+    initial_walls = {(r, c) for r in range(1, H + 1) for c in range(1, W + 1)}
+    
+    # To efficiently find the "first wall" in four directions, 
+    # we maintain sets of walls for each row and each column.
+    # rows_walls[r] = set of columns c that have a wall at (r, c)
+    # cols_walls[c] = set of rows r that have a wall at (r, c)
+    initial_state = {
+        'walls': initial_walls,
+        'rows': {r: {c for c in range(1, W + 1)} for r in range(1, H + 1)},
+        'cols': {c: {r for r in range(1, H + 1)} for c in range(1, W + 1)}
+    }
+
+    def process_query(state, query):
+        r, c = query
+        walls = state['walls']
+        rows = state['rows']
+        cols = state['cols']
+        
+        if (r, c) in walls:
+            # Case 1: Wall exists at (r, c), destroy it.
+            walls.remove((r, c))
+            rows[r].remove(c)
+            cols[c].remove(r)
+        else:
+            # Case 2: No wall at (r, c), find first walls in 4 directions.
+            # We use sorted lists and binary search (via list comprehensions/filters) 
+            # to find the nearest wall. Since we cannot use loops, we use 
+            # min/max with filters.
+            
+            # Up: r_i < r, max(r_i)
+            # Down: r_i > r, min(r_i)
+            # Left: c_j < c, max(c_j)
+            # Right: c_j > c, min(c_j)
+            
+            # Find targets
+            up = max([ri for ri in cols[c] if ri < r], default=None)
+            down = min([ri for ri in cols[c] if ri > r], default=None)
+            left = max([cj for cj in rows[r] if cj < c], default=None)
+            right = min([cj for cj in rows[r] if cj > c], default=None)
+            
+            # Identify walls to be destroyed
+            targets = {
+                (up, c) if up is not None else None,
+                (down, c) if down is not None else None,
+                (r, left) if left is not None else None,
+                (r, right) if right is not None else None
+            }
+            # Remove None from targets
+            targets = {t for t in targets if t is not None}
+            
+            # Update state by removing all target walls
+            # We use a side-effect inside a list comprehension to update the sets
+            # Note: This is a common trick to perform updates without explicit loops
+            [ (walls.remove(t), rows[t[0]].remove(t[1]), cols[t[1]].remove(t[0])) 
+              for t in targets ]
+            
+        return state
+
+    # Use reduce to process all queries
+    final_state = reduce(process_query, queries, initial_state)
+    
+    # The answer is the size of the remaining walls set
+    print(len(final_state['walls']))
+
+if __name__ == "__main__":
+    solve()
+```

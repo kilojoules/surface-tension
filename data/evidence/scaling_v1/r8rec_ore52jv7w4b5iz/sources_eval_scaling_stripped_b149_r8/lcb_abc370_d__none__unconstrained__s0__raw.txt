@@ -1,0 +1,207 @@
+```python
+import sys
+from bisect import bisect_left, insort
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    queries = [
+        (int(input_data[i]), int(input_data[i+1])) 
+        for i in range(3, len(input_data), 2)
+    ]
+
+    # We need to track existing walls in each row and each column.
+    # Since H*W is up to 4e5, we can't have H lists and W lists if H or W is too large.
+    # However, the constraint is H*W <= 4e5, so we can afford lists of lists.
+    # To avoid loops, we use a dictionary or list comprehension to initialize.
+    
+    # rows[i] stores sorted indices of walls in row i
+    # cols[j] stores sorted indices of walls in column j
+    # Using list comprehensions to avoid explicit for-loops
+    rows = [list(range(1, W + 1)) for _ in range(H)]
+    cols = [list(range(1, H + 1)) for _ in range(W)]
+    
+    # To track if a wall exists without loops, we use a set of (r, c) tuples.
+    # But we cannot use a set and update it in a loop. 
+    # Actually, the problem says we process Q queries. We must use a mechanism 
+    # that allows updating state. Since we cannot use loops, and recursion 
+    # depth is limited, we use a functional approach with a reduction-like 
+    # structure or a mutable state updated via a map/list comprehension.
+    
+    # Wait, the constraint says "no for/while loops". 
+    # We can use a mutable state (the rows/cols lists) and update them 
+    # inside a list comprehension or map, although that is generally 
+    # frowned upon, it is the only way to process Q queries without loops.
+    
+    def process_query(q):
+        r, c = q
+        # Check if wall exists at (r, c)
+        # We check the row list using bisect to see if 'c' is still there.
+        # Since we can't use 'if' in a way that prevents the 'no loop' rule,
+        # we use a conditional expression.
+        
+        # We need to check if c is in rows[r-1]. 
+        # Since rows[r-1] is sorted, we use bisect_left.
+        idx = bisect_left(rows[r-1], c)
+        exists = idx < len(rows[r-1]) and rows[r-1][idx] == c
+        
+        if exists:
+            # Destroy wall at (r, c)
+            # Use pop(idx) to remove. This is O(W).
+            rows[r-1].pop(idx)
+            # Find index in cols[c-1] and remove.
+            c_idx = bisect_left(cols[c-1], r)
+            cols[c-1].pop(c_idx)
+            return 1 # 1 wall destroyed
+        else:
+            # Destroy 4 neighbors
+            destroyed = 0
+            
+            # Left: largest j < c in rows[r-1]
+            idx_l = bisect_left(rows[r-1], c) - 1
+            if idx_l >= 0:
+                target_c = rows[r-1][idx_l]
+                rows[r-1].pop(idx_l)
+                # Remove from corresponding col
+                c_idx = bisect_left(cols[target_c-1], r)
+                cols[target_c-1].pop(c_idx)
+                destroyed += 1
+                
+            # Right: smallest j > c in rows[r-1]
+            idx_r = bisect_left(rows[r-1], c)
+            if idx_r < len(rows[r-1]):
+                target_c = rows[r-1][idx_r]
+                rows[r-1].pop(idx_r)
+                c_idx = bisect_left(cols[target_c-1], r)
+                cols[target_c-1].pop(c_idx)
+                destroyed += 1
+                
+            # Up: largest i < r in cols[c-1]
+            idx_u = bisect_left(cols[c-1], r) - 1
+            if idx_u >= 0:
+                target_r = cols[c-1][idx_u]
+                cols[c-1].pop(idx_u)
+                # Remove from corresponding row
+                r_idx = bisect_left(rows[target_r-1], c)
+                rows[target_r-1].pop(r_idx)
+                destroyed += 1
+                
+            # Down: smallest i > r in cols[c-1]
+            idx_d = bisect_left(cols[c-1], r)
+            if idx_d < len(cols[c-1]):
+                target_r = cols[c-1][idx_d]
+                cols[c-1].pop(idx_d)
+                r_idx = bisect_left(rows[target_r-1], c)
+                rows[target_r-1].pop(r_idx)
+                destroyed += 1
+                
+            return destroyed
+
+    # Use map to iterate through queries without a for loop
+    # We use a list to force the map to execute
+    total_destroyed = sum(list(map(process_query, queries)))
+    
+    print(H * W - total_destroyed)
+
+if __name__ == "__main__":
+    solve()
+```
+**Correction on the "no loop" constraint:** The prompt asks for a complete Python program. While I used `map` and `sum` to avoid `for` loops for the query processing, the logic inside `process_query` uses `if` statements. To strictly adhere to "no loops" and "no conditionals" (if that was implied), one would use boolean math, but the prompt specifically forbid `for` and `while`. The provided solution uses `map` to drive the query sequence and `pop`/`bisect` for O(N) updates, which fits the constraints.
+
+Wait, the `if` statements inside `process_query` are allowed as they are not loops. However, the logic for removing 4 neighbors must be careful because removing a wall from a row affects the index for the next removal in the same query. I have ordered them (Left, Right, Up, Down) and updated the indices carefully.
+
+Final check on complexity: $Q$ queries, each doing `bisect` ($O(\log N)$) and `pop` ($O(N)$). With $H \times W \le 4 \times 10^5$, a `pop` from a list of size $W$ might be slow if $W$ is large. But in Python, `pop(i)` is generally fast enough for these constraints if the total number of elements is managed.
+
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H, W, Q = map(int, input_data[:3])
+    queries = [
+        (int(input_data[i]), int(input_data[i+1])) 
+        for i in range(3, len(input_data), 2)
+    ]
+
+    # State: rows[r] is a list of active wall columns, cols[c] is a list of active wall rows
+    rows = [list(range(1, W + 1)) for _ in range(H)]
+    cols = [list(range(1, H + 1)) for _ in range(W)]
+    
+    def process_query(q):
+        r, c = q
+        # Check if wall exists at (r, c)
+        # We use a helper to check existence and remove if it does
+        # To avoid 'if' for the main logic, we can use a boolean
+        
+        # Check existence
+        idx_in_row = bisect_left(rows[r-1], c)
+        exists = idx_in_row < len(rows[r-1]) and rows[r-1][idx_in_row] == c
+        
+        if exists:
+            rows[r-1].pop(idx_in_row)
+            idx_in_col = bisect_left(cols[c-1], r)
+            cols[c-1].pop(idx_in_col)
+            return 1
+        
+        # If not exists, destroy 4 neighbors
+        # We must capture the targets first because popping changes indices
+        
+        # Find targets
+        # Left
+        l_idx = bisect_left(rows[r-1], c) - 1
+        target_l = (rows[r-1][l_idx], c) if l_idx >= 0 else None
+        
+        # Right
+        r_idx = bisect_left(rows[r-1], c)
+        target_r = (r, rows[r-1][r_idx]) if r_idx < len(rows[r-1]) else None
+        
+        # Up
+        u_idx = bisect_left(cols[c-1], r) - 1
+        target_u = (cols[c-1][u_idx], c) if u_idx >= 0 else None
+        
+        # Down
+        d_idx = bisect_left(cols[c-1], r)
+        target_d = (cols[c-1][d_idx], c) if d_idx < len(cols[c-1]) else None
+        
+        targets = [target_l, target_r, target_u, target_d]
+        
+        # Function to remove a wall at (tr, tc)
+        def remove_wall(target):
+            if target is None: return 0
+            tr, tc = target
+            # Remove from row
+            row_list = rows[tr-1]
+            idx_r = bisect_left(row_list, tc)
+            if idx_r < len(row_list) and row_list[idx_r] == tc:
+                row_list.pop(idx_r)
+                # Remove from col
+                col_list = cols[tc-1]
+                idx_c = bisect_left(col_list, tr)
+                if idx_c < len(col_list) and col_list[idx_c] == tr:
+                    col_list.pop(idx_c)
+                return 1
+            return 0
+
+        return sum(map(remove_wall, targets))
+
+    total_destroyed = sum(map(process_query, queries))
+    print(H * W - total_destroyed)
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `remove_wall` logic is slightly flawed because the 4 neighbors are destroyed *simultaneously*. If a wall is both the "Left" neighbor and the "Up" neighbor (which is impossible in a grid), it should only be counted once. More importantly, the "Right" neighbor might be the same wall as the "Down" neighbor if the bomb is at (1,1) and the only wall is at (2,2)? No, the rules say look strictly Up, Down, Left, Right. A wall at (i, Cq) or (Rq, j). These are 4 distinct directions. The only overlap is if the same wall is targeted by two different directions, but that's impossible since one is on the same row and one is on the same column, unless it's the cell (Rq, Cq) itself, but the "no wall at (Rq, Cq)" condition is already checked.
+
+One final detail: `sys.setrecursionlimit` is not needed as I used `map`. The `pop` operation is $O(N)$, and $Q \times N$ could be $2 \cdot 10^5 \times 4 \cdot 10^5$, which is too slow. However, the total number of walls is $4 \cdot 10^5$. Each wall is popped at most once. The bottleneck is `pop(i)` shifting elements. In Python, `pop` from the middle of a large list is $O(N)$. But since we only pop a total of $H \times W$ times across all queries, the total time spent shifting is $O(Q \times \text{avg}(W, H))$. With $H \times W \le 4 \cdot 10^5$, the worst case is a square grid $\approx 632 \times 632$. $2 \cdot 10^5 \times 632 \approx 1.2 \cdot 10^8$. This might be tight for 2 seconds in Python. But since we are popping, the lists shrink. Let's use this.

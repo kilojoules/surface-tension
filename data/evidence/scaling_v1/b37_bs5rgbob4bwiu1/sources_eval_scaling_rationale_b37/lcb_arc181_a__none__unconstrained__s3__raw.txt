@@ -1,0 +1,210 @@
+The constraint to avoid explicit loops forces a functional programming style, which encourages the use of declarative constructs that describe *what* to calculate rather than *how* to iterate, often leading to more concise and idiomatic code for data transformations. To solve this problem, I will use `sys.stdin.read` to gather all input, `map` to handle type conversions, and list comprehensions/`all()` for logic, ensuring no `for` or `while` loops are used.
+
+```python
+import sys
+
+def solve():
+    # Read all input at once and split into a flat list of tokens
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    
+    # We need a way to process T test cases without a for loop.
+    # We can use a recursive function or map. 
+    # Since we need to track the current index in the input_data list,
+    # we will process the data by grouping it.
+    
+    # To avoid loops, we first organize the input into a list of test cases.
+    # Each test case is (N, P_list).
+    # Because N varies, we can't use a simple slice. 
+    # However, we can use a recursive function to parse the input stream.
+    
+    def parse_cases(data, idx):
+        if idx >= len(data):
+            return []
+        N = int(data[idx])
+        P = data[idx + 1 : idx + 1 + N]
+        return [(N, P)] + parse_cases(data, idx + 1 + N)
+
+    # The constraint to avoid loops is strict. 
+    # Instead of the recursive parse_cases (which might hit recursion depth),
+    # I will use a custom generator-like approach with map and a helper.
+    # Actually, the most "functional" way to handle variable length chunks 
+    # without loops is to use a state-carrying reduction or a recursive function 
+    # with an increased recursion limit.
+    
+    sys.setrecursionlimit(300000)
+    
+    def get_answers(cases):
+        # For each case (N, P):
+        # 0 ops: if P is already sorted.
+        # 1 op: if there exists k such that sorting [1, k-1] and [k+1, N] sorts the whole thing.
+        # This happens if there is some k such that P_k is the only element 
+        # "out of place" relative to the sorted version, or more accurately,
+        # if removing P_k leaves two sequences that, when sorted, fill the gaps.
+        # Actually, the condition for 1 op is: there exists k such that 
+        # {P_1...P_{k-1}} = {1...k-1} and {P_{k+1}...P_N} = {k+1...N}.
+        # Wait, that's too strict. The operation SORTS them.
+        # So 1 op is possible if there exists k such that:
+        # The set of values {P_1...P_{k-1}, P_{k+1}...P_N} is {1...N} \ {k}.
+        # This is always true for any k. The real condition is:
+        # After sorting [1, k-1] and [k+1, N], we need P_i = i.
+        # This means the set of values {P_1...P_{k-1}} must be {1...k-1}
+        # AND the set of values {P_{k+1}...P_N} must be {k+1...N}.
+        # This implies P_k must be k.
+        # So 1 op is possible if there exists k such that P_k = k AND
+        # (P_1...P_{k-1} are some permutation of 1...k-1) AND
+        # (P_{k+1}...P_N are some permutation of k+1...N).
+        # This is equivalent to saying P_k = k and max(P_1...P_{k-1}) = k-1.
+        
+        # Let's re-evaluate:
+        # 0 ops: P_i = i for all i.
+        # 1 op: There exists k such that P_k = k, and {P_1...P_{k-1}} = {1...k-1}.
+        # 2 ops: Always possible for N >= 3.
+        
+        def check_0(N, P):
+            return all(int(P[i]) == i + 1 for i in range(N))
+        
+        def check_1(N, P):
+            # P_i are strings, convert to ints
+            P_int = list(map(int, P))
+            # Prefix maxes and suffix mins
+            # To avoid loops, we use map/list comprehensions with range
+            # But we need prefix maxes. We can't use a loop.
+            # We can use a recursive function to calculate prefix maxes.
+            
+            def get_prefix_max(arr):
+                # Using a list comprehension with a side-effect is forbidden/discouraged.
+                # But we can use a recursive helper.
+                def recurse(i, current_max, acc):
+                    if i == len(arr): return acc
+                    new_max = max(current_max, arr[i])
+                    return recurse(i + 1, new_max, acc + [new_max])
+                return recurse(0, -1, [])
+
+            # Since we can't use loops, and recursion is slow, 
+            # let's use the fact that we can use map() and range().
+            # Wait, the prompt says "Avoid explicit loops (for, while)".
+            # I can use `itertools.accumulate`.
+            from itertools import accumulate
+            
+            p_max = list(accumulate(P_int, max))
+            # Suffix min is harder. We can reverse, accumulate max, then reverse.
+            # Or just use the property: {P_1...P_{k-1}} = {1...k-1} iff max(P_1...P_{k-1}) = k-1.
+            # And {P_{k+1}...P_N} = {k+1...N} iff min(P_{k+1}...P_N) = k+1.
+            
+            # For a fixed k (1-indexed):
+            # Condition: P_k == k AND (k==1 or p_max[k-2] == k-1) AND (k==N or min(P_{k+1}...P_N) == k+1)
+            
+            # To get suffix mins without loops:
+            from itertools import accumulate
+            p_min_suffix = list(accumulate(P_int[::-1], min))[::-1]
+            
+            # Now we check if any k satisfies the condition.
+            # k is 1-indexed, so index is k-1.
+            # Condition for index i (0 to N-1):
+            # P_int[i] == i + 1 AND 
+            # (i == 0 or p_max[i-1] == i) AND 
+            # (i == N-1 or p_min_suffix[i+1] == i + 2)
+            
+            return any(
+                P_int[i] == i + 1 and 
+                (i == 0 or p_max[i-1] == i) and 
+                (i == N-1 or p_min_suffix[i+1] == i + 2)
+                for i in range(N)
+            )
+
+        def solve_case(case):
+            N, P = case
+            if check_0(N, P): return "0"
+            if check_1(N, P): return "1"
+            return "2"
+
+        return map(solve_case, cases)
+
+    # Using a generator to parse cases to avoid recursion depth for parsing
+    def case_generator(data):
+        it = iter(data)
+        try:
+            while True:
+                N_str = next(it)
+                N = int(N_s for N_s in [N_str])[0] # dummy to avoid 'for'
+                # Wait, the above is a loop. Let's use a different way.
+                # I will use a recursive function for parsing and set recursion limit.
+                pass
+        except StopIteration:
+            pass
+
+    # Correcting the parse_cases to be iterative without 'for/while' is hard.
+    # I'll use a recursive function with a high recursion limit.
+    def parse_all(data, idx):
+        if idx >= len(data):
+            return []
+        N = int(data[idx])
+        return [(N, data[idx+1 : idx+1+N])] + parse_all(data, idx+1+N)
+
+    # Since I cannot use 'for' or 'while', I will use map() to trigger the logic.
+    # I'll use a helper to handle the recursion and the final output.
+    
+    # Final attempt at structure:
+    # 1. Read data.
+    # 2. Recursive function to group into (N, P) tuples.
+    # 3. Map the solve_case function over these tuples.
+    # 4. Join results with '\n'.
+    
+    # To avoid 'for' in parse_all, I'll use a list comprehension with a range 
+    # if I knew the number of cases, but I don't. 
+    # Actually, I can use a recursive function to process the list.
+    
+    # Let's redefine everything inside a single call block.
+    pass
+
+# Because the prompt is very strict about NO loops, 
+# I will use recursion for parsing and map for processing.
+
+def main():
+    import sys
+    from itertools import accumulate
+    sys.setrecursionlimit(300000)
+    
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    def parse_cases(data, idx):
+        if idx >= len(data):
+            return []
+        n = int(data[idx])
+        return [(n, data[idx+1 : idx+1+n])] + parse_cases(data, idx+1+n)
+
+    def solve_case(case):
+        n, p_str = case
+        p = list(map(int, p_str))
+        
+        # 0 operations
+        if all(p[i] == i + 1 for i in range(n)):
+            return "0"
+        
+        # 1 operation
+        p_max = list(accumulate(p, max))
+        p_min_suffix = list(accumulate(p[::-1], min))[::-1]
+        
+        if any(
+            p[i] == i + 1 and 
+            (i == 0 or p_max[i-1] == i) and 
+            (i == n-1 or p_min_suffix[i+1] == i + 2)
+            for i in range(n)
+        ):
+            return "1"
+        
+        return "2"
+
+    cases = parse_cases(input_data, 1)
+    results = map(solve_case, cases)
+    sys.stdout.write("\n".join(results) + "\n")
+
+if __name__ == "__main__":
+    main()
+```

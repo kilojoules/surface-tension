@@ -1,0 +1,243 @@
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T = int(input_data[0])
+    ptr = 1
+    
+    # Process each test case
+    # We use a list comprehension to iterate through the test cases
+    # For each case, we determine if 0, 1, or 2 operations are needed.
+    # 0 ops: Already sorted.
+    # 1 op: There exists k such that sorting [1, k-1] and [k+1, N] sorts the whole array.
+    #       This is possible if there is some k where P[k] is the only element 
+    #       out of place, or more generally, if removing P[k] leaves the 
+    #       remaining elements in a state that, when split at k and sorted, 
+    #       results in the identity permutation.
+    #       Actually, the condition for 1 op is: there exists k such that
+    #       {P_1, ..., P_{k-1}} = {1, ..., k-1} and {P_{k+1}, ..., P_N} = {k+1, ..., N}.
+    #       This simplifies to: P[k] must be k, and the sets match.
+    #       Wait, the operation sorts the ranges. So if we pick k, 
+    #       the result is sorted if and only if the set of values {P_1, ..., P_{k-1}} 
+    #       is exactly {1, ..., k-1} and {P_{k+1}, ..., P_N} is {k+1, ..., N}.
+    #       This implies P[k] must be k.
+    
+    # Let's refine: 1 operation with index k works if:
+    # max(P[1...k-1]) == k-1 AND min(P[k+1...N]) == k+1.
+    # (With boundary conditions for k=1 or k=N).
+    
+    # Since we cannot use loops, we use map/filter/comprehensions.
+    # We'll process the cases by grouping the flat input_data.
+    
+    # To handle the variable N per test case without loops, 
+    # we can't easily slice input_data. 
+    # Instead, we can use a generator with next() inside a list comprehension,
+    # but that is essentially a loop. 
+    # The constraint says "no for/while loops". 
+    # We can use a recursive-like structure via map/reduce or 
+    # process the whole thing by calculating prefix offsets.
+    
+    # Let's use a different approach: 
+    # 1. Calculate the prefix sums of Ns to find boundaries.
+    # 2. Use a helper function to process a single case.
+    # 3. Use map() to apply the helper to the cases.
+    
+    def get_ans(N, P):
+        # Check if already sorted
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        # Precompute prefix max and suffix min
+        # P is 0-indexed, values are 1-indexed
+        p_max = list(accumulate(P, max))
+        # Suffix min using accumulate from the right
+        p_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Condition for k (1-indexed):
+        # If k=1: suffix_min[1] == 2
+        # If k=N: prefix_max[N-2] == N-1
+        # If 1 < k < N: prefix_max[k-2] == k-1 AND suffix_min[k] == k+1
+        
+        # We check if any k in [1, N] satisfies this.
+        # Using a list comprehension to check all k and any() to aggregate.
+        can_do_1 = any(
+            ( (k == 0 and (N < 2 or p_min[1] == 2)) or
+              (k == N-1 and (N < 2 or p_max[N-2] == N-1)) or
+              (0 < k < N-1 and p_max[k-1] == k and p_min[k+1] == k+2)
+            )
+            for k in range(N)
+        )
+        
+        return 1 if can_do_1 else 2
+
+    # To avoid loops to split input_data, we use a custom collate function
+    def chunker(it, size):
+        # This is a trick to consume the iterator in chunks
+        # But we can't use loops. We can use map/slice if we know the indices.
+        pass
+
+    # Since we must avoid loops entirely, we'll use a recursive-like 
+    # approach to parse the T cases using a helper that 
+    # processes the list and returns the results.
+    
+    def process_all(data):
+        if not data:
+            return []
+        N = int(data[0])
+        P = list(map(int, data[1:N+1]))
+        return [get_ans(N, P)] + process_all(data[N+1:])
+
+    # However, recursion depth is an issue. Let's use a more robust way.
+    # We can use a generator to yield the cases and map the get_ans over it.
+    def case_generator(data):
+        # We use a closure to maintain state and next() to advance
+        state = {"ptr": 0}
+        def get_next():
+            if state["ptr"] >= len(data):
+                return None
+            N = int(data[state["ptr"]])
+            P = list(map(int, data[state["ptr"]+1 : state["ptr"]+1+N]))
+            state["ptr"] += N + 1
+            return (N, P)
+        return get_next
+
+    # To avoid the loop in the generator, we can use a list comprehension
+    # that calls the closure T times.
+    gen = case_generator(input_data)
+    results = [get_ans(*gen()) for _ in range(T)]
+    
+    sys.stdout.write("\n".join(map(str, results)) + "\n")
+
+# Standard Python entry point
+if __name__ == "__main__":
+    # Increasing recursion depth just in case, though we avoided it
+    sys.setrecursionlimit(300000)
+    solve()
+```
+**Wait**, I used a `for` loop in the list comprehension `[get_ans(*gen()) for _ in range(T)]`. The prompt says "no for/while loops". I must use `map` or other functionals.
+
+Corrected logic:
+1. Use `map` to iterate $T$ times.
+2. Use a closure/mutable object to track the pointer in the input list.
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_val = int(input_data[0])
+    
+    # Closure to maintain state without a loop
+    def create_gen():
+        state = {"ptr": 1}
+        def next_case(_):
+            n_val = int(input_data[state["ptr"]])
+            p_val = list(map(int, input_data[state["ptr"]+1 : state["ptr"]+1+n_val]))
+            state["ptr"] += n_val + 1
+            return (n_val, p_val)
+        return next_case
+
+    def get_ans(case):
+        N, P = case
+        if all(P[i] == i + 1 for i in range(N)):
+            return 0
+        
+        p_max = list(accumulate(P, max))
+        p_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Check if any k works for 1 operation
+        # k is 0-indexed here
+        can_do_1 = any(
+            ( (k == 0 and (N < 2 or p_min[1] == 2)) or
+              (k == N-1 and (N < 2 or p_max[N-2] == N-1)) or
+              (0 < k < N-1 and p_max[k-1] == k and p_min[k+1] == k+2)
+            )
+            for k in range(N)
+        )
+        return 1 if can_do_1 else 2
+
+    # Use map to drive the process T times
+    # range(T_val) is allowed as an iterable, but 'for' is forbidden.
+    # map(get_ans, map(gen, range(T_val)))
+    gen = create_gen()
+    results = map(get_ans, map(gen, range(T_val)))
+    
+    sys.stdout.write("\n".join(map(str, results)) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `any(... for k in range(N))` is also a generator expression which is syntactically a `for` loop. I must use `map` and `any`.
+
+Final check on constraints: $N \ge 3$.
+If $k=0$ (1st element), we need $P[1 \dots N-1]$ to be $\{2 \dots N\}$. This is true if $\min(P[1 \dots N-1]) == 2$.
+If $k=N-1$ (last element), we need $P[0 \dots N-2]$ to be $\{1 \dots N-1\}$. This is true if $\max(P[0 \dots N-2]) == N-1$.
+If $0 < k < N-1$, we need $\max(P[0 \dots k-1]) == k$ and $\min(P[k+1 \dots N-1]) == k+2$.
+
+Corrected `can_do_1` using `map`:
+`can_do_1 = any(map(lambda k: ..., range(N)))`
+
+```python
+import sys
+from itertools import accumulate
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_val = int(input_data[0])
+    
+    def create_gen():
+        state = {"ptr": 1}
+        def next_case(_):
+            n_val = int(input_data[state["ptr"]])
+            p_val = list(map(int, input_data[state["ptr"]+1 : state["ptr"]+1+n_val]))
+            state["ptr"] += n_val + 1
+            return (n_val, p_val)
+        return next_case
+
+    def get_ans(case):
+        N, P = case
+        # Check if already sorted
+        if all(map(lambda i: P[i] == i + 1, range(N))):
+            return 0
+        
+        p_max = list(accumulate(P, max))
+        p_min = list(accumulate(P[::-1], min))[::-1]
+        
+        def check_k(k):
+            if k == 0:
+                return p_min[1] == 2
+            if k == N - 1:
+                return p_max[N-2] == N - 1
+            return p_max[k-1] == k and p_min[k+1] == k + 2
+
+        return 1 if any(map(check_k, range(N))) else 2
+
+    gen = create_gen()
+    results = map(get_ans, map(gen, range(T_val)))
+    sys.stdout.write("\n".join(map(str, results)) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, `all(map(...))` and `any(map(...))` are perfectly legal. The only restriction is the `for` and `while` keywords. The above code uses neither.
+
+Final logic check:
+If $P = [3, 2, 1, 7, 5, 6, 4]$, $N=7$.
+Sorted: $[1, 2, 3, 4, 5, 6, 7]$.
+$k=0: P[1 \dots 6]=[2, 1, 7, 5, 6, 4], \min=1 \neq 2$.
+$k=1: P[0]=[3], \max=3 \neq 1$.
+$k=2: P[0 \dots 1]=[3, 2], \max=3 \neq 2$.
+$k=3: P[0 \dots 2]=[3, 2, 1], \max=3; P[4 \dots 6]=[5, 6, 4], \min=4$. Correct! $k=3$ (0-indexed) is the 4th element.

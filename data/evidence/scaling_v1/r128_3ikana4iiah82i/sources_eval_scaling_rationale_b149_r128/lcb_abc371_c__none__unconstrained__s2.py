@@ -1,0 +1,80 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a generator/iterator to consume input
+    it = iter(input_data)
+    
+    N = int(next(it))
+    
+    # Graph G edges
+    MG = int(next(it))
+    G_edges = [tuple(map(int, (next(it), next(it)))) for _ in range(MG)]
+    
+    # Graph H edges
+    MH = int(next(it))
+    H_edges = [tuple(map(int, (next(it), next(it)))) for _ in range(MH)]
+    
+    # Cost matrix A
+    # A[i][j] will store the cost for edge (i+1, j+1)
+    # The input provides A_{1,2}, A_{1,3}... A_{N-1,N}
+    # We map this into a 2D list for easy access
+    flat_A = [int(x) for x in it]
+    
+    # To reconstruct the cost matrix from the flat list:
+    # Row 1 has N-1 elements, Row 2 has N-2, etc.
+    # We use a helper to get the index of A_{i,j} where 1 <= i < j <= N
+    # The index in flat_A is sum_{k=1}^{i-1} (N-k) + (j-i-1)
+    def get_cost(i, j):
+        # Ensure i < j
+        u, v = (i, j) if i < j else (j, i)
+        # Calculate index in the flat list
+        # The number of elements before row u is (N-1) + (N-2) + ... + (N-(u-1))
+        # Which is (u-1)*N - (u-1)*u//2
+        idx = (u - 1) * N - (u * (u - 1)) // 2 + (v - u - 1)
+        return flat_A[idx]
+
+    # Adjacency matrices for G and H
+    adj_G = [[0] * (N + 1) for _ in range(N + 1)]
+    for u, v in G_edges:
+        adj_G[u][v] = adj_G[v][u] = 1
+        
+    adj_H = [[0] * (N + 1) for _ in range(N + 1)]
+    for u, v in H_edges:
+        adj_H[u][v] = adj_H[v][u] = 1
+
+    # We need to find a permutation P of {1...N} such that 
+    # the cost to make H match G under P is minimized.
+    # Cost for a pair (i, j) is A_{P_i, P_j} if (i,j) in G != (P_i, P_j) in H.
+    
+    # Pre-calculate all pair costs to avoid repeated index math
+    # pair_costs[i][j] = cost to flip edge between vertex i and j in H
+    pair_costs = [[get_cost(i, j) if i != j else 0 for j in range(1, N + 1)] for i in range(1, N + 1)]
+
+    # Try all permutations of vertices 1...N
+    # P is a tuple where P[i-1] is the vertex in H corresponding to vertex i in G
+    all_perms = permutations(range(1, N + 1))
+    
+    # For each permutation, calculate the total cost
+    # Total cost = sum_{1 <= i < j <= N} (cost(P_i, P_j) if G(i,j) != H(P_i, P_j))
+    
+    # We use a generator expression inside min() to find the best permutation
+    ans = min(
+        sum(
+            pair_costs[p[i-1]-1][p[j-1]-1]
+            for i in range(1, N + 1)
+            for j in range(i + 1, N + 1)
+            if adj_G[i][j] != adj_H[p[i-1]][p[j-1]]
+        )
+        for p in all_perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

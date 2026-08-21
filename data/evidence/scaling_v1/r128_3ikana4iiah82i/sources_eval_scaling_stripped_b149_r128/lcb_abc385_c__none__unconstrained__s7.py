@@ -1,0 +1,55 @@
+import sys
+from collections import defaultdict
+
+def solve():
+    # Read N and the list of heights
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+
+    # Group indices of buildings by their height
+    # height_map: {height: [index1, index2, ...]}
+    height_map = defaultdict(list)
+    for i in range(N):
+        height_map[H[i]].append(i)
+
+    # For each height, we want to find the maximum number of indices 
+    # that form an arithmetic progression.
+    # Since N is up to 3000, we can iterate through all pairs of indices 
+    # for each height to define a starting point and a common difference.
+    
+    # We use a list comprehension to iterate through all heights and their indices.
+    # For each height, we check all pairs (i, j) as the first two elements of the sequence.
+    # The common difference is d = indices[j] - indices[i].
+    # We then count how many subsequent elements indices[j] + k*d also exist in the set.
+    
+    # To avoid loops, we use a nested comprehension.
+    # We pre-calculate the set of indices for each height for O(1) lookup.
+    
+    results = [
+        max(
+            [
+                # For a fixed height and a pair of indices (idx_i, idx_j),
+                # we count how many elements of the progression exist.
+                # We use a generator expression inside sum() to count.
+                sum(1 for k in range(2, (N // (idx_j - idx_i + 1)) + 2) 
+                    if (idx_j + (k - 1) * (idx_j - idx_i)) in idx_set) 
+                + 2 # Add the first two elements
+                for i in range(len(indices))
+                for j in range(i + 1, len(indices))
+                for idx_i, idx_j in [(indices[i], indices[j])]
+            ] + [1] # Default to 1 if no pairs exist
+        )
+        for height, indices in height_map.items()
+        for idx_set in [set(indices)]
+    ]
+
+    # The answer is the maximum value found across all heights.
+    # If N=0, the result list is empty, so we provide a default of 0.
+    print(max(results) if results else 0)
+
+if __name__ == "__main__":
+    solve()

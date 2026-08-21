@@ -1,0 +1,45 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line
+    # Read S from the second line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+
+    # Generate all unique permutations of the string S
+    # Using a set of tuples to remove duplicates caused by repeating characters
+    all_perms = set(permutations(s))
+
+    # Function to check if a string contains a palindrome of length K
+    # A string T contains a palindrome of length K if there's an index i
+    # such that T[i:i+k] == T[i:i+k][::-1]
+    # We use a list comprehension and 'any' to check all possible substrings of length K
+    
+    # We filter the permutations: 
+    # Keep the permutation if for all i, the substring of length K is NOT a palindrome.
+    # The condition "do not contain a palindrome of length K" means:
+    # NOT (exists i such that T[i:i+k] is a palindrome)
+    # Which is equivalent to:
+    # For all i, T[i:i+k] is NOT a palindrome.
+    
+    # We use a generator expression inside sum() to count valid permutations.
+    # Each 'p' is a tuple of characters.
+    
+    result = sum(
+        1 for p in all_perms 
+        if not any(
+            p[i : i + k] == p[i : i + k][::-1] 
+            for i in range(n - k + 1)
+        )
+    )
+
+    print(result)
+
+if __name__ == "__main__":
+    solve()

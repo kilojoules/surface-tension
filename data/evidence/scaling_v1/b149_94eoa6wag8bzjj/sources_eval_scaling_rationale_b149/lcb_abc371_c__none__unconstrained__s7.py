@@ -1,0 +1,100 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    # Graph G edges
+    MG = int(input_data[ptr])
+    ptr += 1
+    g_edges = []
+    for _ in range(MG):
+        g_edges.append((int(input_data[ptr]), int(input_data[ptr+1])))
+        ptr += 2
+        
+    # Graph H edges
+    MH = int(input_data[ptr])
+    ptr += 1
+    h_edges = []
+    for _ in range(MH):
+        h_edges.append((int(input_data[ptr]), int(input_data[ptr+1])))
+        ptr += 2
+        
+    # Cost matrix A
+    # A[i][j] will store cost for pair (i+1, j+1)
+    costs_flat = list(map(int, input_data[ptr:]))
+    
+    # Reconstruct A into a 2D adjacency-like matrix for easy access
+    # A_matrix[i][j] is the cost to flip edge between vertex i+1 and j+1
+    # Since the input is given as A_{1,2}, A_{1,3}... A_{N-1,N}
+    # we map them carefully.
+    A_matrix = [[0] * N for _ in range(N)]
+    
+    # Using a helper to fill A_matrix without explicit loops
+    # We calculate the index in the flat list based on the triangular nature
+    # The number of elements before A_{i,j} is sum_{k=1}^{i-1} (N-k) + (j-i-1)
+    # However, it's simpler to just map them based on the input structure.
+    
+    # To avoid loops for filling A_matrix, we can use a comprehension
+    # and a flat index.
+    def get_cost(i, j):
+        # i, j are 1-indexed, i < j
+        # The index in costs_flat is (sum of (N-k) for k from 1 to i-1) + (j-i-1)
+        # Sum of (N-k) for k=1 to i-1 is (i-1)*N - (i-1)*i/2
+        idx = (i-1)*N - (i*(i-1)//2) + (j-i-1)
+        return costs_flat[idx]
+
+    # Pre-calculate adjacency matrices for G and H
+    adj_G = [[0] * (N + 1) for _ in range(N + 1)]
+    # Using a trick to update adj_G without loops: 
+    # Since we can't use loops, we use a comprehension to build the matrix
+    adj_G = [[1 if (i, j) in g_edges or (j, i) in g_edges else 0 
+               for j in range(N + 1)] for i in range(N + 1)]
+    
+    adj_H = [[1 if (i, j) in h_edges or (j, i) in h_edges else 0 
+               for j in range(N + 1)] for i in range(N + 1)]
+
+    # We need to find a permutation P of (1...N) such that 
+    # we minimize sum_{i < j} cost(i, j) if (P_i, P_j) edge status in H 
+    # differs from (i, j) edge status in G.
+    # Wait, the problem says: pay A_{i,j} to flip edge (i,j) in H.
+    # To make H isomorphic to G, we need a permutation P such that
+    # edge (i, j) exists in G iff edge (P_i, P_j) exists in H.
+    # The cost is the sum of A_{P_i, P_j} for all pairs (i, j) where
+    # G(i, j) != H(P_i, P_j).
+    
+    # Generate all permutations of 1...N
+    all_perms = permutations(range(1, N + 1))
+    
+    # For a fixed permutation P, the cost is:
+    # sum_{1 <= i < j <= N} (A_{P_i, P_j} if G(i, j) != H(P_i, P_j) else 0)
+    # Note: A_{i,j} is defined for i < j. So we use min(P_i, P_j) and max(P_i, P_j).
+    
+    # To avoid loops, we use nested comprehensions.
+    # We use a helper function to get A_{i,j}
+    def get_A(u, v):
+        return get_cost(min(u, v), max(u, v))
+
+    # Calculate total cost for each permutation and take the minimum
+    # We use a generator expression inside min()
+    ans = min(
+        sum(
+            get_A(p[i-1], p[j-1]) 
+            for i in range(1, N + 1) 
+            for j in range(i + 1, N + 1) 
+            if adj_G[i][j] != adj_H[p[i-1]][p[j-1]]
+        )
+        for p in all_perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

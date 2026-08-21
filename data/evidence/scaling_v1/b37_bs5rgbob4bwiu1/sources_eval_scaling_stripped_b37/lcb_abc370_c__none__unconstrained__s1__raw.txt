@@ -1,0 +1,115 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s = list(input_data[0])
+    t = list(input_data[1])
+    n = len(s)
+
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(n) if s[i] != t[i]]
+    
+    # To get the lexicographically smallest sequence of strings:
+    # 1. We must change characters one by one.
+    # 2. For a specific index i, if T[i] < S[i], changing S[i] to T[i] 
+    #    makes the string lexicographically smaller immediately.
+    #    Therefore, we should process all indices where T[i] < S[i] first,
+    #    and process them in increasing order of index.
+    # 3. If T[i] > S[i], changing S[i] to T[i] makes the string lexicographically larger.
+    #    To keep the sequence smallest, we should process these last,
+    #    and process them in decreasing order of index (to keep the prefix smaller for longer).
+    
+    # Indices where T[i] < S[i] (Increasing order)
+    first_batch = [i for i in diff_indices if t[i] < s[i]]
+    first_batch.sort()
+    
+    # Indices where T[i] > S[i] (Decreasing order)
+    second_batch = [i for i in diff_indices if t[i] > s[i]]
+    second_batch.sort(reverse=True)
+    
+    # The sequence of indices to change
+    change_order = first_batch + second_batch
+    
+    # Generate the sequence of strings
+    # We use a list comprehension to create the strings by updating the state of s
+    # Since we cannot use loops, we use a helper function with reduce or a custom map
+    # However, the simplest way to maintain state without a loop is using a generator 
+    # or a function that updates the list and returns the current join.
+    
+    def apply_change(current_s, idx):
+        current_s[idx] = t[idx]
+        return "".join(current_s)
+
+    # Using map to iterate through the change_order and update the list s
+    # map() will execute the apply_change function for each index in change_order
+    result_x = list(map(lambda i: apply_change(s, i), change_order))
+    
+    # Output the number of elements
+    print(len(result_x))
+    # Output each string in the array X
+    if result_x:
+        print("\n".join(result_x))
+
+if __name__ == "__main__":
+    solve()
+```
+**Wait, I noticed a logic error in my "Decreasing order" reasoning for $T[i] > S[i]$.**
+If $T[i] > S[i]$, changing $S[i]$ to $T[i]$ increases the string value. To keep the array lexicographically smallest, we want the increase to happen as far to the right as possible first. So, for $T[i] > S[i]$, we should indeed process indices in **descending** order.
+
+Example: $S = \text{"ab"}, T = \text{"ba"}$.
+Indices: $0 (a \to b), 1 (b \to a)$.
+$T[0] > S[0]$ and $T[1] < S[1]$.
+1. Change index 1: "aa"
+2. Change index 0: "ba"
+Result: `["aa", "ba"]`. If we did index 0 first: `["bb", "ba"]`. "aa" < "bb".
+
+Example: $S = \text{"aa"}, T = \text{"bb"}$.
+Indices: $0 (a \to b), 1 (a \to b)$.
+Both $T[i] > S[i]$.
+Order [1, 0]: "ab", "bb".
+Order [0, 1]: "ba", "bb".
+"ab" < "ba", so descending order is correct.
+
+Final check on constraints: $S, T$ length 100. The logic holds.
+The use of `map` with a mutating function is a standard way to simulate a loop in Python when loops are forbidden.
+
+```python
+import sys
+
+def solve():
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s_list = list(input_data[0])
+    t_list = list(input_data[1])
+    n = len(s_list)
+
+    # Indices where T[i] < S[i] sorted ascending
+    # Indices where T[i] > S[i] sorted descending
+    change_order = sorted([i for i in range(n) if t_list[i] < s_list[i]]) + \
+                   sorted([i for i in range(n) if t_list[i] > s_list[i]], reverse=True)
+    
+    def update_and_join(idx):
+        s_list[idx] = t_list[idx]
+        return "".join(s_list)
+
+    # Generate the sequence of strings by mapping the update function over the order
+    result_x = list(map(update_and_join, change_order))
+    
+    print(len(result_x))
+    if result_x:
+        sys.stdout.write("\n".join(result_x) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```
+One final detail: the prompt asks for the code in a single block. I will provide the refined version.
+(Self-correction: The `map` function in Python 3 is lazy, so `list(map(...))` is necessary to trigger the side effects in the specific order).
+
+Final logic verification:
+1. $T[i] < S[i]$: Changing $S[i] \to T[i]$ decreases the string. We want this as early as possible. Among multiple such $i$, changing the leftmost one first creates the smallest string. $\implies$ Ascending index.
+2. $T[i] > S[i]$: Changing $S[i] \to T[i]$ increases the string. We want to delay this as much as possible. Among multiple such $i$, changing the rightmost one first keeps the prefix smaller for longer. $\implies$ Descending index.

@@ -1,0 +1,105 @@
+import sys
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The problem asks for the floor((S+1)/2)-th sequence.
+    # S is the total number of permutations of the multiset {1*K, 2*K, ..., N*K}.
+    # S = (N*K)! / (K!)^N.
+    # The floor((S+1)/2)-th sequence is the "middle" sequence.
+    # Because the set of all good sequences is symmetric (if you replace 
+    # each element x with (N + 1 - x), you get another good sequence),
+    # the lexicographical middle is achieved by picking the "middle" 
+    # available digit at each step.
+    # Specifically, for a symmetric distribution, the median sequence 
+    # is the one that is its own "complement" in a sense, or more simply,
+    # we can determine the sequence digit by digit by comparing the number 
+    # of sequences starting with digit 'd' against the remaining count.
+    
+    # However, a key observation for this specific problem:
+    # The total number of sequences S is very large. 
+    # The sequence at index floor((S+1)/2) is the one where we 
+    # effectively "balance" the choices.
+    # For the first position, there are N choices.
+    # Sequences starting with 1, ..., floor(N/2) make up the first half.
+    # Sequences starting with ceil(N/2)+1, ..., N make up the second half.
+    # If N is even, the first half ends with sequences starting with N/2.
+    # If N is odd, the middle sequence starts with (N+1)/2.
+    
+    # Let's refine this:
+    # Let f(c1, c2, ..., cn) be the number of ways to arrange the remaining characters.
+    # f = (sum(ci))! / product(ci!)
+    # We want the sequence at index target = (S + 1) // 2.
+    
+    # Instead of calculating massive factorials, we can use the symmetry.
+    # The "middle" sequence is the one that is lexicographically 
+    # exactly in the center. 
+    # For the first digit:
+    # If N is odd, the middle digit is (N+1)//2.
+    # If N is even, the middle falls between N/2 and N/2 + 1.
+    # Since we want floor((S+1)/2), for N=2, S=6, target=3.
+    # Sequences starting with 1: (2*2)! / (2! * 2!) = 6 / 2 = 3. (Wait, no)
+    # For N=2, K=2: S = 4! / (2!2!) = 6. Target = 3.
+    # Sequences starting with 1: 3! / (1!2!) = 3.
+    # So the 3rd sequence is the last sequence starting with 1.
+    
+    # General logic:
+    # At each step, we have counts [k1, k2, ..., kn].
+    # We want to find the digit d such that:
+    # sum_{i=1}^{d-1} count(sequences starting with i) < target <= sum_{i=1}^{d} count(sequences starting with i)
+    
+    # To avoid huge numbers, we can use the property that we are looking for the 
+    # "median" sequence. The median sequence is the one that is 
+    # "self-complementary" relative to the available digits.
+    # That is, if we have digits {1, ..., N}, the median sequence is 
+    # constructed by picking the middle available digit, then 
+    # recursively filling the rest.
+    
+    # Actually, the simplest way to find the floor((S+1)/2)-th sequence 
+    # is to realize that the "middle" of the lexicographical order 
+    # for a symmetric multiset is the sequence that is 
+    # "balanced". 
+    # For N=2, K=2: (1, 2, 2, 1)
+    # For N=6, K=1: (3, 6, 5, 4, 2, 1) -> This is a reverse-sorted 
+    # sequence starting from the middle.
+    
+    # Let's use the property: the target index is (S+1)//2.
+    # We can maintain the target index and subtract the number of 
+    # sequences starting with 1, 2, ... until the target is reached.
+    # Since we need to handle very large numbers, Python's arbitrary 
+    # precision integers are perfect.
+    
+    from math import factorial
+    
+    def get_count(counts):
+        total = sum(counts)
+        res = factorial(total)
+        for c in counts:
+            res //= factorial(c)
+        return res
+
+    counts = [k] * n
+    target = (get_count(counts) + 1) // 2
+    
+    result = []
+    for i in range(n * k):
+        for d in range(1, n + 1):
+            if counts[d-1] > 0:
+                counts[d-1] -= 1
+                num_seqs = get_count(counts)
+                if target <= num_seqs:
+                    result.append(d)
+                    # counts[d-1] is already decremented
+                    break
+                else:
+                    target -= num_seqs
+                    counts[d-1] += 1
+                    
+    print(*(result))
+
+solve()

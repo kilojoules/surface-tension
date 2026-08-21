@@ -1,0 +1,62 @@
+import sys
+import math
+from itertools import permutations, product
+
+def solve():
+    # Read input using map and split
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N, S, T
+    N = int(input_data[0])
+    S = int(input_data[1])
+    T = int(input_data[2])
+    
+    # Extract line segments as pairs of points
+    # segments = [((A1, B1), (C1, D1)), ...]
+    segments = [
+        ((int(input_data[3 + 2*i]), int(input_data[4 + 2*i])), 
+         (int(input_data[5 + 2*i]), int(input_data[6 + 2*i])))
+        for i in range(N)
+    ]
+
+    # Helper to calculate Euclidean distance
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    # For a given permutation of segments and a given choice of directions
+    # we calculate the total time.
+    # directions: a tuple of 0 or 1. 0 means start->end, 1 means end->start.
+    calc_time = lambda perm, dirs: (
+        # The total time is the sum of:
+        # 1. Time to print all segments (constant regardless of order/direction)
+        # 2. Time to move between segments (depends on order/direction)
+        sum(dist(s[0], s[1]) / T for s in segments) +
+        sum(
+            dist(
+                # Current position: the end point of the previous segment
+                # If prev_dir is 0, prev_seg[1] is the end. If 1, prev_seg[0] is the end.
+                perm[i-1][1 if dirs[i-1] == 0 else 0],
+                # Next position: the start point of the current segment
+                # If curr_dir is 0, curr_seg[0] is the start. If 1, curr_seg[1] is the start.
+                perm[i][0 if dirs[i] == 0 else 1]
+            ) / S
+            for i in range(1, N)
+        ) +
+        # Initial move from (0,0) to the start of the first segment
+        dist((0, 0), perm[0][0 if dirs[0] == 0 else 1]) / S
+    )
+
+    # We iterate through all permutations of segments (N!) 
+    # and all combinations of directions (2^N).
+    # Since N <= 6, N! * 2^N is at most 720 * 64 = 46,080, which is efficient.
+    ans = min(
+        calc_time(p, d)
+        for p in permutations(segments)
+        for d in product([0, 1], repeat=N)
+    )
+
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

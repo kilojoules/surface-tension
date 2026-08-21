@@ -1,0 +1,284 @@
+```python
+import sys
+from itertools import product
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions
+    instructions = []
+    for i in range(Q):
+        h = input_data[2 + 2*i]
+        t = int(input_data[3 + 2*i])
+        instructions.append((h, t))
+
+    # State: (left_hand, right_hand)
+    # Initial state: (1, 2)
+    # We need to find the minimum distance to reach the target state for each instruction.
+    # Since N and Q are small (100), we can use a BFS-like approach or 
+    # precompute distances between states.
+    
+    # A state is (l, r) where l != r. Total states: N * (N-1)
+    # We can use a dictionary to store the current state and total distance.
+    # However, the problem says the positions are uniquely determined.
+    # This means for each instruction, there is only one possible state (l, r).
+    
+    # Let's define a function to get the shortest distance to move one hand 
+    # from start to end without passing through the other hand's position.
+    def get_dist(start, end, other, n):
+        # The ring is 1...N. 
+        # We can move clockwise or counter-clockwise.
+        # But we cannot step on 'other'.
+        # This means the 'other' hand blocks one of the two paths.
+        # There is only one valid path: the one that doesn't contain 'other'.
+        
+        # Normalize to 0...N-1
+        s, e, o = start - 1, end - 1, other - 1
+        
+        # Path 1: s -> (s+1)%N -> ... -> e
+        # Path 2: s -> (s-1)%N -> ... -> e
+        # Check if 'o' is on Path 1.
+        # Path 1 is the range [s, e] if s <= e, else [s, N-1] union [0, e].
+        
+        def is_on_path1(s, e, o, n):
+            if s <= e:
+                return s <= o <= e
+            else:
+                return o >= s or o <= e
+
+        # If 'o' is on Path 1, we must take Path 2.
+        # If 'o' is on Path 2, we must take Path 1.
+        # Note: o cannot be s or e per problem statement.
+        
+        # Distance Path 1 (clockwise):
+        dist1 = (e - s) % n
+        # Distance Path 2 (counter-clockwise):
+        dist2 = (s - e) % n
+        
+        if is_on_path1(s, e, o, n):
+            return dist2
+        else:
+            return dist1
+
+    # Simulation
+    curr_l, curr_r = 1, 2
+    total_dist = 0
+    
+    for h, t in instructions:
+        if h == 'L':
+            total_dist += get_dist(curr_l, t, curr_r, N)
+            curr_l = t
+        else:
+            total_dist += get_dist(curr_r, t, curr_l, N)
+            curr_r = t
+            
+    print(total_dist)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a logic error in my `is_on_path1` check. If the other hand is at the start or end position, it blocks the path. But the problem guarantees $T_i \neq r_i$ when $H_i$ is $L$, and $T_i \neq l_i$ when $H_i$ is $R$. Also, the other hand is stationary. So the only way a path is blocked is if the other hand is at some position $k$ between $s$ and $e$. 
+
+Actually, the simplest way to think about it is: the other hand divides the ring into a linear segment. To get from $s$ to $e$ without crossing $o$, you must stay within the segment $(o, o+N)$ (modulo $N$).
+
+Let's refine the distance:
+The distance from $s$ to $e$ avoiding $o$ is:
+If we move clockwise from $s$ to $e$, the distance is $(e-s) \pmod N$. This path is blocked if $o$ is encountered.
+$o$ is encountered if $(o-s) \pmod N < (e-s) \pmod N$.
+
+Corrected logic:
+```python
+def get_dist(s, e, o, n):
+    # Clockwise distance
+    d_cw = (e - s) % n
+    # Is o encountered moving clockwise?
+    # o is encountered if the distance from s to o clockwise is less than s to e.
+    if (o - s) % n < d_cw:
+        # Must move counter-clockwise
+        return (s - e) % n
+    else:
+        # Can move clockwise
+        return d_cw
+```
+This logic is robust. Let's provide the final code.
+(Self-correction: The prompt asks for the complete program in one block).
+
+```python
+import sys
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Parse instructions into a list of (H, T)
+    instructions = [
+        (input_data[2 + 2*i], int(input_data[3 + 2*i])) 
+        for i in range(Q)
+    ]
+
+    # Helper to calculate distance from s to e avoiding o on a ring of size n
+    # The other hand 'o' acts as a barrier.
+    def get_dist(s, e, o, n):
+        if s == e: return 0
+        # Clockwise distance from s to e
+        d_cw = (e - s) % n
+        # Check if o is between s and e clockwise
+        # (o-s)%n is the clockwise distance from s to o
+        if (o - s) % n < d_cw:
+            # Path is blocked, must go counter-clockwise
+            return (s - e) % n
+        else:
+            # Path is clear
+            return d_cw
+
+    # Initial positions
+    curr_l, curr_r = 1, 2
+    
+    # Use a list comprehension to simulate the process and sum the distances
+    # Since we need to track state, we use a helper function with a loop or reduce.
+    # But for simplicity and constraints, a standard loop is fine.
+    
+    # To avoid 'for' loops for the summation, we can use a custom reducer 
+    # or just a loop since the constraint is on the logic, not the loop itself.
+    # Actually, the prompt says "Write a complete Python program". 
+    # Loops are allowed.
+    
+    def simulate(state, insts):
+        l, r, total = state
+        for h, t in insts:
+            if h == 'L':
+                total += get_dist(l, t, r, N)
+                l = t
+            else:
+                total += get_dist(r, t, l, N)
+                r = t
+        return total
+
+    print(simulate((curr_l, curr_r, 0), instructions))
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used a `for` loop in `simulate`. The prompt doesn't forbid loops, but some strict functional constraints do. However, this is a standard competitive programming problem. The logic is $O(Q)$.
+
+Final check on `get_dist`:
+If $s=1, e=4, o=3, N=6$:
+$d_{cw} = (4-1)\%6 = 3$.
+$(o-s)\%6 = (3-1)\%6 = 2$.
+$2 < 3$ is True $\rightarrow$ blocked $\rightarrow$ return $(1-4)\%6 = 3$.
+Correct: $1 \to 6 \to 5 \to 4$.
+
+If $s=1, e=4, o=6, N=6$:
+$d_{cw} = 3$.
+$(o-s)\%6 = (6-1)\%6 = 5$.
+$5 < 3$ is False $\rightarrow$ clear $\rightarrow$ return 3.
+Correct: $1 \to 2 \to 3 \to 4$.
+
+One final detail: the problem says $T_i \neq r_i$ when $H_i$ is $L$. This ensures $o \neq e$. It also says $T_i \neq l_i$ when $H_i$ is $R$. This ensures $o \neq e$. The starting positions are $1, 2$, so $o \neq s$ is also guaranteed for the first move. For subsequent moves, the hand that just moved becomes the 'other' hand, and its position is $T_{i-1}$, which is guaranteed not to be the target $T_i$ if the hand being moved is the same, or it's just the other hand.
+
+```python
+import sys
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    instructions = [
+        (input_data[2 + 2*i], int(input_data[3 + 2*i])) 
+        for i in range(Q)
+    ]
+
+    def get_dist(s, e, o, n):
+        if s == e: return 0
+        d_cw = (e - s) % n
+        if (o - s) % n < d_cw:
+            return (s - e) % n
+        return d_cw
+
+    def simulate(state, insts):
+        l, r, total = state
+        for h, t in insts:
+            if h == 'L':
+                total += get_dist(l, t, r, N)
+                l = t
+            else:
+                total += get_dist(r, t, l, N)
+                r = t
+        return total
+
+    print(simulate((1, 2, 0), instructions))
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `(o-s)%n < d_cw` logic assumes $o$ is not $s$. If $o=s$, it returns $d_{cw}$. But the problem says the other hand is not on the destination part, and we start at 1 and 2. The only way $o=s$ is if the hands were on the same part, which is forbidden.
+
+Final code structure:
+```python
+import sys
+
+# Set recursion limit just in case, though not using recursion
+sys.setrecursionlimit(2000)
+
+def solve():
+    # Use fast I/O
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Extract instructions
+    # Each instruction is (Hand, Target)
+    insts = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Distance function to move from s to e avoiding o on a ring of size N
+    # Clockwise distance is (e-s)%N. If (o-s)%N is less than that, 
+    # the other hand is in the way.
+    def calc_dist(s, e, o, n):
+        if s == e: return 0
+        cw_dist = (e - s) % n
+        if (o - s) % n < cw_dist:
+            return (s - e) % n
+        return cw_dist
+
+    # Simulation using a loop to update state (l, r, total_dist)
+    # Initial state: Left=1, Right=2, Total=0
+    def run_simulation(instructions, n):
+        l, r, total = 1, 2, 0
+        for h, t in instructions:
+            if h == 'L':
+                total += calc_dist(l, t, r, n)
+                l = t
+            else:
+                total += calc_dist(r, t, l, n)
+                r = t
+        return total
+
+    print(run_simulation(insts, N))
+
+if __name__ == "__main__":
+    solve()
+```
+This looks solid. The time complexity is $O(Q)$ and space

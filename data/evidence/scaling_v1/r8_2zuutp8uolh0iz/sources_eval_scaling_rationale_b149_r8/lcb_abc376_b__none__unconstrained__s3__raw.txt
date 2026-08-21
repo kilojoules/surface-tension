@@ -1,0 +1,99 @@
+The constraint to avoid explicit loops and recursion forces a shift from imperative state management to a functional approach. In this specific problem, since we must track the positions of the left and right hands across $Q$ instructions, I will use `functools.reduce` to maintain and update the state `(current_l, current_r, total_dist)` and list comprehensions to calculate the shortest path between two points on a ring while avoiding an obstacle.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Instructions as pairs of (H, T)
+    instructions = [
+        (input_data[i], int(input_data[i+1])) 
+        for i in range(2, len(input_data), 2)
+    ]
+
+    # Helper to calculate distance on a ring avoiding a specific point
+    # Since we can only move one hand, the other hand acts as a blocker.
+    # On a ring of size N, there are two paths between A and B.
+    # One path is clockwise, one is counter-clockwise.
+    # If the blocker is on one of those paths, we MUST take the other.
+    def get_dist(start, end, blocker, n):
+        if start == end:
+            return 0
+        
+        # Clockwise distance (start -> start+1 -> ...)
+        # The path is start, (start+1)%n, ..., end
+        # Number of steps is (end - start) % n
+        cw_dist = (end - start) % n
+        # The path is blocked if the blocker is at (start + k) % n for 0 < k < cw_dist
+        # This is equivalent to checking if (blocker - start) % n < cw_dist
+        # and (blocker - start) % n != 0
+        cw_blocked = 0 < (blocker - start) % n < cw_dist
+        
+        # Counter-clockwise distance (start -> start-1 -> ...)
+        ccw_dist = (start - end) % n
+        ccw_blocked = 0 < (start - blocker) % n < ccw_dist
+        
+        # It is guaranteed that the instruction is achievable.
+        # We take the minimum of the non-blocked paths.
+        # Since only one hand moves, we just need to check which direction is clear.
+        res = []
+        if not cw_blocked: res.append(cw_dist)
+        if not ccw_blocked: res.append(ccw_dist)
+        return min(res)
+
+    # State: (current_l, current_r, total_distance)
+    # Initial state: L=1, R=2, dist=0
+    initial_state = (1, 2, 0)
+
+    def transition(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            # Move left hand from l to t, right hand r is blocker
+            d = get_dist(l, t, r, N)
+            # Note: get_dist uses 0-indexing logic for modulo, 
+            # but since we use (a-b)%N, 1-indexing works if we treat 
+            # the ring as 0...N-1 by shifting or just using the property.
+            # Actually, (end-start)%N works for 1-N as long as we are consistent.
+            # However, the blocker check (blocker-start)%N < cw_dist 
+            # is sensitive to the 1-N range. Let's normalize to 0...N-1.
+            return (t, r, total + get_dist(l, t, r, N))
+        else:
+            # Move right hand from r to t, left hand l is blocker
+            return (l, t, total + get_dist(r, t, l, N))
+
+    # To fix the 1-indexing for the modulo logic in get_dist:
+    # We redefine get_dist inside a wrapper that handles 0-indexing.
+    def get_dist_fixed(start, end, blocker, n):
+        s, e, b = start - 1, end - 1, blocker - 1
+        if s == e: return 0
+        cw_dist = (e - s) % n
+        cw_blocked = 0 < (b - s) % n < cw_dist
+        ccw_dist = (s - e) % n
+        ccw_blocked = 0 < (s - b) % n < ccw_dist
+        res = [cw_dist for not cw_blocked] + [ccw_dist for not ccw_blocked]
+        return min(res)
+
+    # Redefine transition using the fixed distance function
+    def transition_fixed(state, instr):
+        l, r, total = state
+        h, t = instr
+        if h == 'L':
+            return (t, r, total + get_dist_fixed(l, t, r, N))
+        else:
+            return (l, t, total + get_dist_fixed(r, t, l, N))
+
+    final_state = reduce(transition_fixed, instructions, initial_state)
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```

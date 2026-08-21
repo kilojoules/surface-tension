@@ -1,0 +1,71 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem asks if Edit Distance <= K. Since K=1, we check:
+    # 1. S == T (Distance 0)
+    # 2. Substitution: Lengths are equal, and they differ by exactly one character.
+    # 3. Deletion: len(S) == len(T) + 1, and T is a subsequence of S.
+    # 4. Insertion: len(T) == len(S) + 1, and S is a subsequence of T.
+
+    def check_substitution(s1, s2):
+        # Check if strings differ by exactly one character
+        # We find the first index where they differ and check if the rest are identical
+        # Since we can't use loops, we use a recursive-like approach via a helper
+        # But wait, the constraint says no loops. We can use a generator expression 
+        # inside 'next' to find the first mismatch.
+        try:
+            # Find index of first mismatch
+            idx = next(i for i in range(len(s1)) if s1[i] != s2[i])
+            # Check if the remaining suffixes are identical
+            return s1[idx+1:] == s2[idx+1:]
+        except StopIteration:
+            # Strings are identical
+            return True
+
+    def check_deletion(s1, s2):
+        # s1 is longer, check if removing one char from s1 makes it s2
+        # We find the first mismatch and check if s1[idx+1:] == s2[idx:]
+        try:
+            idx = next(i for i in range(len(s2)) if s1[i] != s2[i])
+            return s1[idx+1:] == s2[idx:]
+        except StopIteration:
+            # s2 is a prefix of s1, so removing the last char of s1 works
+            return True
+
+    # Main logic
+    # Case 0: Identical
+    if s == t:
+        print("Yes")
+        return
+
+    # Case 1: Substitution (Lengths must be equal)
+    if len(s) == len(t):
+        if check_substitution(s, t):
+            print("Yes")
+            return
+
+    # Case 2: Deletion (S is longer by 1)
+    if len(s) == len(t) + 1:
+        if check_deletion(s, t):
+            print("Yes")
+            return
+
+    # Case 3: Insertion (T is longer by 1)
+    if len(t) == len(s) + 1:
+        if check_deletion(t, s):
+            print("Yes")
+            return
+
+    print("No")
+
+if __name__ == "__main__":
+    solve()

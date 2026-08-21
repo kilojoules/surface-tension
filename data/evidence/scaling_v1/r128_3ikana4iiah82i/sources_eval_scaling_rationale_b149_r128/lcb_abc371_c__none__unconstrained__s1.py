@@ -1,0 +1,79 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    # Graph G edges
+    MG = int(input_data[ptr])
+    ptr += 1
+    g_edges_list = [ (int(input_data[ptr + 2*i]), int(input_data[ptr + 2*i + 1])) for i in range(MG) ]
+    ptr += 2 * MG
+    
+    # Graph H edges
+    MH = int(input_data[ptr])
+    ptr += 1
+    h_edges_list = [ (int(input_data[ptr + 2*i]), int(input_data[ptr + 2*i + 1])) for i in range(MH) ]
+    ptr += 2 * MH
+    
+    # Cost matrix A
+    # A is given as a upper triangular matrix
+    # We'll store it in a dictionary for easy access: (i, j) -> cost
+    # The input format is A_{1,2}, A_{1,3}... A_{1,N}, A_{2,3}...
+    costs_flat = input_data[ptr:]
+    
+    # To map the flat list of costs to (i, j) pairs:
+    # i goes from 1 to N-1, j goes from i+1 to N
+    cost_pairs = [
+        ((i, j), int(costs_flat[k]))
+        for i in range(1, N)
+        for j in range(i + 1, N)
+        for k in [sum(N - x for x in range(1, i)) + (j - i - 1)]
+    ]
+    # Wait, the index logic for k is slightly complex. Let's use a simpler way to build the cost map.
+    # The total number of costs is N*(N-1)//2.
+    
+    # Re-calculating cost map more reliably:
+    # We can use a generator to yield the costs and zip them with the pairs.
+    all_pairs = [(i, j) for i in range(1, N) for j in range(i + 1, N)]
+    cost_map = dict(zip(all_pairs, [int(x) for x in costs_flat]))
+
+    # Adjacency matrices for G and H
+    # G_adj[i][j] = 1 if edge exists, else 0
+    G_adj = [[0] * (N + 1) for _ in range(N + 1)]
+    [G_adj[u].__setitem__(v, 1) or G_adj[v].__setitem__(u, 1) for u, v in g_edges_list]
+    
+    H_adj = [[0] * (N + 1) for _ in range(N + 1)]
+    [H_adj[u].__setitem__(v, 1) or H_adj[v].__setitem__(u, 1) for u, v in h_edges_list]
+
+    # We need to find a permutation P of (1...N) such that 
+    # the cost to make H isomorphic to G is minimized.
+    # The cost for a permutation P is the sum of A_{P_i, P_j} for all pairs (i, j) 
+    # where (i, j) is an edge in G but (P_i, P_j) is NOT an edge in H,
+    # OR (i, j) is NOT an edge in G but (P_i, P_j) IS an edge in H.
+    
+    # Pre-calculate all pairs (i, j) with 1 <= i < j <= N
+    pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+    
+    # Try all permutations P
+    # P is a tuple where P[i-1] is the vertex in H mapped to vertex i in G.
+    ans = min(
+        sum(
+            cost_map[tuple(sorted((P[i-1], P[j-1])))]
+            for i, j in pairs
+            if G_adj[i][j] != H_adj[P[i-1]][P[j-1]]
+        )
+        for P in permutations(range(1, N + 1))
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

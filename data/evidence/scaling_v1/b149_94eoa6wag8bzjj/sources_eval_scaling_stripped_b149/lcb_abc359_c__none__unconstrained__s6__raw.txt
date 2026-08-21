@@ -1,0 +1,116 @@
+```python
+import sys
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy, tx, ty = map(int, input_data)
+
+    # The tiles are 2x1. 
+    # If i+j is even, A_{i,j} and A_{i+1,j} are one tile.
+    # This means for a fixed j, the tiles are pairs (0,1), (2,3)... if j is even
+    # and pairs (1,2), (3,4)... if j is odd.
+    
+    # Let's define a coordinate transformation to a grid where each cell is a tile.
+    # For a cell (x, y), it belongs to tile:
+    # If (x + y) is even, the tile is {(x, y), (x+1, y)}. 
+    # We can represent this tile by the coordinate (x // 2, y) if we shift x based on y.
+    # Specifically, if y is even, tiles are [0,1], [2,3]... -> x // 2
+    # If y is odd, tiles are [-1,0], [1,2]... -> (x-1) // 2
+    
+    # A simpler way to think about the tile ID for cell (x, y):
+    # The tile is horizontal. Its y-coordinate is simply y.
+    # Its x-coordinate depends on whether y is even or odd.
+    # If y is even, tile index is x // 2 (for x=0,1 -> 0; x=2,3 -> 1)
+    # If y is odd, tile index is (x-1) // 2 (for x=1,2 -> 0; x=3,4 -> 1)
+    # Note: for y odd, x=0 belongs to the tile ending at 0, so (0-1)//2 = -1.
+    
+    def get_tile_coords(x, y):
+        # If y is even, tiles are {(0,0),(1,0)}, {(2,0),(3,0)}...
+        # If y is odd, tiles are {(-1,1),(0,1)}, {(1,1),(2,1)}...
+        # The tile index is (x - (y % 2)) // 2
+        return (x - (y % 2)) // 2, y
+
+    s_tile_x, s_tile_y = get_tile_coords(sx, sy)
+    t_tile_x, t_tile_y = get_tile_coords(tx, ty)
+
+    # The distance between two tiles (x1, y1) and (x2, y2) in a grid 
+    # where you can moveに 1 unit (cost 1) is the Manhattan distance.
+    # However, the problem says "Each time he enters a tile, he pays a toll of 1."
+    # This is equivalent to the distance between the starting tile and target tile.
+    # Distance = |x1 - x2| + |y1 - y2|
+    
+    ans = abs(s_tile_x - t_tile_x) + abs(s_tile_y - t_tile_y)
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I must double check the "enters a tile" logic.
+If you are already in tile A and move to tile B, you pay 1.
+The distance from tile $(x_1, y_1)$ to $(x_2, y_2)$ is indeed $|x_1 - x_2| + |y_1 - y_2|$.
+Example 1: $S(5,0), T(2,5)$.
+$S: y=0$ (even), $x=5 \implies (5-0)//2 = 2$. Tile $(2, 0)$.
+$T: y=5$ (odd), $x=2 \implies (2-1)//2 = 0$. Tile $(0, 5)$.
+Distance: $|2-0| + |0-5| = 2 + 5 = 7$. 
+But the sample output says 5. Let me re-read.
+
+"Choose a direction... and a positive integer $n$. Move $n$ units."
+This means you can jump over tiles. But you pay for **each** tile you enter.
+If you move from $(0.5, 0.5)$ to $(0.5, 3.5)$, you pass through tiles at $y=0, 1, 2, 3$.
+You started in $y=0$, so you enter $y=1, 2, 3$. That's 3 tolls.
+The cost is the number of boundary crossings.
+In a grid of tiles, the minimum number of tiles entered to get from tile A to tile B is the Manhattan distance.
+Wait, the sample 1 says 5. My calculation was 7. Let's re-evaluate the tile coordinates.
+$S(5,0)$: $i=5, j=0$. $i+j=5$ (odd). Rule: "When $i+j$ is even, $A_{i,j}$ and $A_{i+1,j}$ are one tile."
+Since $5+0$ is odd, $A_{5,0}$ is NOT paired with $A_{6,0}$. It must be paired with $A_{4,0}$ because $4+0$ is even.
+So tile is $\{A_{4,0}, A_{5,0}\}$.
+$T(2,5)$: $i=2, j=5$. $i+j=7$ (odd). $A_{2,5}$ is paired with $A_{1,5}$ because $1+5$ is even.
+So tile is $\{A_{1,5}, A_{2,5}\}$.
+
+Correct logic for tile $X$ coordinate:
+If $j$ is even, tiles are $(0,1), (2,3), (4,5) \dots \implies X = i // 2$.
+If $j$ is odd, tiles are $(1,2), (3,4), (5,6) \dots \implies X = (i-1) // 2$.
+Wait, if $j$ is odd, $i=0$ is the right-half of a tile starting at $i=-1$.
+So for $j$ odd, $X = (i-1) // 2$.
+Let's re-test Sample 1: $S(5,0), T(2,5)$.
+$S: j=0$ (even), $X = 5 // 2 = 2$.
+$T: j=5$ (odd), $X = (2-1) // 2 = 0$.
+Distance: $|2-0| + |0-5| = 7$. Still 7.
+
+Let me re-read: "When $i+j$ is even, $A_{i,j}$ and $A_{i+1,j}$ are contained in the same tile."
+$j=0: (0,0)\&(1,0), (2,0)\&(3,0), (4,0)\&(5,0)$. $S(5,0)$ is in tile $X=2$.
+$j=1: (1,1)\&(2,1), (3,1)\&(4,1), (5,1)\&(6,1)$.
+$j=2: (0,2)\&(1,2), (2,2)\&(3,2), (4,2)\&(5,2)$.
+$j=3: (1,3)\&(2,3), (3,3)\&(4,3), (5,3)\&(6,3)$.
+$j=4: (0,4)\&(1,4), (2,4)\&(3,4), (4,4)\&(5,4)$.
+$j=5: (1,5)\&(2,5), (3,5)\&(4,5), (5,5)\&(6,5)$. $T(2,5)$ is in tile $X=0$.
+
+Wait! The distance is not Manhattan if you can move diagonally by combining a horizontal and vertical move.
+But you can only move in one of 4 directions.
+However, you can move: Right $\to$ Up $\to$ Right.
+If you are at $(5.5, 0.5)$ [Tile $X=2, Y=0$], and you want to go to $(2.5, 5.5)$ [Tile $X=0, Y=5$].
+You can move to $(5.5, 1.5)$ [Tile $X=2, Y=1$], then to $(6.5, 1.5)$ [Tile $X=2, Y=1$ - NO, that's the same tile], then to $(6.5, 2.5)$...
+Actually, the cost is $\max(|X_s - X_t|, |Y_s - Y_t|)$ if you can move diagonally? No, the rules say only 4 directions.
+But you can change tiles without paying if you move within a $2\times 1$ tile.
+The key is that you can move horizontally for free if you are within the same tile.
+The cost to change $Y$ is always 1 per unit. The cost to change $X$ is 1 per 2 units.
+The minimum cost is actually $\max(|X_s - X_t|, |Y_s - Y_t|)$? No.
+Let's look at the sample: $S(5,0) \to T(2,5)$. Cost 5.
+$|Y_s - Y_t| = 5$. $|X_s - X_t| = 2$.
+The answer is $\max(5, 2) = 5$.
+Wait, if $X$ distance is very large, say $S(10, 0), T(0, 0)$.
+Tiles: $S$ is $X=5, T$ is $X=0$. Cost should be 5.
+$\max(|5-0|, |0-0|) = 5$.
+This looks like the distance is $\max(|X_s - X_t|, |Y_s - Y_t|)$.
+Why? Because you can move 1 unit in $Y$ and 1 unit in $X$ (across a tile boundary) and the $Y$ move "covers" the cost of the $X$ move if you time it right.
+Actually, the distance is $\max(|X_s - X_t|, |Y_s - Y_t|)$ because you can move diagonally in the tile-grid by moving $1$ unit $Y$ and $1$ unit $X$ (which is $2$ units in coordinate space).
+Final logic: $\max(|X_s - X_t|, |Y_s - Y_t|)$.
+Wait, let's check Sample 2: $S(3,1), T(4,1)$.
+$S: j=1, X=(3-1)//2 = 1$.
+$T: j=1, X=(4-1)//2 = 1$.
+$\max(|1-1|, |1-1|) = 0$. Correct.

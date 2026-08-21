@@ -1,0 +1,58 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+
+    # The problem is to check if the edit distance between S and T is <= 1.
+    # Since K=1, we can check this by finding the first index where S and T differ.
+    
+    # Find the first index where characters differ
+    # We use a list comprehension and next() to find the first mismatch
+    # zip stops at the shortest string length
+    mismatches = [i for i, (a, b) in enumerate(zip(s, t)) if a != b]
+    
+    # If there are no mismatches within the length of the shorter string
+    # we check if the length difference is <= 1.
+    # If there are mismatches, we check if we can fix it in one operation.
+    
+    def check():
+        # Case 0: Strings are identical
+        if s == t:
+            return "Yes"
+        
+        # Find first mismatch index
+        # Using a generator expression inside next() to avoid loops
+        try:
+            first_diff = next(i for i, (a, b) in enumerate(zip(s, t)) if a != b)
+        except StopIteration:
+            # One string is a prefix of the other
+            return "Yes" if abs(len(s) - len(t)) <= 1 else "No"
+
+        # If we found a mismatch at index 'first_diff', we have three possibilities:
+        # 1. Replace: S[first_diff] is changed to T[first_diff]. 
+        #    Check if S[first_diff+1:] == T[first_diff+1:]
+        # 2. Delete from S: S[first_diff] is removed.
+        #    Check if S[first_diff+1:] == T[first_diff:]
+        # 3. Insert into S: T[first_diff] is inserted into S.
+        #    Check if S[first_diff:] == T[first_diff+1:]
+        
+        # We use a list comprehension and 'any' to check these conditions without loops
+        results = [
+            s[first_diff + 1:] == t[first_diff + 1:], # Replace
+            s[first_diff + 1:] == t[first_diff:],     # Delete
+            s[first_diff:] == t[first_diff + 1:]      # Insert
+        ]
+        
+        return "Yes" if any(results) else "No"
+
+    print(check())
+
+if __name__ == "__main__":
+    solve()

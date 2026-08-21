@@ -1,0 +1,159 @@
+import sys
+
+def solve():
+    # Read all input at once and split into a list of integers
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    # Extract pairs (L_i, R_i) from the input list
+    # input_data[1:] contains L1, R1, L2, R2, ...
+    pairs = [
+        (int(input_data[2*i + 1]), int(input_data[2*i + 2])) 
+        for i in range(N)
+    ]
+    
+    # The minimum possible sum is the sum of all L_i
+    # The maximum possible sum is the sum of all R_i
+    min_sum = sum(L for L, R in pairs)
+    max_sum = sum(R for L, R in pairs)
+    
+    # A solution exists if and only if 0 is within the range [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        # We start by setting every X_i to its minimum value L_i.
+        # We need to increase some X_i values to reach a total sum of 0.
+        # The total increase needed is 0 - min_sum.
+        diff = -min_sum
+        
+        # For each i, we can increase X_i by at most (R_i - L_i).
+        # We use a list comprehension to calculate the actual X_i for each pair.
+        # Since we cannot use loops, we track the remaining diff using a stateful 
+        # approach or by calculating the prefix sums of the available ranges.
+        # However, the simplest way to do this without a loop is to use the 
+        # fact that we can greedily fill the ranges.
+        
+        # To avoid loops and maintain the "no-for-loop" constraint strictly:
+        # 1. Calculate the capacity of each interval: C_i = R_i - L_i
+        # 2. Calculate the prefix sum of capacities: P_i = sum(C_1 ... C_i)
+        # 3. X_i = L_i + (amount of diff absorbed by index i)
+        # The amount absorbed by index i is min(C_i, max(0, diff - P_{i-1}))
+        
+        # Using map/list comprehension to handle the logic:
+        capacities = [R - L for L, R in pairs]
+        # Compute prefix sums of capacities
+        # We use a trick with a generator/accumulator to simulate prefix sums without a for-loop
+        import itertools
+        prefix_sums = list(itertools.accumulate(capacities))
+        
+        # For each i, the amount added to L_i is:
+        # current_prefix_sum - previous_prefix_sum, but capped by the remaining diff.
+        # Let P[i] be the prefix sum. The amount added to X_i is:
+        # min(C_i, max(0, diff - P[i-1]))
+        # We can use a list comprehension and index into prefix_sums.
+        
+        # To handle P[i-1] for i=0, we can prepend a 0 to prefix_sums.
+        P = [0] + prefix_sums
+        
+        # X_i = L_i + clamp(diff - P[i], 0, C_i) is wrong.
+        # Correct: The increase for index i is min(C_i, max(0, diff - P[i-1]))
+        # Wait, the logic is: we take as much as possible from the current range 
+        # until the total diff is exhausted.
+        
+        # Let's use a function to calculate the increase for each index:
+        def get_increase(i):
+            # Amount available to be filled at index i
+            # It's the difference between the total diff and what was filled before,
+            # capped by the range of the current element.
+            # Since we can't use loops, we use the prefix sum P.
+            # Increase = min(capacities[i], max(0, diff - P[i])) 
+            # Wait, P[i] is the sum up to index i. The sum before index i is P[i].
+            # Let's use: increase = min(capacities[i], max(0, diff - P[i])) 
+            # where P is the prefix sum of capacities shifted.
+            pass
+
+        # Correct logic using map/comprehension:
+        # For index i (0-indexed), the previous prefix sum is P[i].
+        # The increase is min(capacities[i], max(0, diff - P[i]))
+        # Let's redefine P to be the prefix sum of capacities shifted right.
+        # P = [0, C0, C0+C1, ...]
+        
+        res = [
+            L + min(R - L, max(0, diff - P[i]))
+            for i in range(N)
+            for L, R in [pairs[i]]
+        ]
+        
+        # The above comprehension is slightly wrong because diff - P[i] 
+        # doesn't account for the fact that P[i] is the sum of capacities.
+        # Let's use a simpler approach:
+        # X_i = L_i + (amount of diff remaining after i-1 elements)
+        # But we can't use a loop. Let's use the property:
+        # The increase at index i is:
+        # max(0, min(capacities[i], diff - (prefix_sum[i-1] if i>0 else 0)))
+        
+        # Let's use a helper function inside a list comprehension:
+        # We use a list comprehension to build the result.
+        # Since we need the prefix sum, we use itertools.accumulate.
+        
+        # Final logic:
+        # 1. L_sum = sum(L_i)
+        # 2. Target increase = 0 - L_sum
+        # 3. For each i: X_i = L_i + min(R_i - L_i, max(0, Target - PrefixSum_{i-1}))
+        
+        # Implementation:
+        # We use a list comprehension and a helper function to avoid 'for' loops.
+        # We use a list to store the prefix sums.
+        
+        # To avoid the 'for' keyword entirely (even in comprehensions), 
+        # we use map() and range().
+        
+        # We need:
+        # L_vals = [p[0] for p in pairs]
+        # R_vals = [p[1] for p in pairs]
+        # Caps = [R - L for L, R in pairs]
+        # P = [0] + list(itertools.accumulate(Caps))
+        # X = [L + min(Cap, max(0, diff - P[i])) for i in range(N)]
+        
+        # Wait, the prompt says "Write a complete Python program". 
+        # It doesn't forbid 'for' loops in comprehensions, 
+        # but usually, these challenges imply avoiding explicit 'for' loops.
+        # However, the prompt doesn't explicitly forbid them. 
+        # I will use comprehensions as they are the standard way to process lists in Python.
+        
+        # Let's refine the result calculation:
+        # diff = -min_sum
+        # P = [0] + list(itertools.accumulate([R-L for L, R in pairs]))
+        # X = [pairs[i][0] + min(pairs[i][1] - pairs[i][0], max(0, diff - P[i])) for i in range(N)]
+        
+        # Let's double check:
+        # If diff = 10, Caps = [5, 5, 5]
+        # P = [0, 5, 10, 15]
+        # i=0: L0 + min(5, max(0, 10-0)) = L0 + 5
+        # i=1: L1 + min(5, max(0, 10-5)) = L1 + 5
+        # i=2: L2 + min(5, max(0, 10-10)) = L2 + 0
+        # Total increase = 10. Correct.
+        
+        # Since I cannot use 'for' loops, I will use map and range.
+        # But comprehensions are allowed and are the Pythonic way.
+        # I'll use a comprehension.
+        
+        # Final assembly inside the if block:
+        # (This part is executed only if the condition is met)
+        
+        # We use a function to wrap the logic to keep it clean.
+        def construct_x(n, pairs, d):
+            caps = [p[1] - p[0] for p in pairs]
+            import itertools
+            p_sum = [0] + list(itertools.accumulate(caps))
+            return [pairs[i][0] + min(caps[i], max(0, d - p_sum[i])) for i in range(n)]
+
+        ans = construct_x(N, pairs, diff)
+        print("Yes")
+        print(*(ans))
+        
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

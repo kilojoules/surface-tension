@@ -1,0 +1,73 @@
+import sys
+
+def solve():
+    # Read input from stdin
+    # input_data[0] is K, input_data[1] is S, input_data[2] is T
+    input_data = sys.stdin.read().split()
+    
+    # Since K=1 is guaranteed by the problem statement
+    K = int(input_data[0])
+    S = input_data[1]
+    T = input_data[2]
+
+    # The edit distance is 0 if strings are identical
+    # The edit distance is 1 if:
+    # 1. Lengths differ by 1: One is a subsequence of the other
+    # 2. Lengths are equal: They differ by exactly one character
+    
+    # Check if S is identical to T
+    is_equal = (S == T)
+    
+    # Check if S can become T by deleting one char from S (len(S) = len(T) + 1)
+    # We find the first mismatch and check if the rest of S matches T
+    # Since we can't use loops, we use a generator to find the first index of mismatch
+    # However, for K=1, we can simply check if T is a subsequence of S 
+    # when len(S) == len(T) + 1.
+    
+    # To implement "is T a subsequence of S" without loops for len diff 1:
+    # We can find the first index i where S[i] != T[i], then check if S[i+1:] == T[i:]
+    
+    # We use a helper to find the first mismatch index
+    # Since we can't use loops, we use next() with a generator
+    mismatch_idx = lambda s, t: next((i for i in range(min(len(s), len(t))) if s[i] != t[i]), min(len(s), len(t)))
+
+    # Condition for Substitution (Same length, one diff)
+    # Condition for Deletion (S longer, remove one)
+    # Condition for Insertion (T longer, remove one from T)
+    
+    # We calculate the mismatch index once
+    i = mismatch_idx(S, T)
+    
+    # Check if they are identical
+    # Check if substituting S[i] makes it T
+    # Check if deleting S[i] makes it T
+    # Check if deleting T[i] makes it S
+    
+    # We use a list of boolean conditions and any()
+    result = any([
+        is_equal,
+        (len(S) == len(T) and S[:i] + S[i+1:] == T[:i] + T[i+1:]), # Substitution logic simplified: S[i+1:] == T[i+1:]
+        (len(S) == len(T) and S[i+1:] == T[i+1:]), # This is for substitution
+        (len(S) == len(T) + 1 and S[:i] + S[i+1:] == T),
+        (len(T) == len(S) + 1 and T[:i] + T[i+1:] == S)
+    ])
+    
+    # Refined logic for K=1:
+    # 1. S == T
+    # 2. len(S) == len(T) and S[:i] + S[i+1:] == T[:i] + T[i+1:] (Wait, that's not quite right)
+    # Correct logic for Substitution: len(S) == len(T) and S[i+1:] == T[i+1:]
+    # Correct logic for Deletion: len(S) == len(T) + 1 and S[:i] + S[i+1:] == T
+    # Correct, but since we can't use loops, we use the mismatch index 'i':
+    
+    # Final check
+    final_res = any([
+        S == T,
+        (len(S) == len(T) and S[i+1:] == T[i+1:]),
+        (len(S) == len(T) + 1 and S[:i] + S[i+1:] == T),
+        (len(T) == len(S) + 1 and T[:i] + T[i+1:] == S)
+    ])
+
+    sys.stdout.write("Yes" if final_res else "No")
+
+if __name__ == "__main__":
+    solve()

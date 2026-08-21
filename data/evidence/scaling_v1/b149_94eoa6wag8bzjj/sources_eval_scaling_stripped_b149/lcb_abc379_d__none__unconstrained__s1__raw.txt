@@ -1,0 +1,255 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+    
+    # current_time tracks the total T accumulated from type 2 queries.
+    # plants stores the 'birth time' (current_time at planting) of each plant.
+    # Since plants are added chronologically, 'plants' is naturally sorted.
+    current_time = 0
+    plants = []
+    
+    # We use a list to store results of type 3 queries to print at once.
+    results = []
+    
+    # Process queries using a list comprehension to avoid explicit for-loops.
+    # However, since we need to maintain state (current_time, plants), 
+    # and Python's list comprehensions cannot easily modify external state 
+    # without hacks, we use a generator with a helper function or 
+    # simply a loop. The constraint says "complete Python program".
+    # To strictly avoid 'for' loops for the logic, we can use reduce.
+    from functools import reduce
+
+    def process_query(state, query_str):
+        curr_t, pls, res = state
+        parts = query_str.split()
+        q_type = parts[0]
+        
+        if q_type == '1':
+            # Plant a new plant at the current time offset.
+            return (curr_t, pls + [curr_t], res)
+        
+        elif q_type == '2':
+            # Increase the global time offset.
+            t_val = int(parts[1])
+            return (curr_t + t_val, pls, res)
+        
+        else: # q_type == '3'
+            # Harvest plants where: current_height = current_time - birth_time >= H
+            # This simplifies to: birth_time <= current_time - H
+            h_val = int(parts[1])
+            threshold = curr_t - h_val
+            
+            # Find the index of the first plant that is NOT harvested.
+            # plants is sorted, so we find the first index i where plants[i] > threshold.
+            idx = bisect_left(pls, threshold + 1) 
+            # Wait, the condition is height >= H. 
+            # height = curr_t - birth_t >= H  => birth_t <= curr_t - H.
+            # We need the number of plants with birth_t <= threshold.
+            # bisect_right returns the index after the last element <= threshold.
+            from bisect import bisect_right
+            idx = bisect_right(pls, threshold)
+            
+            # The number of harvested plants is idx.
+            # The remaining plants are those from idx onwards.
+            return (curr_t, pls[idx:], res + [str(idx)])
+
+    # Use reduce to iterate through the queries without a for/while loop.
+    final_state = reduce(process_query, queries, (0, [], []))
+    
+    # Output all results joined by newlines.
+    sys.stdout.write('\n'.join(final_state[2]) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+*(Self-correction on the `bisect` logic inside the reduce: I imported `bisect_right` inside the function to ensure it's available. The logic `birth_t <= current_time - H` is correctly handled by `bisect_right`.)*
+**Wait**, the prompt forbids `for` loops. My `reduce` implementation avoids them. However, `pls + [curr_t]` and `pls[idx:]` create new lists, which is $O(N)$ per operation, leading to $O(Q^2)$ overall. Given $Q=2 \times 10^5$, this will TLE. 
+
+To achieve $O(Q \log Q)$, I must use a data structure that supports efficient deletion. Since Python lists are slow for deletions at the start, and I cannot use loops, I will use a `collections.deque` for the plants and a `while` loop is forbidden, but I can use a recursive function with a decorator to bypass recursion limits, or more simply, realize that the plants are always harvested from the oldest (leftmost) first.
+
+Actually, the most efficient way to "remove" elements from the left of a list without a loop is to keep track of the `offset` (the index of the first valid plant) and use slicing only when necessary, but slicing is still $O(N)$. 
+
+Correct approach: Use a `deque` and `bisect` is not possible on `deque`. But I can use a `list` and just keep track of the `start_index`.
+
+```python
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().splitlines()
+    if not input_data: return
+    
+    # State: (current_time, plants_list, start_index, results_list)
+    def process_query(state, query_str):
+        curr_t, pls, start_idx, res = state
+        parts = query_str.split()
+        q_type = parts[0]
+        
+        if q_type == '1':
+            pls.append(curr_t)
+            return (curr_t, pls, start_idx, res)
+        elif q_type == '2':
+            return (curr_t + int(parts[1]), pls, start_idx, res)
+        else:
+            h_val = int(parts[1])
+            threshold = curr_t - h_val
+            # Search only in the range [start_idx, len(pls))
+            # bisect_right returns absolute index
+            idx = bisect_right(pls, threshold, lo=start_idx)
+            harvested_count = idx - start_idx
+            res.append(str(harvested_count))
+            return (curr_t, pls, idx, res)
+
+    # We use a list as a mutable container for state to avoid recreating lists
+    # But we must not use loops. Reduce is allowed.
+    # To avoid the O(N) list creation in the state, we mutate the lists.
+    # The constraints on 'no loops' apply to the logic.
+    
+    initial_state = (0, [], 0, [])
+    # We use a helper to handle the mutation inside reduce
+    def reducer(state, q):
+        # Unpack state
+        t, p, s, r = state
+        parts = q.split()
+        if parts[0] == '1':
+            p.append(t)
+            return (t, p, s, r)
+        if parts[0] == '2':
+            return (t + int(parts[1]), p, s, r)
+        # Type 3
+        idx = bisect_right(p, t - int(parts[1]), lo=s)
+        r.append(str(idx - s))
+        return (t, p, idx, r)
+
+    final_state = reduce(reducer, input_data[1:], initial_state)
+    sys.stdout.write('\n'.join(final_state[3]) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+*(Wait, the prompt says "Return only Python source inside a single code block". I will provide the final cleaned version.)*
+**Wait**, the prompt says "Write a complete Python program". I must ensure I don't use `for` or `while`. `reduce` is the standard way to iterate without loops.
+
+Final check on logic:
+1. Plant: `p.append(t)` -> $O(1)$
+2. Wait: `t + T` -> $O(1)$
+3. Harvest: `bisect_right(p, t - H, lo=s)` -> $O(\log Q)$
+Total Complexity: $O(Q \log Q)$. Space: $O(Q)$.
+
+One final detail: `sys.setrecursionlimit` is not needed since I'm using `reduce`.
+
+```python
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+    
+    # Initial state: (current_time, plants_list, start_index, results_list)
+    initial_state = (0, [], 0, [])
+    
+    def reducer(state, query_str):
+        curr_t, pls, start_idx, res = state
+        parts = query_str.split()
+        q_type = parts[0]
+        
+        if q_type == '1':
+            pls.append(curr_t)
+            return (curr_t, pls, start_idx, res)
+        elif q_type == '2':
+            return (curr_t + int(parts[1]), pls, start_idx, res)
+        else:
+            # Height = current_time - birth_time >= H  => birth_time <= current_time - H
+            threshold = curr_t - int(parts[1])
+            # Find number of plants with birth_time <= threshold
+            # We search in the range [start_idx, len(pls))
+            idx = bisect_right(pls, threshold, lo=start_idx)
+            res.append(str(idx - start_idx))
+            return (curr_t, pls, idx, res)
+
+    # Process all queries using reduce to avoid for/while loops
+    final_state = reduce(reducer, input_data[1:], initial_state)
+    
+    # Output all results
+    sys.stdout.write('\n'.join(final_state[3]) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the prompt says "Return only Python source inside a single ```python code block". I will provide exactly that.
+
+One last check: `input_data[1:]` is a slice, which is allowed. `splitlines()` is allowed. `reduce` is allowed. No `for` or `while` keywords are present.
+
+Final logic verification:
+Sample 1:
+1. `1` -> `pls=[0], t=0, s=0`
+2. `2 15` -> `t=15`
+3. `1` -> `pls=[0, 15], t=15, s=0`
+4. `3 10` -> `thresh = 15-10 = 5`. `bisect_right([0, 15], 5)` is `1`. `res=[1], s=1`.
+5. `2 20` -> `t=15+20 = 35`
+6. `3 20` -> `thresh = 35-20 = 15`. `bisect_right([0, 15], 15, lo=1)` is `2`. `res=[1, 2-1] = [1, 1], s=2`.
+Correct.
+
+Sample 2:
+1. `1, 1` -> `pls=[0, 0], t=0, s=0`
+2. `2 226...` -> `t=226...`
+3. `3 1` -> `thresh = 226... - 1`. `bisect_right` is `2`. `res=[2], s=2`.
+Correct.
+
+Final Code:
+```python
+import sys
+from bisect import bisect_right
+from functools import reduce
+
+def solve():
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+    
+    initial_state = (0, [], 0, [])
+    
+    def reducer(state, query_str):
+        curr_t, pls, start_idx, res = state
+        parts = query_str.split()
+        q_type = parts[0]
+        
+        if q_type == '1':
+            pls.append(curr_t)
+            return (curr_t, pls, start_idx, res)
+        elif q_type == '2':
+            return (curr_t + int(parts[1]), pls, start_idx, res)
+        else:
+            threshold = curr_t - int(parts[1])
+            idx = bisect_right(pls, threshold, lo=start_idx)
+            res.append(str(idx - start_idx))
+            return (curr_t, pls, idx, res)
+
+    final_state = reduce(reducer, input_data[1:], initial_state)
+    sys.stdout.write('\n'.join(final_state[3]) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, I used `if/elif/else`. Those are allowed. Only `for` and `while` are banned.
+
+One more check: `input_data[1:]` might be large. `reduce` is fine. `sys.stdin.read().splitlines()` is fine.
+
+Final code block:
+```python
+import sys
+from bisect import bisect_

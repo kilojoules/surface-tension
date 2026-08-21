@@ -1,0 +1,180 @@
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once and split into a list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a generator to extract N and M, then the remaining A_i
+    def get_params(data):
+        n = next(data)
+        m = next(data)
+        return n, m, data
+
+    n, m, a_gen = get_params(input_data)
+    
+    # Calculate prefix sums modulo M.
+    # P_i is the distance from rest area 1 to rest area i+1.
+    # P_0 = 0
+    # P_1 = A_1 % M
+    # P_2 = (A_1 + A_2) % M ...
+    # We use reduce to build the list of prefix sums.
+    # The accumulator is (current_sum, list_of_sums).
+    prefix_sums = reduce(
+        lambda acc, x: ( (acc[0] + x) % m, acc[1] + [(acc[0] + x) % m] ),
+        a_gen,
+        (0, [0])
+    )[1]
+
+    # The distance from s to t (s < t) is (P_{t-1} - P_{s-1}) % M.
+    # This is 0 mod M if P_{t-1} == P_{s-1}.
+    # The distance from s to t (s > t) is (Total_Sum - P_{s-1} + P_{t-1}) % M.
+    # This is 0 mod M if (P_{s-1} - P_{t-1}) % M == Total_Sum % M.
+    
+    total_sum_mod_m = prefix_sums[-1]
+    
+    # We need to count pairs (s, t) such that:
+    # 1. s < t and P_{t-1} == P_{s-1} (mod M)
+    # 2. s > t and (P_{s-1} - P_{t-1}) == Total_Sum (mod M)
+    
+    # Let's count occurrences of each remainder in prefix_sums (excluding the last one 
+    # because the problem says s != t, and the distance from 1 to N+1 is the total sum).
+    # Actually, the prefix sums are P_0, P_1, ..., P_{N-1}.
+    # P_i is the distance from area 1 to area i+1.
+    # There are N such points.
+    
+    # Use a dictionary to count frequencies of each remainder
+    counts = reduce(
+        lambda acc, x: acc.update({x: acc.get(x, 0) + 1}) or acc,
+        prefix_sums[:-1],
+        {}
+    )
+    
+    # For a fixed remainder r, let c = counts[r].
+    # Pairs (s, t) with s < t contributing to the sum: c * (c - 1) // 2
+    # Pairs (s, t) with s > t:
+    # We need P_{s-1} - P_{t-1} \equiv Total_Sum (mod M)
+    # Let P_{t-1} = r, then P_{s-1} = (r + Total_Sum) % M.
+    # The number of such pairs is counts[r] * counts[(r + Total_Sum) % M].
+    # Special case: if Total_Sum % M == 0, then s > t is also P_{s-1} == P_{t-1}.
+    # But we must ensure s != t.
+    
+    # To avoid loops, we use the keys of the counts dictionary and sum.
+    # We use a generator expression inside sum().
+    
+    # Part 1: s < t
+    ans_lt = sum(c * (c - 1) // 2 for c in counts.values())
+    
+    # Part 2: s > t
+    # If Total_Sum % M == 0, then s > t is the same condition as s < t.
+    # If Total_Sum % M != 0, then we count pairs (r, (r + Total_Sum) % M).
+    if total_sum_mod_m == 0:
+        ans_gt = sum(c * (c - 1) // 2 for c in counts.values())
+    else:
+        ans_gt = sum(counts[r] * counts.get((r + total_sum_mod_m) % m, 0) 
+                     for r in counts)
+    
+    print(ans_lt + ans_gt)
+
+if __name__ == "__main__":
+    solve()
+```
+
+**Wait**, I noticed a logic error in the `s > t` case when `Total_Sum % M == 0`. 
+If `Total_Sum % M == 0`, then the condition `(P_{s-1} - P_{t-1}) \equiv 0 \pmod M` is the same as `P_{s-1} \equiv P_{t-1} \pmod M`. 
+For any two indices $i, j$ with the same remainder, one is $s$ and one is $t$. 
+If $i < j$, then $s=i+1, t=j+1$ is a clockwise path.
+If $i > j$, then $s=i+1, t=j+1$ is a clockwise path that wraps around the lake.
+Both are valid. So if `Total_Sum % M == 0`, the answer is simply $\sum c(c-1)$.
+
+Let's refine the `s > t` logic:
+The distance from $s$ to $t$ ($s > t$) is:
+$\text{Dist}(s, N) + \text{Dist}(N, 1) + \text{Dist}(1, t)$
+$= (P_{N-1} - P_{s-1}) + (A_N) + (P_{t-1})$
+$= \text{TotalSum} - P_{s-1} + P_{t-1}$.
+We want $\text{TotalSum} - P_{s-1} + P_{t-1} \equiv 0 \pmod M$, which means:
+$P_{s-1} - P_{t-1} \equiv \text{TotalSum} \pmod M$.
+
+If $\text{TotalSum} \equiv 0 \pmod M$, then $P_{s-1} \equiv P_{t-1} \pmod M$.
+For every pair $\{i, j\}$ with the same remainder, we have two pairs $(s, t)$: $(i+1, j+1)$ and $(j+1, i+1)$.
+This is $2 \times \frac{c(c-1)}{2} = c(c-1)$.
+
+If $\text{TotalSum} \not\equiv 0 \pmod M$, then $P_{s-1}$ and $P_{t-1}$ must be different.
+The number of pairs is $\sum_{r} \text{count}(r) \times \text{count}((r + \text{TotalSum}) \pmod M)$.
+
+The provided code implements this logic.
+
+Final check on constraints: $N=2 \cdot 10^5$, $M=10^6$. The $O(N)$ approach is required. The use of `reduce` and `sum` with generators ensures no explicit `for` loops.
+
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input at once and split into a list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a helper to extract N and M
+    def get_params(data):
+        try:
+            n = next(data)
+            m = next(data)
+            return n, m, data
+        except StopIteration:
+            return None
+
+    params = get_params(input_data)
+    if params is None: return
+    n, m, a_gen = params
+    
+    # Calculate prefix sums modulo M.
+    # prefix_sums[i] is the distance from rest area 1 to rest area i+1.
+    # We use reduce to build the list of prefix sums without a loop.
+    prefix_sums = reduce(
+        lambda acc, x: ( (acc[0] + x) % m, acc[1] + [(acc[0] + x) % m] ),
+        a_gen,
+        (0, [0])
+    )[1]
+
+    total_sum_mod_m = prefix_sums[-1]
+    
+    # We only care about P_0, ..., P_{N-1}. P_N is the total sum.
+    # The distance from s to t (s < t) is (P_{t-1} - P_{s-1}) % M.
+    # The distance from s to t (s > t) is (TotalSum - P_{s-1} + P_{t-1}) % M.
+    
+    # Count frequencies of each remainder using reduce
+    counts = reduce(
+        lambda acc, x: acc.update({x: acc.get(x, 0) + 1}) or acc,
+        prefix_sums[:-1],
+        {}
+    )
+    
+    # s < t: P_{t-1} == P_{s-1} (mod M)
+    ans_lt = sum(c * (c - 1) // 2 for c in counts.values())
+    
+    # s > t: P_{s-1} - P_{t-1} == TotalSum (mod M)
+    if total_sum_mod_m == 0:
+        # If TotalSum % M == 0, then P_{s-1} == P_{t-1} (mod M)
+        ans_gt = sum(c * (c - 1) // 2 for c in counts.values())
+    else:
+        # If TotalSum % M != 0, then P_{s-1} = (P_{t-1} + TotalSum) % M
+        ans_gt = sum(counts[r] * counts.get((r + total_sum_mod_m) % m, 0) 
+                     for r in counts)
+    
+    sys.stdout.write(str(ans_lt + ans_gt) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```
+Wait, the `s > t` case for `TotalSum % M == 0` is actually just `ans_lt`. So the total is `2 * ans_lt`.
+Let's double check:
+If $P_i = P_j$ (with $i < j$), then:
+Clockwise $i+1 \to j+1$ is $P_j - P_i = 0 \pmod M$.
+Clockwise $j+1 \to i+1$ is $\text{Total} - P_j + P_i = 0 - 0 = 0 \pmod M$.
+Both are valid.
+If $P_i \neq P_j$, neither is $0 \pmod M$.
+So if $\text{Total} \equiv 0 \pmod M$, the answer is $\sum c(c-1)$.
+If $\text{Total} \not\equiv 0 \pmod M$, the answer is $\sum \frac{c(c-1)}{2} + \sum \text{count}(r)\text{count}(r+\text{Total})$.
+
+Correct.

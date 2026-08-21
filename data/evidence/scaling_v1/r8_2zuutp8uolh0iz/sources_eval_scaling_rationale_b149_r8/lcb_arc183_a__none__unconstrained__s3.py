@@ -1,0 +1,90 @@
+import sys
+from functools import reduce
+from math import factorial
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences S is (N*K)! / (K!^N)
+    # We need the floor((S+1)/2)-th sequence.
+    # Let target = (S + 1) // 2. 
+    # Note: S can be very large, so we work with arbitrary precision integers.
+    
+    def get_total_permutations(counts):
+        # Formula for permutations of a multiset: (sum(counts))! / product(counts[i]!)
+        total_len = sum(counts)
+        denom = reduce(lambda a, b: a * factorial(b), counts, 1)
+        return factorial(total_len) // denom
+
+    # Initial state: (current_counts, target_index)
+    # current_counts is a list of remaining counts for each number 1 to N
+    # target_index is the 1-based index of the sequence we are looking for
+    initial_counts = [k] * n
+    s_total = get_total_permutations(initial_counts)
+    target_index = (s_total + 1) // 2
+
+    # We use reduce to iterate NK times to determine each element of the sequence.
+    # The accumulator is (current_counts, current_target, result_sequence)
+    def step(acc, _):
+        counts, target, res = acc
+        
+        # We need to find the smallest digit d (1 to N) such that the number of 
+        # sequences starting with digits < d is less than target.
+        # We find d by iterating through 1 to N.
+        
+        def find_digit(d, current_target, current_counts):
+            if d > n:
+                return n, current_target, current_counts
+            
+            if current_counts[d-1] > 0:
+                # Calculate how many sequences start with digit d
+                # Temporarily decrement count for d to calculate permutations of the rest
+                temp_counts = list(current_counts)
+                temp_counts[d-1] -= 1
+                num_with_d = get_total_permutations(temp_counts)
+                
+                if current_target <= num_with_d:
+                    return d, current_target, current_counts
+                else:
+                    # Skip all sequences starting with d and move to d+1
+                    return find_digit(d + 1, current_target - num_with_d, current_counts)
+            else:
+                # Digit d is exhausted, move to d+1
+                return find_digit(d + 1, current_target, current_counts)
+
+        # Since we cannot use loops or recursion, we use a trick with reduce 
+        # or a list comprehension to find the digit.
+        # However, the logic requires checking digits 1..N. 
+        # We can use a reduce over range(1, n+1) to find the digit and update target.
+        
+        def find_d_reduce(acc_d, d):
+            curr_target, curr_counts, found_d = acc_d
+            if found_d != -1:
+                return acc_d
+            if curr_counts[d-1] > 0:
+                temp_counts = list(curr_counts)
+                temp_counts[d-1] -= 1
+                num_with_d = get_total_permutations(temp_counts)
+                if curr_target <= num_with_d:
+                    return curr_target, curr_counts, d
+                else:
+                    return curr_target - num_with_d, curr_counts, -1
+            return curr_target, curr_counts, -1
+
+        final_d_state = reduce(find_d_reduce, range(1, n + 1), (target, counts, -1))
+        new_target, _, digit = final_d_state
+        
+        new_counts = list(counts)
+        new_counts[digit-1] -= 1
+        return (new_counts, new_target, res + [digit])
+
+    final_state = reduce(step, range(n * k), (initial_counts, target_index, []))
+    print(*(final_state[2]))
+
+if __name__ == "__main__":
+    solve()

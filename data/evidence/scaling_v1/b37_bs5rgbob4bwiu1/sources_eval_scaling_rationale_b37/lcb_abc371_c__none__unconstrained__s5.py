@@ -1,0 +1,79 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once and split into a list of integers
+    input_data = map(int, sys.stdin.read().split())
+    
+    # Use a generator to consume input_data sequentially
+    gen = input_data
+    
+    # Helper to get next value from generator
+    def next_val():
+        return next(gen)
+
+    try:
+        N = next_val()
+    except StopIteration:
+        return
+
+    # Graph G edges
+    MG = next_val()
+    # Create an adjacency matrix for G
+    # We use a set of frozen sets for edges to allow O(1) lookup
+    G_edges = {frozenset([next_val(), next_val()]) for _ in range(MG)}
+    
+    # Graph H edges
+    MH = next_val()
+    H_edges = {frozenset([next_val(), next_val()]) for _ in range(MH)}
+    
+    # Cost matrix A
+    # A[i][j] will store the cost to flip edge (i+1, j+1)
+    # The input gives A_{i,j} for 1 <= i < j <= N
+    # We flatten the remaining input into a list and then structure it
+    A_flat = list(gen)
+    
+    # To access A_{i,j} easily, we can create a dictionary or a 2D list
+    # Since N is very small (<= 8), a dictionary with sorted tuples as keys is efficient
+    # First, we need to map the flat list A_flat to pairs (i, j)
+    # Pairs are (1,2), (1,3)...(1,N), (2,3)...(2,N), ..., (N-1, N)
+    
+    # Generate all pairs (i, j) with 1 <= i < j <= N in the order they appear in input
+    all_pairs = [ (i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1) ]
+    cost_map = dict(zip(all_pairs, A_flat))
+
+    # We need to find a permutation P of (1, ..., N) that minimizes the cost
+    # Cost for a permutation P:
+    # For all 1 <= i < j <= N:
+    # If (edge (i, j) in G) != (edge (P_i, P_j) in H), add cost A_{P_i, P_j}
+    
+    # Pre-calculate which pairs (i, j) have edges in G
+    # Using 0-indexing for the permutation mapping logic
+    # G_adj[i][j] is True if edge exists between vertex i+1 and j+1
+    G_adj = [[(frozenset([i+1, j+1]) in G_edges) for j in range(N)] for i in range(N)]
+    
+    # H_adj[i][j] is True if edge exists between vertex i+1 and j+1
+    H_adj = [[(frozenset([i+1, j+1]) in H_edges) for j in range(N)] for i in range(N)]
+
+    # Iterate through all permutations of (0, ..., N-1)
+    # P[i] is the vertex in H that vertex i+1 in G is mapped to.
+    # The cost is summed over all pairs (i, j) with 0 <= i < j < N
+    # The cost to change H to match G under permutation P is:
+    # Sum_{i < j} (A_{P_i+1, P_j+1} if G_adj[i][j] != H_adj[P_i][P_j] else 0)
+    
+    # To avoid loops, we use a generator expression inside min()
+    # We use a helper function to calculate cost for a single permutation
+    def calculate_cost(P):
+        return sum(
+            cost_map[tuple(sorted((P[i] + 1, P[j] + 1)))]
+            for i in range(N)
+            for j in range(i + 1, N)
+            if G_adj[i][j] != H_adj[P[i]][P[j]]
+        )
+
+    # The answer is the minimum cost over all permutations of range(N)
+    ans = min(calculate_cost(P) for P in permutations(range(N)))
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

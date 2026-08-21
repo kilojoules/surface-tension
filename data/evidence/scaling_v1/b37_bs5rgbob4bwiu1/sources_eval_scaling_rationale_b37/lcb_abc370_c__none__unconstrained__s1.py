@@ -1,0 +1,49 @@
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s = input_data[0]
+    t = input_data[1]
+    
+    # Identify indices where S and T differ
+    # To get the lexicographically smallest sequence of strings,
+    # we must process indices based on whether S[i] > T[i] or S[i] < T[i].
+    # 1. If S[i] > T[i], changing S[i] to T[i] makes the string lexicographically smaller.
+    #    We should do these as early as possible, and from left to right.
+    # 2. If S[i] < T[i], changing S[i] to T[i] makes the string lexicographically larger.
+    #    We should do these as late as possible, and from right to left.
+    
+    diff_indices = [i for i in range(len(s)) if s[i] != t[i]]
+    
+    # Indices where S[i] > T[i] (processed first, left to right)
+    decreasing = [i for i in diff_indices if s[i] > t[i]]
+    # Indices where S[i] < T[i] (processed last, right to left)
+    increasing = [i for i in diff_indices if s[i] < t[i]][::-1]
+    
+    order = decreasing + increasing
+    
+    # Use a recursive function to build the list of strings instead of a loop
+    def generate_sequence(current_s, indices):
+        if not indices:
+            return []
+        
+        idx = indices[0]
+        # Create the new string by replacing the character at idx with T[idx]
+        # Using slice concatenation to avoid mutation
+        next_s = current_s[:idx] + t[idx] + current_s[idx+1:]
+        return [next_s] + generate_sequence(next_s, indices[1:])
+
+    result = generate_sequence(s, order)
+    
+    # Print the number of operations
+    print(len(result))
+    # Print each string in the sequence
+    # Using join and map to avoid a for loop for output
+    if result:
+        print('\n'.join(result))
+
+if __name__ == "__main__":
+    solve()
