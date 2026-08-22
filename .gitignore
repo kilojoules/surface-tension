@@ -16,6 +16,11 @@
 !/data/sft_rationale_train.jsonl
 !/data/sft_rationale_stripped_train.jsonl
 !/data/sft_train.jsonl
+!/data/problems_lcb_clean17.jsonl
+!/data/problems_lcb_alwaysviolate5.jsonl
+!/data/problems_humaneval100.jsonl
+!/data/problems_mbpp30.jsonl
+!/data/DECKS.md
 paper/data/
 paper/figs/data/
 
