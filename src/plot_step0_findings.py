@@ -8,9 +8,16 @@ floor to base territory); R-SFT pass rate rises 0.41 -> 0.744 (right panel).
 Fig 2 (substitution decomposition): each arm's NATURAL compliance split into
 weight-borne (the prefilled cell: what survives with the rationale channel
 blocked) + token-channel share (natural − prefilled, arithmetic on measured
-cells, labeled as such). Shows R-SFT's weight-borne share (0.039) is BELOW
-vanilla's (0.137): rationale training re-routed rule expression into the
-emitted-token channel.
+cells, labeled as such).
+
+What this figure does and does not establish: WITHIN R-SFT, suppression
+removes almost all compliance (0.346 -> 0.039, cluster-bootstrap CI on the
+drop [+0.164,+0.463]) and leaves it indistinguishable from base (p=0.78) —
+that is solid. The BETWEEN-arm ordering (R-SFT's weight-borne share below
+vanilla's) is NOT established: +0.098, 95% CI [-0.039,+0.255], p=0.25, with
+R-SFT's prefilled signal resting on one problem of seventeen. Hence the
+Clopper-Pearson bars, and the title chosen by the measured verdict. See
+prereg/step0_substitution_power_2026-09-02.md.
 
 Counts: vanilla natural 21/136, prefilled 7/51; R-SFT natural 47/136,
 prefilled 2/51; base 2/136. R-SFT pass: natural ~56/136=0.41, prefilled
