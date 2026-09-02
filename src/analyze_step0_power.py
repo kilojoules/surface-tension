@@ -85,8 +85,15 @@ def main():
         k = k_old + k_new
         pooled[arm] = {p: old[p][0] + new[p][0] for p in probs}
         lo, hi = cp_interval(k, denom)
-        # Prediction 4: homogeneity of old vs new draws within the arm
-        _, p_hom = fisher_exact([[k_old, n_old - k_old], [k_new, n_new - k_new]])
+        # Prediction 4: homogeneity of old vs new draws within the arm.
+        # Guard against a vacuous PASS: with no new draws there is nothing to
+        # compare, and Fisher returns p=1.0 — which would read as "gate passed"
+        # on missing data (cf. check_no_loops("") being vacuously True, the bug
+        # that made the CSV `compliant` column untrustworthy).
+        if n_old == 0 or n_new == 0:
+            p_hom = float("nan")
+        else:
+            _, p_hom = fisher_exact([[k_old, n_old - k_old], [k_new, n_new - k_new]])
         spread = sum(1 for p in probs if pooled[arm][p] > 0)
         print(f"{arm:8s} old {k_old}/{n_old}  new {k_new}/{n_new}  pooled {k}/{denom} = {k/denom:.3f}"
               f"  CP95 [{lo:.3f},{hi:.3f}]  homogeneity p={p_hom:.3f}  problems>=1: {spread}/{len(probs)}")
@@ -94,7 +101,8 @@ def main():
                                  k=k, n=denom, rate=k / denom, cp95=[lo, hi],
                                  homogeneity_p=p_hom, problems_with_any=spread,
                                  per_problem=pooled[arm])
-        out["gates"][f"P4_homogeneity_{arm}"] = "PASS" if p_hom >= 0.01 else "FAIL"
+        out["gates"][f"P4_homogeneity_{arm}"] = (
+            "NA_no_new_draws" if p_hom != p_hom else ("PASS" if p_hom >= 0.01 else "FAIL"))
 
     print()
     d = boot_diff(pooled["vanilla"], pooled["rsft"], probs, rng)
