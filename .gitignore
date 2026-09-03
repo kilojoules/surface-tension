@@ -21,6 +21,12 @@
 !/data/problems_humaneval100.jsonl
 !/data/problems_mbpp30.jsonl
 !/data/DECKS.md
+# /data/jbb_prefill/: the PUBLIC manifest + README of the JBB-prefill item
+# freeze are tracked (hashes, token lengths, benign neutral template — no
+# harmful text). frozen_private/ (the harvested jailbreak openings) stays
+# ignored and is never committed — see prereg/jbb_prefill_2026-09-03.md.
+!/data/jbb_prefill/
+/data/jbb_prefill/frozen_private/
 paper/data/
 paper/figs/data/
 
