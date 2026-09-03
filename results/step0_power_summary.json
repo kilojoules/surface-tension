@@ -1,0 +1,91 @@
+{
+  "denominator": 136,
+  "n_problems": 17,
+  "cells": {
+    "rsft": {
+      "k_old": 2,
+      "n_old": 51,
+      "k_new": 4,
+      "n_new": 85,
+      "k": 6,
+      "n": 136,
+      "rate": 0.04411764705882353,
+      "cp95": [
+        0.016360060890745296,
+        0.09355123763060079
+      ],
+      "homogeneity_p": 1.0,
+      "problems_with_any": 3,
+      "per_problem": {
+        "lcb/abc356_c": 0,
+        "lcb/abc359_c": 2,
+        "lcb/abc362_c": 0,
+        "lcb/abc363_c": 3,
+        "lcb/abc367_d": 0,
+        "lcb/abc370_c": 0,
+        "lcb/abc370_d": 0,
+        "lcb/abc371_c": 0,
+        "lcb/abc372_d": 0,
+        "lcb/abc374_d": 0,
+        "lcb/abc376_b": 0,
+        "lcb/abc379_d": 0,
+        "lcb/abc385_c": 0,
+        "lcb/abc386_c": 1,
+        "lcb/arc181_a": 0,
+        "lcb/arc183_a": 0,
+        "lcb/arc189_a": 0
+      }
+    },
+    "vanilla": {
+      "k_old": 7,
+      "n_old": 51,
+      "k_new": 15,
+      "n_new": 85,
+      "k": 22,
+      "n": 136,
+      "rate": 0.16176470588235295,
+      "cp95": [
+        0.10424131040136976,
+        0.23460799055481446
+      ],
+      "homogeneity_p": 0.635342578082552,
+      "problems_with_any": 9,
+      "per_problem": {
+        "lcb/abc356_c": 1,
+        "lcb/abc359_c": 1,
+        "lcb/abc362_c": 1,
+        "lcb/abc363_c": 0,
+        "lcb/abc367_d": 4,
+        "lcb/abc370_c": 1,
+        "lcb/abc370_d": 1,
+        "lcb/abc371_c": 0,
+        "lcb/abc372_d": 0,
+        "lcb/abc374_d": 0,
+        "lcb/abc376_b": 0,
+        "lcb/abc379_d": 6,
+        "lcb/abc385_c": 0,
+        "lcb/abc386_c": 6,
+        "lcb/arc181_a": 0,
+        "lcb/arc183_a": 1,
+        "lcb/arc189_a": 0
+      }
+    }
+  },
+  "gates": {
+    "P4_homogeneity_rsft": "PASS",
+    "P4_homogeneity_vanilla": "PASS"
+  },
+  "P1": {
+    "delta": 0.11764705882352941,
+    "ci": [
+      0.0,
+      0.25
+    ],
+    "p": 0.0599,
+    "half_width": 0.125,
+    "verdict": "FAIL_WIDE"
+  },
+  "P2_collapse_replicates": "HOLD",
+  "P3_vanilla_stable": "HOLD",
+  "P5_spread": "HOLD"
+}

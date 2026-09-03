@@ -1,0 +1,68 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use an iterator to handle the input stream
+    it = iter(input_data)
+    
+    N = int(next(it))
+    
+    # Adjacency matrices for G and H
+    # G[i][j] = 1 if edge exists, 0 otherwise
+    G = [[0] * N for _ in range(N)]
+    M_G = int(next(it))
+    for _ in range(M_G):
+        u, v = int(next(it)) - 1, int(next(it)) - 1
+        G[u][v] = G[v][u] = 1
+        
+    H = [[0] * N for _ in range(N)]
+    M_H = int(next(it))
+    for _ in range(M_H):
+        u, v = int(next(it)) - 1, int(next(it)) - 1
+        H[u][v] = H[v][u] = 1
+        
+    # Cost matrix A
+    # A[i][j] is the cost to flip edge (i, j)
+    A = [[0] * N for _ in range(N)]
+    for i in range(N - 1):
+        for j in range(i + 1, N):
+            cost = int(next(it))
+            A[i][j] = A[j][i] = cost
+
+    # The goal is to find a permutation P of {0, ..., N-1} that minimizes:
+    # Sum_{i < j} (cost to make edge (P_i, P_j) in H match edge (i, j) in G)
+    # Cost is A[P_i][P_j] if (G[i][j] != H[P_i][P_j]), else 0.
+    
+    # Generate all permutations of (0, ..., N-1)
+    # Note: N <= 8, so N! is at most 40,320.
+    all_perms = permutations(range(N))
+    
+    # Precompute the list of all pairs (i, j) where i < j
+    pairs = [(i, j) for i in range(N) for j in range(i + 1, N)]
+    
+    # Use a generator expression inside min() to avoid explicit for/while loops
+    # We calculate the total cost for each permutation P.
+    # For a permutation P, the vertex i in G maps to P[i] in H.
+    # The edge (i, j) in G exists if G[i][j] == 1.
+    # The edge (P[i], P[j]) in H exists if H[P[i]][P[j]] == 1.
+    # If these differ, we pay A[P[i]][P[j]].
+    
+    ans = min(
+        sum(
+            A[p[i]][p[j]] if G[i][j] != H[p[i]][p[j]] else 0
+            for i, j in pairs
+        )
+        for p in all_perms
+    )
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

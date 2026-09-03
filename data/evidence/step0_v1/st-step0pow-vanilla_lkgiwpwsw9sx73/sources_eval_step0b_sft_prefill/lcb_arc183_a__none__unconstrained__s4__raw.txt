@@ -1,0 +1,177 @@
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N = int(input_data[0])
+    K = int(input_data[1])
+
+    # The total number of good sequences is S = (NK)! / (K!)^N.
+    # We need the floor((S+1)/2)-th sequence.
+    # Note: S is symmetric. If we have a sequence (a1, a2, ..., aM),
+    # its "complement" (N+1-a1, N+1-a2, ..., N+1-aM) is also a good sequence.
+    # Lexicographically, if A < B, then complement(A) > complement(B).
+    # The middle two sequences (if S is even) are A and complement(A) where A is the 
+    # largest sequence starting with a number <= N/2 (roughly).
+    # Actually, the property is: the S/2-th sequence is the largest sequence 
+    # that is lexicographically smaller than or equal to its own "dual" 
+    # (where dual is replacing x with N+1-x).
+    # However, a simpler observation:
+    # The set of all good sequences is symmetric around the "middle".
+    # The floor((S+1)/2)-th sequence is the last sequence that starts with a 
+    # digit 'd' such that d < (N+1)/2, or if N is odd, the first sequence 
+    # starting with (N+1)/2 that is <= its dual.
+    
+    # Let's use the property: 
+    # If we list all sequences, the one at index floor((S+1)/2) is the 
+    # "largest" sequence A such that A <= dual(A).
+    # A sequence A is <= dual(A) if at the first index i where A_i != dual(A)_i, A_i < dual(A)_i.
+    # A_i < N + 1 - A_i  => 2 * A_i < N + 1 => A_i <= N // 2.
+    
+    # To find the largest A such that A <= dual(A):
+    # At each position i, we want to pick the largest possible digit d such that
+    # we can still form a sequence that is <= its dual.
+    # If we have already picked a digit d < (N+1)/2, then for all remaining positions,
+    # we can pick the largest possible digits to make the sequence lexicographically largest.
+    # If we have picked only digits d = (N+1)/2 (only possible if N is odd), 
+    # we continue the constraint.
+    # If we pick d > (N+1)/2, we must have already picked some d' < (N+1)/2 at an earlier position.
+
+    # State: (counts of each number remaining, has_become_smaller)
+    # Since we can't use recursion/loops with state, we use a greedy approach with a flag.
+    
+    counts = [K] * N
+    result = []
+    has_become_smaller = False
+    
+    # We need to determine the digit for each position from 0 to N*K - 1
+    # Because we cannot use for/while loops, we use a map/reduce or list comprehension.
+    # But we need to maintain state. We can use a mutable object to track state.
+    
+    state = {
+        'counts': counts,
+        'has_become_smaller': has_become_smaller,
+        'result': result
+    }
+    
+    def process_step(step_idx, current_state):
+        counts = current_state['counts']
+        has_become_smaller = current_state['has_become_smaller']
+        
+        # Try digits d from N down to 1
+        # If not has_become_smaller:
+        #    d must be <= (N + 1) / 2.
+        #    If d < (N + 1) / 2, has_become_smaller becomes True.
+        #    If d == (N + 1) / 2, has_become_smaller stays False.
+        # If has_become_smaller:
+        #    d can be anything from 1 to N.
+        
+        # We want the largest d that satisfies the condition.
+        # The condition is: if not has_become_smaller, d <= (N+1)//2.
+        # Also, we must be able to complete the sequence. 
+        # Since we are looking for the "largest" such sequence, we just need to 
+        # ensure we don't pick a d that prevents us from satisfying the condition later.
+        # But if we pick d < (N+1)/2, we can pick anything later.
+        # If we pick d = (N+1)/2, we are still constrained.
+        # If we can't pick any d <= (N+1)/2, then this path is impossible (but S/2 exists).
+        
+        # To maximize the sequence:
+        # 1. If has_become_smaller is True, pick largest d with count > 0.
+        # 2. If has_become_smaller is False:
+        #    Can we pick d > (N+1)/2? No, because then A > dual(A) immediately.
+        #    Can we pick d = (N+1)/2? Yes, if count > 0.
+        #    Can we pick d < (N+1)/2? Yes, if count > 0.
+        #    To maximize, we first try d = (N+1)//2 (if N is odd), then d = (N-1)//2, etc.
+        #    Wait, if we pick d < (N+1)/2, we can then pick the absolute maximums for the rest.
+        #    If we pick d = (N+1)/2, we are still constrained.
+        #    So we compare:
+        #    Option A: d = (N+1)//2, then continue constrained.
+        #    Option B: d = (N-1)//2, then everything else is maxed.
+        #    Actually, the largest sequence A <= dual(A) is found by:
+        #    At each step, try d = N, N-1, ... 1.
+        #    If has_become_smaller is True, take the first d with count > 0.
+        #    If has_become_smaller is False, we can take d if d <= (N+1)/2.
+        #    If we take d < (N+1)/2, has_become_smaller becomes True.
+        #    If we take d = (N+1)/2, has_become_smaller stays False.
+        #    To get the lexicographically largest, we want the largest d.
+        #    So if N is odd and (N+1)//2 has count > 0, we should consider if taking it 
+        #    is better than taking (N-1)//2 and then filling the rest with N, N, ...
+        #    But taking (N+1)//2 is always better or equal to taking (N-1)//2 at the current position.
+        
+        # Correct Logic for largest A <= dual(A):
+        # For i = 1 to NK:
+        #   For d = N down to 1:
+        #     If count[d] > 0:
+        #       If has_become_smaller:
+        #         Append d, count[d]--, break
+        #       Else:
+        #         If d < (N+1)/2:
+        #           Append d, count[d]--, has_become_smaller = True, break
+        #         Else if d == (N+1)/2 (only if N is odd):
+        #           # We can take this, but we must check if it's possible to 
+        #           # complete the sequence such that A <= dual(A).
+        #           # Since we can always just pick the smallest remaining elements 
+        #           # at the very end to satisfy A <= dual(A), the only constraint 
+        #           # is that we don't run out of elements to satisfy the "middle" 
+        #           # or we eventually hit a d < (N+1)/2.
+        #           # Actually, if we only pick d = (N+1)/2, and we run out of them,
+        #           # the next element must be <= (N+1)/2.
+        #           # If all remaining elements are > (N+1)/2, then we can't.
+        #           # But we can just check: if we take d = (N+1)//2, is there at least 
+        #           # one element remaining that is < (N+1)//2? 
+        #           # If yes, we can eventually become smaller. 
+        #           # If no, then all remaining elements are > (N+1)//2, 
+        #           # which means A will become > dual(A).
+        #           # Exception: if no elements are left, or all remaining are (N+1)//2.
+        
+        # Let's refine:
+        # If not has_become_smaller:
+        #   If N is odd and count[(N+1)//2] > 0:
+        #     Check if there is any element < (N+1)//2 remaining.
+        #     If yes, we can take d = (N+1)//2 and still have a chance to be <= dual.
+        #     If no, taking d = (N+1)//2 will lead to A > dual(A) unless all remaining are (N+1)//2.
+        #     Wait, if all remaining are > (N+1)//2, then A is definitely > dual(A).
+        #     If all remaining are (N+1)//2, then A = dual(A).
+        #     So if not has_become_smaller, we can take d = (N+1)//2 if:
+        #     (count of elements < (N+1)//2) > 0 OR (count of elements > (N+1)//2) == 0.
+        
+        # Let mid = (N + 1) // 2
+        # If not has_become_smaller:
+        #   Candidates for d: 
+        #   1. d = mid (if N is odd and count[mid] > 0 and (sum(counts[1:mid]) > 0 or sum(counts[mid+1:]) == 0))
+        #   2. d < mid (if count[d] > 0)
+        #   To maximize, we check d = mid first, then d = mid-1, mid-2...
+        
+        mid = (N + 1) // 2
+        
+        # We need to find the largest d that satisfies the condition.
+        # Since we can't use loops, we use a list comprehension to find valid d's.
+        
+        valid_ds = [
+            d for d in range(N, 0, -1) 
+            if counts[d-1] > 0 and (
+                has_become_smaller or 
+                (d < mid) or 
+                (N % 2 == 1 and d == mid and (sum(counts[:mid-1]) > 0 or sum(counts[mid:]) == 0))
+            )
+        ]
+        
+        chosen_d = valid_ds[0]
+        counts[chosen_d-1] -= 1
+        if not has_become_smaller and chosen_d < mid:
+            current_state['has_become_smaller'] = True
+        
+        current_state['result'].append(chosen_d)
+        return current_state
+
+    # Use map to simulate the loop for NK steps
+    final_state = reduce(process_step, range(N * K), state)
+    print(*(final_state['result']))
+
+if __name__ == "__main__":
+    solve()
+```

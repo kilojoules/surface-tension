@@ -1,0 +1,74 @@
+```python
+import sys
+from collections import deque
+
+def solve():
+    # Read N and Q from the first line of input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Initial positions
+    current_l = 1
+    current_r = 2
+    total_ops = 0
+    
+    # The instructions start from index 2 of input_data
+    # Each instruction consists of two elements: H_i and T_i
+    instructions = input_data[2:]
+    
+    # BFS function to find the shortest path for one hand while the other is fixed
+    def get_min_dist(start, target, obstacle):
+        # We need to find the shortest path from start to target on a ring of size N
+        # without passing through the obstacle.
+        # Since N is small (100), BFS is efficient.
+        
+        # Queue stores (current_node, distance)
+        queue = deque([(start, 0)])
+        visited = {start, obstacle}
+        
+        while queue:
+            curr, dist = queue.popleft()
+            if curr == target:
+                return dist
+            
+            # Neighbors on the ring
+            # Part i is connected to (i-1) and (i+1)
+            # Using 1-based indexing logic with modulo
+            neighbors = [
+                (curr + 1 if curr < N else 1),
+                (curr - 1 if curr > 1 else N)
+            ]
+            
+            for neighbor in neighbors:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append((neighbor, dist + 1))
+        return float('inf')
+
+    # Process instructions sequentially
+    # We use a loop with an index since we can't use for-each with state easily 
+    # (though we could, but while/range is safer for logic flow)
+    for i in range(0, Q * 2, 2):
+        h = instructions[i]
+        t = int(instructions[i+1])
+        
+        if h == 'L':
+            # Move left hand to t, right hand stays at current_r
+            dist = get_min_dist(current_l, t, current_r)
+            total_ops += dist
+            current_l = t
+        else:
+            # Move right hand to t, left hand stays at current_l
+            dist = get_min_dist(current_r, t, current_l)
+            total_ops += dist
+            current_r = t
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()
+```

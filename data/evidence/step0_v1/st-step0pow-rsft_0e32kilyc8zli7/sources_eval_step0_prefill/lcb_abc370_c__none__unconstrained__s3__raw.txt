@@ -1,0 +1,70 @@
+```python
+import sys
+
+def solve():
+    # Read S and T from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    s = list(input_data[0])
+    t = list(input_data[1])
+    n = len(s)
+
+    # The goal is to reach T from S in the minimum number of steps.
+    # The minimum number of steps is the number of indices where S[i] != T[i].
+    # To make the array X lexicographically smallest, we want each X_j to be 
+    # as small as possible.
+    # A string is smaller if its characters at earlier positions are smaller.
+    # However, we can only change ONE character per step.
+    
+    # To keep the sequence of strings lexicographically smallest:
+    # 1. We should prioritize changing characters at indices that make the string 
+    #    lexicographically smaller immediately.
+    # 2. If changing S[i] to T[i] makes the string smaller (T[i] < S[i]), 
+    #    we should do this as early as possible, and for the smallest index i first.
+    # 3. If changing S[i] to T[i] makes the string larger (T[i] > S[i]), 
+    #    we should delay this as long as possible, and for the largest index i first.
+
+    diffs = []
+    for i in range(n):
+        if s[i] != t[i]:
+            diffs.append(i)
+
+    # Separate indices into those that decrease the string and those that increase it
+    decrease = []
+    increase = []
+    for i in diffs:
+        if t[i] < s[i]:
+            decrease.append(i)
+        else:
+            increase.append(i)
+
+    # For decrease: we want the string to become smaller as quickly as possible.
+    # Changing the leftmost character to a smaller character has the biggest impact.
+    # So we process 'decrease' indices in increasing order.
+    decrease.sort()
+
+    # For increase: we want to delay making the string larger.
+    # Changing the rightmost character to a larger character has the smallest impact
+    # on the lexicographical rank of the string.
+    # So we process 'increase' indices in decreasing order.
+    increase.sort(reverse=True)
+
+    # The sequence of indices to change
+    order = decrease + increase
+    
+    # Construct the result array X
+    current_s = s[:]
+    x = []
+    for i in order:
+        current_s[i] = t[i]
+        x.append("".join(current_s))
+
+    # Output the result
+    print(len(x))
+    for string in x:
+        print(string)
+
+if __name__ == "__main__":
+    solve()
+```

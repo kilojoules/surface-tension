@@ -1,0 +1,40 @@
+```python
+import sys
+from itertools import permutations, 
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    K = int(input_data[1])
+    S = input_data[2]
+
+    # Generate all unique permutations of the string S
+    # Since N <= 10, N! is at most 3,628,800, which is feasible.
+    # We use a set to handle duplicate characters in S.
+    all_perms = set(permutations(S))
+
+    def is_palindrome_free(s_tuple):
+        # Check every substring of length K
+        # s_tuple is a tuple of characters
+        for i in range(N - K + 1):
+            substring = s_tuple[i : i + K]
+            # Check if substring is a palindrome
+            # A substring is a palindrome if it equals its reverse
+            if substring == substring[::-1]:
+                return False
+        return True
+
+    # Filter permutations that do not contain a palindrome of length K
+    # We use a generator expression inside sum() to count True values
+    result = sum(1 for p in all_perms if is_palindrome_free(p))
+    
+    # Print the result to stdout
+    sys.stdout.write(str(result) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

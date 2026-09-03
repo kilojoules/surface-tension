@@ -1,0 +1,117 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Use fast I/O
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # current_height_offset tracks the total T added by type 2 queries.
+    # When a plant is added at time t, its "birth height" is -current_height_offset.
+    # Its actual height at any time is birth_height + current_height_offset.
+    # A plant is harvested if birth_height + current_height_offset >= H,
+    # which is equivalent to birth_height >= H - current_height_offset.
+    
+    current_height_offset = 0
+    # birth_heights stores the birth_height of all existing plants.
+    # Since we only add plants (type 1) and remove them (type 3),
+    # and birth_heights are added in non-increasing order (because current_height_offset increases),
+    # we can maintain a sorted list of birth_heights to use binary search.
+    # Wait, current_height_offset is non-decreasing, so birth_heights (-current_height_offset)
+    # are added in non-increasing order. To use bisect, we should store them 
+    # and keep the list sorted.
+    
+    # Actually, since we add plants one by one, and the offset only increases,
+    # the birth_heights of plants added later are always smaller than or equal to those added earlier.
+    # Let's use a sorted list. Since we add elements that are smaller than previous ones,
+    # we can just append and then reverse or use a different approach.
+    # Let's just use a standard list and bisect. Since we need to remove elements,
+    # a sorted list is good, but removing from the middle is O(N).
+    # However, we harvest all plants with height >= H.
+    # These are plants with birth_height >= H - current_height_offset.
+    # Since birth_heights are added as -current_height_offset, the list of birth_heights
+    # is naturally sorted in non-increasing order.
+    # Example: 
+    # Q1: 1 -> offset 0, birth 0. List: [0]
+    # Q2: 2 15 -> offset 15.
+    # Q3: 1 -> offset 15, birth -15. List: [0, -15]
+    # Q4: 3 10 -> H=10. Harvest if birth >= 10 - 15 = -5.
+    # Plants with birth 0 are harvested. Plant with -15 remains.
+    
+    # Because we always add smaller values, the list remains sorted (descending).
+    # To use bisect (which works on ascending), we can store birth_heights as positive 
+    # and flip the logic, or just store them and use a deque/list and track the range.
+    # Actually, the simplest way is to store birth_heights in a list.
+    # Since we only remove from the "largest" end (the start of the list),
+    # we can use a deque or just track an index.
+    
+    # Let's refine:
+    # Plants are added with value v = -current_height_offset.
+    # These values v are non-increasing.
+    # We want to count and remove all v >= H - current_height_offset.
+    # Since v is non-increasing, the plants satisfying this are at the beginning of the list.
+    
+    birth_heights = []
+    ptr = 0 # Points to the first plant that hasn't been harvested
+    
+    # To avoid O(N) pops from the front, we use a pointer.
+    # But wait, the plants are added at the end. 
+    # The ones added earliest have the largest birth_heights.
+    # So we remove from the left.
+    
+    # Let's use a list and a pointer.
+    # Type 1: birth_heights.append(-current_height_offset)
+    # Type 3: Find how many birth_heights[i] >= H - current_height_offset for i >= ptr.
+    # Since birth_heights is non-increasing, we can binary search for the 
+    # rightmost index i such that birth_heights[i] >= H - current_height_offset.
+    
+    # Since birth_heights is sorted non-increasingly, we can use bisect on 
+    # the negated values to make it non-decreasing.
+    # Let negated_birth_heights store -(-current_height_offset) = current_height_offset.
+    # Now negated_birth_heights is non-decreasing.
+    # Condition: birth_height >= H - current_height_offset
+    # <=> -negated_birth_height >= H - current_height_offset
+    # <=> negated_birth_height <= current_height_offset - H
+    
+    negated_birth_heights = []
+    ptr = 0
+    
+    idx = 1
+    results = []
+    for _ in range(Q):
+        q_type = int(input_data[idx])
+        if q_type == 1:
+            negated_birth_heights.append(current_height_offset)
+            idx += 1
+        elif q_type == 2:
+            T = int(input_data[idx + 1])
+            current_height_offset += T
+            idx += 2
+        else:
+            H = int(input_data[idx + 1])
+            idx += 2
+            
+            # Target: negated_birth_height <= current_height_offset - H
+            target = current_height_offset - H
+            
+            # Find number of elements in negated_birth_heights[ptr:] that are <= target
+            # Since negated_birth_heights is sorted non-decreasingly:
+            # We look for the upper bound of 'target' in the range [ptr, len(negated_birth_heights))
+            
+            # bisect_right returns the insertion point which is the index of the first element > target
+            import bisect
+            r = bisect.bisect_right(negated_birth_heights, target, lo=ptr)
+            
+            count = r - ptr
+            results.append(str(count))
+            ptr = r
+            
+    sys.stdout.write('\n'.join(results) + '\n')
+
+if __name__ == '__main__':
+    solve()
+```

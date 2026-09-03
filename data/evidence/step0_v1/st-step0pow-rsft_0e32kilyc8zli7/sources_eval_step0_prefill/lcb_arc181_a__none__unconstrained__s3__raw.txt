@@ -1,0 +1,107 @@
+```python
+import sys
+
+def solve():
+    # Read all input at once for performance
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    T_str = input_data[ptr]
+    ptr += 1
+    T = int(T_str)
+    
+    results = []
+    for _ in range(T):
+        N = int(input_data[ptr])
+        ptr += 1
+        P = input_data[ptr : ptr + N]
+        ptr += N
+        
+        # Convert P to integers
+        P = [int(x) for x in P]
+        
+        # The goal is to reach P_i = i for all i.
+        # An operation with index k sorts [1, k-1] and [k+1, N].
+        # This means P_k remains in its place, while everything else is sorted.
+        # If we pick k such that P_k = k, then after one operation, 
+        # the elements {1, ..., k-1} are sorted into positions 1...k-1 
+        # and {k+1, ..., N} are sorted into positions k+1...N.
+        # Since P_k = k and the sets are partitioned correctly, the whole array becomes sorted.
+        
+        # Condition for 0 operations: Already sorted.
+        is_sorted = True
+        for i in range(N):
+            if P[i] != i + 1:
+                is_sorted = False
+                break
+        
+        if is_sorted:
+            results.append("0")
+            continue
+            
+        # Condition for 1 operation: 
+        # There exists some k such that P_k = k AND 
+        # the set {P_1, ..., P_{k-1}} is exactly {1, ..., k-1}
+        # (Which implies {P_{k+1}, ..., P_N} is {k+1, ..., N})
+        # Actually, the condition is simpler: if P_k = k, then sorting 
+        # [1, k-1] and [k+1, N] will result in the identity permutation 
+        # IF AND ONLY IF the set of values in those ranges are the correct ones.
+        # That is, {P_1, ..., P_{k-1}} == {1, ..., k-1}.
+        
+        # To check this efficiently:
+        # P_k = k and max(P_1, ..., P_{k-1}) == k-1.
+        # (Since it's a permutation, if max is k-1, then it must be the set {1, ..., k-1})
+        
+        possible_1 = False
+        current_max = 0
+        for i in range(N):
+            val = P[i]
+            # Check if k = i + 1 is a valid split point
+            # For k=1: P_1=1 is not required, just that sorting [2, N] fixes it.
+            # Wait, the rule is: sort 1 to k-1 and k+1 to N.
+            # If k=1, we sort [2, N]. This works if P_1 = 1.
+            # If k=N, we sort [1, N-1]. This works if P_N = N.
+            # If 1 < k < N, we sort both. This works if P_k = k AND 
+            # the elements to the left are {1...k-1}.
+            
+            # Let's re-evaluate:
+            # The operation with k sorts everything except index k.
+            # The result is sorted if and only if P_k = k AND 
+            # {P_1, ..., P_{k-1}} = {1, ..., k-1}.
+            # Note: for k=1, the condition is just P_1 = 1.
+            # For k=N, the condition is just P_N = N.
+            
+            # We can track the prefix max.
+            if i > 0:
+                # For k = i + 1, we need P[i] == i + 1 and max(P[0...i-1]) == i
+                if P[i] == i + 1 and current_max == i:
+                    possible_1 = True
+            
+            current_max = max(current_max, val)
+            
+        # Special case for k=1: P[0] == 1
+        if P[0] == 1:
+            possible_1 = True
+        # Special case for k=N: P[N-1] == N and max(P[0...N-2]) == N-1
+        # But wait, if P[N-1] == N, then the remaining N-1 elements must be {1...N-1},
+        # so sorting them always works.
+        if P[N-1] == N:
+            possible_1 = True
+            
+        if possible_1:
+            results.append("1")
+        else:
+            # It is proved that it's always possible. 
+            # For N >= 3, 2 operations are always sufficient.
+            # Example: k=1 then k=N.
+            # k=1 sorts [2, N]. Then P_N becomes N.
+            # Then k=N sorts [1, N-1]. Since P_N=N, the whole thing is sorted.
+            results.append("2")
+            
+    sys.stdout.write("\n".join(results) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```

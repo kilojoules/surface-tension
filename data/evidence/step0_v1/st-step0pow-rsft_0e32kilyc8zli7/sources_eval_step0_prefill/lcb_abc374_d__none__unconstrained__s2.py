@@ -1,0 +1,147 @@
+import sys
+import math
+from itertools import permutations
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = float(input_data[1])
+    T = float(input_data[2])
+    
+    segments = []
+    idx = 3
+    for _ in range(N):
+        a = float(input_data[idx])
+        b = float(input_data[idx+1])
+        c = float(input_data[idx+2])
+        d = float(input_data[idx+3])
+        segments.append(((a, b), (c, d)))
+        idx += 4
+
+    # Precompute lengths of segments
+    seg_lengths = []
+    for p1, p2 in segments:
+        dist = math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+        seg_lengths.append(dist)
+
+    # The total time spent emitting the laser is constant regardless of order
+    # Total emit time = sum(length_i / T)
+    total_emit_time = sum(seg_lengths) / T
+
+    # We need to find the minimum travel time between segments.
+    # There are N! permutations of segments and 2^N ways to choose the direction of each segment.
+    # Since N is small (up to 6), we can iterate through all permutations and directions.
+    
+    min_travel_dist = float('inf')
+    
+    # Generate all permutations of segment indices
+    for p in permutations(range(N)):
+        # For each permutation, there are 2^N ways to orient the segments.
+        # We can use recursion or bitmask to try all orientations.
+        # However, for a fixed order, we can use dynamic programming to find the best orientation.
+        # dp[i][0] = min travel distance to reach the end of segment p[i] when printed from start to end.
+        # dp[i][1] = min travel distance to reach the end of segment p[i] when printed from end to start.
+        
+        # Initial state: distance from (0,0) to the start of the first segment.
+        # Segment p[0] has endpoints A and B.
+        # Option 0: Print A -> B. Travel (0,0) -> A.
+        # Option 1: Print B -> A. Travel (0,0) -> B.
+        
+        seg0 = segments[p[0]]
+        dist_00_A = math.sqrt(seg0[0][0]**2 + seg0[0][1]**2)
+        dist_00_B = math.sqrt(seg0[1][0]**2 + seg0[1][1]**2)
+        
+        dp0 = dist_00_A # Ended at B
+        dp1 = dist_00_B # Ended at A
+        
+        for i in range(1, N):
+            seg_prev = segments[p[i-1]]
+            seg_curr = segments[p[i]]
+            
+            # Current segment endpoints
+            curr_A = seg_curr[0]
+            curr_B = seg_curr[1]
+            # Previous segment endpoints
+            prev_A = seg_prev[0]
+            prev_B = seg_prev[1]
+            
+            # New dp0: we want to end at curr_B (so we print curr_A -> curr_B)
+            # We could have come from prev_B (if prev was A->B) or prev_A (if prev was B->A)
+            # travel from prev_end to curr_A
+            
+            # If prev was A->B, end was prev_B. Travel prev_B -> curr_A.
+            # If prev was B->A, end was prev_A. Travel prev_A -> curr_A.
+            
+            # To calculate dp[i][0] (ending at curr_B):
+            # Option A: prev ended at prev_B, move to curr_A.
+            # Option B: prev ended at prev_A, move to curr_A.
+            
+            # But wait, the DP state needs to be:
+            # dp[i][0]: min travel distance to finish segment p[i] ending at endpoint 1 (C_i, D_i)
+            # dp[i][1]: min travel distance to finish segment p[i] ending at endpoint 0 (A_i, B_i)
+            
+            # Let's redefine:
+            # dp[i][0] is the min travel distance to have finished segment p[i] and be at endpoint 1.
+            # This means we traveled to endpoint 0 and printed 0 -> 1.
+            # dp[i][1] is the min travel distance to have finished segment p[i] and be at endpoint 0.
+            # This means we traveled to endpoint 1 and printed 1 -> 0.
+            
+            # For i = 0:
+            # dp[0][0] = dist((0,0), seg[p[0]].endpoint0)
+            # dp[0][1] = dist((0,0), seg[p[0]].endpoint1)
+            # (This is already handled by dp0, dp1)
+            
+            # For i > 0:
+            # To get dp[i][0] (end at curr_B):
+            # 1. From dp[i-1][0] (at prev_B): dist(prev_B, curr_A)
+            # 2. From dp[i-1][1] (at prev_A): dist(prev_A, curr_A)
+            
+            # To get dp[i][1] (end at curr_A):
+            # 1. From dp[i-1][0] (at prev_B): dist(prev_B, curr_B)
+            # 2. From dp[i-1][1] (at prev_A): dist(prev_A, curr_B)
+            
+            # This is slightly wrong because the "travel" distance is what we minimize.
+            # The distance covered while printing is constant.
+            pass
+
+    # Let's rewrite the loop properly.
+    min_travel_dist = float('inf')
+    for p in permutations(range(N)):
+        # dp[0] is min travel distance ending at endpoint 1 of segment p[i]
+        # dp[1] is min travel distance ending at endpoint 0 of segment p[i]
+        
+        seg0 = segments[p[0]]
+        dp0 = math.sqrt(seg0[0][0]**2 + seg0[0][1]**2)
+        dp1 = math.sqrt(seg0[1][0]**2 + seg0[1][1]**2)
+        
+        for i in range(1, N):
+            prev_seg = segments[p[i-1]]
+            curr_seg = segments[p[i]]
+            
+            # Endpoints of previous
+            pA, pB = prev_seg
+            # Endpoints of current
+            cA, cB = curr_seg
+            
+            # New dp0: end at cB (traveled to cA)
+            # From dp0 (at pB) to cA OR from dp1 (at pA) to cA
+            next_dp0 = min(dp0 + math.sqrt((pB[0]-cA[0])**2 + (pB[1]-cA[1])**2),
+                           dp1 + math.sqrt((pA[0]-cA[0])**2 + (pA[1]-cA[1])**2))
+            
+            # New dp1: end at cA (traveled to cB)
+            # From dp0 (at pB) to cB OR from dp1 (at pA) to cB
+            next_dp1 = min(dp0 + math.sqrt((pB[0]-cB[0])**2 + (pB[1]-cB[1])**2),
+                           dp1 + math.sqrt((pA[0]-cB[0])**2 + (pA[1]-cB[1])**2))
+            
+            dp0, dp1 = next_dp0, next_dp1
+            
+        min_travel_dist = min(min_travel_dist, dp0, dp1)
+
+    print(f"{(min_travel_dist / S + total_emit_time):.20f}")
+
+if __name__ == "__main__":
+    solve()

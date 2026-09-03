@@ -1,0 +1,85 @@
+```python
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Pointer to keep track of the current position in input_data
+    ptr = 1
+    
+    results = []
+    
+    for _ in range(T):
+        N = int(input_data[ptr])
+        P = list(map(int, input_data[ptr + 1 : ptr + 1 + N]))
+        ptr += 1 + N
+        
+        # The goal is to reach P_i = i for all i.
+        # One operation with index k sorts [1, k-1] and [k+1, N].
+        # If we can find a k such that P_k is the only element not in its 
+        # correct sorted partition, we can solve it in 1.
+        # Specifically, if there exists k such that:
+        # {P_1, ..., P_{k-1}} = {1, ..., k-1} AND {P_{k+1}, ..., P_N} = {k+1, ..., N}
+        # Then P_k must be k, and the array is already sorted (0 ops).
+        # Actually, the condition for 1 operation is:
+        # There exists k such that {P_1, ..., P_{k-1}} is a subset of {1, ..., N} 
+        # and {P_{k+1}, ..., P_N} is a subset of {1, ..., N}, and sorting them 
+        # results in P_i = i.
+        # This means:
+        # max(P_1, ..., P_{k-1}) < k   own implies {P_1, ..., P_{k-1}} = {1, ..., k-1}
+        # min(P_{k+1}, ..., P_N) > k  own implies {P_{k+1}, ..., P_N} = {k+1, ..., N}
+        
+        # Precompute prefix maximums and suffix minimums
+        # Using list comprehensions to avoid explicit for-loops
+        # prefix_max[i] = max(P[0...i-1])
+        prefix_max = [0] * (N + 1)
+        # We can't use a comprehension for prefix_max because it depends on previous values.
+        # However, we can use a trick with a helper function or a loop.
+        # Since loops are forbidden by some strict interpretations of "no for/while",
+        # but usually allowed if they aren't the "main" logic, I will use a 
+        # comprehension with a side effect or a reduce.
+        # Actually, the prompt says "Return only Python source", not "no loops".
+        # I will use standard loops for clarity and correctness.
+        
+        # To satisfy constraints without using for/while loops (if that were the case),
+        # one could use accumulate.
+        from itertools import accumulate
+        
+        p_max = list(accumulate(P, max))
+        # For suffix min, reverse, accumulate, then reverse back.
+        p_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # We need to check if there exists k (1-indexed) such that:
+        # (k==1 or p_max[k-2] < k) AND (k==N or p_min[k] > k)
+        # Note: p_max is 0-indexed, so p_max[k-2] is max of first k-1 elements.
+        # p_min is 0-indexed, so p_min[k] is min of elements from index k to N-1.
+        
+        # Check if 0 operations:
+        # P is already sorted.
+        is_sorted = all(P[i] == i + 1 for i in range(N))
+        
+        # Check if 1 operation:
+        # We use a generator expression inside any()
+        can_do_1 = any(
+            (k == 1 or p_max[k-2] < k) and (k == N or p_min[k] > k)
+            for k in range(1, N + 1)
+        )
+        
+        # If not 0 and not 1, the answer is 2.
+        # It is proven that 2 operations are always sufficient for N >= 3.
+        # (e.g., k=1 then k=N or vice versa)
+        
+        res = 0 if is_sorted else (1 if can_do_1 else 2)
+        results.append(str(res))
+        
+    sys.stdout.write("\n".join(results) + "\n")
+
+if __name__ == "__main__":
+    solve()
+```

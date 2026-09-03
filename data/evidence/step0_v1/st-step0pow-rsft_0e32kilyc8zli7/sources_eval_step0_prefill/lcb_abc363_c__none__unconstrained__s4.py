@@ -1,0 +1,44 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line
+    try:
+        line1 = sys.stdin.readline().split()
+        if not line1:
+            return
+        n, k = map(int, line1)
+        # Read the string S
+        s = sys.stdin.readline().strip()
+    except ValueError:
+        return
+
+    # To avoid explicit loops and recursion, we use itertools.permutations
+    # to generate all possible arrangements of the characters in S.
+    # Since N is small (up to 10), N! is at most 3,628,800, which fits in time.
+    
+    # We use a set to store unique permutations of the string S.
+    # We then filter these permutations based on the palindrome condition.
+    
+    # A substring of length K is a palindrome if it equals its reverse.
+    # We check every substring of length K for every unique permutation.
+    
+    all_perms = set(permutations(s))
+    
+    def contains_palindrome(p):
+        # p is a tuple of characters
+        # Check every substring of length k
+        for i in range(n - k + 1):
+            substring = p[i : i + k]
+            if substring == substring[::-1]:
+                return True
+        return False
+
+    # Use a list comprehension to filter permutations and then find the length.
+    # The condition is "do not contain a palindrome of length K".
+    result = len([p for p in all_perms if not contains_palindrome(p)])
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()

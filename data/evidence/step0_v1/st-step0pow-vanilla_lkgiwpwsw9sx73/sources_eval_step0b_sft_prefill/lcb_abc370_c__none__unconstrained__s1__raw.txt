@@ -1,0 +1,53 @@
+```python
+import sys
+
+def solve():
+    # Read input strings S and T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    S = input_data[0]
+    T = input_data[1]
+    
+    N = len(S)
+    
+    # Identify indices where S and T differ
+    diff_indices = [i for i in range(N) if S[i] != T[i]]
+    M = len(diff_indices)
+    
+    # To get the lexicographically smallest sequence of strings X:
+    # We should prioritize changing characters at indices that make the 
+    # resulting string smaller.
+    # Specifically, if S[i] > T[i], changing S[i] to T[i] makes the string smaller.
+    # If S[i] < T[i], changing S[i] to T[i] makes the string larger.
+    
+    # To minimize the sequence lexicographically:
+    # 1. First, process all indices i where S[i] > T[i] in increasing order of i.
+    #    This reduces the string as early as possible.
+    # 2. Then, process all indices i where S[i] < T[i] in decreasing order of i.
+    #    This delays the increase of the string as much as possible.
+    
+    decreasing_indices = [i for i in diff_indices if S[i] > T[i]]
+    increasing_indices = [i for i in diff_indices if S[i] < T[i]]
+    
+    # Sort decreasing indices ascending (left to right)
+    # Sort increasing indices descending (right to left)
+    process_order = sorted(decreasing_indices) + sorted(increasing_indices, reverse=True)
+    
+    # Generate the sequence X
+    # We use a list of characters because strings are immutable in Python
+    current_S = list(S)
+    X = []
+    
+    for idx in process_order:
+        current_S[idx] = T[idx]
+        X.append("".join(current_S))
+    
+    # Output results
+    print(M)
+    for string in X:
+        print(string)
+
+if __name__ == "__main__":
+    solve()
+```

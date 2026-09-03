@@ -1,0 +1,65 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once for efficiency
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # current_time tracks the total T elapsed since the start.
+    # When a plant is planted at time 't', its height at time 'now' is (now - t).
+    # A plant is harvested if (now - t) >= H, which is equivalent to t <= (now - H).
+    current_time = 0
+    
+    # We store the 'birth times' of all existing plants in a sorted list.
+    # Since plants are added chronologically, the list remains sorted.
+    birth_times = []
+    
+    # Pointer to keep track of the first plant that hasn't been harvested yet.
+    # Because birth_times is sorted, plants at the beginning are always the oldest (tallest).
+    head = 0
+    
+    idx = 1
+    results = []
+    
+    for _ in range(Q):
+        q_type = input_data[idx]
+        if q_type == '1':
+            # Plant a new plant at the current global time.
+            birth_times.append(current_time)
+            idx += 1
+        elif q_type == '2':
+            # Increase global time.
+            T = int(input_data[idx + 1])
+            current_time += T
+            idx += 2
+        else:
+            # Harvest plants with height >= H.
+            # Height = current_time - birth_time.
+            # Condition: current_time - birth_time >= H  => birth_time <= current_time - H.
+            H = int(input_data[idx + 1])
+            threshold = current_time - H
+            
+            # Find how many plants have birth_time <= threshold.
+            # We only care about plants from index 'head' onwards.
+            # Use binary search to find the upper bound of plants to harvest.
+            # bisect_right returns the index where 'threshold' could be inserted while maintaining order.
+            import bisect
+            limit = bisect.bisect_right(birth_times, threshold, lo=head)
+            
+            # The number of harvested plants is (limit - head).
+            results.append(str(limit - head))
+            
+            # Update head so we don't count these plants again.
+            head = limit
+            idx += 2
+            
+    sys.stdout.write('\n'.join(results) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

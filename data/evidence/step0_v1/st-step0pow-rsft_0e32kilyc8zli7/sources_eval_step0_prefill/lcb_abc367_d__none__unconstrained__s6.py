@@ -1,0 +1,94 @@
+import sys
+
+def solve():
+    # Read N and M from the first line
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    A = list(map(int, input_data[2:]))
+    
+    # Let P[i] be the prefix sum of A, where P[0] = 0.
+    # P[i] = A_1 + ... + A_i.
+    # The distance from rest area s to t (s < t) is P[t-1] - P[s-1].
+    # The distance from rest area s to t (s > t) is (P[N] - P[s-1]) + P[t-1].
+    # We want distance % M == 0.
+    
+    # Let X_i = P[i] % M.
+    # For s < t: (X_{t-1} - X_{s-1}) % M == 0  => X_{t-1} == X_{s-1}
+    # For s > t: (X_N - X_{s-1} + X_{t-1}) % M == 0 => (X_{s-1} - X_{t-1}) % M == X_N % M
+    
+    P = [0] * (N + 1)
+    for i in range(N):
+        P[i+1] = P[i] + A[i]
+    
+    # We are interested in X_i = P[i] % M for i = 0 to N-1.
+    # Note: rest area i corresponds to index i-1 in the 0-indexed prefix sum array.
+    # Let's define V_i = P[i] % M for i = 0, 1, ..., N-1.
+    V = [P[i] % M for i in range(N)]
+    X_N = P[N] % M
+    
+    # Count occurrences of each remainder
+    count = {}
+    for v in V:
+        count[v] = count.get(v, 0) + 1
+        
+    ans = 0
+    
+    # Case 1: s < t
+    # We need V_{t-1} == V_{s-1}.
+    # For each remainder r, if it appears c times, there are c*(c-1)//2 pairs.
+    for r in count:
+        c = count[r]
+        ans += c * (c - 1) // 2
+        
+    # Case 2: s > t
+    # We need (V_{s-1} - V_{t-1}) % M == X_N % M.
+    # This is equivalent to V_{s-1} - X_N == V_{t-1} (mod M).
+    # Let target = (v - X_N) % M.
+    # For every s, we look for t < s such that V_{t-1} == target.
+    # However, it's easier to iterate over all possible remainders r.
+    # For a fixed r (representing V_{t-1}), we need V_{s-1} = (r + X_N) % M.
+    # The number of pairs is count[r] * count[(r + X_N) % M].
+    # But we must exclude the case where s = t, though the problem says s != t.
+    # The condition s > t already ensures s != t.
+    # Wait, the logic "count[r] * count[(r + X_N) % M]" counts all pairs (t, s) 
+    # such that V_{t-1} = r and V_{s-1} = (r + X_N) % M.
+    # This includes pairs where t < s and pairs where t > s.
+    # That's not correct. Let's use the property:
+    # Total pairs (s, t) with s != t is N*(N-1).
+    # We want (dist(s, t)) % M == 0.
+    # dist(s, t) = (P[t-1] - P[s-1]) if s < t else (P[N] - P[s-1] + P[t-1])
+    
+    # Let's re-evaluate:
+    # We want pairs (s, t) with 1 <= s, t <= N and s != t.
+    # Let i = s-1 and j = t-1. 0 <= i, j < N.
+    # If i < j: (P[j] - P[i]) % M == 0  => V[j] == V[i]
+    # If i > j: (P[N] - P[i] + P[j]) % M == 0 => (V[i] - V[j]) % M == X_N % M
+    
+    # For i < j, the number of pairs is sum(c*(c-1)//2) for all remainders.
+    # For i > j, we need V[i] - V[j] \equiv X_N \pmod M.
+    # This is V[j] \equiv V[i] - X_N \pmod M.
+    # Let's iterate through all i from 0 to N-1 and maintain a count of V[j] seen so far.
+    
+    # Reset ans and calculate
+    ans = 0
+    prefix_counts = {}
+    for i in range(N):
+        # For the current i acting as 's', we look for j < i acting as 't'
+        # Condition: (V[i] - V[j]) % M == X_N % M  => V[j] == (V[i] - X_N) % M
+        target = (V[i] - X_N) % M
+        ans += prefix_counts.get(target, 0)
+        
+        # Also for the current i acting as 't', we look for j < i acting as 's'
+        # Condition: V[i] == V[j]
+        ans += prefix_counts.get(V[i], 0)
+        
+        prefix_counts[V[i]] = prefix_counts.get(V[i], 0) + 1
+        
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,144 @@
+```python
+import sys
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    pairs = []
+    for i in range(N):
+        L = int(input_data[2 * i + 1])
+        R = int(input_data[2 * i + 2])
+        pairs.append((L, R))
+    
+    # Calculate the minimum and maximum possible sums
+    sum_L = sum(p[0] for p in pairs)
+    sum_R = sum(p[1] for p in pairs)
+    
+    # A sequence X exists if and only if 0 is within [sum_L, sum_R]
+    if sum_L <= 0 <= sum_R:
+        # We start with the minimum possible values
+        # Current sum is sum_L. We need to increase it by -sum_L to reach 0.
+        diff = -sum_L
+        
+        # For each X_i, we can increase it from L_i up to R_i.
+        # The maximum increase for X_i is (R_i - L_i).
+        # We distribute 'diff' across the elements.
+        
+        # Using a list comprehension to calculate X_i without explicit for-loops
+        # We need a way to track the remaining diff. 
+        # Since we can't use for-loops, we can use a trick with a mutable object or 
+        # calculate the prefix sums of the ranges.
+        
+        # Let range_i = R_i - L_i.
+        # X_i = L_i + min(range_i, remaining_diff)
+        
+        # To avoid loops, we use the property:
+        # X_i = L_i + max(0, min(R_i - L_i, diff - sum_{j<i}(R_j - L_j)))
+        
+        ranges = [p[1] - p[0] for p in pairs]
+        prefix_ranges = [0] * (N + 1)
+        # We need prefix sums, but we can't use for-loops. 
+        # We can use a scan approach. Python's itertools.accumulate is perfect.
+        from itertools import accumulate
+        
+        pref = list(accumulate(ranges))
+        
+        # X_i = L_i + (amount contributed to the sum)
+        # The amount contributed by index i (1-indexed) is:
+        # min(range_i, max(0, diff - prefix_ranges[i-1]))
+        
+        # Note: prefix_ranges[i-1] is the sum of ranges from 0 to i-1.
+        # We use a list comprehension to build the result.
+        
+        # We need to handle the 0-th index for the prefix sum.
+        # Let's use a helper function or a map.
+        
+        # To strictly avoid for/while loops:
+        # We can use a list and map.
+        
+        # Let's redefine prefix_ranges to be 0-indexed where pref[i] is sum of ranges[0...i-1]
+        # pref = [0, r1, r1+r2, r1+r2+r3, ...]
+        
+        # We need to prepend 0 to the accumulate result.
+        # Since we can't use for loops, we can use:
+        # total_pref = [0] + list(accumulate(ranges))
+        
+        # Wait, I can just use a list comprehension with a reference to the prefix sums.
+        # But I need to be careful about the logic.
+        
+        # Let S_i = sum_{j=0}^{i-1} (R_j - L_j)
+        # The amount added to L_i is min(R_i - L_i, max(0, diff - S_i))
+        
+        # To get S_i without a loop:
+        # S = list(accumulate(ranges, initial=0)) # initial is available in Python 3.8+
+        
+        # Since I cannot use for loops, I will use map and a lambda.
+        # But I need the prefix sums first.
+        
+        # Let's use the property:
+        # X_i = L_i + clamp(diff - S_i, 0, R_i - L_i)
+        
+        # To avoid 'initial' in accumulate if not allowed (though it is 3.8+), 
+        # I can do:
+        # S = [0] + list(accumulate(ranges))
+        
+        # However, the prompt says "Return only Python source". 
+        # I will use the most efficient way.
+        
+        # Re-calculating S and X:
+        S = list(accumulate(ranges, initial=0))
+        
+        # X_i = L_i + max(0, min(ranges[i], diff - S[i]))
+        X = [pairs[i][0] + max(0, min(ranges[i], diff - S[i])) for i in range(N)]
+        
+        print("Yes")
+        print(*(X))
+        
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    # To avoid recursion limits and handle input
+    # We use a wrapper to avoid global scope loops if necessary, 
+    # but list comprehensions and map are allowed.
+    
+    # The constraint says "no for/while loops" is NOT a requirement, 
+    # but usually, these challenges prefer functional styles or specific constraints.
+    # Actually, the prompt doesn't forbid loops. It just asks for the code.
+    # I will provide the clean, standard solution.
+    
+    # Redoing the logic inside a standard structure.
+    import sys
+    from itertools import accumulate
+
+    def main():
+        input_data = sys.stdin.read().split()
+        if not input_data:
+            return
+        
+        N = int(input_data[0])
+        # Use map to convert to integers
+        data = list(map(int, input_data[1:]))
+        
+        # Group into pairs using slicing
+        L = data[0::2]
+        R = data[1::2]
+        
+        sum_L = sum(L)
+        sum_R = sum(R)
+        
+        if sum_L <= 0 <= sum_R:
+            diff = -sum_L
+            ranges = [R[i] - L[i] for i in range(N)]
+            S = list(accumulate(ranges, initial=0))
+            X = [L[i] + max(0, min(ranges[i], diff - S[i])) for i in range(N)]
+            sys.stdout.write("Yes\n" + " ".join(map(str, X)) + "\n")
+        else:
+            sys.stdout.write("No\n")
+
+    main()
+```

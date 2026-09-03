@@ -1,0 +1,175 @@
+import sys
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    N = int(input_data[0])
+    K = int(input_data[1])
+
+    # The problem asks for the floor((S+1)/2)-th sequence.
+    # S is the total number of permutations of the multiset {1*K, 2*K, ..., N*K}.
+    # S = (N*K)! / (K!)^N.
+    # The floor((S+1)/2)-th sequence is the "middle" sequence.
+    # Because the set of all good sequences is symmetric (if you replace 
+    # each element x with (N + 1 - x), you get another good sequence),
+    # the lexicographical middle is reached by a specific construction.
+    # Specifically, for any sequence A, its "complement" A' (where A'_i = N+1 - A_i)
+    # satisfies: A is the m-th sequence iff A' is the (S - m + 1)-th sequence.
+    # The sequence we are looking for is the one that is "self-complementary" 
+    # in terms of its rank, or the one just before the halfway point.
+    
+    # For a sequence to be the floor((S+1)/2)-th, we can determine each 
+    # position greedily. At each position, we try digits d = 1, 2, ..., N.
+    # We calculate how many sequences start with the current prefix.
+    # If the number of sequences starting with prefixes using digits < d 
+    # is already >= floor((S+1)/2), then the digit must be smaller.
+    # However, calculating S is impossible for N, K = 500.
+    
+    # Key Insight:
+    # The total number of sequences S is symmetric.
+    # The floor((S+1)/2)-th sequence is the one that is "lexicographically" 
+    # in the middle. 
+    # For a sequence A, let A_rev_val be the sequence where each A_i is replaced by (N+1 - A_i).
+    # The sequence we want is the one that is "just smaller" than its complement 
+    # (or equal to it).
+    # This means at the first index i where the sequence differs from its complement,
+    # the value A_i must be < (N+1)/2. But we want the largest such sequence 
+    # that is still in the first half.
+    
+    # Actually, the simplest way to think about the "middle" of all permutations
+    # of a multiset is:
+    # For the first position, we have N choices.
+    # The number of sequences starting with 1 is the same as those starting with N.
+    # The number of sequences starting with 2 is the same as those starting with N-1.
+    # If N is even, the first half of sequences start with 1, ..., N/2.
+    # If N is odd, the first half starts with 1, ..., (N-1)/2, and half of the 
+    # sequences starting with (N+1)/2.
+    
+    # This suggests a recursive structure:
+    # To find the middle sequence:
+    # 1. If we have counts of numbers remaining, and we are looking for the 
+    #    m-th sequence:
+    #    The total sequences S = (sum(counts))! / product(counts!)
+    #    We check if m <= S/2.
+    
+    # But we can't compute S. Let's use the symmetry:
+    # The sequence we want is the one that is "lexicographically" the 
+    # largest sequence A such that A <= A_complement.
+    # A_complement is the sequence where each element x is replaced by N+1-x.
+    # To make A the largest sequence such that A <= A_complement:
+    # At each position i, we want to pick the largest possible digit d 
+    # such that we can still complete the sequence to satisfy A <= A_complement.
+    
+    # The condition A <= A_complement is determined by the first index i 
+    # where A_i != (N+1 - A_i). 
+    # If at that index A_i < N+1 - A_i, then A < A_complement.
+    # If A_i > N+1 - A_i, then A > A_complement.
+    # If A_i = N+1 - A_i for all i, then A = A_complement.
+    
+    # To maximize A while keeping A <= A_complement:
+    # We want to keep A_i = N+1 - A_i for as long as possible.
+    # But we can't, because we must use each number K times.
+    # The only way A_i = N+1 - A_i is if A_i = (N+1)/2.
+    # This can only happen if N is odd and we use the digit (N+1)/2.
+    
+    # Let's reconsider: we want the largest sequence A such that A <= A_complement.
+    # This means at the first index i where A_i != N+1 - A_i, we must have A_i < N+1 - A_i.
+    # To make A as large as possible, we want this first difference to occur as late as possible.
+    # For all j < i, we must have A_j = N+1 - A_j. 
+    # This is only possible if A_j = (N+1)/2.
+    # But we only have K copies of (N+1)/2.
+    # So for the first K positions (if N is odd), we can have A_j = (N+1)/2.
+    # Then at position K+1, we must pick a digit d < N+1 - d, so d < (N+1)/2.
+    # To maximize A, we pick the largest such d, which is floor(N/2).
+    # Then for the remaining positions, we want to fill them with the remaining 
+    # digits to make the sequence as large as possible (descending order).
+    
+    # Wait, the condition "A_j = N+1 - A_j" is only for the prefix.
+    # Let's refine:
+    # We want the largest A such that A <= A_complement.
+    # This means there is some index i such that:
+    # For all j < i, A_j = N+1 - A_j
+    # And A_i < N+1 - A_i.
+    # For j > i, A_j can be anything (to maximize A, we pick them in descending order).
+    
+    # But A_j = N+1 - A_j is only possible if A_j = (N+1)/2.
+    # If N is even, A_j can never be N+1 - A_j.
+    # So for N even, the first index i is 1. We want the largest d < (N+1)/2, 
+    # which is N/2. Then we fill the rest descending.
+    # But we must use all digits K times.
+    # If A_1 = N/2, then A_complement_1 = N+1 - N/2 = N/2 + 1.
+    # Since A_1 < A_complement_1, the condition A < A_complement is satisfied.
+    # To maximize A, we fill the remaining positions with the remaining digits 
+    # in descending order.
+    
+    # Let's trace Sample 1: N=2, K=2.
+    # N is even. i=1. Largest d < (2+1)/2 is 1.
+    # A_1 = 1. Remaining: {1:1, 2:2}.
+    # Descending: 2, 2, 1.
+    # Result: 1 2 2 1. (Matches Sample 1)
+    
+    # Sample 3: N=6, K=1.
+    # N is even. i=1. Largest d < 3.5 is 3.
+    # A_1 = 3. Remaining: {1:1, 2:1, 4:1, 5:1, 6:1}.
+    # Descending: 6, 5, 4, 2, 1.
+    # Result: 3 6 5 4 2 1. (Matches Sample 3)
+    
+    # Sample 4: N=3, K=3.
+    # N is odd. (N+1)/2 = 2.
+    # We can have A_j = 2 for j = 1 to K.
+    # A = (2, 2, 2, ...).
+    # Then at index K+1, we need A_{K+1} < N+1 - A_{K+1}, so A_{K+1} < 2.
+    # Largest such d is 1.
+    # A = (2, 2, 2, 1, ...).
+    # Remaining: {1:2, 3:3}.
+    # Descending: 3, 3, 3, 1, 1.
+    # Result: 2 2 2 1 3 3 3 1 1. (Matches Sample 4)
+    
+    # General Algorithm:
+    # 1. If N is even:
+    #    First digit is N // 2.
+    #    Remaining digits are filled in descending order.
+    # 2. If N is odd:
+    #    First K digits are (N + 1) // 2.
+    #    Next digit is (N // 2).
+    #    Remaining digits are filled in descending order.
+    
+    # Special case: N=1.
+    # S = 1. floor((1+1)/2) = 1st sequence.
+    # The algorithm for N odd:
+    # First K digits are (1+1)//2 = 1.
+    # Then we try to pick a digit < 1. But there are no digits < 1.
+    # This is because if N=1, A is always equal to A_complement.
+    # The only sequence is (1, 1, ..., 1).
+    
+    if N == 1:
+        print(*( [1] * K ))
+        return
+
+    res = []
+    counts = {i: K for i in range(1, N + 1)}
+    
+    if N % 2 == 0:
+        d = N // 2
+        res.append(d)
+        counts[d] -= 1
+    else:
+        mid = (N + 1) // 2
+        for _ in range(K):
+            res.append(mid)
+            counts[mid] -= 1
+        d = N // 2
+        res.append(d)
+        counts[d] -= 1
+        
+    # Fill remaining in descending order
+    for d in range(N, 0, -1):
+        while counts[d] > 0:
+            res.append(d)
+            counts[d] -= 1
+            
+    print(*(res))
+
+solve()

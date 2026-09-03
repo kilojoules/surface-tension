@@ -1,0 +1,146 @@
+```python
+import sys
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences S is (NK)! / (K!)^N.
+    # We need the floor((S+1)/2)-th sequence.
+    # This is essentially the "middle" sequence.
+    # Due to the symmetry of the problem, if a sequence A is a good sequence,
+    # then the sequence A' formed by replacing each element x with (N + 1 - x)
+    # is also a good sequence.
+    # Lexicographically, A < B if and only if A' > B'.
+    # This means the set of all good sequences is symmetric around the "middle".
+    # The floor((S+1)/2)-th sequence is the one that is "just before" or "at" the center.
+    # Specifically, it is the sequence that is lexicographically the largest 
+    # among all sequences A such that A <= A', where A' is the complement sequence.
+    
+    # To find the lexicographically middle sequence, we can determine the elements
+    # one by one. For the i-th position, we try the smallest possible digit d (1 to N).
+    # We check if the number of sequences starting with the current prefix is 
+    # enough to reach the middle.
+    # However, calculating (NK)! / (K!)^N is too large.
+    # The symmetry property is key: the middle sequence is the one where we try to
+    # keep the sequence "balanced" relative to its complement.
+    # For the i-th position, we want to pick the smallest digit d such that
+    # the remaining counts allow for a sequence that is "not larger" than its complement.
+    
+    # Actually, the simplest way to think about the floor((S+1)/2)-th sequence
+    # is that it's the sequence A such that A is the largest sequence satisfying A <= A'.
+    # For each position i from 1 to NK:
+    # We try digits d = 1, 2, ..., N.
+    # If we pick d, we check if it's possible to complete the sequence such that
+    # the resulting sequence A satisfies A <= A'.
+    # If we pick d < (N+1)/2, then A will definitely be < A' regardless of the rest
+    # (as long as the rest is filled), provided the prefix is already < the complement prefix.
+    # If we pick d > (N+1)/2, then A will definitely be > A'.
+    # If we pick d = (N+1)/2 (only if N is odd), it depends on the remaining.
+    
+    # Let's refine: we want the largest A such that A <= A'.
+    # To make A as large as possible, at each position i, we want to pick the largest
+    # possible digit d such that we can still satisfy A <= A'.
+    # 1. If we have already picked a digit d_j < (N+1) - d_j at some position j < i,
+    #    then A < A' is already guaranteed. To make A largest, we should pick the
+    #    largest available digits for all remaining positions.
+    # 2. If we have picked d_j = (N+1) - d_j for all j < i, then for the current i:
+    #    - We can pick d < (N+1)/2. Then A < A' is guaranteed. To maximize A, we 
+    #      should pick the largest available d < (N+1)/2, and then fill the rest 
+    #      with the largest available digits.
+    #    - We can pick d = (N+1)/2 (if N is odd). Then we are still in the "balanced" 
+    #      state and must check the next position.
+    #    - We cannot pick d > (N+1)/2 because that would make A > A' (since all 
+    #      previous were balanced).
+    
+    # Wait, the logic "largest A such that A <= A'" is for the floor((S+1)/2)-th.
+    # Let's trace Sample 1: N=2, K=2. S=6. floor(7/2)=3.
+    # Sequences: (1,1,2,2), (1,2,1,2), (1,2,2,1), (2,1,1,2), (2,1,2,1), (2,2,1,1)
+    # 3rd is (1,2,2,1).
+    # Using the logic:
+    # i=1: Try d=2. If d=2, A starts with 2, A' starts with 1. A > A'. Not allowed.
+    # Try d=1. A starts with 1, A' starts with 2. A < A'. Allowed.
+    # Since we picked d=1 < (2+1)/2, A < A' is guaranteed.
+    # Now fill the rest with the largest available: 2, 2, 1.
+    # Result: 1, 2, 2, 1. Correct.
+    
+    # Sample 3: N=6, K=1. S=720. floor(721/2)=360.
+    # This is the largest A such that A <= A'.
+    # i=1: Try d=6,5,4. All > (6+1)/2=3.5. Not allowed.
+    # Try d=3. 3 < 3.5. Allowed.
+    # Fill rest with largest available: 6, 5, 4, 2, 1.
+    # Result: 3 6 5 4 2 1. Correct.
+    
+    # Sample 4: N=3, K=3. S=1680/6=280? No, 9!/(3!^3) = 362880 / 216 = 1680.
+    # floor(1681/2) = 840.
+    # i=1: Try d=3. 3 > (3+1)/2=2. No.
+    # Try d=2. 2 = (3+1)/2. Balanced.
+    # i=2: Try d=3. 3 > 2. No.
+    # Try d=2. 2 = 2. Balanced.
+    # i=3: Try d=3. 3 > 2. No.
+    # Try d=2. 2 = 2. Balanced.
+    # i=4: Try d=3. 3 > 2. No.
+    # Try d=2. No more 2s.
+    # Try d=1. 1 < 2. Allowed.
+    # Fill rest with largest: 3, 3, 3, 1, 1.
+    # Result: 2 2 2 1 3 3 3 1 1. Correct.
+
+    counts = [k] * n
+    res = []
+    guaranteed_smaller = False
+    
+    for i in range(n * k):
+        if guaranteed_smaller:
+            # Pick the largest available digit
+            for d in range(n, 0, -1):
+                if counts[d-1] > 0:
+                    res.append(d)
+                    counts[d-1] -= 1
+                    break
+        else:
+            # Try to pick the largest d such that we don't make A > A'
+            # A' is the sequence where each x is replaced by (n + 1 - x)
+            # We are balanced if for all j < i, res[j] == (n + 1 - res[j])
+            # This only happens if n is odd and res[j] == (n+1)//2
+            
+            # The only way to stay balanced is if n is odd and we pick d = (n+1)//2
+            # Otherwise, if we pick d < (n+1)/2, we become guaranteed_smaller.
+            # If we pick d > (n+1)/2, we become A > A'.
+            
+            # 1. Try to stay balanced (only if n is odd and count for (n+1)//2 > 0)
+            # But we want the LARGEST A such that A <= A'.
+            # Being balanced is "larger" than being guaranteed_smaller if the 
+            # balanced digit is larger than the smaller digits.
+            # Actually, the priority is:
+            # - If we can pick d = (n+1)//2 and still potentially satisfy A <= A', we should.
+            # - If we can't, we pick the largest d < (n+1)//2 and then we are guaranteed_smaller.
+            
+            mid = (n + 1) / 2
+            # Try d = mid (if it's an integer and available)
+            if n % 2 == 1 and counts[int(mid)-1] > 0:
+                # We can pick d = mid and stay balanced.
+                # But wait, if we pick d = mid, we are still "on the edge".
+                # If we pick d < mid, we are "safe".
+                # Since we want the largest A, we prefer d = mid over d < mid.
+                res.append(int(mid))
+                counts[int(mid)-1] -= 1
+                # guaranteed_smaller remains False
+            else:
+                # We must pick d < mid to ensure A <= A'
+                # Pick the largest d < mid
+                for d in range(n, 0, -1):
+                    if d < mid and counts[d-1] > 0:
+                        res.append(d)
+                        counts[d-1] -= 1
+                        guaranteed_smaller = True
+                        break
+                        
+    print(*(res))
+
+if __name__ == "__main__":
+    solve()
+```

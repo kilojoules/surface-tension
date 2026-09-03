@@ -1,0 +1,105 @@
+import sys
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Initial positions
+    l, r = 1, 2
+    total_ops = 0
+    
+    idx = 2
+    for _ in range(Q):
+        h = input_data[idx]
+        t = int(input_data[idx+1])
+        idx += 2
+        
+        if h == 'L':
+            # Move left hand from l to t, while right hand stays at r
+            # The ring is 1...N. The right hand at r blocks the path.
+            # There are two directions to move on a ring: clockwise and counter-clockwise.
+            # However, we cannot pass through the part occupied by the other hand.
+            # This means we can only move in the direction that doesn't encounter r.
+            
+            # Calculate distance moving "right" (increasing index) and "left" (decreasing index)
+            # But we must check if the path is blocked by r.
+            
+            # Distance clockwise (l -> l+1 -> ... -> t)
+            # The path is blocked if r is between l and t (exclusive of endpoints is not enough, 
+            # since we can't move TO r).
+            # Actually, since we can't move to r, we just need to check if r is in the way.
+            
+            # Let's simplify: on a ring of N, if one point is blocked, 
+            # there is only one unique path between any two other points.
+            
+            # To find the distance from l to t avoiding r:
+            # We can simulate the two possible directions and see which one is blocked.
+            
+            # Direction 1: l -> l+1 -> ... -> t (modulo N)
+            # Direction 2: l -> l-1 -> ... -> t (modulo N)
+            
+            # Distance clockwise
+            dist_cw = (t - l + N) % N
+            # Check if r is encountered: r is encountered if (r - l + N) % N < dist_cw
+            # Wait, the condition is: we can't move to r.
+            # If we move clockwise, we visit (l+1), (l+2)... t.
+            # If any of these is r, this path is blocked.
+            
+            blocked_cw = False
+            # The parts visited are (l + k - 1) % N + 1 for k = 1 to dist_cw
+            # Instead of looping, r is in the way if (r - l + N) % N <= dist_cw 
+            # AND (r - l + N) % N != 0 (which is true since r != l)
+            # Actually, the only way to get from l to t is to go the "long way" if r is in the "short way".
+            # But the problem says we can't move the other hand.
+            # So we just need to find the distance of the path that does NOT contain r.
+            
+            # The two paths are:
+            # 1. l -> l+1 -> ... -> t  (Length: (t-l+N)%N)
+            # 2. l -> l-1 -> ... -> t  (Length: (l-t+N)%N)
+            # One of these paths contains r, the other doesn't.
+            # Exception: if l=t, distance is 0.
+            
+            if l == t:
+                dist = 0
+            else:
+                # Check if r is on the clockwise path
+                # r is on the clockwise path if (r-l+N)%N < (t-l+N)%N
+                # Wait, the destination t is allowed, but we can't step on r.
+                # So if (r-l+N)%N < (t-l+N)%N, the clockwise path is blocked.
+                if (r - l + N) % N < (t - l + N) % N:
+                    dist = (l - t + N) % N
+                elif (r - l + N) % N > (t - l + N) % N:
+                    # r is on the counter-clockwise path
+                    dist = (t - l + N) % N
+                else:
+                    # This case (r == t) is guaranteed not to happen by problem statement
+                    dist = 0 
+            
+            total_ops += dist
+            l = t
+            
+        else: # h == 'R'
+            # Move right hand from r to t, while left hand stays at l
+            if r == t:
+                dist = 0
+            else:
+                # Check if l is on the clockwise path from r to t
+                if (l - r + N) % N < (t - r + N) % N:
+                    dist = (r - t + N) % N
+                elif (l - r + N) % N > (t - r + N) % N:
+                    dist = (t - r + N) % N
+                else:
+                    dist = 0
+            
+            total_ops += dist
+            r = t
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()

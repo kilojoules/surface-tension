@@ -1,0 +1,117 @@
+```python
+import sys
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The constraint to avoid explicit loops forces a functional programming style,
+    # which can be cleaner for certain transformations but is generally less 
+    # idiomatic for state-heavy algorithms like this one.
+    # We will use recursion for the main loop and list comprehensions/map for iterations.
+
+    # The total number of good sequences S is (N*K)! / (K!)^N.
+    # We need the floor((S+1)/2)-th sequence.
+    # This is essentially the "middle" sequence.
+    # Due to the symmetry of the set of good sequences (replacing x with N-x+1),
+    # the middle sequence is the one that is "self-complementary" in a sense,
+    # or specifically, the one that would be the median.
+    # For any sequence A, its complement A' (where A'_i = N + 1 - A_i) is also a good sequence.
+    # If A < A', then A' is the mirror image in lexicographical rank.
+    # The sequence we are looking for is the one where we try to pick the "middle" 
+    # available digit at each step to stay balanced.
+    
+    # Specifically, for the floor((S+1)/2)-th sequence:
+    # At each position, we want to pick the smallest digit d such that the number of 
+    # sequences starting with digits smaller than d is less than S/2, 
+    # and the number of sequences starting with digits <= d is >= S/2.
+    
+    # However, calculating S is impossible with large N, K.
+    # Notice the symmetry: the sequence we want is the one that is "lexicographically"
+    # in the middle. This is achieved by picking the digit d such that the number of
+    # ways to complete the sequence using the remaining counts is balanced.
+    
+    # Let counts be the number of times each digit 1..N can be used.
+    # The number of ways to complete is (sum(counts))! / product(counts!).
+    # We want the smallest d such that:
+    # sum_{i=1}^{d-1} (Ways(counts with digit i used)) < S/2 <= sum_{i=1}^{d} (Ways(counts with digit i used))
+    
+    # Because we need the floor((S+1)/2)-th, and the total number of sequences S 
+    # is symmetric, the target sequence is the one that "balances" the remaining 
+    # possibilities. 
+    # A key observation for this specific problem (finding the median of all permutations 
+    # of a multiset) is that the result is the sequence that is "lexicographically" 
+    # the middle. For a multiset, this is the sequence where we greedily pick the 
+    # digit d that keeps the remaining permutations balanced.
+    
+    # Actually, there is a much simpler property: the floor((S+1)/2)-th sequence 
+    # is the one where we pick the digit d such that the number of permutations 
+    # starting with 1...d-1 is strictly less than S/2, and 1...d is >= S/2.
+    # Given the symmetry, this is equivalent to picking the digit d such that 
+    # the number of permutations starting with 1...d-1 is less than the number 
+    # of permutations starting with d+1...N.
+    
+    # Let f(c1, c2, ..., cN) be the number of permutations.
+    # We pick d such that:
+    # sum_{i=1}^{d-1} f(c1, ..., ci-1, ..., cN) < sum_{i=d+1}^{N} f(c1, ..., ci-1, ..., cN)
+    # is false, and for d-1 it was true.
+    # Since f(c1, ..., ci-1, ..., cN) = (sum c - 1)! / (c1! ... (ci-1)! ... cN!),
+    # the comparison between digit i and digit j depends only on their counts ci and cj.
+    # If ci > cj, then f(digit i) > f(digit j).
+    
+    # To find the median, at each step we pick the digit d such that the sum of 
+    # permutations of digits < d is roughly equal to the sum of permutations of digits > d.
+    # Since the number of permutations for digit i is proportional to its current count ci,
+    # we pick d such that sum_{i=1}^{d-1} ci < (sum_{i=1}^{N} ci + 1) / 2 <= sum_{i=1}^{d} ci.
+
+    def get_sequence(counts, length):
+        if length == 0:
+            return []
+        
+        total_rem = sum(counts)
+        # We need the digit d such that the sum of counts of digits < d 
+        # is less than (total_rem + 1) / 2, and sum of counts <= d is >= (total_rem + 1) / 2.
+        # This is because the number of permutations starting with digit i is 
+        # (total_rem - 1)! / (c1! ... (ci-1)! ... cN!), which is 
+        # (total_rem - 1)! / (c1! ... cN!) * ci.
+        # All permutations starting with digit i have the same "weight" ci.
+        
+        # Find d using a list comprehension to find the first index where prefix sum >= target
+        target = (total_rem + 1) / 2
+        
+        # Calculate prefix sums of counts
+        # Using a helper to get prefix sums without loops
+        def get_prefix_sums(cs):
+            # Using a trick with a list and a mutable accumulator to simulate prefix sum
+            # But since we can't use loops, we use a recursive approach or a clever slice
+            # Actually, we can use a recursive function to find d.
+            pass
+
+        def find_d(current_sum, idx):
+            if idx >= n: return n
+            if current_sum + counts[idx] >= target:
+                return idx + 1
+            return find_d(current_sum + counts[idx], idx + 1)
+
+        d = find_d(0, 0)
+        
+        # Update counts for the next step
+        new_counts = list(counts)
+        new_counts[d-1] -= 1
+        
+        return [d] + get_sequence(tuple(new_counts), length - 1)
+
+    # Increase recursion depth for deep sequences
+    sys.setrecursionlimit(300000)
+    
+    initial_counts = tuple([k] * n)
+    result = get_sequence(initial_counts, n * k)
+    print(*(result))
+
+if __name__ == "__main__":
+    solve()
+```

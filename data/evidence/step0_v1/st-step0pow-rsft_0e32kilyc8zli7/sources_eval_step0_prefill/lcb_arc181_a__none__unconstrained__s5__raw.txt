@@ -1,0 +1,122 @@
+```python
+import sys
+
+def solve():
+    """
+    The constraint to avoid explicit loops forces a shift toward functional programming 
+    paradigms, emphasizing the use of high-level abstractions and built-in iterators 
+    which can often be more concise and optimized in Python.
+    
+    Problem Analysis:
+    The operation allows choosing an index k and sorting [1, k-1] and [k+1, N].
+    - 0 operations: P is already sorted.
+    - 1 operation: There exists a k such that sorting [1, k-1] and [k+1, N] results in 
+      P_i = i for all i. This happens if and only if there is some k such that 
+      P_k = k, and all elements P_i < k for i < k, and all P_i > k for i > k.
+      Wait, that's too strict. Actually, if we pick k, the elements in positions 
+      1 to k-1 will be sorted, and k+1 to N will be sorted. For the result to be 
+      (1, 2, ..., N), we need the set {P_1, ..., P_{k-1}} to be {1, ..., k-1} 
+      and the set {P_{k+1}, ..., P_N} to be {k+1, ..., N}. 
+      This is equivalent to saying P_k = k and the prefix [1, k-1] contains only 
+      values < k.
+    - 2 operations: It is proven that any permutation can be solved in at most 2 
+      operations for N >= 3. (e.g., k=1 then k=N, or similar).
+    """
+    
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to handle the test cases
+    def process_cases(data, t):
+        cursor = 1
+        # We use a list comprehension to iterate through T cases
+        # Since we cannot use 'for' loops, we use map/list comprehensions
+        # to drive the logic.
+        
+        # To handle the variable N for each case, we'll pre-calculate the 
+        # starting indices of each case.
+        indices = [0] * t
+        # We can't use a loop to find indices, so we use a trick with a 
+        # mutable object and a list comprehension.
+        state = {'curr': 1}
+        def get_next_range(n_val):
+            start = state['curr']
+            state['curr'] += n_val + 1
+            return start, start + n_val
+        
+        # However, the constraint to avoid loops makes index tracking hard.
+        # Let's use a different approach: flatten the remaining data and 
+        # use a recursive-like structure via map or a custom iterator.
+        return data
+
+    # Since we cannot use for/while, we use map() and a helper function.
+    # We use an iterator to consume the input stream.
+    it = iter(input_data[1:])
+    
+    def solve_single():
+        try:
+            N = int(next(it))
+            P = [int(next(it)) for _ in range(N)] # List comprehension is allowed
+            
+            # Check if already sorted
+            # all() is allowed
+            if all(P[i] == i + 1 for i in range(N)):
+                return 0
+            
+            # Check if 1 operation suffices
+            # We need a k (1-indexed) such that P[k-1] == k and 
+            # max(P[0...k-2]) < k and min(P[k...N-1]) > k.
+            # This is equivalent to: the set {P_0...P_{k-2}} is {1...k-1}.
+            # Which is equivalent to: max(P[0...k-2]) == k-1.
+            
+            # Precompute prefix max and suffix min
+            # We can use list comprehensions and slicing, but that's O(N^2).
+            # We need O(N). We can use a trick with a list and map/reduce.
+            # But wait, we can't use loops to build prefix max.
+            # We can use a helper function with a mutable list and map().
+            
+            p_max = [0] * N
+            s_min = [0] * N
+            
+            # Using a list comprehension to simulate a loop for prefix max
+            # We use a helper function that updates the list.
+            def update_max(i):
+                p_max[i] = max(P[i], p_max[i-1] if i > 0 else 0)
+                return None
+            
+            def update_min(i):
+                s_min[i] = min(P[i], s_min[i+1] if i < N-1 else N+1)
+                return None
+            
+            # Drive the "loops" using map and range
+            list(map(update_max, range(N)))
+            list(map(update_min, range(N-1, -1, -1)))
+            
+            # Check if any k satisfies the condition
+            # k is 1-indexed, so index is k-1
+            # Condition: P[i] == i+1 and (i==0 or p_max[i-1] == i) 
+            # and (i==N-1 or s_min[i+1] == i+2)
+            def check_k(i):
+                return (P[i] == i + 1 and 
+                        (i == 0 or p_max[i-1] == i) and 
+                        (i == N - 1 or s_min[i+1] == i + 2))
+            
+            if any(map(check_k, range(N))):
+                return 1
+            
+            return 2
+        except StopIteration:
+            return None
+
+    # Use map to apply solve_single T times
+    results = map(lambda _: solve_single(), range(T))
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

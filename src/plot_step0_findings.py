@@ -44,6 +44,7 @@ RSFT_PASS = dict(nat=0.41, pre=0.744)
 # by results/step0_power_summary.json once the /136 power run lands
 # (prereg/step0_substitution_power_2026-09-02.md).
 COUNTS = {"vanilla": (7, 51), "rsft": (2, 51)}
+PER_PROBLEM = {}          # arm -> {problem_id: compliant_count}; enables clustered bars
 POWER_SUMMARY = f"{ROOT}/results/step0_power_summary.json"
 SUBST_VERDICT = None  # set from the summary; None = pre-power-run state
 
@@ -51,6 +52,7 @@ if os.path.exists(POWER_SUMMARY):
     _s = json.load(open(POWER_SUMMARY))
     for _arm in ("vanilla", "rsft"):
         COUNTS[_arm] = (_s["cells"][_arm]["k"], _s["cells"][_arm]["n"])
+        PER_PROBLEM[_arm] = _s["cells"][_arm]["per_problem"]
     VAN["pre"] = COUNTS["vanilla"][0] / COUNTS["vanilla"][1]
     RSFT["pre"] = COUNTS["rsft"][0] / COUNTS["rsft"][1]
     SUBST_VERDICT = _s["P1"]["verdict"]
@@ -61,6 +63,25 @@ def cp(k, n, alpha=0.05):
     lo = 0.0 if k == 0 else beta.ppf(alpha / 2, k, n - k + 1)
     hi = 1.0 if k == n else beta.ppf(1 - alpha / 2, k + 1, n - k)
     return lo, hi
+
+
+def cluster_ci(per_problem, n_total, alpha=0.05, reps=20000):
+    """Percentile interval resampling PROBLEMS, matching the unit of analysis
+    used for the primary contrast.
+
+    Clopper-Pearson treats the 136 generations as independent; they are not
+    (measured design effect 2.1x for R-SFT, 3.5x for vanilla, since a problem
+    tends to be all-or-none). Naive bars here would be narrow enough to look
+    non-overlapping while the clustered difference interval still contains
+    zero — the figure would contradict its own caption.
+    """
+    import numpy as np
+    v = np.array(list(per_problem.values()), float)
+    rng = np.random.default_rng(0)
+    idx = rng.integers(0, len(v), size=(reps, len(v)))
+    draws = v[idx].sum(1) / n_total
+    lo, hi = np.percentile(draws, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return float(lo), float(hi)
 
 PAL = {
     "light": dict(van="#e07b39", rsft="#2e7d32", ref="#666666", ink="#222222"),
@@ -129,13 +150,18 @@ def fig_substitution(theme, out):
         # bars whose intervals overlap read as an established ordering — which
         # is exactly how a one-problem estimate passed as a result.
         k, n = COUNTS[key]
-        lo, hi = cp(k, n)
+        if key in PER_PROBLEM:
+            lo, hi = cluster_ci(PER_PROBLEM[key], n)
+            ci_label = "95% CI (clustered)"
+        else:
+            lo, hi = cp(k, n)
+            ci_label = "95% CI (Clopper–Pearson)"
         # offset to the bar's right shoulder so the interval never crosses the
         # value labels
         ax.errorbar(i + 0.20, weight, yerr=[[weight - lo], [hi - weight]],
                     fmt="none", ecolor=p["ink"], elinewidth=1.3, capsize=4,
                     capthick=1.3, zorder=5)
-        ax.annotate(f"95% CI\n{lo:.02f}–{hi:.02f}", (i + 0.20, hi),
+        ax.annotate(f"{ci_label}\n{lo:.02f}–{hi:.02f}", (i + 0.20, hi),
                     xytext=(4, 2), textcoords="offset points", ha="left",
                     va="bottom", fontsize=6.5, color=p["ink"], alpha=0.75)
         ax.bar(i, token, 0.55, bottom=weight, color=c, alpha=0.35,
@@ -144,8 +170,15 @@ def fig_substitution(theme, out):
         ax.annotate(f"{weight:.2f}", (i, weight / 2), ha="center", va="center",
                     fontsize=10, color="white" if theme == "light" else "#111111",
                     fontweight="bold")
-        ax.annotate(f"+{token:.2f}", (i, weight + token / 2), ha="center",
-                    va="center", fontsize=10, color=p["ink"])
+        if token >= 0.01:
+            ax.annotate(f"+{token:.2f}", (i, weight + token / 2), ha="center",
+                        va="center", fontsize=10, color=p["ink"])
+        else:
+            # vanilla's prefilled rate now slightly exceeds its natural one, so
+            # there is no token channel to label — the prefill is inert for it.
+            ax.annotate("no token channel", (i, weight), xytext=(0, 16),
+                        textcoords="offset points", ha="center", fontsize=7.5,
+                        color=p["ink"], alpha=0.7)
         ax.annotate(f"natural {d['nat']:.2f}", (i, d["nat"]),
                     xytext=(0, 6), textcoords="offset points", ha="center",
                     fontsize=8.5, color=p["ink"])

@@ -1,0 +1,122 @@
+import sys
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The constraint to avoid explicit loops forces a functional programming style,
+    # emphasizing the use of higher-order functions and recursions.
+    # However, since we need to maintain state (counts of remaining numbers) 
+    # and build a sequence, we will use a recursive helper function with 
+    # accumulator patterns and list comprehensions.
+
+    # The total number of good sequences S is (NK)! / (K!)^N.
+    # We need the floor((S+1)/2)-th sequence.
+    # Note: For N=1, S=1, result is the 1st sequence.
+    # For N > 1, S is always even because we can map any sequence 
+    # to its "complement" by replacing x with (N + 1 - x).
+    # If a sequence is not its own complement, they come in pairs.
+    # A sequence is its own complement if S_i = N + 1 - S_i for all i,
+    # which implies N must be even and S_i = (N+1)/2, but S_i must be an integer.
+    # Actually, the complement of sequence (S_1, ..., S_{NK}) is (N+1-S_1, ..., N+1-S_{NK}).
+    # This complementation is a bijection that reverses lexicographical order.
+    # The "middle" of the lexicographical order is reached by 
+    # picking the sequence that is "just before" its own complement 
+    # (or the complement itself if it's the exact middle).
+    # Specifically, the floor((S+1)/2)-th sequence is the last sequence 
+    # that is lexicographically smaller than or equal to its complement.
+    
+    # A sequence A is lexicographically smaller than its complement A' 
+    # if at the first index i where A_i != A'_i, A_i < A'_i.
+    # A_i < N + 1 - A_i  => 2*A_i < N + 1 => A_i <= N // 2.
+    
+    # To find the largest sequence A such that A <= A', we want to make 
+    # the sequence as lexicographically large as possible while maintaining A <= A'.
+    # This means at the first index i where A_i != A'_i, we must have A_i < A'_i.
+    # To maximize A, we want the first difference to occur as late as possible.
+    # If A_i = A'_i for all i, then A is its own complement.
+    # But A_i = N + 1 - A_i is only possible if N is even and A_i = (N+1)/2, 
+    # which is impossible for integers. 
+    # Wait, if N is odd, A_i = (N+1)/2 is possible.
+    
+    # Let's reconsider: we want the largest sequence A such that A <= A'.
+    # This means at the first index i where A_i != N + 1 - A_i, we must have A_i < N + 1 - A_i.
+    # To make A as large as possible:
+    # 1. For as many indices as possible, we want A_i to be as large as possible.
+    # 2. But we must ensure that at the first index i where A_i != N + 1 - A_i, A_i < N + 1 - A_i.
+    # 3. If we can keep A_i = N + 1 - A_i for all i, that's the middle.
+    #    This requires N to be odd and A_i = (N+1)//2 for all i. 
+    #    But each number must appear K times. So this only happens if N=1.
+    # 4. If N > 1, there must be some index i where A_i != N + 1 - A_i.
+    #    To maximize A, we want the first such i to be as late as possible.
+    #    However, we can't have A_i = N + 1 - A_i for all i if N > 1 because 
+    #    we need to use all numbers 1...N.
+    #    The first index i where A_i != N + 1 - A_i must satisfy A_i < N + 1 - A_i.
+    #    To maximize A, we want A_i to be the largest integer such that A_i < N + 1 - A_i.
+    #    That is A_i = (N // 2). 
+    #    Before this index i, we must have A_j = N + 1 - A_j, which is only possible 
+    #    if N is odd and A_j = (N+1)//2.
+    
+    # Correct Logic for floor((S+1)/2)-th:
+    # This is the largest sequence A such that A <= complement(A).
+    # A <= A' iff at the first index i where A_i != A'_i, A_i < A'_i.
+    # To maximize A:
+    # - We want A_i = A'_i for as long as possible. This requires A_i = (N+1)/2.
+    #   This can only happen if N is odd, for at most K positions.
+    # - Then, at the first index where A_i != A'_i, we want A_i to be as large as possible
+    #   but still A_i < A'_i. The largest such A_i is N // 2.
+    # - After this index, we no longer have the constraint A <= A', so we fill the 
+    #   remaining slots with the remaining numbers in descending order to maximize A.
+
+    def get_sequence(n, k):
+        if n == 1:
+            return [1] * k
+        
+        # 1. Fill A_i = (N+1)//2 for as long as possible (if N is odd)
+        # 2. Then fill A_i = N // 2
+        # 3. Then fill the rest in descending order.
+        
+        # However, we must use exactly K of each number.
+        # Let's track counts.
+        counts = {i: k for i in range(1, n + 1)}
+        
+        # Part 1: A_i = (N+1)//2 while counts[(N+1)//2] > 0 and N is odd
+        # But wait, if we use (N+1)//2 first, we might be forced to 
+        # make A_i > A'_i later. 
+        # Actually, the condition is: at the FIRST index i where A_i != A'_i, A_i < A'_i.
+        # To maximize A, we want to push this first difference as far back as possible.
+        # The only way A_i = A'_i is if A_i = (N+1)/2.
+        # If N is even, A_i is never A'_i. The first index is i=1.
+        # To maximize A, we pick A_1 = N // 2.
+        # If N is odd, we can have A_i = (N+1)//2 for i = 1...K.
+        # Then at i = K+1, we must have A_{K+1} < A'_{K+1}, so A_{K+1} = N // 2.
+        
+        res = []
+        if n % 2 == 1:
+            res.extend([(n + 1) // 2] * k)
+            counts[(n + 1) // 2] = 0
+        
+        # The first difference: A_i = N // 2
+        res.append(n // 2)
+        counts[n // 2] -= 1
+        
+        # Fill the restに descending
+        # We need to use the remaining counts of all numbers 1...N
+        # To maximize the sequence lexicographically, we use the largest available numbers first.
+        
+        def fill_remaining(current_counts):
+            # Use a list comprehension to flatten the sorted remaining numbers
+            return [i for i in range(n, 0, -1) for _ in range(current_counts[i])]
+        
+        res.extend(fill_remaining(counts))
+        return res
+
+    result = get_sequence(n, k)
+    print(*(result))
+
+if __name__ == "__main__":
+    solve()

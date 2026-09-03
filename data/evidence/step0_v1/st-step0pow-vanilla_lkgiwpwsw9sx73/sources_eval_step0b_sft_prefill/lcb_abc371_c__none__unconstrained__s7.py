@@ -1,0 +1,83 @@
+import sys
+from itertools import permutations
+from functools import reduce
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use an iterator to handle the input stream
+    it = iter(input_data)
+    
+    N = int(next(it))
+    
+    # Helper to get edge existence as a bitmask or tuple
+    # Since N is small (up to 8), we can represent the graph as an adjacency matrix
+    # or a set of edges.
+    
+    MG = int(next(it))
+    G_edges = [tuple(map(int, (next(it), next(it)))) for _ in range(MG)]
+    
+    MH = int(next(it))
+    H_edges = [tuple(map(int, (next(it), next(it)))) for _ in range(MH)]
+    
+    # Read costs A_{i,j} into a dictionary or 2D array
+    # The input format for A is slightly unusual (flattened)
+    costs_flat = [int(x) for x in it]
+    
+    # Map (i, j) where i < j to the cost A_{i,j}
+    # We need to figure out the index in costs_flat.
+    # A_{1,2} is index 0, A_{1,3} is 1 ... A_{1,N} is N-2
+    # A_{2,3} is index N-2 ...
+    
+    # Let's build a 2D array for costs and adjacency
+    cost_matrix = [[0] * (N + 1) for _ in range(N + 1)]
+    idx = 0
+    for i in range(1, N):
+        for j in range(i + 1, N + 1):
+            cost_matrix[i][j] = cost_matrix[j][i] = costs_flat[idx]
+            idx += 1
+            
+    g_adj = [[False] * (N + 1) for _ in range(N + 1)]
+    for u, v in G_edges:
+        g_adj[u][v] = g_adj[v][u] = True
+        
+    h_adj = [[False] * (N + 1) for _ in range(N + 1)]
+    for u, v in H_edges:
+        h_adj[u][v] = h_adj[v][u] = True
+
+    # The goal is to find a permutation P of {1...N} such that 
+    # we minimize the sum of cost_matrix[P_i][P_j] where 
+    # (edge exists in G between i,j) != (edge exists in H between P_i, P_j)
+    
+    # Generate all permutations of (1, ..., N)
+    # Note: We can fix P_1 = 1 to reduce search space by N, but since we can't 
+    # assume G has a specific structure, we just use all permutations or 
+    # accept that N! is small (8! = 40,320).
+    
+    nodes = list(range(1, N + 1))
+    
+    # Precompute which pairs (i, j) have edges in G
+    g_pairs = [ (i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1) ]
+    
+    # We want to evaluate: 
+    # sum(cost_matrix[P[i-1]][P[j-1]] for (i, j) in g_pairs if g_adj[i][j] != h_adj[P[i-1]][P[j-1]])
+    
+    # To make it fast in Python, we use map and sum with a generator
+    # We use a lambda to calculate the cost for a specific permutation P
+    calc_cost = lambda P: sum(
+        cost_matrix[P[i-1]][P[j-1]] 
+        for (i, j) in g_pairs 
+        if g_adj[i][j] != h_adj[P[i-1]][P[j-1]]
+    )
+    
+    # Find the minimum cost across all permutations
+    # We use a generator expression inside min() to avoid loops
+    ans = min(map(calc_cost, permutations(nodes)))
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

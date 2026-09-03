@@ -1,0 +1,60 @@
+```python
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    # The constraint to avoid explicit loops forces a functional programming style,
+    # emphasizing the use of high-level abstractions over manual index management.
+    # For K=1, we check if the edit distance is <= 1.
+    
+    n, m = len(s), len(t)
+    
+    # Edit distance > 1 if length difference is > 1
+    if abs(n - m) > 1:
+        print("No")
+        return
+
+    # Find the first position where s and t differ
+    # Using a generator to find the first index of mismatch
+    mismatches = list(filter(lambda i: s[i] != t[i], range(min(n, m))))
+    
+    # If no mismatches in the prefix, they are identical or one is a prefix of the other
+    if not mismatches:
+        # Check if the remaining suffix length is <= 1
+        if abs(n - m) <= 1:
+            print("Yes")
+        else:
+            print("No")
+        return
+
+    # If there is a mismatch, check if one operation can fix it
+    idx = mismatches[0]
+    
+    # Case 1: Replace (lengths must be equal)
+    # Check if s[idx+1:] == t[idx+1:]
+    res_replace = (n == m and s[idx+1:] == t[idx+1:])
+    
+    # Case 2: Delete from S (S is longer)
+    # Check if s[idx+1:] == t[idx:]
+    res_delete = (n == m + 1 and s[idx+1:] == t[idx:])
+    
+    # Case 3: Insert into S (T is longer)
+    # Check if s[idx:] == t[idx+1:]
+    res_insert = (m == n + 1 and s[idx:] == t[idx+1:])
+    
+    if res_replace or res_delete or res_insert:
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```

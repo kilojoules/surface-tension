@@ -1,0 +1,39 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line of input
+    try:
+        line1 = sys.stdin.readline().split()
+        if not line1:
+            return
+        n, k = map(int, line1)
+        # Read the string S
+        s = sys.stdin.readline().strip()
+    except ValueError:
+        return
+
+    # To avoid explicit loops and recursion, we use itertools.permutations
+    # to generate all possible arrangements of the characters in S.
+    # We use a set to store unique permutations because S may contain duplicate characters.
+    all_perms = set(permutations(s))
+    
+    # A helper function to check if a string contains a palindrome of length K.
+    # We use a generator expression inside any() to check all possible substrings of length K.
+    # The slice [i:i+k] is checked against its reverse [::-1].
+    def contains_palindrome(p):
+        # p is a tuple of characters
+        return any(p[i:i+k] == p[i:i+k][::-1] for i in range(n - k + 1))
+
+    # We filter the set of unique permutations to keep only those that do NOT contain 
+    # a palindrome of length K.
+    # The result is the length of the filtered list.
+    result = len([p for p in all_perms if not contains_palindrome(p)])
+    
+    # Print the final count to standard output.
+    print(result)
+
+if __name__ == "__main__":
+    solve()
+```

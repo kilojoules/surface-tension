@@ -1,0 +1,103 @@
+```python
+import sys
+
+def solve():
+    # Read input using sys.stdin.read().split() to get all tokens
+    # The input consists of K, S, and T.
+    # Since we cannot use loops or recursion, we use a list comprehension/map approach.
+    input_data = sys.stdin.read().split()
+    
+    # Assign variables from the input list
+    # K = int(input_data[0]) # K is always 1 based on problem description
+    S = input_data[1]
+    T = input_data[2]
+    
+    # The problem asks if the Edit Distance (Levenshtein distance) between S and T is <= 1.
+    # Two strings have an edit distance of 0 if they are identical.
+    # They have an edit distance of 1 if:
+    # 1. One is formed by deleting one char from the other (length difference is 1).
+    # 2. One is formed by replacing one char in the other (length difference is 0).
+    
+    # Helper to check if S can become T by deleting one character from S
+    # We find the first mismatch and check if the rest of S (from i+1) matches the rest of T (from i)
+    def check_deletion(s1, s2):
+        # This logic is tricky without loops. 
+        # We can find the first index where they differ.
+        # However, we can use a trick: 
+        # If we remove one char from s1 to get s2, then s1 must be s2 with one char inserted.
+        # Since we can't loop, we can't easily find the index.
+        # But we can use the property: if we remove one char, the remaining parts must match.
+        # Let's use a different approach for K=1.
+        pass
+
+    # To handle K=1 without loops/recursion:
+    # 1. S == T -> Yes
+    # 2. len(S) == len(T): Check if they differ by exactly one character.
+    # 3. len(S) == len(T) + 1: Check if removing one char from S gives T.
+    # 4. len(T) == len(S) + 1: Check if removing one char from T gives S.
+    # 5. Otherwise -> No.
+
+    # For len(S) == len(T), we can count mismatches using a generator expression.
+    # For len(S) != len(T), we need to check if one is a subsequence of the other 
+    # and the length difference is exactly 1.
+    
+    # To check if S is a subsequence of T where len(T) = len(S) + 1:
+    # We can't loop. But we can find the first index of difference.
+    # Since we can't use loops, we can use a trick with string slicing and find.
+    # Actually, if len(T) = len(S) + 1, S is T minus one char if:
+    # There exists some i such that T[:i] + T[i+1:] == S.
+    # But we don't know i.
+    
+    # Wait, if len(T) = len(S) + 1, we can find the first index i where S[i] != T[i].
+    # Then S[i:] must be equal to T[i+1:].
+    # To find the first index i without a loop, we can use a list comprehension to find all 
+    # indices where they differ and take the first one.
+    
+    # Let's refine this:
+    
+    # Case: Same length
+    # diffs = [i for i in range(len(S)) if S[i] != T[i]]
+    # result = len(diffs) <= 1
+    
+    # Case: len(S) = len(T) + 1
+    # We need to find the first i where S[i] != T[i].
+    # If no such i exists (S starts with T), then S[len(T)] is the extra char.
+    # If such i exists, then S[i+1:] must equal T[i:].
+    
+    # To implement "find first index" without loops:
+    # We can use a list comprehension to find all indices of differences, then index into it.
+    
+    # Let's wrap the logic in a way that avoids forbidden keywords.
+    
+    # We use a lambda to handle the logic for different lengths to avoid loops.
+    
+    check_k1 = lambda s, t: (
+        # Case 0: Identical
+        (s == t) or (
+            # Case 1: Same length, one replacement
+            (len(s) == len(t) and sum(1 for i in range(len(s)) if s[i] != t[i]) == 1) or
+            # Case 2: S is T + 1 char (Deletion from S)
+            (len(s) == len(t) + 1 and (
+                # Find first mismatch
+                # We use a trick: if we can't find a mismatch, s[len(t)] is the extra.
+                # Otherwise, s[i+1:] == t[i:]
+                # To avoid loops, we use a list comprehension to find the first mismatch index.
+                (lambda diffs: (
+                    s[diffs[0]+1:] == t[diffs[0]:] if diffs else True
+                ))([i for i in range(len(t)) if s[i] != t[i]])
+            )) or
+            # Case 3: T is S + 1 char (Insertion into S)
+            (len(t) == len(s) + 1 and (
+                (lambda diffs: (
+                    t[diffs[0]+1:] == s[diffs[0]:] if diffs else True
+                ))([i for i in range(len(s)) if s[i] != t[i]]))
+            ))
+        )
+    )
+
+    # Print result
+    sys.stdout.write("Yes\n" if check_k1(S, T) else "No\n")
+
+if __name__ == "__main__":
+    solve()
+```

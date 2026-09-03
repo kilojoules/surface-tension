@@ -1,0 +1,138 @@
+```python
+import sys
+
+def solve():
+    # Read all input at once for efficiency
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # The condition "no building taller than Building j between i and j"
+    # means that for a fixed i, we are looking for indices j > i such that
+    # H[k] <= H[j] for all i < k < j.
+    # This is equivalent to saying that Building j is a "visible" building 
+    # when looking to the right from Building i, but the condition is 
+    # slightly different from the standard "taller than all previous".
+    # Actually, the condition is: j satisfies the condition if H[j] >= max(H[i+1]...H[j-1]).
+    # This means Building j must be a running maximum of the sequence H[i+1...N].
+    
+    # Let's re-evaluate:
+    # For a fixed i, we want to count j > i such that for all k where i < k < j, H[k] <= H[j].
+    # This is exactly the number of elements in the sequence H[i+1...N] that are 
+    # greater than all elements appearing before them in that specific subsequence.
+    # Wait, that's not quite right. The condition is: 
+    # "There is no building taller than Building j between Buildings i and j."
+    # Let's check Sample 1: H = [2, 1, 4, 3, 5]
+    # i=1 (H=2): 
+    # j=2 (H=1): between 1 and 2 there are no buildings. Condition satisfied.
+    # j=3 (H=4): between 1 and 3 is building 2 (H=1). 1 <= 4. Condition satisfied.
+    # j=4 (H=3): between 1 and 4 are buildings 2(1) and 3(4). 4 > 3. Condition NOT satisfied.
+    # j=5 (H=5): between 1 and 5 are 2(1), 3(4), 4(3). All <= 5. Condition satisfied.
+    # Total for i=1 is 3.
+    
+    # Correct interpretation: For a fixed i, we count j > i such that 
+    # H[j] >= max(H[i+1], ..., H[j-1]).
+    # This is equivalent to counting how many prefix maximums exist in the array H[i+1...N].
+    
+    # Since N is 2*10^5, an O(N^2) approach will fail. We need something faster.
+    # Let's use a Segment Tree or similar structure.
+    # For a range [L, R], let f(L, R) be the number of prefix maximums in H[L...R].
+    # We can compute f(L, R) using the property:
+    # If the maximum of the left half [L, Mid] is M, then the number of prefix maximums 
+    # in the right half [Mid+1, R] that are also prefix maximums for the whole range 
+    # are those that are greater than M.
+    
+    # Segment Tree Node stores:
+    # - max_val: maximum height in the range
+    # - count: number of prefix maximums within this range itself
+    
+    tree_max = [0] * (4 * N)
+    tree_cnt = [0] * (4 * N)
+    
+    def query_prefix_max(node, start, end, threshold):
+        # Count how many elements in range [start, end] are prefix maximums 
+        # given that the maximum seen so far is 'threshold'.
+        if tree_max[node] <= threshold:
+            return 0
+        if start == end:
+            return 1 if tree_max[node] > threshold else 0
+        
+        mid = (start + end) // 2
+        # If the max of the left child is <= threshold, 
+        # no one in the left child can be a prefix max, 
+        # and we just check the right child.
+        if tree_max[2 * node] <= threshold:
+            return query_prefix_max(2 * node + 1, mid + 1, end, threshold)
+        else:
+            # If the max of the left child > threshold, 
+            # some elements in the left child are prefix maxes.
+            # The number of prefix maxes in the right child is already precomputed 
+            # relative to the left child's max.
+            # The total is: (prefix maxes in left child given threshold) + 
+            # (prefix maxes in right child given left child's max).
+            # The second term is exactly (tree_cnt[node] - tree_cnt[2*node]).
+            return query_prefix_max(2 * node, start, mid, threshold) + (tree_cnt[node] - tree_cnt[2 * node])
+
+    def build(node, start, end):
+        if start == end:
+            tree_max[node] = H[start]
+            tree_cnt[node] = 1
+            return
+        mid = (start + end) // 2
+        build(2 * node, start, mid)
+        build(2 * node + 1, mid + 1, end)
+        tree_max[node] = max(tree_max[2 * node], tree_max[2 * node + 1])
+        tree_cnt[node] = tree_cnt[2 * node] + query_prefix_max(2 * node + 1, mid + 1, end, tree_max[2 * node])
+
+    build(1, 0, N - 1)
+    
+    # For each i, we want to count prefix maximums in H[i...N-1].
+    # Note: the problem asks for j > i, so we look at the range [i+1, N-1].
+    # However, the build function is 0-indexed.
+    # For i=1 (1-indexed), we need range [1, N-1] (0-indexed).
+    
+    # To get the count for range [L, N-1], we can't simply use the root 
+    # because the root represents [0, N-1].
+    # We need a way to query the number of prefix maximums in a suffix.
+    
+    # Let's use a different approach: 
+    # The number of j > i satisfying the condition is the number of 
+    # elements in H[i+1...N-1] that are greater than all elements between i and j.
+    # This is exactly the number of prefix maximums of the suffix H[i+1...N-1].
+    
+    # We can solve this by processing i from N-1 down to 0.
+    # But the segment tree logic above is for prefix maximums of a range.
+    # Let's use the segment tree to find the answer for each i.
+    # For a fixed i, we need query_prefix_max on the range [i+1, N-1] with threshold = -1.
+    # But the segment tree is built on [0, N-1]. 
+    # We can "deactivate" elements H[0...i] by setting them to -1 and updating.
+    # Or more simply, just use a function that queries the suffix.
+    
+    def query_suffix(node, start, end, L, R, threshold):
+        if L > end or R < start:
+            return 0, threshold
+        if L <= start and end <= R:
+            res = query_prefix_max(node, start, end, threshold)
+            return res, max(threshold, tree_max[node])
+        
+        mid = (start + end) // 2
+        l_res, l_thresh = query_suffix(2 * node, start, mid, L, R, threshold)
+        r_res, r_thresh = query_suffix(2 * node + 1, mid + 1, end, L, R, l_thresh)
+        return l_res + r_res, r_thresh
+
+    results = []
+    for i in range(N):
+        if i == N - 1:
+            results.append(0)
+        else:
+            # Count prefix maximums in range [i+1, N-1]
+            ans, _ = query_suffix(1, 0, N - 1, i + 1, N - 1, -1)
+            results.append(ans)
+            
+    print(*(results))
+
+solve()
+```

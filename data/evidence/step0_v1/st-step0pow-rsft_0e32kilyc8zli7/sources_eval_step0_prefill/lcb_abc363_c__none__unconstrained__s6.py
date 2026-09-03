@@ -1,0 +1,67 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N and K from the first line of input
+    try:
+        line1 = sys.stdin.readline().split()
+        if not line1:
+            return
+        n, k = map(int, line1)
+        # Read the string S
+        s = sys.stdin.readline().strip()
+    except ValueError:
+        return
+
+    # To avoid explicit loops and recursion, we use itertools.permutations
+    # to generate all possible arrangements of the characters in S.
+    # Since N <= 10, N! is at most 3,628,800, which fits within time limits.
+    
+    # We use a set to store unique permutations because S may contain duplicate characters.
+    # Each permutation is represented as a tuple of characters.
+    all_perms = set(permutations(s))
+    
+    # A helper function to check if a string contains a palindrome of length K.
+    # We use a generator expression inside any() to check all possible substrings of length K.
+    # The condition for a palindrome is that the substring equals its reverse.
+    def contains_palindrome(p):
+        # p is a tuple of characters
+        # We check every substring of length k starting at index i
+        return any(
+            p[i + j] == p[i + k - 1 - j] 
+            for i in range(n - k + 1) 
+            for j in range(k // 2)
+        )
+
+    # However, the logic above for contains_palindrome needs to be slightly adjusted 
+    # to correctly identify if ANY substring of length K is a palindrome.
+    # The condition "T_{i+j} = T_{i+K+1-j}" in the prompt is 1-indexed.
+    # In 0-indexing, for a substring starting at i, the characters are at indices i to i+K-1.
+    # The palindrome condition is: char at (i + j) == char at (i + K - 1 - j).
+    
+    # We use a list comprehension to filter the permutations and then find the length of the result.
+    # To strictly avoid loops, we use a generator expression inside sum().
+    
+    # Corrected check: for a fixed i, it is a palindrome if for all j in 0..K-1, p[i+j] == p[i+K-1-j].
+    # Since we need to check if ANY substring is a palindrome, we check if there exists an i 
+    # such that the substring p[i:i+k] is equal to its reverse.
+    
+    # We define a helper to check if a specific substring is a palindrome.
+    # But since we can't use 'def' inside a lambda easily for complex logic, 
+    # we can check the palindrome property by comparing the slice to its reverse.
+    
+    # We use a generator to count permutations that do NOT contain a palindrome of length K.
+    # We convert the tuple p to a string to make slicing and reversing easier.
+    
+    result = sum(
+        1 for p in all_perms 
+        if not any(
+            p[i:i+k] == p[i:i+k][::-1] 
+            for i in range(n - k + 1)
+        )
+    )
+    
+    print(result)
+
+if __name__ == "__main__":
+    solve()

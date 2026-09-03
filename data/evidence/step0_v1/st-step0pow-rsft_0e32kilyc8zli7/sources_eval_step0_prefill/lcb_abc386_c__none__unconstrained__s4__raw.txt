@@ -1,0 +1,63 @@
+```python
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    # The problem is to check if the edit distance between S and T is <= K.
+    # For this specific sub-problem, K = 1.
+    
+    # If the length difference is more than 1, edit distance is definitely > 1.
+    if abs(len(s) - len(t)) > 1:
+        print("No")
+        return
+
+    # If strings are identical, distance is 0.
+    if s == t:
+        print("Yes")
+        return
+
+    # Case 1: Lengths are equal (Possible operation: Replace)
+    if len(s) == len(t):
+        diff_count = 0
+        for i in range(len(s)):
+            if s[i] != t[i]:
+                diff_count += 1
+            if diff_count > 1:
+                print("No")
+                return
+        if diff_count <= 1:
+            print("Yes")
+        else:
+            print("No")
+        return
+
+    # Case 2: Lengths differ by 1 (Possible operation: Insert or Delete)
+    # Ensure s is the shorter string for simplicity (checking if s can become t via 1 insertion)
+    if len(s) > len(t):
+        s, t = t, s
+    
+    # Now len(t) = len(s) + 1
+    # We check if we can make s identical to t by inserting one character into s.
+    # This is equivalent to checking if s is a subsequence of t with only one character difference.
+    i = 0
+    while i < len(s) and s[i] == t[i]:
+        i += 1
+    
+    # After the first mismatch, the rest of s must match t starting from the next character
+    # s[i:] == t[i+1:]
+    if s[i:] == t[i+1:]:
+        print("Yes")
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()
+```

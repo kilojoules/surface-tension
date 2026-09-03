@@ -1,0 +1,58 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+    
+    # We need to parse M tests. Since each test has a variable length C_i,
+    # we use an iterator to handle the input stream.
+    it = iter(input_data[3:])
+    
+    tests = []
+    for _ in range(M):
+        C_i = int(next(it))
+        # Get the next C_i keys
+        keys = [int(next(it)) for _ in range(C_i)]
+        # Get the result R_i
+        result = next(it)
+        tests.append((keys, result))
+    
+    # The number of possible combinations is 2^N.
+    # Since N <= 15, 2^15 = 32,768, which is small enough to brute force.
+    # We represent each combination as a tuple of 0s (dummy) and 1s (real).
+    
+    # Use a generator to iterate through all 2^N combinations without storing them
+    # product([0, 1], repeat=N) generates all binary strings of length N.
+    # Index i of the tuple corresponds to key (i+1).
+    
+    def is_valid(combination):
+        for keys, result in tests:
+            # Count how many keys in the current test are real (1)
+            # key - 1 because the input keys are 1-indexed
+            real_count = sum(combination[k-1] for k in keys)
+            
+            if result == 'o':
+                # Door opens if real_count >= K
+                if not (real_count >= K):
+                    return False
+            else: # result == 'x'
+                # Door stays closed if real_count < K
+                if not (real_count < K):
+                    return False
+        return True
+
+    # Count combinations that satisfy all tests
+    # We use map to apply the filter and then sum the booleans
+    ans = sum(1 for combo in product([0, 1], repeat=N) if is_valid(combo))
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,72 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Use fast I/O
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # current_time keeps track of the total T accumulated from type 2 queries.
+    # When a plant is planted at time 't', its height at time 'now' is (now - t).
+    # A plant is harvested if (now - t) >= H, which is equivalent to t <= (now - H).
+    
+    current_time = 0
+    # planting_times stores the 't' value for every plant currently in a pot.
+    # Since plants are added chronologically, planting_times is always sorted.
+    planting_times = []
+    
+    # Pointer to track the start of the active plants list to avoid O(N) pops from the front.
+    # However, since we need to remove elements from the left, and Python lists 
+    # are slow at popping from index 0, we can use a deque or just track an offset.
+    # But wait, we are removing all plants with t <= (now - H). 
+    # These are always the oldest plants (the ones at the start of the list).
+    
+    # To efficiently remove from the left, we can use a deque or just slice.
+    # Given Q=2e5, slicing might be slow, but we can use a pointer.
+    head = 0
+    
+    idx = 1
+    results = []
+    
+    for _ in range(Q):
+        q_type = input_data[idx]
+        if q_type == '1':
+            # Plant a new plant. Its "birth time" is the current accumulated T.
+            planting_times.append(current_time)
+            idx += 1
+        elif q_type == '2':
+            # Increase global time.
+            T = int(input_data[idx + 1])
+            current_time += T
+            idx += 2
+        else:
+            # Harvest plants with height >= H.
+            # Height = current_time - birth_time.
+            # current_time - birth_time >= H  =>  birth_time <= current_time - H.
+            H = int(input_data[idx + 1])
+            threshold = current_time - H
+            
+            # Find how many plants have birth_time <= threshold.
+            # We only search in the range [head, len(planting_times)).
+            # bisect_left finds the first index where planting_times[i] > threshold.
+            
+            # We search the whole list but adjust for the head offset.
+            # The plants to be harvested are in range [head, pos).
+            pos = bisect_left(planting_times, threshold + 1, lo=head)
+            
+            count = pos - head
+            results.append(str(count))
+            
+            # Update head to "remove" harvested plants.
+            head = pos
+            idx += 2
+            
+    sys.stdout.write('\n'.join(results) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

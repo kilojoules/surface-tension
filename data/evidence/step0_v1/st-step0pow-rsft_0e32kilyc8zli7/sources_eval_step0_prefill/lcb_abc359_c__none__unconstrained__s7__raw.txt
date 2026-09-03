@@ -1,0 +1,145 @@
+```python
+import sys
+
+def solve():
+    # Read input from standard input
+    try:
+        line = sys.stdin.read().split()
+        if not line:
+            return
+        sx, sy, tx, ty = map(int, line)
+    except ValueError:
+        return
+
+    # The rule for tiling is:
+    # If i + j is even, A_{i,j} and A_{i+1,j} are in the same tile.
+    # This means for a fixed j, the tiles are pairs (0,1), (2,3), (4,5)... if j is even
+    # and pairs (1,2), (3,4), (5,6)... if j is odd.
+    # Essentially, a tile is a 2x1 rectangle.
+    # A move in the x-direction is free if it stays within the same tile.
+    # A move in the y-direction always enters a new tile unless it's 0.
+    # However, the problem says "Each time he enters a tile, he pays a toll of 1."
+    # Let's analyze the cost.
+    # Moving from (sx, sy) to (tx, ty).
+    # Let dx = abs(sx - tx) and dy = abs(sy - ty).
+    # Each vertical step of 1 unit always enters a new tile. Total vertical cost: dy.
+    # For horizontal movement:
+    # In a row j, tiles are boundaries at x = k where k is even (if j even) or odd (if j odd).
+    # Let's define the "tile-boundary" for row j as:
+    # If j is even, boundaries are ..., -2, 0, 2, 4, ...
+    # If j is odd, boundaries are ..., -1, 1, 3, 5, ...
+    # A move from x1 to x2 in row j crosses a boundary if there is an integer k 
+    # such that k is the boundary type for j and min(x1, x2) < k <= max(x1, x2).
+    # Wait, the rule is: A_{i,j} and A_{i+1,j} are same tile if i+j is even.
+    # If j is even, i must be even. So A_{0,j} and A_{1,j} are one tile, A_{2,j} and A_{3,j} are one tile.
+    # The boundaries are at x = ..., -2, 0, 2, 4, ...
+    # If j is odd, i must be even? No, i+j is even => i is odd.
+    # So A_{1,j} and A_{2,j} are one tile, A_{3,j} and A_{4,j} are one tile.
+    # The boundaries are at x = ..., -1, 1, 3, 5, ...
+    
+    # Let's redefine: 
+    # In row j, the tile index for square A_{i,j} is:
+    # If j is even: floor(i/2)
+    # If j is odd: floor((i-1)/2)
+    
+    # The cost to move from (sx, sy) to (tx, ty):
+    # We can move vertically first, then horizontally, or vice versa, or zig-zag.
+    # Notice that moving vertically by 1 always costs 1.
+    # Moving horizontally in row j from sx to tx costs:
+    # abs(tile_index(tx, j) - tile_index(sx, j))
+    # But we can choose WHICH row j to perform the horizontal move in.
+    # We must pass through all rows between sy and ty.
+    # The total cost is dy + min(horizontal_cost(sx, tx, j)) for j in [sy, ty].
+    # Actually, we can pick any j, but we have to reach that j first.
+    # However, the cost to move from sy to j and then to ty is still dy if j is between sy and ty.
+    # If we pick j outside [sy, ty], it adds extra vertical cost.
+    # But we only need to check j = sy and j = ty (and possibly j = sy+1 or ty-1).
+    
+    # Let's refine the horizontal cost function:
+    # For a fixed j, the tile index of square A_{i,j} is:
+    # if j % 2 == 0: idx = i // 2
+    # if j % 2 == 1: idx = (i - 1) // 2
+    # The cost to move from sx to tx in row j is abs(idx(tx, j) - idx(sx, j)).
+    # Note: if sx == tx, cost is 0.
+    # If sx != tx, we might need to pay for the starting tile? 
+    # "Each time he enters a tile, he pays a toll of 1."
+    # Starting tile is already entered. 
+    # Moving from square A_{i,j} to A_{i+1,j}:
+    # If they are the same tile, cost 0. If different, cost 1.
+    # This is exactly abs(idx(tx, j) - idx(sx, j)).
+    
+    # Total cost = dy + min(
+    #    abs(idx(tx, sy) - idx(sx, sy)),
+    #    abs(idx(tx, ty) - idx(sx, ty))
+    # )
+    # Wait, if dy > 0, we can potentially use a row j between sy and ty.
+    # If sy != ty, we have both an even and an odd row available.
+    # So we can take the minimum of the cost in an even row and an odd row.
+    
+    def get_idx(i, j):
+        if j % 2 == 0:
+            return i // 2
+        else:
+            return (i - 1) // 2
+
+    dx = abs(sx - tx)
+    dy = abs(sy - ty)
+    
+    if sx == tx:
+        print(dy)
+        return
+
+    # Cost in row sy
+    cost_sy = abs(get_idx(tx, sy) - get_idx(sx, sy))
+    # Cost in row ty
+    cost_ty = abs(get_idx(tx, ty) - get_idx(sx, ty))
+    
+    if sy == ty:
+        print(cost_sy)
+    else:
+        # We can use any row between sy and ty.
+        # If dy >= 1, we have access to both an even and an odd row.
+        # The cost to move horizontally in an even row:
+        # abs(tx // 2 - sx // 2)
+        # The cost to move horizontally in an odd row:
+        # abs((tx - 1) // 2 - (sx - 1) // 2)
+        
+        # But we must account for the fact that we start at sy and end at ty.
+        # The vertical moves cost dy.
+        # The horizontal move can be done at any row j from sy to ty.
+        # The cost is dy + min(abs(get_idx(tx, j) - get_idx(sx, j)) for j in range(sy, ty+1))
+        # Since get_idx only depends on (j % 2), we only check j=0 and j=1.
+        
+        res = dy + min(
+            abs(get_idx(tx, 0) - get_idx(sx, 0)),
+            abs(get_idx(tx, 1) - get_idx(sx, 1))
+        )
+        # However, we can only use row 0 if there's an even row between sy and ty.
+        # And row 1 if there's an odd row.
+        # If sy != ty, both parity rows are available.
+        # Special case: if sy == ty, only one parity is available.
+        
+        # Let' 것's double check: is it possible that moving to a row outside [sy, ty] is cheaper?
+        # Moving to row j costs abs(j - sy) + abs(j - ty).
+        # This is dy + 2 * distance(j, [sy, ty]).
+        # The horizontal cost only differs between parity 0 and 1.
+        # If sy and ty have the same parity, we can still reach the other parity by moving 1 unit.
+        # That would cost dy + 1 (to get to the other parity) + horizontal_cost.
+        # But if sy != ty, we already have both parities within the range.
+        
+        # Let's just calculate for parity 0 and 1.
+        c0 = abs(get_idx(tx, 0) - get_idx(sx, 0))
+        c1 = abs(get_idx(tx, 1) - get_idx(sx, 1))
+        
+        # If sy and ty are different, we can pick the best parity for "free" (included in dy).
+        # If sy and ty are the same, we can either use that parity or pay 2 extra to use the other.
+        if sy != ty:
+            print(dy + min(c0, c1))
+        else:
+            # sy == ty, so dy = 0.
+            # We can use parity of sy, or move to sy+1, move horizontally, move back.
+            # Cost: 0 + c_{sy%2} OR 2 + min(c0, c1)
+            print(min(abs(get_idx(tx, sy) - get_idx(sx, sy)), 2 + min(c0, c1)))
+
+solve()
+```

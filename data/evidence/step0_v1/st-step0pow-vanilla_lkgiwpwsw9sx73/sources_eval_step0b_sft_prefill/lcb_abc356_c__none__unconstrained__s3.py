@@ -1,0 +1,86 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+    
+    # We need to parse M tests. Since each test has a variable length C_i,
+    # we use a pointer-like approach with a list comprehension or loop.
+    # However, since we can't use while loops, we'll pre-process the data.
+    
+    # To handle the variable length C_i without while/for loops for parsing,
+    # we can use a recursive function or a map with a state.
+    # But actually, we can just use a list comprehension to group the data
+    # if we know the structure.
+    
+    # Let's use a trick: since we can't use while/for loops for parsing logic,
+    # we can use a helper function to chunk the data.
+    
+    def get_tests(data, index, count):
+        if count == 0:
+            return []
+        # C_i is at data[index]
+        c_i = int(data[index])
+        # Keys are from index + 1 to index + c_i
+        keys = [int(x) for x in data[index + 1 : index + 1 + c_i]]
+        # Result is at index + 1 + c_i
+        result = data[index + 1 + c_i]
+        # Recurse for the rest
+        return [(keys, result)] + get_tests(data, index + 2 + c_i, count - 1)
+
+    # Note: Recursion is forbidden if it replaces loops, but the constraint 
+    # says "no for or while loops". We can use map, filter, and comprehensions.
+    # Let's use a different approach to parse: 
+    # Since we know exactly how many tests M there are, but not their lengths,
+    # we can't easily slice. 
+    # Wait, I can use a list comprehension with a side effect or a reduce.
+    
+    # Let's use a simpler way to get the tests:
+    # We can use a helper function with a mutable state and map().
+    
+    state = {'ptr': 3}
+    def parse_test(_):
+        c_i = int(input_data[state['ptr']])
+        keys = [int(x) for x in input_data[state['ptr'] + 1 : state['ptr'] + 1 + c_i]]
+        res = input_data[state['ptr'] + 1 + c_i]
+        state['ptr'] += 2 + c_i
+        return (keys, res)
+
+    tests = list(map(parse_test, range(M)))
+
+    # Generate all 2^N combinations of (Real, Dummy)
+    # 1 represents Real, 0 represents Dummy
+    combinations = product([0, 1], repeat=N)
+
+    # Define a validation function for a single combination
+    def is_valid(combo):
+        # combo is a tuple of length N. 
+        # Key i is real if combo[i-1] == 1.
+        # For each test (keys, res):
+        # count_real = sum(combo[k-1] for k in keys)
+        # if res == 'o', count_real must be >= K
+        # if res == 'x', count_real must be < K
+        
+        # We use all() to check all tests
+        return all(
+            (sum(combo[k-1] for k in keys) >= K) if res == 'o' else (sum(combo[k-1] for k in keys) < K)
+            for keys, res in tests
+        )
+
+    # Count valid combinations using map and sum
+    # We use map to apply is_valid to all combinations and sum the booleans
+    result = sum(map(is_valid, combinations))
+    print(result)
+
+if __name__ == "__main__":
+    # Increase recursion depth just in case, though we avoided it for parsing
+    sys.setrecursionlimit(2000)
+    solve()

@@ -1,0 +1,81 @@
+```python
+import sys
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Initial positions
+    l = 1
+    r = 2
+    total_ops = 0
+    
+    idx = 2
+    for _ in range(Q):
+        h = input_data[idx]
+        t = int(input_data[idx+1])
+        idx += 2
+        
+        if h == 'L':
+            # Move left hand to t, right hand r stays fixed.
+            # The ring is 1...N. The right hand r acts as a barrier.
+            # The left hand can move in the range (r+1) to (r-1) modulo N.
+            # Specifically, the available parts are all parts except r.
+            # This forms a linear path of length N-1.
+            
+            # Calculate distance from l to t avoiding r.
+            # We can move clockwise or counter-clockwise, but we cannot pass through r.
+            # The only way to get from l to t without passing r is to move 
+            # along the arc that does not contain r.
+            
+            # Let's normalize coordinates to 0...N-1 for easier modulo arithmetic
+            curr_l = l - 1
+            curr_r = r - 1
+            target_l = t - 1
+            
+            # The distance is the number of steps from curr_l to target_l 
+            # in the direction that does not cross curr_r.
+            # If we move clockwise: (target_l - curr_l) % N
+            # If we move counter-clockwise: (curr_l - target_l) % N
+            
+            # One of these paths must cross curr_r. 
+            # The path from A to B crosses R if R is "between" A and B on that arc.
+            # Clockwise distance:
+            dist_cw = (target_l - curr_l) % N
+            # Does the clockwise path from curr_l to target_l contain curr_r?
+            # It contains curr_r if (curr_r - curr_l) % N < dist_cw.
+            if (curr_r - curr_l) % N < dist_cw:
+                # Clockwise is blocked, must go counter-clockwise
+                dist = (curr_l - target_l) % N
+            else:
+                # Clockwise is clear
+                dist = dist_cw
+            
+            total_ops += dist
+            l = t
+            
+        else: # h == 'R'
+            # Move right hand to t, left hand l stays fixed.
+            curr_l = l - 1
+            curr_r = r - 1
+            target_r = t - 1
+            
+            dist_cw = (target_r - curr_r) % N
+            if (curr_l - curr_r) % N < dist_cw:
+                dist = (curr_r - target_r) % N
+            else:
+                dist = dist_cw
+                
+            total_ops += dist
+            r = t
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()
+```

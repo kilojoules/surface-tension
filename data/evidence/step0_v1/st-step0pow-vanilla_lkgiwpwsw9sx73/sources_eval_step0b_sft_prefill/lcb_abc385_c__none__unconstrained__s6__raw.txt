@@ -1,0 +1,65 @@
+```python
+import sys
+
+def solve():
+    # Read all input and split into a list of integers
+    data = list(map(int, sys.stdin.read().split()))
+    
+    # The first element is N, the rest are the heights H
+    N = data[0]
+    H = data[1:]
+    
+    # If there are no buildings, the answer is 0
+    if N == 0:
+        print(0)
+        return
+
+    # We need to find the maximum number of buildings with the same height
+    # that are spaced at equal intervals.
+    # Let the interval be 'd' (1 <= d < N) and the starting index be 'i' (0 <= i < d).
+    # The buildings would be at indices i, i+d, i+2d, ...
+    
+    # We can iterate through all possible intervals d and starting positions i.
+    # For each (d, i), we check the heights of the buildings and count 
+    # the occurrences of each height.
+    
+    # To avoid nested loops with if/else, we can use a list comprehension 
+    # and a counting method.
+    
+    # We initialize the answer to 1 since we can always pick one building.
+    # We use a generator expression to iterate through all d and i, 
+    # and for each, we find the max count of identical heights.
+    
+    # Note: d=0 is not possible. d=1 means every building.
+    # For a fixed d and i, the sequence is H[i::d].
+    # We want the mode (most frequent element) of this sequence.
+    
+    # To comply with constraints without using loops/recursion:
+    # We can use map and a helper to find the max frequency.
+    
+    def get_max_freq(sequence):
+        if not sequence:
+            return 0
+        # Create a frequency map using a list since we know H_i <= 3000
+        # However, since we can't use loops, we can use a trick with 
+        # sorted sequences or a counting dictionary.
+        # Given the constraints on loops, we can use a list comprehension 
+        # to count occurrences of each element in the sequence.
+        # But that would be O(len(sequence)^2).
+        # Instead, we can sort the sequence and then find the longest run.
+        # But sorting is usually done via loops.
+        # Let's use the fact that we can use `count` inside a comprehension.
+        # To optimize: only check heights that actually appear in the sequence.
+        return max([sequence.count(x) for x in set(sequence)])
+
+    # We generate all possible (d, i) pairs and find the maximum frequency.
+    # d ranges from 1 to N-1. i ranges from 0 to d-1.
+    # The case where we pick only 1 building is covered when d is large or by the default.
+    
+    ans = max([get_max_freq(H[i::d]) for d in range(1, N) for i in range(d)] + [1])
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

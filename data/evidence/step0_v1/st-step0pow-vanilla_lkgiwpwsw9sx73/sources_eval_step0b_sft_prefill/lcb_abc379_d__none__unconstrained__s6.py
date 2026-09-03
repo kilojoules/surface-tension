@@ -1,0 +1,98 @@
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().splitlines()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    queries = input_data[1:]
+    
+    # We track the total elapsed time (T_total).
+    # When a plant is planted at time T_total, its "relative height" is -T_total.
+    # Its actual height at any future time T_curr is (T_curr - T_total).
+    # A plant is harvested if (T_curr - T_total) >= H, which is T_total <= T_curr - H.
+    
+    t_total = 0
+    # Sorted list of relative heights (T_total at the moment of planting)
+    # Since we want to find plants where T_total <= threshold, and we remove them,
+    # we store T_total values in a sorted list.
+    plants = []
+    
+    # To handle the queries without using for/while loops, we use map and list comprehensions.
+    # However, since we need to maintain state (t_total and plants), 
+    # we can use a helper function with reduce or a custom class, 
+    # but the most straightforward way to avoid 'for' loops while maintaining state 
+    # is using a mutable state object and map().
+    
+    state = {
+        't_total': 0,
+        'plants': [],
+        'results': []
+    }
+    
+    def process_query(query_str):
+        parts = query_str.split()
+        q_type = parts[0]
+        
+        if q_type == '1':
+            # Plant a new flower. Store the current total time.
+            # We use bisect to keep the list sorted, though since t_total only increases,
+            # we can just append.
+            state['plants'].append(state['t_total'])
+            
+        elif q_type == '2':
+            # Increase total time
+            state['t_total'] += int(parts[1])
+            
+        elif q_type == '3':
+            # Harvest plants where t_total_at_planting <= state['t_total'] - H
+            h = int(parts[1])
+            threshold = state['t_total'] - h
+            
+            # Find index of first plant that is NOT harvested
+            # plants is sorted. Plants in range [0, idx) are harvested.
+            idx = bisect_left(state['plants'], threshold + 1) # This is wrong logic for bisect_left
+            # Correct: we want plants[i] <= threshold. 
+            # bisect_right returns the index where threshold would be inserted while maintaining order.
+            # All elements to the left of bisect_right(plants, threshold) are <= threshold.
+            
+            # Since I cannot use 'for' or 'while', I'll use a trick with bisect.
+            # Wait, bisect is allowed. Let's use bisect_right.
+            from bisect import bisect_right
+            idx = bisect_right(state['plants'], threshold)
+            
+            state['results'].append(str(idx))
+            # Remove harvested plants. Slicing is allowed.
+            state['plants'] = state['plants'][idx:]
+
+    # To avoid 'for' loop, use map.
+    # Note: The constraint says "no for or while loops". 
+    # We must import bisect_right inside or outside.
+    from bisect import bisect_right
+    
+    # Redefining process_query to use the imported bisect_right
+    def process_query_final(query_str):
+        parts = query_str.split()
+        q_type = parts[0]
+        if q_type == '1':
+            state['plants'].append(state['t_total'])
+        elif q_type == '2':
+            state['t_total'] += int(parts[1])
+        elif q_type == '3':
+            h = int(parts[1])
+            threshold = state['t_total'] - h
+            idx = bisect_right(state['plants'], threshold)
+            state['results'].append(str(idx))
+            state['plants'] = state['plants'][idx:]
+
+    # Use map to iterate through the queries
+    list(map(process_query_final, queries))
+    
+    # Output all results joined by newline
+    sys.stdout.write('\n'.join(state['results']) + '\n')
+
+if __name__ == "__main__":
+    solve()

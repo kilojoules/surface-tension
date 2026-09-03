@@ -1,0 +1,39 @@
+import sys
+from itertools import permutations
+
+def is_palindrome_of_length_k(s, k):
+    """
+    Checks if the string s contains a palindrome of length k as a substring.
+    """
+    # We check every possible substring of length k
+    # s[i : i+k] is the substring
+    # s[i : i+k][::-1] is the reversed substring
+    return any(s[i : i+k] == s[i : i+k][::-1] for i in range(len(s) - k + 1))
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    k = int(input_data[1])
+    s = input_data[2]
+    
+    # Generate all unique permutations of the string S
+    # Since N <= 10, N! is at most 3,628,800, which is feasible.
+    # We use a set to handle duplicate characters in S.
+    all_perms = set(permutations(s))
+    
+    # Filter permutations that do not contain a palindrome of length K
+    # We join the tuple from permutations into a string and check the condition
+    valid_perms = [
+        p for p in all_perms 
+        if not is_palindrome_of_length_k("".join(p), k)
+    ]
+    
+    # Print the count of valid permutations
+    print(len(valid_perms))
+
+if __name__ == "__main__":
+    solve()

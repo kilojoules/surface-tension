@@ -1,0 +1,41 @@
+```python
+import sys
+from itertools import permutations, combinations_with_replacement
+from functools import reduce
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    K = int(input_data[1])
+    S = input_data[2]
+
+    # To avoid iterating through all N! permutations (which is 3.6 million for N=10),
+    # we can use a set to get all unique permutations.
+    # However, itertools.permutations returns all N! tuples.
+    # We can convert them to strings and use a set to filter uniqueness.
+    
+    # Generate all unique permutations of the string S
+    # Since N is small (up to 10), we can use a set comprehension.
+    all_permutations = {''.join(p) for p in permutations(S)}
+    
+    # Helper function to check if a string contains a palindrome of length K
+    def contains_palindrome(t, k):
+        # We check every substring of length k
+        # t[i : i+k] is the substring
+        # It is a palindrome if it equals its reverse
+        return any(t[i : i+k] == t[i : i+k][::-1] for i in range(N - k + 1))
+
+    # Filter permutations that do not contain a palindrome of length K
+    # We use a generator expression inside sum() to count them
+    result = sum(1 for p in all_permutations if not contains_palindrome(p, K))
+    
+    # Print the result to standard output
+    sys.stdout.write(str(result) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

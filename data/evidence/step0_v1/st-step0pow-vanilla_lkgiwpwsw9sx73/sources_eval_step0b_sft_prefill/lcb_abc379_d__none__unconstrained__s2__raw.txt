@@ -1,0 +1,80 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input lines
+    input_data = sys.stdin.read().splitlines()
+    Q = int(input_data[0])
+    queries = input_data[1:]
+
+    # We track the total elapsed time (T_total).
+    # When a plant is planted at time T_total, its "relative height" is -T_total.
+    # At any future time T_curr, its actual height is T_curr - T_planted.
+    # A plant is harvested if T_curr - T_planted >= H, which is T_planted <= T_curr - H.
+    
+    # We store the relative heights (T_planted) of existing plants in a sorted list.
+    # Since we only append to the list (plants are added chronologically), 
+    # the list of T_planted values is naturally sorted.
+    
+    planted_times = []
+    current_time = 0
+    
+    # To handle removals efficiently without using a loop or recursion,
+    # we use a pointer or a way to track the "start" of the active plants.
+    # However, since we need to remove elements from the front of the list,
+    # and Python's list.pop(0) is O(N), we can use a deque or simply 
+    # track the index of the first non-harvested plant.
+    
+    # Given the constraints and the requirement to avoid loops/recursion,
+    # we can use a list and a variable to track the offset.
+    # But we need to output the count of harvested plants.
+    
+    # Let's use a state object to keep track of the offset across the "map" function.
+    class State:
+        def __init__(self):
+            self.times = []
+            self.current_time = 0
+            self.offset = 0
+
+    state = State()
+    
+    def process_query(query_str):
+        parts = query_str.split()
+        q_type = parts[0]
+        
+        if q_type == '1':
+            state.times.append(state.current_time)
+            return None
+        
+        elif q_type == '2':
+            state.current_time += int(parts[1])
+            return None
+        
+        elif q_type == '3':
+            h = int(parts[1])
+            # Threshold for T_planted: T_planted <= current_time - h
+            threshold = state.current_time - h
+            
+            # Find how many plants are <= threshold.
+            # bisect_left finds the index of the first element >= threshold + 1
+            # which is the count of elements <= threshold.
+            idx = bisect_left(state.times, threshold + 0.1) # Using 0.1 to simulate floor/strict inequality
+            # Since we can't use loops to delete, we slice the list.
+            # Slicing is O(N), but we can't avoid it without loops/recursion 
+            # unless we use a different approach. 
+            # Wait, the constraint says "no for/while loops or recursion".
+            # We can use slicing to remove the harvested plants.
+            
+            count = idx - state.offset
+            state.times = state.times[idx:]
+            state.offset = 0 # Reset offset because we sliced
+            return str(count)
+
+    # Use map to process queries and filter out None values
+    results = map(process_query, queries)
+    sys.stdout.write('\n'.join(filter(None, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

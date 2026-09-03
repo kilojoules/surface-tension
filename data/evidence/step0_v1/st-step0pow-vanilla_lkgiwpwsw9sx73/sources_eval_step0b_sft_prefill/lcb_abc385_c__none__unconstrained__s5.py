@@ -1,0 +1,125 @@
+import sys
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # N is the first element, H is the rest
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # If there are no buildings, the answer is 0
+    if N == 0:
+        print(0)
+        return
+
+    # We need to find the maximum number of buildings with the same height H_i
+    # that are spaced at equal intervals 'd'.
+    # Let the indices of chosen buildings be i, i+d, i+2d, ..., i+(k-1)d.
+    # All these must have the same height.
+    
+    # To solve this, we can iterate through all possible starting positions 'i'
+    # and all possible intervals 'd'.
+    # However, a more efficient way is to group indices by height.
+    
+    # Create a dictionary where keys are heights and values are lists of indices
+    from collections import defaultdict
+    pos_map = defaultdict(list)
+    for idx, height in enumerate(H):
+        pos_map[height].append(idx)
+    
+    # For each height, we check all pairs of indices (i, j) as the first two elements
+    # of the sequence. The interval is d = j - i.
+    # Then we check how many subsequent elements (j+d, j+2d...) have the same height.
+    
+    # To avoid loops, we can use a list comprehension or map.
+    # Since we need to find the maximum k, we can iterate through each height group.
+    
+    def calculate_max_for_height(indices):
+        # If only one building of this height, max is 1
+        if len(indices) <= 1:
+            return len(indices)
+        
+        # We check every pair of indices (indices[a], indices[b]) as the start of the sequence
+        # d = indices[b] - indices[a]
+        # We then count how many elements in the set of indices fit the pattern.
+        
+        # Convert indices to a set for O(1) lookup
+        idx_set = set(indices)
+        
+        # Use a generator to find the length of the sequence for every pair (a, b)
+        # We only need to check a < b.
+        # For a fixed a and b, the sequence is indices[a], indices[a] + d, ...
+        # The number of elements is the largest k such that indices[a] + (k-1)*d < N
+        # and all elements in the sequence are in idx_set.
+        
+        # To optimize: for a fixed a and d, we can just count.
+        # But we must ensure we don't repeat work.
+        
+        # Let's use a nested list comprehension to evaluate all pairs.
+        # Note: The constraints N=3000 allow for a slightly optimized approach.
+        # The number of pairs (a, b) is len(indices)^2.
+        # Total pairs across all heights is sum(len(indices)^2), which is at most N^2.
+        
+        return max([
+            # For each pair of indices in the sorted list, treat them as the first two
+            # We then check how many more follow. 
+            # To avoid 'while' loops, we can use a trick or just a helper.
+            # Since we can't use 'while', we can use a recursive-like structure 
+            # or simply iterate through all possible d and starting points.
+            1 # Default
+        ] + [
+            # For each pair of indices (i, j) with i < j, d = j - i.
+            # We want to find the largest k such that i + (k-1)d is the last element.
+            # Since we can't use while, we can check all k from N//d down to 2.
+            # But that's too slow. 
+            # Let's use a different approach: for a fixed d and starting i, 
+            # we can pre-calculate the lengths using DP or just use the fact that
+            # we can iterate through d first.
+            0
+        ])
+
+    # Re-evaluating: The constraint N=3000 and the "no while/for" (implied by some strict functional styles, 
+    # though not explicitly forbidden, but I will use comprehensions) 
+    # suggests we should be careful.
+    
+    # Correct approach:
+    # For each possible interval d (1 to N//2), and each starting point i (0 to d-1),
+    # we have a sequence of buildings at i, i+d, i+2d...
+    # In this sequence, we look for the longest contiguous segment of identical heights.
+    
+    # We can use a list comprehension to build these sequences and then 
+    # a trick to find the longest run of identical elements.
+    
+    # To find the longest run of identical elements in a list L:
+    # We can use itertools.groupby
+    from itertools import groupby
+    
+    # We iterate through all d from 1 to N // 2.
+    # For each d, we partition the buildings into d groups based on (index % d).
+    # For each group, we find the max length of consecutive identical heights.
+    
+    results = [
+        max(
+            [
+                max([len(list(g)) for g in groupby(H[i::d])]) if H[i::d] else 0]
+            )
+            for i in range(d)
+        )
+        for d in range(1, (N // 2) + 1)
+    ]
+    
+    # Also consider the case where we only pick one building (or N=1)
+    # The minimum answer is 1 if N > 0.
+    
+    # The logic above handles d > 0. If N=1, results is empty.
+    # If all buildings are different, results will be 1s.
+    
+    # We need to handle the case where N=1 separately or ensure 1 is in the list.
+    ans = max(results + [1 if N > 0 else 0])
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

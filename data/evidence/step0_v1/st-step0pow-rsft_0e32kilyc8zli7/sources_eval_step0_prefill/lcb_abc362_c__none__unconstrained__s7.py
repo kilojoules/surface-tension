@@ -1,0 +1,48 @@
+import sys
+
+def solve():
+    # Read all input at once for efficiency
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    L = []
+    R = []
+    
+    # Parse the L_i and R_i pairs
+    for i in range(N):
+        L.append(int(input_data[2*i + 1]))
+        R.append(int(input_data[2*i + 2]))
+    
+    # The minimum possible sum is the sum of all L_i
+    # The maximum possible sum is the sum of all R_i
+    min_sum = sum(L)
+    max_sum = sum(R)
+    
+    # A sequence X exists if and only if 0 is within the range [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        print("Yes")
+        
+        # We start by setting X_i = L_i. 
+        # The current sum is min_sum. We need to increase this sum to 0.
+        # The total amount we need to add is -min_sum.
+        current_sum = min_sum
+        needed = -current_sum
+        
+        X = []
+        for i in range(N):
+            # For each X_i, we can increase it from L_i up to R_i.
+            # The maximum we can add to X_i is (R_i - L_i).
+            can_add = R[i] - L[i]
+            add = min(can_add, needed)
+            
+            X.append(L[i] + add)
+            needed -= add
+            
+        print(*(X))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

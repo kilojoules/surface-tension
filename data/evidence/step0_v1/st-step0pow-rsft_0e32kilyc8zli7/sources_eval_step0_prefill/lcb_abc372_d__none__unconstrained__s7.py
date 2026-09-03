@@ -1,0 +1,146 @@
+import sys
+
+def solve():
+    # Read all input at once for performance
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # The condition "no building taller than Building j between i and j"
+    # means that for a fixed i, we are looking for indices j > i such that
+    # H[k] <= H[j] for all i < k < j.
+    # This is equivalent to saying that Building j is a "visible" building 
+    # when looking to the right from Building i, but specifically 
+    # based on the height of the target building j itself.
+    
+    # Let's rephrase: j satisfies the condition if H[j] >= max(H[i+1] ... H[j-1]).
+    # This means j is a candidate if it is a "prefix maximum" of the sequence 
+    # starting from index i+1.
+    
+    # However, calculating this for every i would be O(N^2).
+    # We need a more efficient approach.
+    
+    # Observation:
+    # For a fixed j, for which i < j is the condition satisfied?
+    # The condition is: for all k such that i < k < j, H[k] < H[j].
+    # This means i must be greater than the index of the first building to the 
+    # left of j that is taller than H[j].
+    # Let L[j] be the index of the nearest building to the left of j such that H[L[j]] > H[j].
+    # If no such building exists, L[j] = 0 (using 1-based indexing).
+    # Then for a fixed j, the condition is satisfied for all i such that L[j] <= i < j.
+    # Wait, the condition is "between i and j". 
+    # If i = L[j], the buildings between i and j are indices L[j]+1 ... j-1.
+    # All these are shorter than H[j] by definition of L[j].
+    # So i can range from L[j] to j-1.
+    # The number of such i is j - L[j].
+    
+    # But we need the answer for each i.
+    # For each j from 2 to N:
+    #   Find L[j] = max {k < j | H[k] > H[j]} or 0.
+    #   For all i in [L[j], j-1], increment c_i.
+    
+    # To implement this efficiently:
+    # 1. Find L[j] for all j using a monotonic stack.
+    # 2. Use a difference array (or Fenwick tree) to add 1 to ranges [L[j], j-1].
+    # 3. Compute prefix sums of the difference array to get final counts.
+
+    # Note: The problem uses 1-based indexing for buildings.
+    # H is 0-indexed in Python, so Building 1 is H[0].
+    # For j (0-indexed), L[j] is the index of the nearest H[k] > H[j] where k < j.
+    # The range of i (0-indexed) is L[j] <= i < j.
+    # If no such k exists, L[j] = 0.
+    
+    L = [0] * N
+    stack = []
+    for j in range(N):
+        while stack and H[stack[-1]] < H[j]:
+            stack.pop()
+        if not stack:
+            L[j] = 0
+        else:
+            L[j] = stack[-1] + 1 # Using 1-based logic for the range start
+        stack.append(j)
+    
+    # We need to count for each i (1 to N) how many j > i satisfy the condition.
+    # For each j from 1 to N-1 (0-indexed):
+    # The condition is satisfied for i in [L[j], j] (0-indexed).
+    # Wait, let's re-verify:
+    # If j=3 (H[3]), and L[3]=1. Buildings between i and j are k: i < k < j.
+    # If i=1, k=2. H[2] must be < H[3].
+    # If i=0, k=1, 2. H[1], H[2] must be < H[3].
+    # If L[j] is the index of the first building to the left taller than H[j],
+    # then for any i >= L[j], all buildings k between i and j are shorter than H[j].
+    # Example: H = [2, 1, 4, 3, 5]
+    # j=0: H=2. (i < j, none)
+    # j=1: H=1. L[1]=0 (H[0]=2 > 1). i can be 0. (i=0: k is empty. Correct.)
+    # j=2: H=4. L[2]=None. i can be 0, 1. (i=0: k=1(1<4). i=1: k=empty.)
+    # j=3: H=3. L[3]=2 (H[2]=4 > 3). i can be 2. (i=2: k=empty.)
+    # j=4: H=5. L[4]=None. i can be 0, 1, 2, 3.
+    
+    # Let's use 0-indexing for everything.
+    # For each j from 0 to N-1:
+    # Find nearest k < j such that H[k] > H[j]. Let this be left_boundary.
+    # If no such k, left_boundary = -1.
+    # The condition is satisfied for all i such that left_boundary <= i < j.
+    # However, the problem says i < j.
+    # If i = left_boundary, the buildings between i and j are k: left_boundary < k < j.
+    # By definition of left_boundary, all these H[k] < H[j].
+    # So i can be left_boundary, left_boundary + 1, ..., j-1.
+    # BUT, the condition is "no building taller than Building j".
+    # If i = left_boundary, Building i is Building left_boundary.
+    # The buildings BETWEEN i and j are indices left_boundary + 1 ... j-1.
+    # These are all < H[j]. So i = left_boundary is allowed.
+    # Special case: if left_boundary is -1, i starts from 0.
+    
+    # Let's refine:
+    # For each j in 0...N-1:
+    #   Find k < j such that H[k] > H[j] and k is maximized.
+    #   If such k exists, i can be k, k+1, ..., j-1.
+    #   If no such k exists, i can be 0, 1, ..., j-1.
+    #   (Note: i=j is not allowed since i < j).
+    
+    # Let's trace Sample 1: 2 1 4 3 5
+    # j=0 (2): i < 0 (none)
+    # j=1 (1): k=0 (H[0]=2 > 1). i can be 0.
+    # j=2 (4): k=None. i can be 0, 1.
+    # j=3 (3): k=2 (H[2]=4 > 3). i can be 2.
+    # j=4 (5): k=None. i can be 0, 1, 2, 3.
+    
+    # Counts for i:
+    # i=0: j=1, 2, 4 (3)
+    # i=1: j=2, 4 (2)
+    # i=2: j=3, 4 (2)
+    # i=3: j=4 (1)
+    # i=4: none (0)
+    # Result: 3 2 2 1 0. Matches Sample 1.
+    
+    diff = [0] * (N + 1)
+    stack = []
+    for j in range(N):
+        while stack and H[stack[-1]] < H[j]:
+            stack.pop()
+        
+        if not stack:
+            left_boundary = 0
+        else:
+            left_boundary = stack[-1]
+            
+        # Range is [left_boundary, j-1]
+        if j > 0:
+            diff[left_boundary] += 1
+            diff[j] -= 1
+        stack.append(j)
+        
+    ans = []
+    current = 0
+    for i in range(N):
+        current += diff[i]
+        ans.append(current)
+        
+    print(*(ans))
+
+if __name__ == "__main__":
+    solve()

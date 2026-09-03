@@ -1,0 +1,149 @@
+```python
+import sys
+
+def solve():
+    # Read input from stdin
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    sx, sy = map(int, input_data[0:2])
+    tx, ty = map(int, input_data[2:4])
+
+    # The tiling pattern is:
+    # If (i + j) is even, A_{i,j} and A_{i+1,j} are one tile.
+    # This means for a fixed j, the tiles are horizontal 2x1 blocks.
+    # Specifically, for row j, the boundaries between tiles are at x = k where (k + j) is odd.
+    # To move from (sx, sy) to (tx, ty), we want to minimize the number of tiles entered.
+    
+    # Let's transform the coordinates to a system where the grid is uniform.
+    # Consider the "dual" grid of tile boundaries.
+    # A move is "free" if it stays within the same tile.
+    # A move costs 1 if it crosses a tile boundary.
+    
+    # Let f(x, y) be the index of the tile in row y.
+    # In row y, the boundary is at x if x+y is odd.
+    # The tile index can be represented as g(x, y) = (x + y) // 2.
+    # However, we can also move vertically.
+    # A vertical move from (x, y) to (x, y+1) crosses a boundary unless 
+    # (x, y) and (x, y+1) are in the same tile.
+    # But the problem says tiles are 2x1 (horizontal). 
+    # So A_{i,j} and A_{i+1,j} are one tile if i+j is even.
+    # This means A_{i,j} and A_{i,j+1} are NEVER in the same tile.
+    
+    # Let's use the coordinate transformation:
+    # u = x + y
+    # v = x - y
+    # This is a common trick for Manhattan distance problems with constraints.
+    # But here, the cost is based on crossing boundaries.
+    
+    # Let's analyze the cost:
+    # To move from (sx, sy) to (tx, ty):
+    # The number of horizontal boundaries crossed is the number of k between sx and tx
+    # such that k + y is odd (for the current y).
+    # The number of vertical boundaries crossed is simply |ty - sy|.
+    
+    # Actually, there is a simpler way.
+    # Let x_shifted = sx + sy
+    # Let y_shifted = sy
+    # This is getting confusing. Let's use the property:
+    # Cost = max(|(sx + sy) - (tx + ty)|, |(sx - sy) - (tx - ty)|) // 2
+    # Wait, the standard result for this specific tiling problem (often found in competitive programming)
+    # is that the distance is max(|sx - tx|, |sy - ty|, (|sx - tx| + |sy - ty| + 1) // 2) 
+    # No, that's for different constraints.
+    
+    # Let's re-evaluate:
+    # To go from (sx, sy) to (tx, ty), we must change the row sy times.
+    # Each row change costs 1. Total vertical cost = |sy - ty|.
+    # In each row, we might need to cross a vertical boundary.
+    # The vertical boundaries in row y are at x where x+y is odd.
+    # The distance is actually:
+    # cost = max(|sx - tx|, |sy - ty|, (|sx - tx| + |sy - ty| + 1) // 2) is for 1x1 moves.
+    # For this specific problem, the answer is:
+    # Let dx = tx - sx, dy = ty - sy.
+    # The minimum cost is max(|dx|, |dy|, (|dx| + |dy| + 1) // 2) if we could move diagonally.
+    # But we move axially.
+    
+    # Correct logic for this specific tiling:
+    # The distance is max(|sx - tx|, |sy - ty|, (abs(sx - tx) + abs(sy - ty) + 1) // 2)
+    # No, that's for a different problem.
+    # Let's use the property:
+    # The cost is max(abs(sx - tx), abs(sy - ty)) if we can move diagonally.
+    # With axial moves, the cost to move from (sx, sy) to (tx, ty) is:
+    # Let X = sx + sy, Y = sx - sy
+    # Let X' = tx + ty, Y' = tx - ty
+    # Cost = (max(abs(X - X'), abs(Y - Y')) + 1) // 2
+    # Let's test Sample 1: 5 0, 2 5.
+    # X = 5, Y = 5. X' = 7, Y' = -3.
+    # abs(X-X') = 2, abs(Y-Y') = 8.
+    # (8 + 1) // 2 = 4. Sample 1 says 5.
+    
+    # Let's try: Cost = max(abs(sx - tx), abs(sy - ty), (abs(sx - tx) + abs(sy - ty) + 1) // 2)
+    # Sample 1: max(3, 5, (3+5+1)//2) = max(3, 5, 4) = 5. Correct.
+    # Sample 2: 3 1, 4 1. max(1, 0, (1+0+1)//2) = max(1, 0, 1) = 1. Sample 2 says 0.
+    # Wait, Sample 2 is 0 because (3,1) and (4,1) are in the same tile.
+    # 3+1=4 (even), so A_{3,1} and A_{4,1} are one tile.
+    
+    # Let's use the coordinate transformation:
+    # A tile is defined by ( (i+j)//2, j ) if i+j is even.
+    # Let u = (i + j) // 2 and v = j.
+    # The cost to move between tiles is the Manhattan distance in the (u, v) space?
+    # No.
+    
+    # Let's use the property:
+    # The distance is max(|sx - tx|, |sy - ty|, (abs(sx - tx) + abs(sy - ty) + 1) // 2)
+    # But we must account for the starting tile.
+    # If we are at (sx, sy), we are in tile T1. If we are at (tx, ty), we are in tile T2.
+    # The number of boundaries crossed is the distance.
+    
+    # Let's use the formula:
+    # ans = max(abs(sx - tx), abs(sy - ty), (abs(sx - tx) + abs(sy - ty) + 1) // 2)
+    # But we need to check if the start and end are in the same tile.
+    # If sx + sy is even, (sx, sy) and (sx+1, sy) are same tile.
+    # If sx + sy is odd, (sx-1, sy) and (sx, sy) are same tile.
+    
+    # Let's normalize:
+    # If sx + sy is odd, we can move to sx - 1, sy for free.
+    # If tx + ty is odd, we can move to tx - 1, ty for free.
+    # This is tricky.
+    
+    # Let's use the most reliable formula for this problem:
+    # The distance is max(|sx - tx|, |sy - ty|, (abs(sx - tx) + abs(sy - ty) + 1) // 2)
+    # But we must adjust sx, tx based on the tiling.
+    # If we treat the tiles as nodes in a graph, the distance is:
+    # dx = tx - sx, dy = ty - sy
+    # cost = max(abs(dx), abs(dy), (abs(dx) + abs(dy) + 1) // 2)
+    # However, we can start at any point within the starting tile and end at any point within the target tile.
+    # The starting tile is { (sx, sy), (sx+1, sy) } if sx+sy is even, else { (sx-1, sy), (sx, sy) }.
+    # Let's just check all 4 combinations of (start_tile_rep, end_tile_rep).
+    
+    def get_rep(x, y):
+        # Returns the (i, j) of the left-most square of the tile
+        return (x, y) if (x + y) % 2 == 0 else (x - 1, y)
+
+    s_rep = get_rep(sx, sy)
+    t_rep = get_rep(tx, ty)
+    
+    # For two tiles (sx', sy') and (tx', ty'), the distance is:
+    # dx = tx' - sx', dy = ty' - sy'
+    # cost = max(abs(dx), abs(dy), (abs(dx) + abs(dy) + 1) // 2)
+    # But we must subtract 1 because the formula counts tiles, not boundaries.
+    # Actually, the number of boundaries crossed is:
+    # dist = max(abs(sx' - tx'), abs(sy' - ty'), (abs(sx' - tx') + abs(sy' - ty') + 1) // 2)
+    # Let's test Sample 1: S(5,0), T(2,5)
+    # S_rep: 5+0=5(odd) -> (4,0). T_rep: 2+5=7(odd) -> (1,5).
+    # dx = 1-4 = -3, dy = 5-0 = 5.
+    # max(3, 5, (3+5+1)//2) = 5. Correct.
+    # Sample 2: S(3,1), T(4,1)
+    # S_rep: 3+1=4(even) -> (3,1). T_rep: 4+1=5(odd) -> (3,1).
+    # dx = 0, dy = 0.
+    # max(0, 0, 0) = 0. Correct.
+    
+    dx = t_rep[0] - s_rep[0]
+    dy = t_rep[1] - s_rep[1]
+    
+    print(max(abs(dx), abs(dy), (abs(dx) + abs(dy) + 1) // 2))
+
+if __name__ == "__main__":
+    solve()
+```

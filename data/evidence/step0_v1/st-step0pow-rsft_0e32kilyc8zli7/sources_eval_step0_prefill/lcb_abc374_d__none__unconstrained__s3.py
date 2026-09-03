@@ -1,0 +1,124 @@
+import sys
+from itertools import permutations
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = float(input_data[1])
+    T = float(input_data[2])
+    
+    segments = []
+    idx = 3
+    for _ in range(N):
+        a = float(input_data[idx])
+        b = float(input_data[idx+1])
+        c = float(input_data[idx+2])
+        d = float(input_data[idx+3])
+        segments.append(((a, b), (c, d)))
+        idx += 4
+
+    # Precompute lengths of segments
+    # Time to print segment i is length / T
+    seg_times = []
+    for p1, p2 in segments:
+        dist = ((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)**0.5
+        seg_times.append(dist / T)
+
+    # We need to visit all segments. For each segment, we can start at either end.
+    # There are N! permutations of segments and 2^N choices of directions.
+    # Since N is small (up to 6), we can iterate through all permutations and 
+    # use dynamic programming or recursion to find the best direction for each.
+    
+    # However, with N=6, N! * 2^N is 720 * 64 = 46,080, which is small enough to brute force.
+    
+    min_total_time = float('inf')
+    
+    # Permute the order of segments
+    for p in permutations(range(N)):
+        # dp[i][0] is min time to finish segment p[i] ending at endpoint 0
+        # dp[i][1] is min time to finish segment p[i] ending at endpoint 1
+        # Endpoint 0 of segment i is (A_i, B_i), Endpoint 1 is (C_i, D_i)
+        
+        # Initial state: from (0,0) to start of first segment
+        p0 = segments[p[0]][0]
+        p1 = segments[p[0]][1]
+        
+        # To end at p1, must start at p0. Time: dist((0,0), p0)/S + length/T
+        # To end at p0, must start at p1. Time: dist((0,0), p1)/S + length/T
+        
+        dist_00 = (p0[0]**2 + p0[1]**2)**0.5
+        dist_01 = (p1[0]**2 + p1[1]**2)**0.5
+        
+        dp0 = dist_01 / S + seg_times[p[0]] # Ended at p0
+        dp1 = dist_00 / S + seg_times[p[0]] # Ended at p1
+        
+        for i in range(1, N):
+            seg_idx = p[i]
+            u0, u1 = segments[seg_idx][0], segments[seg_idx][1]
+            t_print = seg_times[seg_idx]
+            
+            prev_seg_idx = p[i-1]
+            v0, v1 = segments[prev_seg_idx][0], segments[prev_seg_idx][1]
+            
+            # Calculate new dp0 (ending at u0, so started at u1)
+            # From prev v0 to u1 OR from prev v1 to u1
+            d_v0_u1 = ((v0[0]-u1[0])**2 + (v0[1]-u1[1])**2)**0.5
+            d_v1_u1 = ((v1[0]-u1[0])**2 + (v1[1]-u1[1])**2)**0.5
+            
+            # We need the DP values from the previous step. 
+            # But wait, the previous DP values were:
+            # current_dp0: min time ending at v0
+            # current_dp1: min time ending at v1
+            # Let's use temporary variables to avoid overwriting.
+            
+            # This is slightly wrong because dp0/dp1 were defined for the previous segment.
+            # Let's redefine:
+            # prev_dp0: min time ending at v0
+            # prev_dp1: min time ending at v1
+            pass
+            
+        # Let's rewrite the loop properly.
+    
+    # Re-implementing the loop clearly:
+    ans = float('inf')
+    for p in permutations(range(N)):
+        # dp[0]: min time ending at endpoint 0 of current segment
+        # dp[1]: min time ending at endpoint 1 of current segment
+        p0_start = segments[p[0]][0]
+        p1_start = segments[p[0]][1]
+        
+        # To end at endpoint 0, must have started at endpoint 1
+        dp0 = ((p1_start[0]**2 + p1_start[1]**2)**0.5) / S + seg_times[p[0]]
+        # To end at endpoint 1, must have started at endpoint 0
+        dp1 = ((p0_start[0]**2 + p0_start[1]**2)**0.5) / S + seg_times[p[0]]
+        
+        for i in range(1, N):
+            curr = p[i]
+            prev = p[i-1]
+            u0, u1 = segments[curr][0], segments[curr][1]
+            v0, v1 = segments[prev][0], segments[prev][1]
+            t_print = seg_times[curr]
+            
+            # New dp0: end at u0, so start at u1.
+            # Come from v0 (dp0) or v1 (dp1)
+            d_v0_u1 = ((v0[0]-u1[0])**2 + (v0[1]-u1[1])**2)**0.5
+            d_v1_u1 = ((v1[0]-u1[0])**2 + (v1[1]-u1[1])**2)**0.5
+            new_dp0 = min(dp0 + d_v0_u1/S, dp1 + d_v1_u1/S) + t_print
+            
+            # New dp1: end at u1, so start at u0.
+            d_v0_u0 = ((v0[0]-u0[0])**2 + (v0[1]-u0[1])**2)**0.5
+            d_v1_u0 = ((v1[0]-u0[0])**2 + (v1[1]-u0[1])**2)**0.5
+            new_dp1 = min(dp0 + d_v0_u0/S, dp1 + d_v1_u0/S) + t_print
+            
+            dp0, dp1 = new_dp0, new_dp1
+            
+        ans = min(ans, dp0, dp1)
+        
+    print(f"{ans:.20f}")
+
+if __name__ == "__main__":
+    solve()

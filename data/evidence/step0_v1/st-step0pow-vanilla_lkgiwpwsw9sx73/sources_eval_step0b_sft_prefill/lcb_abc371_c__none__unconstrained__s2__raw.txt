@@ -1,0 +1,95 @@
+```python
+import sys
+from itertools import permutations
+from functools import reduce
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    # Use a pointer-like list to simulate sequential reads
+    data = input_data
+    ptr = 0
+    
+    N = int(data[ptr])
+    ptr += 1
+    
+    # Helper to get edges as a set of frozen sets
+    def get_edges(m_count, current_ptr):
+        edges = set()
+        for _ in range(m_count):
+            u = int(data[current_ptr])
+            v = int(data[current_ptr + 1])
+            edges.add(frozenset([u, v]))
+            current_ptr += 2
+        return edges, current_ptr
+
+    MG = int(data[ptr])
+    ptr += 1
+    edges_G, ptr = get_edges(MG, ptr)
+    
+    MH = int(data[ptr])
+    ptr += 1
+    edges_H, ptr = get_edges(MH, ptr)
+    
+    # Read cost matrix A
+    # A[i][j] where 1 <= i < j <= N
+    # The input is flat: A12, A13... A1N, A23... A2N, ...
+    costs_flat = list(map(int, data[ptr:]))
+    
+    # Map (i, j) with i < j to its cost
+    # We can use a dictionary or a nested list. 
+    # Given N=8, we can pre-calculate the cost for every pair.
+    cost_map = {}
+    idx = 0
+    for i in range(1, N + 1):
+        for j in range(i + 1, N + 1):
+            cost_map[frozenset([i, j])] = costs_flat[idx]
+            idx += 1
+
+    # The goal is to find a permutation P of {1...N} that minimizes:
+    # Sum_{1 <= i < j <= N} cost(P_i, P_j) if (edge(i, j) in G) != (edge(P_i, P_j) in H)
+    
+    # Pre-calculate adjacency matrices for G and H
+    adj_G = [[False] * (N + 1) for _ in range(N + 1)]
+    for e in edges_G:
+        u, v = list(e)
+        adj_G[u][v] = adj_G[v][u] = True
+        
+    adj_H = [[False] * (N + 1) for _ in range(N + 1)]
+    for e in edges_H:
+        u, v = list(e)
+        adj_H[u][v] = adj_H[v][u] = True
+
+    # All possible pairs (i, j) with i < j
+    pairs = [(i, j) for i in range(1, N + 1) for j in range(i + 1, N + 1)]
+
+    # We iterate through all permutations P of (1...N)
+    # P[i-1] is the vertex in H that vertex i in G is mapped to.
+    # For each pair (i, j) in G, the corresponding pair in H is (P[i-1], P[j-1])
+    
+    def calculate_cost(p):
+        # p is a tuple (P1, P2, ..., PN)
+        # We need to check every pair (i, j) where 1 <= i < j <= N
+        # The edge status in G is adj_G[i][j]
+        # The edge status in H is adj_H[p[i-1]][p[j-1]]
+        # If they differ, we add the cost of toggling the edge (p[i-1], p[j-1])
+        
+        # Using a generator expression inside sum() to avoid explicit loops
+        return sum(
+            cost_map[frozenset([p[i-1], p[j-1]])] 
+            for i, j in pairs 
+            if adj_G[i][j] != adj_H[p[i-1]][p[j-1]]
+        )
+
+    # Find the minimum cost across all permutations
+    # We use map to apply the cost function to all permutations and min to find the minimum
+    ans = min(map(calculate_cost, permutations(range(1, N + 1))))
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()
+```

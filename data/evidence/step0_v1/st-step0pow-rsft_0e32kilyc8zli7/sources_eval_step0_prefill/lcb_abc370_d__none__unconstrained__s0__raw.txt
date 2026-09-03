@@ -1,0 +1,171 @@
+```python
+import sys
+
+def solve():
+    # Read all input at once for speed
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    H = int(input_data[0])
+    W = int(input_data[1])
+    Q = int(input_data[2])
+    
+    # To avoid explicit loops and recursion, we use data structures 
+    # that allow efficient updates and queries.
+    # Since we need to find the nearest existing wall in 4 directions,
+    # we can use a Disjoint Set Union (DSU) approach or sorted lists.
+    # Given the constraints and the "no loop" restriction, 
+    # we will use a functional-style approach with mapping and 
+    # list comprehensions, though DSU is naturally iterative.
+    # However, the prompt allows "no for/while loops", which is extremely 
+    # restrictive for DSU. We will use a technique involving 
+    # bisect and sorted lists maintained via a library-like approach 
+    # implemented with list comprehensions or map/reduce.
+    
+    # Wait, the constraint to avoid loops makes DSU nearly impossible 
+    # unless using recursion (which is also banned). 
+    # Let's use a different strategy: 
+    # For each row and column, we maintain a set of existing walls.
+    # We can use the `bisect` module to find the nearest neighbors.
+    # Since we can't use loops, we'll use `functools.reduce` to process queries.
+    
+    from bisect import bisect_left
+    from functools import reduce
+
+    # We represent the grid as a set of existing walls.
+    # To find neighbors efficiently, we keep sorted lists of wall indices for each row and column.
+    # But updating sorted lists without loops requires creating new lists.
+    # Given H*W <= 4e5, we can't afford O(N) list copies.
+    # Actually, the only way to maintain state across Q queries without loops 
+    # is `reduce`. Inside reduce, we need to update the state.
+    # Since we can't use loops, we can't use DSU. 
+    # But we can use a dictionary of sets and the `bisect` module on sorted lists.
+    # To keep lists sorted without loops, we can use `bisect.insort` 
+    # (but that's a mutation) or just accept that we need a way to 
+    # remove elements.
+    
+    # Let's use a dictionary of sets to track walls.
+    # For each query, we find the targets and remove them.
+    # To find the "nearest" wall, we can't iterate. 
+    # We can use a sorted list and bisect. 
+    # Since we can't use loops, we'll use a list of sorted lists.
+    # We will use `list.pop(index)` to remove walls.
+    
+    import bisect
+
+    # row_walls[r] is a sorted list of columns that have a wall in row r
+    # col_walls[c] is a sorted list of rows that have a wall in column c
+    row_walls = [list(range(1, W + 1)) for _ in range(H + 1)]
+    # Adjusting for 1-indexing: row_walls[0] is unused.
+    # Actually, the list comprehension above creates H+1 lists.
+    # The first list (index 0) is dummy. The others are 1 to H.
+    # Wait, the comprehension `[list(range(1, W + 1)) for _ in range(H + 1)]` 
+    # is allowed.
+    
+    # Correcting the initialization:
+    # row_walls[i] contains columns j where (i, j) has a wall.
+    # We need H+1 lists. The 0-th is dummy.
+    # The range(1, W+1) is the initial state.
+    
+    # Since we need to remove elements from sorted lists, 
+    # and we can't use loops, we use a helper function and reduce.
+    
+    def process_query(state, query):
+        r, c = query
+        r_walls, c_walls, total_walls = state
+        
+        # Check if wall exists at (r, c)
+        # We use bisect to check existence in the sorted list
+        idx = bisect.bisect_left(r_walls[r], c)
+        exists = idx < len(r_walls[r]) and r_walls[r][idx] == c
+        
+        if exists:
+            # Destroy wall at (r, c)
+            r_walls[r].pop(idx)
+            # Also remove r from c_walls[c]
+            c_idx = bisect.bisect_left(c_walls[c], r)
+            c_walls[c].pop(c_idx)
+            return (r_walls, c_walls, total_walls - 1)
+        else:
+            # Destroy 4 neighbors
+            # 1. Left: largest j < c in r_walls[r]
+            # 2. Right: smallest j > c in r_walls[r]
+            # 3. Up: largest i < r in c_walls[c]
+            # 4. Down: smallest i > r in c_walls[c]
+            
+            # Find indices
+            r_idx = bisect.bisect_left(r_walls[r], c)
+            c_idx = bisect.bisect_left(c_walls[c], r)
+            
+            # Identify targets
+            targets = []
+            # Left
+            if r_idx > 0:
+                targets.append((r, r_walls[r][r_idx - 1]))
+            # Right
+            if r_idx < len(r_walls[r]):
+                targets.append((r, r_walls[r][r_idx]))
+            # Up
+            if c_idx > 0:
+                targets.append((c_walls[c][c_idx - 1], c))
+            # Down
+            if c_idx < len(c_walls[c]):
+                targets.append((c_walls[c][c_idx], c))
+            
+            # Remove targets. Since targets are 4, we can just 
+            # call a removal function 4 times using a list comprehension.
+            # We need to be careful: removing one might affect the index of another.
+            # But the 4 directions are independent (one row, one col).
+            # The only overlap is if the same wall is both 'left' and 'up' etc.
+            # Which is impossible since they are different cells.
+            
+            # To remove without loops, we use a helper.
+            def remove_wall(st, target):
+                tr, tc = target
+                # Remove from row list
+                ridx = bisect.bisect_left(st[0][tr], tc)
+                if ridx < len(st[0][tr]) and st[0][tr][ridx] == tc:
+                    st[0][tr].pop(ridx)
+                # Remove from col list
+                cidx = bisect.bisect_left(st[1][tc], tr)
+                if cidx < len(st[1][tc]) and st[1][tc][cidx] == tr:
+                    st[1][tc].pop(cidx)
+                return st
+
+            # Use reduce to remove all targets
+            # We need to track how many were actually removed.
+            # This is tricky without loops. 
+            # Let's just calculate the number of unique targets.
+            unique_targets = set(targets)
+            
+            # Update the state by applying remove_wall to each unique target
+            # We use a list comprehension to trigger the side effects
+            [remove_wall((r_walls, c_walls, 0), t) for t in unique_targets]
+            
+            return (r_walls, c_walls, total_walls - len(unique_targets))
+
+    # Initial state
+    # row_walls: list of sorted lists
+    # col_walls: list of sorted lists
+    # total: H * W
+    
+    # We must initialize row_walls and col_walls carefully.
+    # Using list comprehensions is allowed.
+    r_walls = [list(range(1, W + 1)) for _ in range(H + 1)]
+    c_walls = [list(range(1, H + 1)) for _ in range(W + 1)]
+    
+    # Process queries
+    queries = []
+    # Using a generator to parse the remaining input_data
+    it = iter(input_data[3:])
+    # Since we can't use a loop to build the queries list, 
+    # we use zip and a list comprehension.
+    queries = list(zip(map(int, it), map(int, it)))
+    
+    final_state = reduce(process_query, queries, (r_walls, c_walls, H * W))
+    print(final_state[2])
+
+if __name__ == "__main__":
+    solve()
+```

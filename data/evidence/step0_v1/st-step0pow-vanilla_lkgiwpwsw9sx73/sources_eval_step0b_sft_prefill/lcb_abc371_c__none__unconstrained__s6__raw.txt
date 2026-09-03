@@ -1,0 +1,67 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    ptr = 0
+    N = int(input_data[ptr])
+    ptr += 1
+    
+    # Adjacency matrix for G
+    G = [[0] * N for _ in range(N)]
+    MG = int(input_data[ptr])
+    ptr += 1
+    for _ in range(MG):
+        u = int(input_data[ptr]) - 1
+        v = int(input_data[ptr+1]) - 1
+        G[u][v] = G[v][u] = 1
+        ptr += 2
+        
+    # Adjacency matrix for H
+    H = [[0] * N for _ in range(N)]
+    MH = int(input_data[ptr])
+    ptr += 1
+    for _ in range(MH):
+        u = int(input_data[ptr]) - 1
+        v = int(input_data[ptr+1]) - 1
+        H[u][v] = H[v][u] = 1
+        ptr += 2
+        
+    # Cost matrix A
+    # The input gives A_{i,j} for 1 <= i < j <= N
+    A = [[0] * N for _ in range(N)]
+    for i in range(N - 1):
+        for j in range(i + 1, N):
+            val = int(input_data[ptr])
+            A[i][j] = A[j][i] = val
+            ptr += 1
+
+    # Precompute all pairs (i, j) where i < j
+    pairs = [(i, j) for i in range(N) for j in range(i + 1, N)]
+
+    # We need to find a permutation P of (0, ..., N-1) that minimizes:
+    # Sum_{i < j} (cost to make edge (P_i, P_j) in H match edge (i, j) in G)
+    # Cost is A[P_i][P_j] if (G[i][j] != H[P_i][P_j]), else 0.
+    
+    # To iterate through all permutations without using for-loops, 
+    # we use map() and a lambda.
+    
+    costs = map(
+        lambda p: sum(
+            (A[p[i]][p[j]] if G[i][j] != H[p[i]][p[j]] else 0)
+            for i, j in pairs
+        ),
+        permutations(range(N))
+    )
+    
+    # Print the minimum of the calculated costs
+    print(min(costs))
+
+if __name__ == "__main__":
+    solve()
+```

@@ -1,0 +1,41 @@
+import sys
+
+def solve():
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    pairs = []
+    for i in range(N):
+        L = int(input_data[1 + 2 * i])
+        R = int(input_data[2 + 2 * i])
+        pairs.append((L, R))
+    
+    # Calculate the minimum and maximum possible sums
+    min_sum = sum(p[0] for p in pairs)
+    max_sum = sum(p[1] for p in pairs)
+    
+    # A solution exists if and only if 0 is within [min_sum, max_sum]
+    if min_sum <= 0 <= max_sum:
+        # We start with the minimum possible values
+        # We need to increase the sum from min_sum to 0
+        diff = 0 - min_sum
+        
+        # For each X_i, we can increase it from L_i up to R_i
+        # The maximum increase for X_i is (R_i - L_i)
+        X = []
+        for L, R in pairs:
+            # We take the minimum of the remaining difference needed and the max possible increase for this element
+            increase = min(diff, R - L)
+            X.append(L + increase)
+            diff -= increase
+            
+        print("Yes")
+        print(*(X))
+    else:
+        print("No")
+
+if __name__ == "__main__":
+    solve()

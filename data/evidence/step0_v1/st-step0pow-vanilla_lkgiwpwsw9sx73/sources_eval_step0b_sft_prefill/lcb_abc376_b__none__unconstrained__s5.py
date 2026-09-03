@@ -1,0 +1,158 @@
+import sys
+from collections import deque
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    instructions = []
+    idx = 2
+    for _ in range(Q):
+        instructions.append((input_data[idx], int(input_data[idx+1])))
+        idx += 2
+
+    # Initial state: left hand at 1, right hand at 2
+    # State is represented as (L, R)
+    current_state = (1, 2)
+    total_ops = 0
+
+    # BFS function to find the shortest path from start_state to any state 
+    # where the specified hand is at target_pos, without moving the other hand.
+    # Wait, the problem says "you must not move the other hand not specified by H_i".
+    # This means if H_i is 'L', R remains fixed. If H_i is 'R', L remains fixed.
+    
+    def get_dist(start_state, hand, target):
+        L, R = start_state
+        # The hand to move is 'hand', the other is 'fixed'
+        # We need to find the shortest path from current_pos to target
+        # avoiding the fixed_pos.
+        
+        # Since we cannot pass through the fixed hand, the ring becomes a line.
+        # The distance is the shortest path in a graph where the edge to the fixed node is removed.
+        
+        # We can use BFS or simply calculate the distance on the circle.
+        # However, since N is small (100), BFS is safe.
+        
+        start_node = L if hand == 'L' else R
+        fixed_node = R if hand == 'L' else L
+        
+        # BFS to find shortest path from start_node to target avoiding fixed_node
+        queue = deque([(start_node, 0)])
+        visited = {start_node, fixed_node}
+        
+        # Standard BFS
+        # Note: We can't use a while loop with a mutable state outside if we use map, 
+        # but we can use a helper function or a list comprehension trick.
+        # Let's use a simple BFS logic.
+        
+        # To avoid 'while' loops for strict functional styles (though not requested), 
+        # I'll use a standard while loop.
+        
+        # Re-evaluating: The constraint is "you must not move the other hand".
+        # This means the other hand is a wall.
+        # The distance is the shortest path from start_node to target in the graph G - {fixed_node}.
+        
+        # Since it's a ring, removing one node leaves a path.
+        # The distance is simply the distance along the path that doesn't cross the fixed node.
+        
+        # Let's calculate clockwise and counter-clockwise distances.
+        # One of them will be blocked by the fixed node.
+        
+        # Distance clockwise from A to B: (B - A) % N
+        # Distance counter-clockwise from A to B: (A - B) % N
+        
+        # The fixed node is at 'fixed_node'.
+        # The clockwise path from start to target is blocked if fixed_node is "between" them.
+        # A node X is between A and B clockwise if (X-A)%N < (B-A)%N.
+        
+        cw_dist = (target - start_node) % N
+        ccw_dist = (start_node - target) % N
+        
+        # Check if fixed_node is in the clockwise path
+        # fixed_node is between start_node and target clockwise if:
+        # (fixed_node - start_node) % N < cw_dist
+        is_cw_blocked = ((fixed_node - start_node) % N) < cw_dist
+        
+        # Check if fixed_node is in the counter-clockwise path
+        # (fixed_node - target) % N < ccw_dist (relative to target moving CCW)
+        # Actually, simpler: if it's not blocked clockwise, cw_dist is an option.
+        # If it's not blocked counter-clockwise, ccw_dist is an option.
+        
+        # Let's use the property: in a ring of N, removing one node leaves a line of N-1.
+        # The distance between two nodes in that line is unique.
+        
+        # Correct logic:
+        # The only way to get from start to target is to go the "long way" or "short way".
+        # One of these ways is blocked by the fixed hand.
+        # The one that is NOT blocked is the only option.
+        
+        # Clockwise distance: (target - start_node) % N
+        # The nodes visited are (start_node + k) % N for k = 1 ... cw_dist
+        # If any of these == fixed_node, clockwise is blocked.
+        
+        # Since we can't use loops, we can check the condition:
+        # fixed_node is in the clockwise arc from start to target iff
+        # (fixed_node - start_node) % N < (target - start_node) % N
+        
+        # Wait, the problem says "minimum total number of operations".
+        # But it also says "you must not move the other hand".
+        # This means for each instruction, the path is forced to be the one that doesn't cross the other hand.
+        
+        # Let's re-read: "Perform some number of operations... you must not move the other hand".
+        # This means the distance is fixed for each instruction.
+        
+        # Let's use the property:
+        # Dist = (target - start_node) % N if (fixed_node - start_node) % N >= (target - start_node) % N else (start_node - target) % N
+        # Wait, if (fixed_node - start_node) % N < (target - start_node) % N, then the clockwise path is blocked.
+        # Then we must take the counter-clockwise path, which is (start_node - target) % N.
+        # If (fixed_node - start_node) % N >= (target - start_node) % N, then the clockwise path is clear.
+        # But we want the MINIMUM operations? No, the constraint is "must not move the other hand".
+        # This means we can only move the specified hand. The other hand is a barrier.
+        # There is only one path between two points on a ring that doesn't pass through a third point.
+        
+        # Let's double check:
+        # Ring: 1-2-3-4-5-6. L=1, R=2. Instruction: R 4.
+        # R can move 2->3->4 (2 ops) or 2->1(X)->6->5->4 (4 ops).
+        # But R cannot move to 1 because L is there. So R must move 2->3->4.
+        # Distance is 2.
+        
+        # General rule:
+        # To move hand H from S to T without crossing fixed hand F:
+        # If we go clockwise, we encounter F if (F-S)%N < (T-S)%N.
+        # If we go counter-clockwise, we encounter F if (S-F)%N < (S-T)%N.
+        # Exactly one of these must be false (since S, T, F are distinct).
+        # The distance is (T-S)%N if clockwise is not blocked, else (S-T)%N.
+        
+        return (target - start_node) % N if ((fixed_node - start_node) % N >= (target - start_node) % N) else (start_node - target) % N
+
+    # To avoid loops, we use a reduce-like approach with a list comprehension or map.
+    # We need to maintain the state (L, R, total_dist).
+    
+    def process_instruction(state, instr):
+        L, R, total = state
+        hand, target = instr
+        if hand == 'L':
+            dist = get_dist((L, R), 'L', target)
+            return (target, R, total + dist)
+        else:
+            dist = get_dist((L, R), 'R', target)
+            return (L, target, total + dist)
+
+    # Use a trick to simulate a loop using a list comprehension and a mutable state
+    # or simply use a loop since the prompt says "complete Python program" and 
+    # doesn't forbid loops (it only forbids them in specific functional contexts usually).
+    # The prompt does NOT forbid loops.
+    
+    # Let's use a standard loop.
+    state = (1, 2, 0)
+    for instr in instructions:
+        state = process_instruction(state, instr)
+    
+    print(state[2])
+
+if __name__ == "__main__":
+    solve()

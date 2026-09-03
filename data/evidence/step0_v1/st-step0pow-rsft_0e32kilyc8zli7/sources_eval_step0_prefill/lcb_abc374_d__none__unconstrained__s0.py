@@ -1,0 +1,88 @@
+import sys
+import math
+from itertools import permutations
+
+def solve():
+    # Read N, S, T
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    S = float(input_data[1])
+    T = float(input_data[2])
+    
+    segments = []
+    idx = 3
+    for _ in range(N):
+        a = float(input_data[idx])
+        b = float(input_data[idx+1])
+        c = float(input_data[idx+2])
+        d = float(input_data[idx+3])
+        segments.append(((a, b), (c, d)))
+        idx += 4
+
+    # Precompute lengths of segments
+    # Time to print segment i is length / T
+    seg_times = []
+    for seg in segments:
+        dist = math.sqrt((seg[0][0] - seg[1][0])**2 + (seg[0][1] - seg[1][1])**2)
+        seg_times.append(dist / T)
+
+    # We need to visit all N segments. For each segment, we can start at either endpoint.
+    # There are N! permutations of segments and 2^N choices of directions.
+    # Since N is small (up to 6), we can iterate through all permutations and directions.
+    
+    # Let's define the endpoints for each segment
+    # endpoints[i][0] is (A_i, B_i), endpoints[i][1] is (C_i, D_i)
+    endpoints = [seg for seg in segments]
+    
+    min_total_time = float('inf')
+    
+    # Try all permutations of segments
+    for p in permutations(range(N)):
+        # For each permutation, there are 2^N ways to choose the direction (start -> end)
+        # We can use recursion or bitmask to try all 2^N directions
+        # However, for a fixed permutation, we can use DP to find the best directions.
+        # dp[i][0] = min time to finish segment p[i] ending at endpoint 0
+        # dp[i][1] = min time to finish segment p[i] ending at endpoint 1
+        
+        # Initial state: from (0,0) to start of first segment
+        # Segment p[0]
+        seg0 = endpoints[p[0]]
+        # Option 0: start at seg0[1], end at seg0[0]
+        dist_to_start0 = math.sqrt(seg0[1][0]**2 + seg0[1][1]**2)
+        dp0 = (dist_to_start0 / S) + seg_times[p[0]]
+        # Option 1: start at seg0[0], end at seg0[1]
+        dist_to_start1 = math.sqrt(seg0[0][0]**2 + seg0[0][1]**2)
+        dp1 = (dist_to_start1 / S) + seg_times[p[0]]
+        
+        current_dp = [dp0, dp1]
+        
+        for i in range(1, N):
+            prev_seg = endpoints[p[i-1]]
+            curr_seg = endpoints[p[i]]
+            
+            # New DP values for current segment
+            # next_dp[0]: end at curr_seg[0] (so start at curr_seg[1])
+            # next_dp[1]: end at curr_seg[1] (so start at curr_seg[0])
+            
+            # To end at curr_seg[0], we must start at curr_seg[1]
+            # We could have come from prev_seg[0] or prev_seg[1]
+            d00 = math.sqrt((prev_seg[0][0] - curr_seg[1][0])**2 + (prev_seg[0][1] - curr_seg[1][1])**2)
+            d10 = math.sqrt((prev_seg[1][0] - curr_seg[1][0])**2 + (prev_seg[1][1] - curr_seg[1][1])**2)
+            next_dp0 = min(current_dp[0] + d00/S, current_dp[1] + d10/S) + seg_times[p[i]]
+            
+            # To end at curr_seg[1], we must start at curr_seg[0]
+            d01 = math.sqrt((prev_seg[0][0] - curr_seg[0][0])**2 + (prev_seg[0][1] - curr_seg[0][1])**2)
+            d11 = math.sqrt((prev_seg[1][0] - curr_seg[0][0])**2 + (prev_seg[1][1] - curr_seg[0][1])**2)
+            next_dp1 = min(current_dp[0] + d01/S, current_dp[1] + d11/S) + seg_times[p[i]]
+            
+            current_dp = [next_dp0, next_dp1]
+            
+        min_total_time = min(min_total_time, min(current_dp))
+
+    print(f"{min_total_time:.20f}")
+
+if __name__ == "__main__":
+    solve()

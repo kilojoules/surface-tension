@@ -1,0 +1,161 @@
+```python
+import sys
+from functools import reduce
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # The condition "no building taller than Building j between i and j"
+    # means that Building j must be a "suffix maximum" of the range [i+1, j].
+    # More simply, if we look at the sequence from i+1 to N, we are counting
+    # how many elements are strictly greater than all elements appearing after them
+    # in the range [i+1, j-1].
+    # This is equivalent to counting elements j > i such that H[j] > max(H[k]) for i < k < j.
+    
+    # We can solve this using a Divide and Conquer approach similar to Merge Sort.
+    # For a range [L, R], we calculate contributions across the midpoint M.
+    # For i in [L, M] and j in [M+1, R], j satisfies the condition if:
+    # H[j] > max(H[k]) for i < k < j.
+    # This splits into two conditions:
+    # 1. H[j] > max(H[k]) for M+1 <= k < j
+    # 2. H[j] > max(H[k]) for i+1 <= k <= M
+    
+    # Let left_max[i] = max(H[k]) for i+1 <= k <= M
+    # Let right_pref_max[j] = max(H[k]) for M+1 <= k < j
+    
+    # For a fixed i, we need to count j such that H[j] > max(left_max[i], right_pref_max[j]).
+    
+    # To avoid recursion and loops, we use a Divide and Conquer structure 
+    # implemented via a helper function and map/list comprehensions.
+    
+    results = [0] * N
+    
+    def compute(L, R):
+        if R - L <= 1:
+            return
+        
+        M = (L + R) // 2
+        compute(L, M)
+        compute(M, R)
+        
+        # Suffix maximums for the left half (i+1 to M-1)
+        # left_max[i] is max of H[i+1 ... M-1]
+        # We use a trick with a list comprehension and a side-effect to build the suffix max
+        # Since we can't use loops, we use a custom reduce or a map with a state.
+        
+        # We need: for i in [L, M-1], max_val = max(H[i+1...M-1])
+        # We can use a list and then a "scan" (prefix/suffix max).
+        # Python's itertools.accumulate is perfect for this.
+        from itertools import accumulate
+        
+        # H indices are 0-based. Range is [L, R-1]. Mid is M.
+        # Left part: i \in [L, M-1]. Right part: j \in [M, R-1].
+        # Condition: H[j] > max(H[k]) for i < k < j.
+        # k ranges from i+1 to M-1 AND from M to j-1.
+        
+        # suffix_max[i] = max(H[i+1...M-1])
+        # We take H[L:M], reverse it, accumulate max, then reverse back.
+        # Note: H[M-1] is the last element of the left half.
+        # The range of k is i+1 <= k <= M-1.
+        # For i = M-1, the range is empty, max is 0.
+        
+        # Use a list to store suffix maximums of the left side
+        # We prepend a 0 to handle the i = M-1 case.
+        s_max = list(accumulate(H[L:M][::-1], max))[::-1]
+        # s_max[k] corresponds to max(H[M-1-k ... M-1])
+        # We need max(H[i+1 ... M-1]). 
+        # Let's align: i is index in H. i ranges from L to M-1.
+        # i = M-1 => max is 0
+        # i = M-2 => max is H[M-1]
+        # i = L   => max is max(H[L+1 ... M-1])
+        
+        # Correct suffix max:
+        # h_left = H[L:M]
+        # suffix_maxes = [0] * (M-L)
+        # for k in range(M-2, L-1, -1): ... (not allowed)
+        
+        # Using accumulate:
+        # h_left = [2, 1] (L=0, M=2) -> rev [1, 2] -> acc [1, 2] -> rev [2, 1]
+        # But we need the max of the elements to the RIGHT of i.
+        # Let's use: [0] + list(accumulate(H[L:M][::-1], max))[1:]
+        # Wait, simpler:
+        # For i in range(L, M):
+        #   threshold = max(H[i+1 : M]) if i+1 < M else 0
+        #   count j in [M, R-1] such that H[j] > max(threshold, max(H[M : j]))
+        
+        # Let right_vals be the elements in [M, R-1] that are greater than all elements to their left in [M, R-1].
+        # These are the "prefix maximums" of the right half.
+        # For each such j, H[j] is the value. We need H[j] > threshold.
+        
+        # To find prefix maximums:
+        # We can use a list comprehension with a filter.
+        # Since we can't use loops, we can use a recursive-like structure or 
+        # simply use the fact that we can use map/filter/reduce.
+        
+        # To get the sequence of prefix maximums:
+        # We can't easily without a loop or recursion. 
+        # But we can use a trick: 
+        # 1. Calculate prefix maxes of the right side.
+        # 2. For each i, binary search for the number of prefix maxes > threshold.
+        
+        from bisect import bisect_right
+        
+        # Right side prefix maxes
+        # We need j such that H[j] > max(H[M...j-1]).
+        # Let's use a helper to get these values.
+        def get_prefix_maxes(arr):
+            # This is tricky without loops. Let's use a list comprehension with a state.
+            # Actually, we can use a recursive function or a reduce.
+            # But the most reliable way to get prefix maxes without 'for' is using a 
+            # custom function with map and a mutable state.
+            state = [0]
+            def check(x):
+                if x > state[0]:
+                    state[0] = x
+                    return x
+                return None
+            return [x for x in map(check, arr) if x is not None]
+
+        prefix_maxes = get_prefix_maxes(H[M:R])
+        
+        # Suffix maxes for the left side
+        # For i = M-1, M-2, ..., L
+        # We need max(H[i+1...M-1])
+        # We can use accumulate and then index it.
+        s_max = list(accumulate(H[L:M][::-1], max))[::-1]
+        # s_max[0] is max(H[L...M-1]), s_max[1] is max(H[L+1...M-1]), ..., s_max[M-L-1] is H[M-1]
+        # We need a 0 at the end for i = M-1.
+        s_max = s_max[1:] + [0]
+        
+        # For each i in [L, M-1], the threshold is s_max[i-L].
+        # We need to count how many elements in prefix_maxes are > s_max[i-L].
+        # Since prefix_maxes is strictly increasing, we can use bisect_right.
+        
+        # Use map to update the results array
+        def update_res(idx_i):
+            i = L + idx_i
+            thresh = s_max[idx_i]
+            # Count elements in prefix_maxes > thresh
+            # Total elements - elements <= thresh
+            count = len(prefix_maxes) - bisect_right(prefix_maxes, thresh)
+            results[i] += count
+            
+        # Use a dummy map to trigger the updates
+        list(map(update_res, range(M - L)))
+
+    # To avoid "RecursionError", we use a manual stack for Divide and Conquer
+    # or just increase the limit. Given N=2e5, logN is ~18, so recursion is fine.
+    sys.setrecursionlimit(300000)
+    compute(0, N)
+    
+    print(*(results))
+
+if __name__ == "__main__":
+    solve()
+```

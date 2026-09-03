@@ -1,0 +1,65 @@
+import sys
+
+def solve():
+    # Read K, S, and T from standard input
+    # Using read().split() to handle potential whitespace issues
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    # The constraint to avoid explicit loops forces a functional programming style.
+    # While not necessarily "cleaner" for this specific logic, it encourages 
+    # the use of high-level abstractions and built-ins.
+    
+    # For K=1, S can be transformed to T if:
+    # 1. S == T (0 operations)
+    # 2. Edit distance is 1.
+    
+    # Edit distance 1 occurs if:
+    # - Lengths differ by 1: One insertion or one deletion.
+    # - Lengths are equal: One replacement.
+    
+    def check_replacement(s, t):
+        # Count positions where characters differ. 
+        # sum() with a generator expression is allowed.
+        return sum(1 for a, b in zip(s, t) if a != b) == 1
+
+    def check_insertion_deletion(s, t):
+        # Assume len(s) == len(t) + 1 (deletion from s) 
+        # or len(t) == len(s) + 1 (insertion into s).
+        # We find the first mismatch and check if the rest of the strings match.
+        
+        # To avoid loops, we find the first index of mismatch using a generator.
+        # We use next() to get the first index where s[i] != t[i].
+        try:
+            # Find first mismatch index
+            first_mismatch = next(i for i in range(min(len(s), len(t))) if s[i] != t[i])
+            
+            # If s is longer, check if s[mismatch+1:] == t[mismatch:]
+            # If t is longer, check if s[mismatch:] == t[mismatch+1:]
+            if len(s) > len(t):
+                return s[first_mismatch + 1:] == t[first_mismatch:]
+            else:
+                return s[first_mismatch:] == t[first_mismatch + 1:]
+        except StopIteration:
+            # No mismatch found within the length of the shorter string.
+            # This means one string is a prefix of the other.
+            # They are edit distance 1 if their lengths differ by exactly 1.
+            return abs(len(s) - len(t)) == 1
+
+    # Logic to determine the result
+    # We use a conditional expression to evaluate the possibilities.
+    result = (
+        (s == t) or 
+        (len(s) == len(t) and check_replacement(s, t)) or 
+        (abs(len(s) - len(t)) == 1 and check_insertion_deletion(s, t))
+    )
+    
+    print("Yes" if result else "No")
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,160 @@
+```python
+import sys
+
+def solve():
+    # Read N and K from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    n = int(input_data[0])
+    k = int(input_data[1])
+
+    # The total number of good sequences S is (NK)! / (K!)^N.
+    # We need to find the floor((S+1)/2)-th sequence.
+    # This is effectively the "middle" sequence.
+    # Because the set of good sequences is symmetric (replacing x with N-x+1),
+    # the middle sequence is the one that is "self-complementary" in a sense,
+    # or specifically, the sequence that marks the transition from the first half
+    # of the lexicographical order to the second half.
+    
+    # For any sequence A, its complement A' is defined by A'_i = N + 1 - A_i.
+    # If A is a good sequence, A' is also a good sequence.
+    # A is lexicographically smaller than A' if at the first index i where they differ, A_i < A'_i.
+    # The total number of sequences is S. 
+    # The floor((S+1)/2)-th sequence is the last sequence A such that A <= A'.
+    # A sequence A satisfies A <= A' if at the first index i where A_i != A'_i, A_i < A'_i.
+    # This is equivalent to saying that for the first index i where A_i != (N+1)/2, A_i < (N+1)/2.
+    # However, the simplest way to find the floor((S+1)/2)-th sequence is to realize
+    # that we want the largest sequence A such that A is lexicographically 
+    # smaller than or equal to its complement A'.
+    
+    # To construct the largest A such that A <= A':
+    # We want to place the largest possible numbers as late as possible, 
+    # but we must maintain the condition that A is not "larger" than A'.
+    # The condition A <= A' is satisfied if at the first index i where A_i != (N+1)/2,
+    # A_i < (N+1)/2.
+    # If N is even, there is no middle element (N+1)/2. The first difference must be A_i < (N+1)/2.
+    # If N is odd, the middle element is (N+1)/2.
+    
+    # Actually, the most direct construction for the floor((S+1)/2)-th sequence:
+    # We want the sequence that is the "median".
+    # For any sequence A, its complement A' (where A'_i = N+1 - A_i) is its mirror in lexicographical rank.
+    # The sequence we seek is the one that is "just before" the point where sequences 
+    # start becoming larger than their complements.
+    # This happens when the first element A_1 is < (N+1)/2.
+    # To make it the largest such sequence, we want A_1 to be the largest integer < (N+1)/2,
+    # and then all subsequent elements to be as large as possible.
+    
+    # Let mid = (N + 1) / 2.
+    # If N is even, the first element A_1 must be N // 2.
+    # If N is odd, the first element A_1 can be (N+1) // 2, but then we look at A_2, and so on.
+    
+    # Correct logic:
+    # We want the largest sequence A such that A <= A'.
+    # This means at the first index i where A_i != (N+1)/2, we must have A_i < (N+1)/2.
+    # To maximize A, we should keep A_i = (N+1)/2 for as long as possible.
+    # 1. If N is odd, we can have A_i = (N+1)//2 for all K occurrences of the middle value.
+    # 2. Then, at the first available spot, we must place a value < (N+1)//2 to ensure A < A'.
+    #    To maximize A, we pick the largest value < (N+1)//2, which is (N-1)//2.
+    # 3. After that, we fill the remaining spots with the largest available numbers 
+    #    to make the sequence as lexicographically large as possible.
+    
+    # Let's refine:
+    # Available numbers: 1...N, each K times.
+    # While we can place (N+1)/2 (if N is odd), do it.
+    # Then place the largest value < (N+1)/2.
+    # Then place all remaining values in descending order.
+    
+    res = []
+    counts = {i: k for i in range(1, n + 1)}
+    
+    # 1. Place the middle element as much as possible (only if N is odd)
+    if n % 2 != 0:
+        mid = (n + 1) // 2
+        for _ in range(k):
+            res.append(mid)
+        counts[mid] = 0
+        
+    # 2. Place the largest value strictly less than the middle
+    # If N is even, middle is (N+1)/2 = N.5, so largest < N.5 is N//2.
+    # If N is odd, middle is (N+1)//2, so largest < middle is (N-1)//2.
+    limit = (n + 1) // 2 if n % 2 != 0 else (n // 2)
+    # Wait, if N is even, the "middle" is between N/2 and N/2 + 1.
+    # The condition A <= A' means at the first index i where A_i != A'_i, A_i < A'_i.
+    # For N=2, K=2: Sequences are (1,1,2,2), (1,2,1,2), (1,2,2,1), (2,1,1,2), (2,1,2,1), (2,2,1,1)
+    # S=6, floor(7/2)=3. The 3rd is (1,2,2,1).
+    # Here N=2, A_1=1. Then we fill the rest as large as possible: 2, 2, 1.
+    
+    # General Rule:
+    # Find the largest value 'v' such that v < (N+1)/2.
+    # The sequence starts with as many (N+1)/2 as possible (if N is odd).
+    # Then it places one instance of 'v'.
+    # Then it fills all remaining slots with the largest available numbers in descending order.
+    
+    if n % 2 != 0:
+        mid = (n + 1) // 2
+        # We already handled the mid loop above, but let's be clean.
+        pass 
+    
+    # Re-calculating based on the logic:
+    res = []
+    counts = {i: k for i in range(1, n + 1)}
+    if n % 2 != 0:
+        mid = (n + 1) // 2
+        for _ in range(k):
+            res.append(mid)
+            counts[mid] -= 1
+            
+    # The "pivot" value is the largest integer < (N+1)/2
+    pivot = (n // 2) if n % 2 == 0 else (n // 2)
+    # Actually, if N=2, pivot is 1. If N=3, pivot is 1.
+    # Wait, if N=3, mid=2. Pivot is 1.
+    # Let's check N=3, K=3. S = 6!/(3!^3) = 720 / (6*6*6) = 720/216... no.
+    # S = (3*3)! / (3!)^3 = 362880 / 216 = 1680.
+    # floor(1681/2) = 840.
+    # The 840th sequence.
+    # Using the logic: mid=2 (3 times), then pivot=1 (1 time), then remaining descending.
+    # Remaining: 3(3), 1(2). Descending: 3 3 3 1 1.
+    # Result: 2 2 2 1 3 3 3 1 1. (Matches Sample 4!)
+    
+    # Correct pivot for any N:
+    # The value that is strictly less than (N+1)/2 and largest.
+    # That is always floor(N/2) if we consider the boundary.
+    # If N=2, N/2 = 1. If N=3, N/2 = 1.5 -> 1.
+    # But wait, if N=2, the pivot is 1. If N=3, the pivot is 1.
+    # Let's use: pivot = (n + 1) // 2 if n % 2 == 0 else (n // 2)
+    # No, simply: pivot = (n + 1) // 2 - 1 if n % 2 != 0 else n // 2
+    # Actually: pivot = (n + 1) // 2 if n % 2 == 0 else (n // 2)
+    # Let's test: N=2 -> 1. N=3 -> 1. N=6 -> 3.
+    # Sample 3: N=6, K=1. S = 6! = 720. floor(721/2) = 360.
+    # Pivot = 6 // 2 = 3.
+    # Sequence: 3, then remaining descending: 6 5 4 2 1.
+    # Result: 3 6 5 4 2 1. (Matches Sample 3!)
+    
+    # Final Logic:
+    # 1. If N is odd, append (N+1)//2, K times.
+    # 2. Append N//2, 1 time.
+    # 3. Append all remaining numbers in descending order.
+    
+    # Implementation:
+    final_res = []
+    cur_counts = {i: k for i in range(1, n + 1)}
+    if n % 2 != 0:
+        mid = (n + 1) // 2
+        for _ in range(k):
+            final_res.append(mid)
+            cur_counts[mid] -= 1
+    
+    pivot = n // 2
+    final_res.append(pivot)
+    cur_counts[pivot] -= 1
+    
+    for val in range(n, 0, -1):
+        while cur_counts[val] > 0:
+            final_res.append(val)
+            cur_counts[val] -= 1
+            
+    print(*(final_res))
+
+solve()
+```

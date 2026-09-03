@@ -1,0 +1,120 @@
+import sys
+
+def solve():
+    # Read input from standard input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    n = int(input_data[0])
+    h = list(map(int, input_data[1:]))
+    
+    # Group indices of buildings by their height
+    # height_groups[height] = [index1, index2, ...]
+    height_groups = {}
+    for i in range(n):
+        height = h[i]
+        if height not in height_groups:
+            height_groups[height] = []
+        height_groups[height].append(i)
+    
+    max_buildings = 0
+    
+    # For each height, check all possible starting positions and intervals
+    for height in height_groups:
+        indices = height_groups[height]
+        num_indices = len(indices)
+        
+        # If the number of buildings of this height is less than current max, skip
+        if num_indices <= max_buildings:
+            continue
+            
+        # We need to check if we can pick buildings at equal intervals.
+        # An interval is defined by the distance between chosen buildings.
+        # Let the chosen indices be i, i+d, i+2d, ...
+        # Since N is small (3000), we can iterate through all pairs of indices 
+        # of the same height to define a potential interval 'd'.
+        
+        # However, a simpler approach for N=3000 is to iterate through 
+        # all possible intervals d from 1 to N-1.
+        # But we only care about heights that actually appear.
+        
+        # To optimize, we use a boolean array (or set) for fast lookup of indices
+        # present for the current height.
+        present = [False] * n
+        for idx in indices:
+            present[idx] = True
+            
+        # Try every possible starting building i and every possible interval d
+        for i in indices:
+            # d is the distance between buildings. 
+            # We only need to check d such that i + d < n.
+            # To avoid O(N^3), we can't just loop d and then k.
+            # But we only need to check d that are differences between existing indices.
+            pass
+
+    # Re-evaluating the complexity: 
+    # The constraint to avoid explicit loops forces a functional style, 
+    # but for this specific problem, nested comprehensions can become 
+    # unreadable and inefficient. 
+    # Let's use a more direct approach with comprehensions.
+    
+    # For each height, we find all pairs of indices (i, j) and calculate the interval d = j - i.
+    # Then we count how many buildings of that height exist at that interval.
+    
+    # Let's refine: 
+    # For a fixed height, and a fixed interval d, and a starting point s:
+    # count = sum(1 for k in range(0, (n-s-1)//d + 1) if h[s + k*d] == height)
+    
+    # To keep it efficient and "loop-free", we can use:
+    # 1. Group indices by height.
+    # 2. For each height, iterate through all pairs of indices to find potential d.
+    # 3. For each d, check all possible starting points.
+    
+    # Actually, the simplest O(N^2) approach is:
+    # For every pair (i, j) with h[i] == h[j], let d = j - i.
+    # This pair could be the first and second building in a sequence.
+    # But that's still O(N^3) if we check the whole sequence.
+    
+    # Correct O(N^2) approach:
+    # For every possible interval d (1 to N), and every starting point s (0 to d-1):
+    # We have a sequence s, s+d, s+2d...
+    # In this sequence, we look for the most frequent height.
+    
+    # This can be implemented with comprehensions:
+    # result = max(
+    #     count of most frequent height in sequence (s, s+d, s+2d...)
+    #     for d in range(1, n)
+    #     for s in range(d)
+    # )
+    
+    # Let's implement this.
+    
+    # We need a way to count frequencies without a loop. 
+    # We can use collections.Counter.
+    from collections import Counter
+    
+    # We handle the case N=1 separately or ensure the range covers it.
+    if n == 0:
+        print(0)
+        return
+
+    # The logic:
+    # For each interval d from 1 to n-1:
+    #   For each start s from 0 to d-1:
+    #     Get heights at s, s+d, s+2d...
+    #     Find the max frequency of any height in that subsequence.
+    
+    # To avoid explicit loops, we use nested generators and max().
+    # We include the case where only 1 building is picked (handled by d=1 or the nature of the problem).
+    
+    ans = max([1] + [
+        Counter([h[i] for i in range(s, n, d)]).most_common(1)[0][1]
+        for d in range(1, n)
+        for s in range(d)
+    ])
+    
+    print(ans)
+
+if __name__ == "__main__":
+    solve()

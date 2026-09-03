@@ -1,0 +1,41 @@
+```python
+import sys
+from collections import Counter
+from itertools import accumulate
+
+def solve():
+    # Read all input and split into a list of integers
+    data = list(map(int, sys.stdin.read().split()))
+    
+    # Extract N and M
+    N = data[0]
+    M = data[1]
+    A = data[2:]
+    
+    # Calculate prefix sums of distances from rest area 1
+    # P[i] = distance from 1 to i+1. P[0] = 0, P[N] = total circumference.
+    # We use map(lambda x: x % M, ...) to keep values small.
+    P = list(map(lambda x: x % M, accumulate(A, initial=0)))
+    
+    # The distance clockwise from s to t is:
+    # If s < t: (P[t-1] - P[s-1]) % M
+    # If s > t: (P[N] - P[s-1] + P[t-1]) % M
+    # In both cases, the condition (dist % M == 0) is equivalent to:
+    # P[s-1] % M == P[t-1] % M
+    
+    # We need to count pairs (s, t) such that 1 <= s, t <= N, s != t, and P[s-1] == P[t-1] (mod M).
+    # Note: P[N] is the total loop, but the rest areas are only 1 to N.
+    # The prefix sums we care about are P[0], P[1], ..., P[N-1].
+    
+    # Use a frequency map to count occurrences of each remainder
+    counts = Counter(P[:N])
+    
+    # For each remainder that appears 'c' times, the number of pairs (s, t) is c * (c - 1)
+    # We use a generator expression inside sum() to avoid explicit loops
+    ans = sum(c * (c - 1) for c in counts.values())
+    
+    sys.stdout.write(str(ans) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

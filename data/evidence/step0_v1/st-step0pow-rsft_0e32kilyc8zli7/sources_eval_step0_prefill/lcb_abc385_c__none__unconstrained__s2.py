@@ -1,0 +1,72 @@
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # Group indices of buildings by their height
+    # height_map[h] = [list of indices where building height is h]
+    height_map = {}
+    for i in range(N):
+        h = H[i]
+        if h not in height_map:
+            height_map[h] = []
+        height_map[h].append(i)
+    
+    max_buildings = 0
+    
+    # For each unique height, check all possible equal intervals
+    for h in height_map:
+        indices = height_map[h]
+        num_indices = len(indices)
+        
+        # If the number of buildings of this height is less than current max, skip
+        if num_indices <= max_buildings:
+            continue
+            
+        # We want to find the maximum number of indices that form an arithmetic progression
+        # Since N is small (3000), we can iterate through all pairs of indices 
+        # as potential start and second elements of the sequence.
+        # However, a more efficient way is to iterate through all possible intervals 'd'.
+        
+        # For a fixed height, we check every pair of buildings (i, j) 
+        # and see how many buildings of the same height exist at interval d = j - i.
+        # But since we need to check all intervals, we can just iterate d from 1 to N.
+        
+        # To optimize, we use a boolean array (or set) for O(1) lookup of building presence.
+        # We only care about buildings of height 'h'.
+        present = [False] * N
+        for idx in indices:
+            present[idx] = True
+            
+        for i in range(num_indices):
+            start_idx = indices[i]
+            # Try every other building of the same height as the second building in the sequence
+            for j in range(i + 1, num_indices):
+                second_idx = indices[j]
+                d = second_idx - start_idx
+                
+                # Count how many buildings of height 'h' follow this interval
+                count = 2
+                current_idx = second_idx + d
+                while current_idx < N and present[current_idx]:
+                    count += 1
+                    current_idx += d
+                
+                if count > max_buildings:
+                    max_buildings = count
+                    
+    # The constraint says if we choose one building, it satisfies the condition.
+    # If N > 0, the answer is at least 1.
+    if N > 0 and max_buildings == 0:
+        max_buildings = 1
+        
+    print(max_buildings)
+
+if __name__ == "__main__":
+    solve()

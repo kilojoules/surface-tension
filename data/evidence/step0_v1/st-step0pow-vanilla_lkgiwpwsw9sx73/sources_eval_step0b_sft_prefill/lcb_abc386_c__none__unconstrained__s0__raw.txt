@@ -1,0 +1,66 @@
+```python
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    n, m = len(s), len(t)
+    
+    # If the length difference is more than 1, it's impossible with K=1
+    if abs(n - m) > 1:
+        print("No")
+        return
+
+    # Find the first index where s and t differ
+    # Using a list comprehension to find the first mismatch
+    # We use a trick with next() to avoid loops
+    diff_idx = next((i for i in range(min(n, m)) if s[i] != t[i]), min(n, m))
+    
+    # Slices from the first difference to the end
+    s_rem = s[diff_idx:]
+    t_rem = t[diff_idx:]
+    
+    # Case 1: S and T are identical or differ only at the very end
+    if not s_rem or not t_rem:
+        # If one is a prefix of another and length diff <= 1, it's Yes
+        # (Already handled by abs(n-m) > 1 check)
+        print("Yes")
+        return
+
+    # Case 2: Replace (lengths are equal)
+    # S[i] != T[i], but S[i+1:] == T[i+1:]
+    if n == m:
+        if s_rem[1:] == t_rem[1:]:
+            print("Yes")
+        else:
+            print("No")
+        return
+
+    # Case 3: Delete from S (S is longer)
+    # S[i] is extra, so S[i+1:] == T[i:]
+    if n > m:
+        if s_rem[1:] == t_rem:
+            print("Yes")
+        else:
+            print("No")
+        return
+
+    # Case 4: Insert into S (T is longer)
+    # T[i] is extra, so S[i:] == T[i+1:]
+    if m > n:
+        if s_rem == t_rem[1:]:
+            print("Yes")
+        else:
+            print("No")
+        return
+
+if __name__ == "__main__":
+    solve()
+```

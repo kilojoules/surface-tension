@@ -1,0 +1,71 @@
+```python
+import sys
+from itertools import permutations
+
+def solve():
+    # Read N
+    line = sys.stdin.readline()
+    if not line:
+        return
+    n = int(line.strip())
+    
+    # Read Graph G
+    m_g = int(sys.stdin.readline().strip())
+    adj_g = [[False] * n for _ in range(n)]
+    for _ in range(m_g):
+        u, v = map(int, sys.stdin.readline().split())
+        adj_g[u-1][v-1] = adj_g[v-1][u-1] = True
+        
+    # Read Graph H
+    m_h = int(sys.stdin.readline().strip())
+    adj_h = [[False] * n for _ in range(n)]
+    for _ in range(m_h):
+        u, v = map(int, sys.stdin.readline().split())
+        adj_h[u-1][v-1] = adj_h[v-1][u-1] = True
+        
+    # Read Costs A_{i,j}
+    # The input format for A is a bit unusual (flattened triangle)
+    costs = [[0] * n for _ in range(n)]
+    for i in range(n - 1):
+        row = list(map(int, sys.stdin.readline().split()))
+        for j in range(i + 1, n):
+            # The j-th vertex relative to i is at index (j - (i + 1))
+            val = row[j - (i + 1)]
+            costs[i][j] = costs[j][i] = val
+
+    # We need to find a permutation P of {0, ..., N-1} such that
+    # the cost to make H isomorphic to G under P is minimized.
+    # The cost for a permutation P is the sum of costs A_{P_i, P_j} 
+    # for all pairs (i, j) where the edge status in G(i, j) 
+    # differs from the edge status in H(P_i, P_j).
+    
+    # Pre-calculate all pairs to avoid nested loops in the permutation loop
+    pairs = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            pairs.append((i, j))
+            
+    min_total_cost = float('inf')
+    
+    # N is at most 8, so N! is 40,320. This is feasible.
+    for p in permutations(range(n)):
+        current_cost = 0
+        for i, j in pairs:
+            # Edge in G between i and j
+            edge_g = adj_g[i][j]
+            # Edge in H between P[i] and P[j]
+            edge_h = adj_h[p[i]][p[j]]
+            
+            if edge_g != edge_h:
+                # We must flip the edge in H between P[i] and P[j]
+                # The cost is A_{P[i], P[j]}
+                current_cost += costs[p[i]][p[j]]
+        
+        if current_cost < min_total_cost:
+            min_total_cost = current_cost
+            
+    print(min_total_cost)
+
+if __name__ == "__main__":
+    solve()
+```

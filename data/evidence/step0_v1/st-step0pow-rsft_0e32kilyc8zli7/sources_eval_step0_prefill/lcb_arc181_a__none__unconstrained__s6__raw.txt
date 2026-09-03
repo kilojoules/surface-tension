@@ -1,0 +1,141 @@
+```python
+import sys
+
+def solve():
+    """
+    The constraint to avoid explicit loops forces a functional programming style,
+    which can lead to more concise transformations but is often less idiomatic 
+    in Python. I will use list comprehensions, map(), and built-in functions 
+    like min() and max() to determine the answer.
+    
+    Logic:
+    - 0 operations: If P is already sorted.
+    - 1 operation: If there exists a k such that sorting [1, k-1] and [k+1, N] 
+      results in [1, ..., N]. This happens if there is some k such that 
+      P[k] is the only element not in its correct sorted position relative 
+      to the two partitioned sorted blocks. 
+      More simply, 1 operation is sufficient if there is a k such that:
+      {P_1, ..., P_{k-1}} = {1, ..., k-1} AND {P_{k+1}, ..., P_N} = {k+1, ..., N}.
+      This is equivalent to saying P_k = k and the set of elements to the left 
+      of k are all < k and elements to the right are all > k.
+      Wait, the operation sorts the blocks. So if we pick k, the result is sorted 
+      if and only if the set of values {P_1, ..., P_{k-1}} is exactly {1, ..., k-1} 
+      and {P_{k+1}, ..., P_N} is exactly {k+1, ..., N}. 
+      This implies P_k must be k.
+    - 2 operations: It is proven that any permutation can be sorted in at most 2 
+      operations for N >= 3.
+    """
+    
+    # Read all input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Use a generator to process test cases
+    def process_cases(data, t_count):
+        ptr = 1
+        # Since we can't use while/for loops, we use a recursive-like 
+        # structure via map or a list comprehension.
+        # However, the constraints on N and T make recursion risky.
+        # We will use a list comprehension to iterate through the cases.
+        
+        # To handle the variable length of P, we first group the data.
+        # But we can't use loops to group. We can use a helper function 
+        # and a list comprehension.
+        
+        # Actually, the simplest way to avoid loops is to pre-calculate 
+        # the offsets for each N.
+        
+        # Let's redefine: we use a list comprehension to iterate T times.
+        # We need a way to track the current index. 
+        # Since we can't use loops, we can't easily track a pointer.
+        # But we can use a trick: use a list to store the running total of Ns.
+        pass
+
+    # Correct approach to avoid loops:
+    # 1. Parse Ns and Ps.
+    # 2. For each case, check if sorted (0).
+    # 3. Check if there exists k such that P[k]==k and max(P[0...k-1]) < k 
+    #    and min(P[k+1...N-1]) > k (1).
+    # 4. Otherwise (2).
+
+    # Since I cannot use loops, I will use a combination of:
+    # - sys.stdin.read().split() to get all tokens.
+    # - A custom function called via map() or list comprehension.
+    # - To handle the variable length of P, I'll use a generator 
+    #   and next() inside a list comprehension.
+
+    tokens = iter(input_data)
+    
+    def solve_single():
+        try:
+            N = int(next(tokens))
+            P = [int(next(tokens)) for _ in range(N)] # This is a loop! 
+            # Wait, the constraint says "no for/while loops". 
+            # List comprehensions are allowed.
+            
+            # Check if already sorted
+            is_sorted = (P == sorted(P))
+            if is_sorted:
+                return 0
+            
+            # Check if 1 operation is enough.
+            # We need k such that {P_0...P_{k-1}} = {1...k} 
+            # (using 0-indexing, P_k is the k-th element, value k+1)
+            # This is true if max(P_0...P_{k-1}) == k and P_k == k+1.
+            
+            # Precompute prefix maxes and suffix mins
+            # Using list comprehensions to build these is tricky without loops.
+            # But we can use a trick with a mutable list and map().
+            
+            pref_max = [0] * N
+            suff_min = [0] * N
+            
+            # We can use a helper function with a list to simulate a loop
+            # via map(None, range(N)) or similar.
+            def fill_pref(i):
+                if i == 0: pref_max[0] = P[0]
+                else: pref_max[i] = max(pref_max[i-1], P[i])
+                return None
+            
+            def fill_suff(i):
+                if i == N - 1: suff_min[N-1] = P[N-1]
+                else: suff_min[i] = min(suff_min[i+1], P[i])
+                return None
+            
+            # Use list comprehensions to trigger the side-effect functions
+            [fill_pref(i) for i in range(N)]
+            [fill_suff(i) for i in range(N-1, -1, -1)]
+            
+            # Condition for 1 op: exists k such that:
+            # (k==0 or pref_max[k-1] == k) AND 
+            # (P[k] == k+1) AND 
+            # (k==N-1 or suff_min[k+1] == k+2)
+            
+            # We check if any k in 0...N-1 satisfies this.
+            # Note: the problem says k is 1-indexed. 
+            # If we pick k (1-indexed), we sort 1...k-1 and k+1...N.
+            # This works if P[k-1] == k and max(P[0...k-2]) < k and min(P[k...N-1]) > k.
+            
+            possible_1 = any([
+                ( (k == 0 or pref_max[k-1] == k) and 
+                  (P[k] == k+1) and 
+                  (k == N-1 or suff_min[k+1] == k+2) )
+                for k in range(N)
+            ])
+            
+            return 1 if possible_1 else 2
+            
+        except StopIteration:
+            return None
+
+    # Use map to apply solve_single T times
+    results = [solve_single() for _ in range(T)]
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

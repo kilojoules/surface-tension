@@ -1,0 +1,75 @@
+```python
+import sys
+from bisect import bisect_left
+
+def solve():
+    # Read all input at once for efficiency
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    Q = int(input_data[0])
+    
+    # current_time tracks the total T elapsed since the start.
+    # When a plant is added at time 't', its height at time 'now' is (now - t).
+    # A plant is harvested if (now - t) >= H, which is equivalent to t <= (now - H).
+    current_time = 0
+    
+    # We store the 'birth times' of all existing plants in a sorted list.
+    # Since plants are added at strictly increasing current_time, 
+    # the list 'birth_times' will naturally be sorted.
+    birth_times = []
+    
+    # Pointer to track the start of the active plants in the birth_times list.
+    # Instead of removing elements from the front of the list (which is O(N)),
+    # we use a pointer or slice. However, since we need to remove a prefix,
+    # and the list is sorted, we can use bisect to find the range and 
+    # then manage the list. 
+    # Given Q=2e5, we can afford to maintain the list and use a pointer.
+    
+    # To avoid O(N) deletions, we keep track of how many plants have been harvested.
+    harvested_count_offset = 0
+    
+    idx = 1
+    results = []
+    
+    for _ in range(Q):
+        q_type = input_data[idx]
+        if q_type == '1':
+            # Plant a new plant at the current global time
+            birth_times.append(current_time)
+            idx += 1
+        elif q_type == '2':
+            # Increase global time
+            T = int(input_data[idx + 1])
+            current_time += T
+            idx += 2
+        else:
+            # Harvest plants with height >= H
+            # Height = current_time - birth_time >= H  => birth_time <= current_time - H
+            H = int(input_data[idx + 1])
+            threshold = current_time - H
+            
+            # Find how many plants have birth_time <= threshold
+            # We only search in the range [harvested_count_offset, len(birth_times))
+            # Using bisect_right to find the number of elements <= threshold
+            import bisect
+            
+            # We need to find the index of the first element > threshold
+            # search only in the remaining plants
+            # Since birth_times is sorted, we can use bisect_right on the whole list
+            # and subtract the offset.
+            pos = bisect.bisect_right(birth_times, threshold, lo=harvested_count_offset)
+            
+            num_harvested = pos - harvested_count_offset
+            results.append(str(num_harvested))
+            
+            # Update the offset to "remove" harvested plants
+            harvested_count_offset = pos
+            idx += 2
+            
+    sys.stdout.write('\n'.join(results) + '\n')
+
+if __name__ == "__main__":
+    solve()
+```

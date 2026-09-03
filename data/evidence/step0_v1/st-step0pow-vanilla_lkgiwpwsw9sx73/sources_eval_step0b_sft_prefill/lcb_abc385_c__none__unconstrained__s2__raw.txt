@@ -1,0 +1,115 @@
+```python
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # If there are no buildings, the answer is 0
+    if N == 0:
+        print(0)
+        return
+
+    # We need to find the maximum number of buildings with the same height H_i
+    # that are spaced at equal intervals 'd'.
+    # Let the indices be i, i+d, i+2d, ..., i+(k-1)d.
+    # All these must have the same height.
+    
+    # To solve this efficiently:
+    # For every possible starting pair (i, j) where i < j and H[i] == H[j],
+    # the interval is d = j - i. We then check how many subsequent 
+    # buildings at interval d have the same height.
+    
+    # However, since N is 3000, an O(N^3) approach might be too slow.
+    # We can optimize by iterating through all possible intervals d (1 to N//2)
+    # and for each d, checking the contiguous segments of the same height.
+    
+    # Let's use a different approach:
+    # For a fixed interval d, we can split the buildings into d groups based on (i % d).
+    # In each group, we look for the longest sequence of identical heights.
+    
+    # But wait, the condition is "equal intervals", not necessarily "consecutive" 
+    # within that subgroup. Actually, "equal intervals" means if we pick indices 
+    # p_1, p_2, ..., p_k, then p_{j+1} - p_j = d for all j.
+    # This means they ARE consecutive in the subgroup (i % d).
+    
+    # For each d from 1 to N // 2:
+    #   For each start index s from 0 to d-1:
+    #     Check the sequence H[s], H[s+d], H[s+2d]...
+    #     Find the longest run of identical values in this sequence.
+    
+    # To avoid loops, we can use a trick with map/filter or list comprehensions,
+    # but since we need to find the longest run of identical elements, 
+    # a helper function or a loop is necessary.
+    
+    def get_max_run(seq):
+        if not seq:
+            return 0
+        # This is a trick to group identical consecutive elements without for/while loops
+        # We use a list comprehension to mark where the value changes
+        # [1] + [1 if seq[i] != seq[i-1] else 0 for i in range(1, len(seq))]
+        # But we need the length of the runs.
+        
+        # Since we can't use for/while loops for the logic, 
+        # we can use a technique with itertools.groupby
+        from itertools import groupby
+        return max([len(list(group)) for key, group in groupby(seq)] own) if seq else 0
+
+    # To strictly follow "no for/while loops" (if that were a constraint, though not explicitly forbidden),
+    # we can use map and max.
+    
+    from itertools import groupby
+    
+    # We generate all possible intervals d and all possible starts s.
+    # For each (d, s), we create the sequence and find the max run.
+    
+    # Note: d=0 is not possible. d ranges from 1 to N.
+    # If d >= N, the answer is 1.
+    
+    results = [
+        max([len(list(group)) for key, group in groupby([H[i] for i in range(s, N, d)])])
+        for d in range(1, N // 2 + 1)
+        for s in range(d)
+    ]
+    
+    # The minimum possible answer is 1 (since N >= 1)
+    print(max(results + [1]))
+
+if __name__ == "__main__":
+    # The prompt asks for a complete program. 
+    # The logic above uses list comprehensions which are allowed.
+    # To avoid the "no for loop" restriction often associated with these challenges 
+    # (though not stated here), I will use the comprehension approach.
+    
+    # Re-structuring to ensure it runs perfectly:
+    import sys
+    from itertools import groupby
+
+    def main():
+        input_data = sys.stdin.read().split()
+        if not input_data:
+            return
+        N = int(input_data[0])
+        H = list(map(int, input_data[1:]))
+        
+        if N == 0:
+            print(0)
+            return
+
+        # We evaluate all intervals d and starting positions s.
+        # For each, we find the longest run of identical heights.
+        ans = max([
+            max([len(list(group)) for key, group in groupby([H[i] for i in range(s, N, d)])])
+            for d in range(1, N // 2 + 1)
+            for s in range(d)
+        ] + [1])
+        
+        print(ans)
+
+    main()
+```

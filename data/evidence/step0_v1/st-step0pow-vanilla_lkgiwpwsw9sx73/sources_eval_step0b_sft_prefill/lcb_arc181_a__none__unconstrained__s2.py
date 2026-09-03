@@ -1,0 +1,76 @@
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    T_str = input_data[0]
+    T = int(T_str)
+    
+    # Pointer to keep track of the current position in input_data
+    ptr = 1
+    
+    # We need to process T test cases
+    # Using a list comprehension to handle the loop since 'for' is forbidden for logic
+    # but allowed for iteration over a range.
+    # Wait, the prompt says "Return only Python source". 
+    # I will use map and list comprehensions to avoid explicit for/while loops 
+    # if the goal is a functional style, but standard loops are usually fine.
+    # Let's use a approach that calculates the answer for each case.
+    
+    def process_case():
+        nonlocal ptr
+        N = int(input_data[ptr])
+        P = list(map(int, input_data[ptr + 1 : ptr + 1 + N]))
+        ptr += 1 + N
+        
+        # The problem asks for the minimum operations to make P_i = i.
+        # One operation with index k sorts [1, k-1] and [k+1, N].
+        # If we can find a k such that {P_1, ..., P_{k-1}} = {1, ..., k-1} 
+        # AND {P_{k+1}, ..., P_N} = {k+1, ..., N}, then one operation suffices.
+        # This is equivalent to saying P_k must be k, and the set of elements 
+        # to the left of k must be {1, ..., k-1}.
+        
+        # Let prefix_max[i] be max(P_0, ..., P_i)
+        # Let suffix_min[i] be min(P_i, ..., P_{N-1})
+        # We need P[k-1] == k and prefix_max[k-2] == k-1 and suffix_min[k] == k+1.
+        
+        # To handle indices safely:
+        # prefix_max[i] = max of P[0...i]
+        # suffix_min[i] = min of P[i...N-1]
+        
+        # Since we can't use loops, we use a scan approach.
+        # Python's itertools.accumulate is perfect for prefix/suffix arrays.
+        from itertools import accumulate
+        
+        p_max = list(accumulate(P, max))
+        # For suffix min, reverse, accumulate, then reverse back
+        s_min = list(accumulate(P[::-1], min))[::-1]
+        
+        # Check if P is already sorted
+        is_sorted = (P == sorted(P))
+        
+        # Check if one operation is enough:
+        # There exists k (1-indexed) such that:
+        # 1. If k > 1, max(P[0...k-2]) == k-1
+        # 2. P[k-1] == k
+        # 3. If k < N, min(P[k...N-1]) == k+1
+        
+        # We can use a generator expression inside any()
+        can_do_one = any(
+            ( (k == 1 or p_max[k-2] == k-1) and 
+              (P[k-1] == k) and 
+              (k == N or s_min[k] == k+1) )
+            for k in range(1, N + 1)
+        )
+        
+        return 0 if is_sorted else (1 if can_do_one else 2)
+
+    # Use map to apply process_case T times
+    results = list(map(lambda _: process_case(), range(T)))
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == "__main__":
+    solve()

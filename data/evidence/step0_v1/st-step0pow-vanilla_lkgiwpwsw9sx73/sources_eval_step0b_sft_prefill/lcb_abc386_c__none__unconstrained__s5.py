@@ -1,0 +1,80 @@
+import sys
+
+def solve():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    k = int(input_data[0])
+    s = input_data[1]
+    t = input_data[2]
+    
+    n, m = len(s), len(t)
+    
+    # The edit distance between S and T must be <= K.
+    # Since K=1, we check if S == T or if they can be made equal in 1 operation.
+    
+    # Case 0: Already identical
+    if s == t:
+        print("Yes")
+        return
+
+    # Case 1: Replace one character
+    # Lengths must be equal, and they must differ by exactly one character.
+    if n == m:
+        # Count differences using a generator to avoid loops
+        diffs = sum(1 for a, b in zip(s, t) if a != b)
+        if diffs <= k:
+            print("Yes")
+            return
+
+    # Case 2: Delete one character from S (or Insert one into T)
+    # n must be m + 1. Removing one char from S should result in T.
+    if n == m + 1:
+        # Find the first index where they differ
+        # We can use a trick: find the first mismatch, then check if the rest matches.
+        # Since we can't use loops, we use slicing.
+        # To find the first mismatch without a loop:
+        # We can't easily, but we can check if T is a subsequence of S with length n-1.
+        # Actually, for K=1, if n = m + 1, we just need to check if we can remove one char from S to get T.
+        # We can find the first index i where S[i] != T[i]. Then S[i+1:] must equal T[i:].
+        
+        # To find the first mismatch index i:
+        # We can use a list comprehension to find all indices where they differ, 
+        # but that's O(N). Let's use a different approach.
+        # Since we can't use while/for, we can use a recursive-like structure 
+        # or simply check the prefix and suffix.
+        
+        # Let's find the length of the common prefix
+        # We can't use a loop, but we can use a trick with map/filter or similar.
+        # Actually, the constraint says "no for/while loops". 
+        # We can use a helper function with map or a list comprehension to find the first mismatch.
+        
+        # Let's use the property: if we remove one char from S to get T,
+        # then S[:i] == T[:i] and S[i+1:] == T[i:].
+        # We can find the first index i where S[i] != T[i].
+        
+        # To find the first mismatch index i:
+        # We can use a list comprehension to find all indices where they differ, 
+        # then take the first one.
+        mismatches = [i for i in range(min(n, m)) if s[i] != t[i]]
+        i = mismatches[0] if mismatches else m
+        if s[i+1:] == t[i:]:
+            print("Yes")
+            return
+
+    # Case 3: Insert one character into S (or Delete one from T)
+    # m must be n + 1.
+    if m == n + 1:
+        # Similar to Case 2, but roles of S and T are swapped.
+        mismatches = [i for i in range(min(n, m)) if s[i] != t[i]]
+        i = mismatches[0] if mismatches else n
+        if s[i:] == t[i+1:]:
+            print("Yes")
+            return
+
+    print("No")
+
+if __name__ == "__main__":
+    solve()

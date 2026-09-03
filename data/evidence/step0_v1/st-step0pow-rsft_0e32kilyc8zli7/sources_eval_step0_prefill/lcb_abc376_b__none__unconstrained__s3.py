@@ -1,0 +1,74 @@
+import sys
+
+def solve():
+    # Read N and Q
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # Initial positions
+    l = 1
+    r = 2
+    total_ops = 0
+    
+    idx = 2
+    for _ in range(Q):
+        h = input_data[idx]
+        t = int(input_data[idx+1])
+        idx += 2
+        
+        if h == 'L':
+            # Move left hand from l to t, right hand r is fixed.
+            # The ring is 1...N. The right hand r blocks the path.
+            # There are two directions to move on a ring: clockwise and counter-clockwise.
+            # One direction is blocked by r, the other is free.
+            
+            # Distance clockwise (increasing index)
+            # If we move l -> l+1 -> ... -> t, we check if r is in the way.
+            # However, the problem says we can only move if the other hand is not on the destination.
+            # On a ring of N, if r is fixed, l can move in the arc that does not contain r.
+            
+            # Let's determine the distance in the allowed direction.
+            # The two arcs between l and t are:
+            # 1. l -> l+1 -> ... -> t (modulo N)
+            # 2. l -> l-1 -> ... -> t (modulo N)
+            
+            # We need to find which arc does NOT contain r.
+            # Since it's guaranteed the instruction is achievable, one arc must be clear.
+            
+            # Calculate distance moving "right" (increasing)
+            dist_right = (t - l + N) % N
+            # Check if r is between l and t moving right
+            # r is between l and t if (r - l + N) % N < dist_right
+            # Note: l and t are the boundaries. r cannot be l or t.
+            if (r - l + N) % N < dist_right:
+                # Right path is blocked, must go left
+                dist = (l - t + N) % N
+            else:
+                # Left path is blocked or r is not in the way of the right path
+                # Actually, if r is not in the right arc, the right arc is the only option
+                # unless the left arc is also clear. But r is always somewhere.
+                # One arc always contains r, the other doesn't.
+                dist = dist_right
+            
+            total_ops += dist
+            l = t
+            
+        else: # h == 'R'
+            # Move right hand from r to t, left hand l is fixed.
+            dist_right = (t - r + N) % N
+            if (l - r + N) % N < dist_right:
+                dist = (r - t + N) % N
+            else:
+                dist = dist_right
+            
+            total_ops += dist
+            r = t
+            
+    print(total_ops)
+
+if __name__ == "__main__":
+    solve()

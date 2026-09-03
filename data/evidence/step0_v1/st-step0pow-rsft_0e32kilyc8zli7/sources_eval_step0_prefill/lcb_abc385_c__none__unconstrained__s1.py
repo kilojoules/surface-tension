@@ -1,0 +1,76 @@
+import sys
+
+def solve():
+    # Read N from the first line of input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # Group indices of buildings by their height
+    # height_groups[h] will store a list of indices i where H[i] == h
+    height_groups = {}
+    for i in range(N):
+        h = H[i]
+        if h not in height_groups:
+            height_groups[h] = []
+        height_groups[h].append(i)
+    
+    max_buildings = 0
+    
+    # For each height, we check all possible pairs of buildings to determine the interval
+    for h in height_groups:
+        indices = height_groups[h]
+        num_indices = len(indices)
+        
+        # If the number of buildings of this height is less than current max, skip
+        if num_indices <= max_buildings:
+            continue
+            
+        # Try every pair of buildings of the same height as the start and second element
+        # to define the interval 'd'
+        for i in range(num_indices):
+            for j in range(i + 1, num_indices):
+                start_idx = indices[i]
+                # The interval is the distance between the i-th and j-th building of height h
+                d = indices[j] - start_idx
+                
+                # Count how many buildings of height h exist at this interval
+                count = 0
+                curr = start_idx
+                while curr < N:
+                    if H[curr] == h:
+                        count += 1
+                    else:
+                        # The condition says "the chosen buildings all have the same height"
+                        # and "arranged at equal intervals". 
+                        # This means every building we pick must be height h.
+                        # If we encounter a building of a different height at the interval,
+                        # we cannot include it, but the problem asks for the maximum 
+                        # number of buildings we CAN choose.
+                        # Wait, the condition is: "The chosen buildings all have the same height"
+                        # and "arranged at equal intervals".
+                        # This means if we pick indices (p, p+d, p+2d...), 
+                        # then H[p] == H[p+d] == H[p+2d]... == h.
+                        # If H[p+kd] != h, we simply cannot pick that building.
+                        # But the "equal intervals" applies to the sequence of chosen buildings.
+                        # So if we choose indices {p, p+d, p+2d}, they are at equal intervals.
+                        # If H[p+d] is not h, we can't pick it, so we can't have a 
+                        # sequence of 3 buildings with interval d starting at p.
+                        # Therefore, if H[curr] != h, the sequence breaks.
+                        break
+                    curr += d
+                
+                if count > max_buildings:
+                    max_buildings = count
+                    
+    # Handle the case where N > 0 but no pairs were found (all heights different)
+    if max_buildings == 0 and N > 0:
+        max_buildings = 1
+        
+    print(max_buildings)
+
+if __name__ == "__main__":
+    solve()

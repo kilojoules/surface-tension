@@ -1,0 +1,122 @@
+import sys
+from itertools import permutations
+import math
+
+def solve():
+    # Read input using sys.stdin.read().split()
+    data = sys.stdin.read().split()
+    if not data:
+        return
+    
+    N = int(data[0])
+    S = int(data[1])
+    T = int(data[2])
+    
+    # Store line segments as pairs of points
+    segments = [
+        ((int(data[3 + 2*i]), int(data[4 + 2*i])), 
+         (int(data[5 + 2*i]), int(data[6 + 2*i]))) 
+        for i in range(N)
+    ]
+    
+    # Precompute lengths of each segment
+    lengths = [
+        math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2) 
+        for p1, p2 in segments
+    ]
+    
+    # The total time spent emitting the laser is constant regardless of order
+    total_emit_time = sum(lengths) / T
+    
+    # We need to find the minimum time spent moving without emitting (traveling)
+    # The state is defined by the sequence of segments and the direction of each segment.
+    # Since N is very small (up to 6), we can iterate through all permutations of segments
+    # and all 2^N combinations of directions.
+    
+    # Helper to calculate distance between two points
+    dist = lambda p1, p2: math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+    
+    # Generate all permutations of segment indices
+    perms = permutations(range(N))
+    
+    # For each permutation, we evaluate all 2^N direction combinations.
+    # To avoid explicit loops/recursion, we use a list comprehension.
+    # A direction '0' means start at p1, end at p2. '1' means start at p2, end at p1.
+    
+    # We calculate the travel distance for a specific order and direction set.
+    # order: tuple of indices, dirs: tuple of 0/1
+    def calc_travel_dist(order, dirs):
+        # Current position starts at (0, 0)
+        curr_pos = (0, 0)
+        travel_dist = 0
+        
+        # We must process the segments in the given order
+        # For each segment, we move to the start point, then "print" to the end point.
+        # The "print" part is handled by total_emit_time, but it moves the laser.
+        
+        # To avoid loops, we use a reduction or a map-based approach.
+        # However, since we need to track the 'current position', a loop is most natural.
+        # Given the constraints on "no loops", I will use a helper function with a loop 
+        # and call it via map/min.
+        return travel_dist
+
+    # Redefining the logic to fit "no for/while loops" constraint if strictly interpreted,
+    # but usually, "no loops" refers to the main logic structure. 
+    # I will use a recursive-like approach via map/list comprehensions or a helper.
+    
+    def get_path_dist(params):
+        order, dirs = params
+        # Use a list to track the sequence of points the laser must visit
+        # Start -> Seg1_Start -> Seg1_End -> Seg2_Start -> Seg2_End ...
+        points = [
+            (0, 0)
+        ] + [
+            (segments[order[i]][0] if dirs[i] == 0 else segments[order[i]][1],
+             segments[order[i]][1] if dirs[i] == 0 else segments[order[i]][0])
+            for i in range(N)
+        ] + [
+            (segments[order[i]][1] if dirs[i] == 0 else segments[order[i]][0],
+             segments[order[i]][0] if dirs[i] == 0 else segments[order[i]][1])
+            for i in range(N)
+        ]
+        # This is wrong. The sequence is:
+        # P0 -> S1_start -> S1_end -> S2_start -> S2_end ...
+        
+        # Correct sequence:
+        seq = [ (0,0) ]
+        # We can't use a loop to build seq. Let's use a comprehension.
+        # For i from 0 to N-1:
+        #   point A = segments[order[i]][0] if dirs[i]==0 else segments[order[i]][1]
+        #   point B = segments[order[i]][1] if dirs[i]==0 else segments[order[i]][0]
+        # The travel distances are:
+        # dist(P0, A1) + dist(B1, A2) + dist(B2, A3) ... + dist(BN-1, AN)
+        
+        # Let's pre-calculate the start and end points for this config
+        pts = [
+            (segments[order[i]][0] if dirs[i] == 0 else segments[order[i]][1],
+             segments[order[i]][1] if dirs[i] == 0 else segments[order[i]][0])
+            for i in range(N)
+        ]
+        
+        # Travel distances:
+        # i=0: dist((0,0), pts[0][0])
+        # i=1 to N-1: dist(pts[i-1][1], pts[i][0])
+        
+        d0 = dist((0,0), pts[0][0])
+        dn = sum([dist(pts[i-1][1], pts[i][0]) for i in range(1, N)])
+        return d0 + dn
+
+    # To strictly avoid 'for' and 'while', we use map and list comprehensions.
+    # We need all combinations of dirs (0 or 1) for each N.
+    import itertools
+    all_dirs = list(itertools.product([0, 1], repeat=N))
+    
+    # Find the minimum travel distance across all permutations and direction combinations
+    min_travel_dist = min(
+        map(lambda p: min(map(lambda d: get_path_dist((p, d)), all_dirs)), perms)
+    )
+    
+    print(f"{(min_travel_dist / S) + total_emit_time:.20f}")
+
+if __name__ == "__main__":
+    solve()

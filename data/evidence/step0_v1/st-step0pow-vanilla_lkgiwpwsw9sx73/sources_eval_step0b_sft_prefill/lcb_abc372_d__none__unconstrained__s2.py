@@ -1,0 +1,78 @@
+import sys
+
+def solve():
+    # Read all input data
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # The condition "No building taller than Building j between i and j" 
+    # means that for a fixed i, we are looking for the number of j > i 
+    # such that H[k] < H[j] for all k where i < k < j.
+    # This is equivalent to saying that Building j is a "right-to-left" 
+    # maximum when looking from i+1 to N, but specifically, 
+    # j satisfies the condition if H[j] > max(H[i+1...j-1]).
+    
+    # Let's define f(i) as the number of j > i satisfying the condition.
+    # For a fixed i, the sequence of j's that satisfy this are:
+    # j1 = i + 1
+    # j2 = the first index k > j1 such that H[k] > H[j1]
+    # j3 = the first index k > j2 such that H[k] > H[j2]
+    # ... and so on.
+    
+    # This structure suggests that if we know the "Next Greater Element" (NGE) 
+    # for every index, we can model this as a tree (or forest) where 
+    # the parent of i is NGE[i]. The number of j's for a given i is 
+    # the depth of the node i+1 in this NGE tree.
+    
+    # Step 1: Compute Next Greater Element (NGE) for all i
+    # NGE[i] is the smallest j > i such that H[j] > H[i].
+    # We use a stack to find this in O(N).
+    nge = [N] * N
+    stack = []
+    for i in range(N):
+        while stack and H[stack[-1]] < H[i]:
+            nge[stack.pop()] = i
+        stack.append(i)
+        
+    # Step 2: Compute the depth of each node in the NGE forest.
+    # depth[i] = 1 + depth[nge[i]]
+    # Since we need to process from right to left to avoid recursion, 
+    # we use a loop.
+    depth = [0] * (N + 1)
+    # We iterate backwards from N-1 to 0.
+    # Note: nge[i] can be N, and depth[N] is 0.
+    for i in range(N - 1, -1, -1):
+        # The number of elements j > i satisfying the condition is:
+        # 1 (for j = i+1) + (number of elements j > i+1 satisfying the condition relative to i+1)
+        # BUT, the condition is relative to i. 
+        # Actually, the sequence is: j_1 = i+1, j_2 = NGE[j_1], j_3 = NGE[j_2]...
+        # So c_i = 1 + depth[nge[i+1]] if i+1 < N else 0.
+        # Let's redefine depth: depth[i] is the length of the chain starting at i.
+        pass
+
+    # Correcting the logic:
+    # For a fixed i, the first j is i+1.
+    # The next j is the first index k > i+1 such that H[k] > H[i+1].
+    # This is exactly the NGE of (i+1).
+    # Let dp[i] be the number of elements in the chain starting at index i.
+    # dp[i] = 1 + dp[nge[i]] (if nge[i] < N) else 1.
+    
+    dp = [0] * (N + 1)
+    for i in range(N - 1, -1, -1):
+        nxt = nge[i]
+        if nxt < N:
+            dp[i] = 1 + dp[nxt]
+        else:
+            dp[i] = 1
+            
+    # For each i from 0 to N-1, the answer c_i is dp[i+1] if i+1 < N else 0.
+    results = [dp[i+1] if i+1 < N else 0 for i in range(N)]
+    
+    print(*(results))
+
+if __name__ == "__main__":
+    solve()

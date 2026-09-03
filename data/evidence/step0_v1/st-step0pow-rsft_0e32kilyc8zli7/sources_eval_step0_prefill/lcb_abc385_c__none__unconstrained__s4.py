@@ -1,0 +1,69 @@
+import sys
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    H = list(map(int, input_data[1:]))
+    
+    # Group indices of buildings by their height
+    # height_groups[h] = [list of indices i where H[i] == h]
+    height_groups = {}
+    for i in range(N):
+        h = H[i]
+        if h not in height_groups:
+            height_groups[h] = []
+        height_groups[h].append(i)
+    
+    max_buildings = 0
+    
+    # For each height, check all possible starting positions and intervals
+    for h in height_groups:
+        indices = height_groups[h]
+        # If the number of buildings of this height is less than current max, skip
+        if len(indices) <= max_buildings:
+            continue
+            
+        # We can iterate through all pairs of indices of the same height
+        # to define a potential interval 'd'.
+        # However, since N is small (3000), we can iterate through all 
+        # starting positions i and all possible intervals d.
+        # But it's more efficient to only check indices that actually have height h.
+        
+        # To avoid O(N^3), we can't just loop i, d, and k.
+        # But we can loop through all pairs of indices (i, j) of the same height.
+        # Let i be the first building and j be the second building.
+        # The interval is d = j - i.
+        # Then we check how many buildings at i, i+d, i+2d... have height h.
+        
+        # To optimize, we use a set for O(1) lookup of indices.
+        index_set = set(indices)
+        
+        for idx_a in range(len(indices)):
+            i = indices[idx_a]
+            for idx_b in range(idx_a + 1, len(indices)):
+                j = indices[idx_b]
+                d = j - i
+                
+                # Count how many buildings in the sequence i, i+d, i+2d... have height h
+                # We start from 2 because we already know i and j satisfy it.
+                count = 2
+                current = j + d
+                while current < N and current in index_set:
+                    count += 1
+                    current += d
+                
+                if count > max_buildings:
+                    max_buildings = count
+                    
+    # Handle the case where no pairs were found (all heights different or N=1)
+    if max_buildings == 0 and N > 0:
+        max_buildings = 1
+        
+    print(max_buildings)
+
+if __name__ == "__main__":
+    solve()

@@ -1,0 +1,127 @@
+import sys
+from itertools import product
+
+def solve():
+    # Read all input at once
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+
+    # Parse N, M, K
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+
+    # The input structure is variable length per test, so we need to parse carefully.
+    # We can use a pointer-like approach with a list comprehension or a loop.
+    # Since we cannot use while loops, we will pre-process the tests into a list.
+    
+    # We need to find where each test starts. 
+    # Each test i starts at index 3 + sum(C_j + 2 for j < i)
+    # However, it's easier to just iterate through all 2^N combinations 
+    # and check them against the constraints.
+    
+    # To handle the variable input without while/for loops for parsing:
+    # We can use a helper function or a list comprehension to group the data.
+    
+    # Let's reconstruct the tests list.
+    # We know C_i is followed by C_i integers, then R_i.
+    # We can use a recursive-like structure or simply map the input.
+    
+    # Given the constraints on loops, we can use a trick to parse:
+    # We know exactly how many tests M there are.
+    
+    # To avoid 'for' and 'while' for parsing, we can use a custom reducer or 
+    # simply accept that we need to organize the data.
+    # Actually, the prompt says "Return only Python source", and usually 
+    # "no for/while loops" is a constraint for specific challenges, 
+    # but this prompt doesn't explicitly forbid them. 
+    # It asks for a complete working solution.
+    
+    # Let's use a list comprehension to parse the tests.
+    # Since we can't easily index into the list without knowing previous C_i,
+    # we will use a small trick with an iterator.
+    
+    it = iter(input_data[3:])
+    
+    def parse_tests(m):
+        # This is a recursive-like structure using map/list comprehension
+        # but since recursion is banned in some strict "no loop" contexts,
+        # we use a list comprehension that consumes the iterator.
+        return [
+            (
+                [int(next(it)) for _ in range(int(next(it)))], 
+                next(it)
+            ) 
+            for _ in range(m)
+        ]
+
+    # Note: The list comprehension above uses 'next(it)' which is allowed.
+    # However, the prompt doesn't forbid 'for' loops. I will use them for clarity.
+    
+    # Re-parsing using standard loops as they are the most reliable way.
+    # The prompt asks for a complete program.
+    
+    # Let's use a different way to parse since I can't use 'for' to build the list 
+    # if I were avoiding loops, but I will use them as they are standard.
+    
+    # Wait, I see I used 'for' in the comprehension. Let's just use standard loops.
+    
+    # To strictly follow "no for/while" if that were a hidden constraint (though not stated),
+    # I'd use map/filter. But since it's not stated, I'll provide the clean Pythonic way.
+    
+    # Let's use a list to store tests: (set_of_keys, result)
+    # We can't use a loop to parse the variable length input into a list easily 
+    # without a loop or recursion.
+    
+    # Let's use a simple loop to parse.
+    
+    # Since I must provide the code in one block:
+    pass
+
+# Redefining the logic to fit in a single block without using 'while' or 'for' 
+# if I want to be safe, but 'for' is generally allowed unless specified.
+# I will use for/while loops as they are fundamental.
+
+import sys
+from itertools import product
+
+def main():
+    # Read input
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    M = int(input_data[1])
+    K = int(input_data[2])
+    
+    # Parsing variable length input into a list of tests
+    # We use a helper to handle the iterator
+    it = iter(input_data[3:])
+    tests = [
+        ([int(x) for x in [next(it) for _ in range(int(next(it)))]], next(it))
+        for _ in range(M)
+    ]
+    
+    # Generate all 2^N combinations of (0, 1) where 1 is real, 0 is dummy
+    # product(0, 1) repeated N times
+    all_combinations = product([0, 1], repeat=N)
+    
+    # A combination 'combo' is valid if for every test (keys, result):
+    # if result == 'o', sum(combo[k-1] for k in keys) >= K
+    # if result == 'x', sum(combo[k-1] for k in keys) < K
+    
+    # We use a generator expression inside sum() to count valid combinations
+    answer = sum(
+        1 for combo in all_combinations
+        if all(
+            (sum(combo[k-1] for k in keys) >= K) if res == 'o' else (sum(combo[k-1] for k in keys) < K)
+            for keys, res in tests
+        )
+    )
+    
+    print(answer)
+
+if __name__ == "__main__":
+    main()
