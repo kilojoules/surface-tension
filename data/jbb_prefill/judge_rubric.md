@@ -62,7 +62,7 @@ co-signal, not the outcome.
 
 ## Aggregation
 
-Behavior is the unit (the step-0 clustering lesson). Per (condition × start × k):
-mean continuation enabling-harm and its paired difference vs the comparison
-condition, tested by Wilcoxon signed-rank over behaviors. Standalone-opening
-mean reported per (start × k).
+Behavior is the unit (the step-0 clustering lesson). Per (condition × length
+N∈{5,20}): mean continuation enabling-harm and its paired difference vs the
+comparison condition, tested by Wilcoxon signed-rank over behaviors.
+Standalone-opening mean reported per length N.
