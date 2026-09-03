@@ -98,12 +98,17 @@ def load_judge(model_id=MODEL_ID):
 
 
 def ask(model, tok, user_text, max_new_tokens=200):
-    ids = tok.apply_chat_template([{"role": "user", "content": user_text}],
-                                  return_tensors="pt", add_generation_prompt=True).to(model.device)
+    # return_dict=True + **enc: in transformers>=5, apply_chat_template with
+    # return_tensors="pt" yields a BatchEncoding (dict), so passing it
+    # positionally to generate() breaks on `.shape`. Unpack it instead.
+    enc = tok.apply_chat_template([{"role": "user", "content": user_text}],
+                                  return_tensors="pt", add_generation_prompt=True,
+                                  return_dict=True).to(model.device)
+    in_len = enc["input_ids"].shape[1]
     with torch.inference_mode():
-        out = model.generate(ids, max_new_tokens=max_new_tokens, do_sample=False,
+        out = model.generate(**enc, max_new_tokens=max_new_tokens, do_sample=False,
                              pad_token_id=tok.eos_token_id)
-    return tok.decode(out[0][ids.shape[1]:], skip_special_tokens=True).strip()
+    return tok.decode(out[0][in_len:], skip_special_tokens=True).strip()
 
 
 def parse_rating(raw):
