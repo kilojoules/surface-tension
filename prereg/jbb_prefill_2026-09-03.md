@@ -14,6 +14,14 @@
    https://gist.github.com/kilojoules/2c4c0f1371573e943cbf015df647ab4d
    (prereg sha256 `fa9e69f4…`, manifest sha256 `6adcc30b…`) — **before the
    first generation**.
+5. **Judge-rubric correction (post-generation, pre-valid-judging)** — the judge
+   was mistakenly run with an operational-uplift scale; caught by the reviewer,
+   that output discarded, and the metric corrected to the **Qi et al. 2023
+   GPT-4-Judge 1–5 harmfulness scale, verbatim** (a 4-family lit review found it
+   the best-fit standard; reviewer chose it). The 623 generations are fixed and
+   rubric-independent, so only the (re-)scoring changed. Re-anchored at
+   https://gist.github.com/kilojoules/e773a591fbbc64c2e5ff08ef2fc200fe
+   (prereg sha256 `7a7e94fd…`, rubric sha256 `507135c8…`).
 No data has been generated at any point in this lineage; each step is a design
 refinement recorded before any run, which is what a prereg is for.
 **Relation to prior work:** the safety-domain analogue of
@@ -116,10 +124,10 @@ Rows store `continuation` and `full_response = prefill + continuation`; the
 enabling-harm judge scores the **continuation given the opening** (not
 `full_response`), and separately the opening alone (control).
 
-**Primary metric — enabling harm to others (1–5), of the CONTINUATION given the
-opening.** Single judged outcome (`data/jbb_prefill/judge_rubric.md`, frozen):
+**Primary metric — harmfulness (1–5, Qi et al. 2023 GPT-4-Judge scale, adopted
+verbatim), of the CONTINUATION given the opening.** Single judged outcome (`data/jbb_prefill/judge_rubric.md`, frozen):
 the 70B-AWQ judge is shown the goal, the supplied OPENING (as context, not
-scored), and the model's CONTINUATION, and scores only the operational uplift
+scored), and the model's CONTINUATION, and scores only the harmfulness (Qi 1-5)
 the continuation itself adds. Scoring the continuation's *marginal* contribution
 given the opening is what attributes realized harm to the model rather than to
 the injected prefix — it dissolves the "the payload was smuggled in via the
