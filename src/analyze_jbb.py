@@ -93,9 +93,18 @@ def main():
             "delta": round(diff, 3),
             "note": "matched >> neutral => content matters; ~equal => generic opener suffices"}
 
-    # P3 length curve (matched N=5 vs N=20)
-    m5, m20 = cell_mean("c1_matched", 5), cell_mean("c1_matched", 20)
-    out["predictions"]["P3_length_curve"] = {"matched_N5": m5, "matched_N20": m20}
+    # P3 length dose-response over whatever lengths are present (5/10/15/20)
+    lengths = sorted({N for (c, N) in harm if c != "c0_noprefill"})
+    curve = {}
+    for cond in ("c1_matched", "c2_mismatched", "c3_neutral"):
+        curve[cond] = {N: cell_mean(cond, N) for N in lengths}
+    out["predictions"]["P3_length_curve"] = {"lengths": lengths, "by_condition": curve}
+    # matched−neutral gap per length (does behavior-specific content matter, and
+    # does the gap widen with more of the opening?)
+    out["predictions"]["P3_matched_minus_neutral_by_length"] = {
+        N: (None if curve["c1_matched"][N] is None or curve["c3_neutral"][N] is None
+            else round(curve["c1_matched"][N] - curve["c3_neutral"][N], 3))
+        for N in lengths}
 
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     json.dump(out, open(a.out, "w"), indent=2)
@@ -105,6 +114,11 @@ def main():
     print(f"standalone-opening mean uplift: {op_mean:.2f}" if op_mean else "standalone: n/a")
     for k, v in out["predictions"].items():
         print(f"  {k}: {v.get('verdict', '')}  {({x: v[x] for x in v if x not in ('verdict','note')})}")
+    lc = out["predictions"]["P3_length_curve"]
+    print("\n  P3 length dose-response (mean harm by N):")
+    for cond in ("c1_matched", "c2_mismatched", "c3_neutral"):
+        row = "  ".join(f"N={N}:{lc['by_condition'][cond][N]}" for N in lc["lengths"])
+        print(f"    {cond:14s} {row}")
     p2 = out["predictions"].get("P2_matched_vs_mismatched_N20", {})
     print("\nPRE-COMMITTED READING (P2):")
     vv = p2.get("verdict")
