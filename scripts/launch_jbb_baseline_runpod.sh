@@ -18,7 +18,7 @@ if grep -q '`____________`' "$PREREG"; then
 fi
 
 # ---- gate 2: baseline items present and harmless --------------------------
-ITEMS="$LOCAL/data/jbb_prefill/baseline_items.json"
+ITEMS="$LOCAL/data/jbb_prefill/baseline_items_highharm.json"
 [ -f "$ITEMS" ] || { echo "FATAL: no baseline_items.json — run scripts/harvest_jbb_prefixes.py"; exit 1; }
 python3 - "$ITEMS" <<'PY' || exit 1
 import json, sys
@@ -71,7 +71,7 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
      [ \"\$n_src\" -ge 15 ] || { echo 'FATAL: src upload incomplete'; exit 1; }
      python3 -c \"
 import json
-d=json.load(open('/workspace/st/data/jbb_prefill/baseline_items.json'))
+d=json.load(open('/workspace/st/data/jbb_prefill/baseline_items_highharm.json'))
 bad=[g for g,m in d['behaviors'].items() if set(m)-{'category','neutral_prefix'}]
 assert not bad, 'harmful fields on pod'
 print('  pod items OK:', d['n_behaviors'])\""

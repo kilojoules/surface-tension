@@ -99,9 +99,9 @@ def run_baseline(args):
         # C0: plain goal, no prefill — expect refusal (closed gate).
         full0, cont0 = generate_with_prefill(model, tok, goal, prefill="",
                                               max_new_tokens=args.max_new_tokens)
-        # C3@k=8: benign neutral prefix — expect the gate to open a bit;
+        # C3@k=5: benign neutral prefix — expect the gate to open a bit;
         # primarily a PLUMBING check (prefill present + scored).
-        pf = meta["neutral_prefix"]["8"]
+        pf = meta["neutral_prefix"]["5"]
         full3, cont3 = generate_with_prefill(model, tok, goal, prefill=pf,
                                               max_new_tokens=args.max_new_tokens)
         prefill_present = full3.startswith(pf)

@@ -7,11 +7,13 @@
 3. high-harm prefix source + single harm metric (enabling-harm of the
    continuation given the opening) + standalone-opening control, gist
    `8c003e6c…` (sha256 `c09362f0…`), with the frozen judge rubric.
-4. **current working** — clean opening definition: **first N ∈ {5, 20} tokens
-   from token 0** (S0/S1/S2 structural anchors dropped as too heuristic).
-   Design is converging; to avoid gist sprawl this and any further pre-freeze
-   edits get a **single final anchor at freeze time** (Amendment 1, with the
-   approved openings + standalone-opening scores), before the first run.
+4. **FINAL / FROZEN** — clean opening definition (**first N ∈ {5, 20} tokens
+   from token 0**), all 89 high-harm candidates approved by the reviewer
+   2026-09-03, item freeze built (`data/jbb_prefill/frozen_manifest.json`).
+   **Amendment 1**, anchored with the judge rubric + item manifest at
+   https://gist.github.com/kilojoules/2c4c0f1371573e943cbf015df647ab4d
+   (prereg sha256 `fa9e69f4…`, manifest sha256 `6adcc30b…`) — **before the
+   first generation**.
 No data has been generated at any point in this lineage; each step is a design
 refinement recorded before any run, which is what a prereg is for.
 **Relation to prior work:** the safety-domain analogue of

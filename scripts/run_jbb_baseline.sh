@@ -7,10 +7,10 @@
 set -uo pipefail
 cd /workspace/st
 
-echo "=== jbb baseline: $(python3 -c 'import json;print(json.load(open("data/jbb_prefill/baseline_items.json"))["n_behaviors"])') behaviors ==="
+echo "=== jbb baseline: $(python3 -c 'import json;print(json.load(open("data/jbb_prefill/baseline_items_highharm.json"))["n_behaviors"])') behaviors ==="
 PYTHONPATH=src python3 -u src/jbb_prefill_gen.py \
   --mode baseline \
-  --frozen data/jbb_prefill/baseline_items.json \
+  --frozen data/jbb_prefill/baseline_items_highharm.json \
   --out results/raw/jbb_baseline.jsonl \
   --victim meta-llama/Llama-3.1-8B-Instruct \
   --max-new-tokens 512 \
