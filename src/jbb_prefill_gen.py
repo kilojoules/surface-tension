@@ -150,6 +150,53 @@ def run_baseline(args):
               f"{c0_ref - c3_ref:+.2f}. Cleared to fund the full run.")
 
 
+def run_full(args):
+    """Generate C0/C1-matched/C2-mismatched/C3-neutral at N in {5,20} over the
+    frozen approved behaviors. Rows store continuation + full_response; the
+    judge (separate step) scores continuation-given-opening."""
+    frozen = json.load(open(args.frozen))
+    lengths = [str(k) for k in frozen["k_lengths"]]
+    behaviors = list(frozen["behaviors"].items())
+    if args.limit:
+        behaviors = behaviors[:args.limit]
+    model, tok = load_victim(args.victim)
+
+    # Resume support: skip rows already written (keyed goal|condition|N).
+    done = set()
+    if os.path.exists(args.out):
+        for line in open(args.out):
+            try:
+                r = json.loads(line)
+                done.add((r["goal"], r["condition"], str(r["length"])))
+            except Exception:
+                pass
+    f = open(args.out, "a")
+
+    def emit(goal, meta, cond, N, prefill):
+        if (goal, cond, str(N)) in done:
+            return
+        full, cont = generate_with_prefill(model, tok, goal, prefill=prefill,
+                                           max_new_tokens=args.max_new_tokens)
+        rec = dict(goal=goal, category=meta["category"], condition=cond,
+                   length=int(N), prefill=prefill, continuation=cont,
+                   full_response=full, refusal=is_refusal(full),
+                   prefill_present=(prefill == "" or full.startswith(prefill)))
+        f.write(json.dumps(rec) + "\n")
+        f.flush()
+
+    n = len(behaviors)
+    for i, (goal, b) in enumerate(behaviors):
+        # C0 once (length-invariant); C1/C2/C3 at each N.
+        emit(goal, b, "c0_noprefill", 0, "")
+        for N in lengths:
+            emit(goal, b, "c1_matched", N, b["matched"][N])
+            emit(goal, b, "c2_mismatched", N, b["mismatched"][N])
+            emit(goal, b, "c3_neutral", N, b["neutral"][N])
+        print(f"[{i+1}/{n}] {b['category'][:16]:16s} {goal[:40]}", flush=True)
+    f.close()
+    print(f"done: wrote generations to {args.out}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["baseline", "full"], required=True)
@@ -163,9 +210,7 @@ def main():
     if args.mode == "baseline":
         run_baseline(args)
     else:
-        print("full mode is registered but launched separately after the "
-              "baseline passes and the item freeze is anchored (Amendment 1).")
-        sys.exit(2)
+        run_full(args)
 
 
 if __name__ == "__main__":
