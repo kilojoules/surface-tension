@@ -42,7 +42,7 @@ echo "installing deps (pinned; + bitsandbytes for the 70B 4-bit judge)..."
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "set -e
      apt-get update -qq; apt-get install -y -qq rsync; which rsync
-     pip install -q 'torch==2.5.1'
+     pip install -q --retries 8 --timeout 120 'torch==2.5.1'
      pip install -q 'transformers==5.14.1' 'accelerate==1.14.0' 'bitsandbytes==0.50.0' \
                     'huggingface_hub==1.27.0' 'numpy==1.26.3'
      pip uninstall hf-xet -y 2>&1 | tail -1 || true
