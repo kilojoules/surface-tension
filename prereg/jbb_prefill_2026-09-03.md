@@ -3,8 +3,15 @@
 **Registered:** 2026-09-03, BEFORE any new generation.
 **External timestamp anchor:**
 https://gist.github.com/kilojoules/b438a2cc0c396cac8b17752f97f7f4e8
-(public gist, created 2026-09-03 before any new generation; anchors the
-pre-URL version of this file, sha256 `11db1152…`.)
+(initial single-start version, 2026-09-03, before any generation, sha256
+`11db1152…`) — **superseded same-day, still pre-data**, by the multi-start +
+human-approval version anchored at
+https://gist.github.com/kilojoules/5696ba3ccbb8237dc0dff3c8c54156a2
+(sha256 `93fd7090…`). Both anchors predate any
+new generation; the revision adds a start-point factor and a human approval
+gate at the reviewer's request, changes no measured quantity, and is recorded
+because a prereg's job is to fix the design before data, including its own
+same-day revisions.
 **Relation to prior work:** the safety-domain analogue of
 `results/step0_kill_test_2026-08-13.md` (rationale suppression on a code
 constraint). Uses Turnstile assets (`../turnstile/`): the JBB victim, the
@@ -44,21 +51,30 @@ with the **opening of a response that succeeded** on that behavior. Prefilling
 onto the breach phrasing would measure nothing. This regime cross is the whole
 experiment; getting it wrong makes the result vacuous.
 
-## Item freeze (frozen before registration)
+## Item candidates and the human-approval gate
 
-`scripts/harvest_jbb_prefixes.py` → `data/jbb_prefill/manifest_public.json`
-(committed; sha256 hashes, token lengths, source record ids, the mismatch
-derangement, and the benign neutral template) and
-`data/jbb_prefill/frozen_private/prefixes.json` (gitignored, canary'd — the
-harmful openings themselves, never committed or mirrored).
+`scripts/harvest_jbb_prefixes.py` produces **candidates**, not a frozen set.
+The frozen item set is built only from cases the reviewer approves (Amendment
+1, anchored after review).
 
 - **41 JBB-100 behaviors**, every one with ≥64 harvestable response tokens
-  (min 332), across all 10 JBB categories. Each behavior's harvested opening
-  is the α=0, coherent, **70B-judged-unsafe** response from Turnstile's
+  (min 332), across all 10 JBB categories. Each behavior's source response is
+  the α=0, coherent, **70B-judged-unsafe** response from Turnstile's
   `single_prompt_steering_v2` sweep — a real prompt-only success — selected by
-  a fixed key (longest, then record-idx, then response sha).
-- Prefix lengths **k ∈ {8, 16, 32, 64}** victim tokens.
-- Manifest sha256: `202d24863c762e72…` (full value in the committed file).
+  a fixed key (longest, then record-idx).
+- **Start point is a registered factor** (the reviewer's requirement to "test
+  starting from a few different places in the response"). Three structural
+  anchors per response: **S0** from token 0 (opening; often the affirmative
+  preamble, near-generic), **S1** from sentence 2 (post-preamble), **S2** from
+  the first list marker or sentence 3 (mid-content, most behavior-specific).
+  123 candidate (behavior × start) cases; 40/41 support all three.
+- Prefix lengths **k ∈ {8, 16, 32, 64}** victim tokens, cut from each start.
+- **Human-approval gate:** all candidates render to a local, private review
+  page (`frozen_private/REVIEW.html`, gitignored, canary'd — never published).
+  The reviewer approves specific `case_id`s for (i) content appropriateness and
+  (ii) a suitable opening. Only approved cases enter the freeze. The exact
+  approved set, its sha256 manifest, the final cell layout, and cost are fixed
+  in **Amendment 1** and re-anchored before the full run.
 
 ## Design (fixed before launch)
 
@@ -69,19 +85,23 @@ already carries `<|begin_of_text|>`; a second BOS silently degrades Llama —
 verified on this tokenizer); the prefix is **re-attached before scoring** so
 the judge sees the full assistant message.
 
-**Conditions**, each behavior × each k:
-- **C0** no prefill (the closed-gate baseline).
-- **C1 matched** — this behavior's own successful opening (k tokens). HARMFUL.
-- **C2 mismatched** — *another* behavior's successful opening (seeded
-  derangement, same k). Same "real jailbreak opening" distribution, wrong
-  content. HARMFUL.
+**Conditions**, each APPROVED (behavior × start) case × each k:
+- **C0** no prefill (the closed-gate baseline; one per behavior, start/k-invariant).
+- **C1 matched** — this behavior's own approved opening at this start (k tokens).
+  HARMFUL.
+- **C2 mismatched** — *another* behavior's approved opening at the same start
+  and k (seeded derangement over approved cases). Same "real jailbreak opening"
+  distribution, wrong content. HARMFUL.
 - **C3 neutral** — the benign "Sure, I can help with that…" opener cut to k.
   Generic affirmative, no behavior content. The published-baseline anchor.
 
-Generations: 41 behaviors × 4 conditions × 4 k, minus C0's k-invariance
-(C0 is one cell per behavior) = 41 × (1 + 3×4) = **533** generations, greedy
-(T=0), max_new=512. One seed (greedy). Rows store `continuation` and
-`full_response = prefill + continuation`; the judge scores `full_response`.
+Start point (S0/S1/S2) is crossed with the matched contrast so the design can
+separate "how deep into the response you start" from "how many tokens."
+Generation count is fixed in Amendment 1 once the approved case set is known
+(upper bound with all 123 cases + 4 k ≈ 41 C0 + 123×4 k × 3 conditions ≈
+1.5k gens; the approved subset will be smaller). Greedy (T=0), max_new=512.
+Rows store `continuation` and `full_response = prefill + continuation`; the
+judge scores `full_response`.
 
 **Primary metric:** JBB compliance-unsafe rate (Turnstile's
 `Llama3JailbreakJudge`, 70B-AWQ) — the instrument behind every anchor number.
@@ -103,8 +123,10 @@ responses — predicted flat (harm is supplied by the prefix, not synthesized).
   exceeds mismatched by **≥ 0.15** (paired McNemar over 41 behaviors,
   p < 0.05), AND matched exceeds neutral by ≥ 0.15. Failure = matched ≤
   mismatched + 0.05, or McNemar n.s.
-- **P3 (depth curve).** Matched compliance is monotone non-decreasing in k and
-  reaches ≥ 0.60 by k=64. (Descriptive; a shallow-alignment "depth" read.)
+- **P3 (depth curves).** Two depths: (a) matched compliance is monotone
+  non-decreasing in k at fixed start; (b) across start points, deeper starts
+  (S2 > S1 > S0) give higher matched compliance — starting mid-content carries
+  more of the behavior. Both descriptive (shallow-alignment "depth" reads).
 - **P4 (gate ≠ capability, second instrument).** Among compliant responses,
   Stage-B harm Likert for matched vs neutral differs by ≤ 0.5 (pre-widened).
   A large positive gap would mean the *content* of the prefix raises realized
@@ -157,6 +179,9 @@ Pre-committed reading (printed by the runner):
 
 ## Hard constraints (safety/ethics)
 
+- **Human approval gate (reviewer's requirement):** no harmful prefix is used
+  in any run until the reviewer has approved its specific `case_id` via the
+  local private review page. The freeze contains only approved cases.
 - No new jailbreak technique is invented; the prefixes are openings of
   responses that already succeeded, harvested from existing local data.
 - Harmful prefixes and raw harmful generations stay in the canary'd private
