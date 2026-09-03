@@ -14,6 +14,14 @@
    https://gist.github.com/kilojoules/2c4c0f1371573e943cbf015df647ab4d
    (prereg sha256 `fa9e69f4…`, manifest sha256 `6adcc30b…`) — **before the
    first generation**.
+6. **Amendment 2 — length extension (N=10,15).** After the N=5,20 run showed a
+   length effect (matched harm rising with N while neutral stays flat), the
+   reviewer added N=10,15 to complete the dose-response curve {5,10,15,20}. No
+   re-approval: the 10/15 openings are the first 10/15 tokens of the SAME
+   approved source responses, i.e. prefixes of the already-approved 20-token
+   openings (5/20 prefixes verified byte-identical after re-freeze). The 623
+   N=5,20 generations/judgments are reused as seeds; only the 534 new cells are
+   generated and judged. Frozen manifest sha256 `33b38abb…`.
 5. **Judge-rubric correction (post-generation, pre-valid-judging)** — the judge
    was mistakenly run with an operational-uplift scale; caught by the reviewer,
    that output discarded, and the metric corrected to the **Qi et al. 2023
