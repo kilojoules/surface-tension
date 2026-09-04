@@ -29,6 +29,14 @@ PYTHONPATH=src python -m quadrant.probe_correction \
 python scripts/make_sft_scaling_sets.py
 python scripts/make_propensity_freeze.py
 
+# JBB prefill (safety-domain companion) — re-derive the summary + figure from
+# the PUBLIC scores (harm ratings + refusal only; no harmful text) — matches
+# results/jbb_prefill_summary.json byte-identically:
+PYTHONPATH=src python src/analyze_jbb.py \
+    --judged data/evidence/jbb_prefill_v1/scores.jsonl \
+    --openings data/evidence/jbb_prefill_v1/opening_scores.json --out /tmp/jbb.json
+python src/plot_jbb_prefill.py data/evidence/jbb_prefill_v1/scores.jsonl
+
 # Figures re-render from committed numbers (provenance in each script header):
 python src/plot_sft_scaling.py && python src/plot_step0_findings.py
 ```
@@ -46,6 +54,13 @@ with external timestamp anchors in `prereg/`. Historical eval sampling was
 unseeded (T=0.7) — expect statistical, not bitwise, reproduction; later
 runs (battery/interruption) are per-record seeded. The base model revision
 is unpinned (`google/gemma-4-31B-it@main`).
+
+The JBB-prefill pipeline (`prereg/jbb_prefill_2026-09-03.md`) runs on the
+Turnstile assets (`../turnstile/`): `scripts/harvest_jbb_prefixes.py` →
+`scripts/freeze_jbb_items.py` build the frozen openings (harmful, private);
+`scripts/launch_jbb_experiment_runpod.sh` (generate on Llama-3.1-8B, judge on
+Llama-3.1-70B bnb-4bit with the Qi rubric). Raw harmful generations stay in the
+private canary'd package — only the scores ship.
 
 ## Known irrecoverables
 

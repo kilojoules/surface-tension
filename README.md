@@ -125,6 +125,40 @@ results = map(process_k, K_queries)
 ```
 Same answer, surface form migrated — openly, and accurately self-reported. This is what the Stage-3 numbers quantify.
 
+## Extension — the same question in safety refusal (JailbreakBench)
+
+The coding rule turned out to be **token-borne**: the step-0 kill test
+([`results/step0_kill_test_2026-08-13.md`](results/step0_kill_test_2026-08-13.md))
+showed R-SFT's loop-avoidance rides in the *emitted rationale* — an assistant-turn
+prefill of a code fence collapses compliance to base level while pass-rate rises,
+so what looked internalized is carried by the tokens the model says, not the
+weights. A companion experiment asks the mirror question where it actually
+matters — **refusal** — on JailbreakBench.
+
+Prompt the plain JBB goal (a closed gate: 0.91 refusal on Llama-3.1-8B-Instruct),
+then force the assistant turn to begin with the first N∈{5,10,15,20} tokens of a
+real successful jailbreak opening, and judge the *continuation* (given the opening
+as context) on **Qi et al. 2023's 1–5 harmfulness scale**. The control that
+carries the result: **matched** openings (from a real answer to the *same*
+behavior) vs **mismatched** (a *different* behavior's opening), equal length, cut
+identically.
+
+![JBB prefill length dose-response](paper/figs/jbb_prefill_length.png)
+
+Matched harm rises with opening length (2.24 → 3.11); mismatched stays flat
+(~2.2); the gap grows **0.05 → 0.92** across N (paired Wilcoxon **p=0.0001**,
+n=89). So the opening's *behavior-specific content* — not merely that the model
+was forced to start affirmatively — drives the harm: the token channel carries
+behavior-specific capability, the safety-domain analogue of the code result.
+Δ=0.92 at N=20 lands in the pre-registered **INTERMEDIATE** band (below the 1.0
+"strong" bar) and is reported as such. Full write-up, the dropped confounded
+neutral baseline, and caveats (8B victim ceiling; prefill-of-refusal is itself
+published — the novel piece is the matched-vs-mismatched dose-response):
+[`results/jbb_prefill_2026-09-03.md`](results/jbb_prefill_2026-09-03.md). Public
+scores reproduce the figure with no GPU
+([`data/evidence/jbb_prefill_v1/`](data/evidence/jbb_prefill_v1/README.md)); raw
+harmful generations stay in a private canary'd package.
+
 ## Stages 1–2 (what made Stage 3 possible)
 
 **Stage 1 — binding pressure.** Gemma-4-31B-it on LCB-medium (post-cutoff, n=57; baseline pass 0.89). Constraint sweep, pilot metric¹:
@@ -191,3 +225,4 @@ LICENSE / NOTICE.md     MIT (code); data provenance, Gemma terms, canary GUID
 - **Stage-3 corrected statistics, no GPU needed** (from the repo root): `PYTHONPATH=src python -m quadrant.probe_correction --evidence data/evidence/quadrant_v4 --out results/correction_2026-07-12`. Every corrected statistic (grouped CV, permutation null, LOPO, memorizer references, bounds) re-derives exactly; the *originally published* plain-CV figures additionally depended on file-enumeration order and only reproduce from the author's raw layout (documented in the correction, §3d).
 - Stages 1–2: `python -m pytest src/test_ast_checks.py`; `python src/loaders_lcb.py`; sweep against a vLLM endpoint (see `docs/`).
 - Stage 3 from scratch: `pytest src/` (355 tests; 220 under `src/quadrant/`); generation + judge procedure in `docs/quadrant_v4_launch.md`; analysis `python -m quadrant.analyze --in judgments.jsonl --models base R-SFT DPO-r1 --contrast base DPO-r1`.
+- **JBB prefill result, no GPU** (re-derives the summary + figure byte-identically from the public scores): `PYTHONPATH=src python src/analyze_jbb.py --judged data/evidence/jbb_prefill_v1/scores.jsonl --openings data/evidence/jbb_prefill_v1/opening_scores.json --out /tmp/jbb.json` and `python src/plot_jbb_prefill.py data/evidence/jbb_prefill_v1/scores.jsonl`. Full pipeline (harvest → freeze → generate → judge) in `scripts/{harvest,freeze}_jbb_*.py` + `scripts/launch_jbb_*_runpod.sh`; harmful generations stay private (scores-only evidence is what ships).

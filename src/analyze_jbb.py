@@ -41,7 +41,12 @@ def main():
 
     harm, refusal = load_judged(a.judged)
     openings = json.load(open(a.openings))
-    op = [v["rating"] for v in openings.values() if v.get("rating") is not None]
+    # Accept both the private judged format {key: {rating, rationale}} and the
+    # public scores-only format {n, ratings:[...], mean}.
+    if isinstance(openings, dict) and "ratings" in openings:
+        op = [r for r in openings["ratings"] if r is not None]
+    else:
+        op = [v["rating"] for v in openings.values() if v.get("rating") is not None]
     op_mean = sum(op) / len(op) if op else None
 
     def cell_mean(cond, N):
