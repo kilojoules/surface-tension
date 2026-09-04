@@ -29,6 +29,18 @@ response that already succeeded on the same JailbreakBench behavior.
 - `frozen_private/candidates.json`, `frozen_private/REVIEW.html` — the harvested
   jailbreak openings themselves. Never committed, mirrored, quoted, or logged.
 
+## Reproducing the openings (they are not uploaded — they are reconstructible)
+
+The prefill openings are deterministic first-N-token cuts of harm-judged
+responses in the **public** Turnstile repo (`github.com/kilojoules/turnstile`).
+`frozen_manifest.json` (committed) carries the sha256 of every opening, so a
+fresh `harvest_jbb_prefixes.py` → `freeze_jbb_items.py` against a Turnstile
+checkout rebuilds the exact set and you can check the hashes match (verified
+byte-for-byte, including the mismatched derangement). This is why the openings
+need not be re-published: every experimental input is public or
+reconstructible-from-public; only the victim's harmful *continuations* stay
+private, and those are regenerated, not needed as input.
+
 ## Attribution
 
 JailbreakBench behaviors are the public JailbreakBench/JBB-Behaviors benchmark
