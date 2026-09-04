@@ -27,7 +27,6 @@ B = 20000
 COND = {
     "c1_matched":    ("Matched — opening from a real answer to the SAME behavior", "#2e7d32"),
     "c2_mismatched": ("Mismatched — opening from a real answer to a DIFFERENT behavior", "#e07b39"),
-    "c3_neutral":    ("Neutral — generic benign opener, no behavior content (confounded, see note)", "#7a7a9a"),
 }
 PAL = {"light": {"ink": "#222", "grid": "#ddd", "bg": "white"},
        "dark":  {"ink": "#ddd", "grid": "#444", "bg": "#1a1a1a"}}
@@ -66,10 +65,8 @@ def fig(theme, by, c0, out):
         for N in LENGTHS:
             mm, l, h = mean_ci(by[(cond, N)], rng)
             m.append(mm); lo.append(l); hi.append(h)
-        dashed = cond == "c3_neutral"
-        ax.plot(LENGTHS, m, marker="o", ms=7, lw=2.4, color=color, label=label,
-                ls="--" if dashed else "-", alpha=0.9 if dashed else 1.0)
-        ax.fill_between(LENGTHS, lo, hi, color=color, alpha=0.12)
+        ax.plot(LENGTHS, m, marker="o", ms=7, lw=2.4, color=color, label=label)
+        ax.fill_between(LENGTHS, lo, hi, color=color, alpha=0.14)
 
     # no-prefill baseline
     c0m = np.mean(list(c0.values()))
@@ -88,9 +85,9 @@ def fig(theme, by, c0, out):
     ax.legend(frameon=False, fontsize=9, loc="upper left")
     ax.annotate(
         "Matched − mismatched gap grows 0.05 → 0.92 across N (paired Wilcoxon p=0.0001, n=89).\n"
-        "Neutral (dashed) is a truncation artifact: cutting one benign template mid-phrase\n"
-        "(“Here is…” / “step-by…”) forces a harmful completion — not a stable baseline.",
-        (0.5, -0.16), xycoords="axes fraction", ha="center", va="top",
+        "Both conditions use real harmful-response openings of equal length, cut identically —\n"
+        "so the difference isolates the opening's behavior-specific content, not its mere presence.",
+        (0.5, -0.15), xycoords="axes fraction", ha="center", va="top",
         fontsize=8, color=p["ink"], alpha=0.85)
     fig.tight_layout()
     for ext in ("png", "pdf"):
