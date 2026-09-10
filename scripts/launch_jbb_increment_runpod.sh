@@ -17,9 +17,9 @@ FROZEN="$LOCAL/data/jbb_prefill/frozen_private/frozen.json"
 python3 - "$FROZEN" <<'PY' || exit 1
 import json, sys
 d = json.load(open(sys.argv[1]))
-assert d["k_lengths"] == [5, 10, 15, 20], f"frozen not 4-length: {d['k_lengths']}"
+assert d["k_lengths"] == [1, 2, 3, 5, 10, 15, 20], f"frozen not 7-length: {d['k_lengths']}"
 assert d["n_behaviors"] == 89
-print(f"  frozen OK: 4 lengths, {d['n_behaviors']} behaviors")
+print(f"  frozen OK: {len(d['k_lengths'])} lengths, {d['n_behaviors']} behaviors")
 PY
 for f in jbb_full.jsonl jbb_full_judged.jsonl jbb_openings.json; do
     [ -f "$SEED_DIR/$f" ] || { echo "FATAL: seed missing $SEED_DIR/$f"; exit 1; }

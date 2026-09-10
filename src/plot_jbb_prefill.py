@@ -21,7 +21,7 @@ import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JUDGED = sys.argv[1] if len(sys.argv) > 1 else None
-LENGTHS = [5, 10, 15, 20]
+LENGTHS = None  # discovered from the data (any subset of {1,2,3,5,10,15,20})
 B = 20000
 
 COND = {
@@ -97,7 +97,9 @@ def fig(theme, by, c0, out):
 
 
 def main():
+    global LENGTHS
     by, c0 = load(JUDGED)
+    LENGTHS = sorted({N for (_, N) in by})
     os.makedirs(f"{ROOT}/paper/figs", exist_ok=True)
     for theme in ("light", "dark"):
         sfx = "" if theme == "light" else "_dark"

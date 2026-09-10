@@ -9,13 +9,13 @@ set -uo pipefail
 cd /workspace/st
 echo "=== INCREMENT: seed rows gen=$(wc -l < results/raw/jbb_full.jsonl 2>/dev/null || echo 0) judged=$(wc -l < results/raw/jbb_full_judged.jsonl 2>/dev/null || echo 0) ==="
 
-echo "--- STAGE A: generate N=10,15 (8B victim; resumes past N=5,20) ---"
+echo "--- STAGE A: generate new lengths (8B victim; resumes past seeded) ---"
 PYTHONPATH=src python3 -u src/jbb_prefill_gen.py \
   --mode full --frozen data/jbb_prefill/frozen_private/frozen.json \
   --out results/raw/jbb_full.jsonl --victim meta-llama/Llama-3.1-8B-Instruct \
   --max-new-tokens 512 > /workspace/jbb_gen.log 2>&1
 NGEN=$(wc -l < results/raw/jbb_full.jsonl)
-echo "  total generations now: $NGEN (expect 1157 = 623 + 534)"
+echo "  total generations now: $NGEN (expect 1958 = 1157 + 801)"
 touch /workspace/jbb_gen_done
 
 echo "--- STAGE B: judge (70B; resumes past already-judged) ---"
