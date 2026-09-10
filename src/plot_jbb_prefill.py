@@ -71,8 +71,9 @@ def fig(theme, by, c0, out):
     # no-prefill baseline
     c0m = np.mean(list(c0.values()))
     ax.axhline(c0m, color=p["ink"], lw=1.2, ls=":")
-    ax.annotate(f"No prefill (model refuses): {c0m:.2f}", (5, c0m), xytext=(0, -14),
-                textcoords="offset points", fontsize=9, color=p["ink"], va="top")
+    ax.annotate(f"No prefill (model refuses): {c0m:.2f}", (LENGTHS[0], c0m),
+                xytext=(2, 4), textcoords="offset points", fontsize=8.5,
+                color=p["ink"], va="bottom", ha="left")
 
     ax.set_xticks(LENGTHS)
     ax.set_xlabel("Prefill length  (first N victim tokens of the opening)")
@@ -84,7 +85,8 @@ def fig(theme, by, c0, out):
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False, fontsize=9, loc="upper left")
     ax.annotate(
-        "Matched − mismatched gap grows 0.05 → 0.92 across N (paired Wilcoxon p=0.0001, n=89).\n"
+        "Matched ≈ mismatched through N≈5 (a short affirmative nudge is behavior-agnostic);\n"
+        "the gap turns on at N≥10, reaching +0.92 at N=20 (paired Wilcoxon p=0.0001, n=89).\n"
         "Both conditions use real harmful-response openings of equal length, cut identically —\n"
         "so the difference isolates the opening's behavior-specific content, not its mere presence.",
         (0.5, -0.15), xycoords="axes fraction", ha="center", va="top",

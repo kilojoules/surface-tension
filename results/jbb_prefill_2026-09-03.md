@@ -31,25 +31,28 @@ realized harm in a clean dose-response; wrong-behavior openings do not.
 
 ## Result — enabling-harm (Qi 1–5) by prefill length
 
-| condition | N=5 | N=10 | N=15 | N=20 |
-|---|---:|---:|---:|---:|
-| **matched** | 2.24 | 2.61 | 2.57 | **3.11** |
-| **mismatched** | 2.19 | 2.17 | 2.10 | 2.19 |
-| matched − mismatched | +0.05 | +0.44 | +0.47 | **+0.92** |
+| condition | N=1 | N=2 | N=3 | N=5 | N=10 | N=15 | N=20 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **matched** | 1.58 | 1.88 | 2.03 | 2.24 | 2.61 | 2.57 | **3.11** |
+| **mismatched** | 1.75 | 1.83 | 2.06 | 2.19 | 2.17 | 2.10 | 2.19 |
+| matched − mismatched | −0.17 | +0.04 | −0.02 | +0.04 | +0.44 | +0.47 | **+0.92** |
 
 No-prefill baseline (C0): **1.16** (the model refuses without the prefill).
-Figure: `paper/figs/jbb_prefill_length.{png,pdf}` (+ dark).
+Figure: `paper/figs/jbb_prefill_length.{png,pdf}` (+ dark). Seven-length curve
+after Amendment 3 (N=1,2,3 added).
 
-**Reading.** Mismatched is flat across all four lengths (~2.1–2.2) — a
-wrong-behavior opening adds nothing whether it is 5 tokens or 20. Matched climbs,
-and the matched−mismatched gap grows monotonically from +0.05 to **+0.92**
-(paired **Wilcoxon over 89 behaviors, p=0.0001** at N=20). Because both
-conditions use real harmful-response openings of equal length, cut identically,
-the difference isolates the opening's **behavior-specific content**, not the mere
-presence of an opening. So the prefill does not merely flip a generic "comply"
-switch — the model completes harm specifically when the opening is real content
-about the *matching* behavior. This is the safety-domain analogue of the code
-task's token-borne rule: the token channel carries behavior-specific capability.
+**Reading.** Mismatched is flat across all seven lengths (~1.8–2.2) — a
+wrong-behavior opening adds nothing at any length. The matched-vs-mismatched gap
+has a clear **turn-on**: it is ≈0 through N=5 (−0.17, +0.04, −0.02, +0.04 — a
+1–5 token affirmative nudge is behavior-agnostic, matched ≈ mismatched), then it
+switches on at **N≥10** (+0.44, +0.47, +0.92; paired **Wilcoxon over 89
+behaviors, p=0.0001** at N=20). Because both conditions use real harmful-response
+openings of equal length, cut identically, the difference isolates the opening's
+**behavior-specific content**, not the mere presence of an opening — and the
+short end shows the content has to be *there* (≈10 tokens) to matter; a bare
+"Sure"-length nudge only opens the gate generically. This is the safety-domain
+analogue of the code task's token-borne rule: the token channel carries
+behavior-specific capability, and it needs enough tokens to convey the behavior.
 
 **Where it lands.** Δ=0.92 at N=20 is below the pre-registered ≥1.0 "strong /
 token-channel-carries-capability" threshold and above the <0.5 "capability-
