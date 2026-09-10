@@ -29,17 +29,23 @@ response that already succeeded on the same JailbreakBench behavior.
 - `frozen_private/candidates.json`, `frozen_private/REVIEW.html` — the harvested
   jailbreak openings themselves. Never committed, mirrored, quoted, or logged.
 
-## Reproducing the openings (they are not uploaded — they are reconstructible)
+## Reproducing the openings (not uploaded — pinned + reconstructible)
 
-The prefill openings are deterministic first-N-token cuts of harm-judged
-responses in the **public** Turnstile repo (`github.com/kilojoules/turnstile`).
-`frozen_manifest.json` (committed) carries the sha256 of every opening, so a
-fresh `harvest_jbb_prefixes.py` → `freeze_jbb_items.py` against a Turnstile
-checkout rebuilds the exact set and you can check the hashes match (verified
-byte-for-byte, including the mismatched derangement). This is why the openings
-need not be re-published: every experimental input is public or
-reconstructible-from-public; only the victim's harmful *continuations* stay
-private, and those are regenerated, not needed as input.
+The prefill openings are pinned by `frozen_manifest.json` (sha256 of every
+opening). Two ways to obtain them without re-publishing harmful text:
+
+1. **Rebuild from the run's own seed (drift-proof):**
+   `scripts/build_jbb_frozen_from_seed.py <seed jbb_full.jsonl>` — the exact
+   openings used are in the seed's `prefill` field; short lengths are prefixes
+   of the seed's N=20 (verified to reproduce N=5/10/15 byte-for-byte). This is
+   how the N=1,2,3 cells were derived.
+2. **Harvest from public Turnstile at the pinned commit `fc0a7f4`.** ⚠ The
+   Turnstile source grows over time — a fresh harvest against a *later*
+   Turnstile drifts (a 2026-09-09 addition changed one behavior and added a
+   90th), so pin the commit. `frozen_manifest.json` lets you verify either way.
+
+Only the victim's harmful *continuations* stay private, and those are
+regenerated, not needed as input.
 
 ## Attribution
 

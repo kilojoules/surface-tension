@@ -14,14 +14,20 @@
    https://gist.github.com/kilojoules/2c4c0f1371573e943cbf015df647ab4d
    (prereg sha256 `fa9e69f4…`, manifest sha256 `6adcc30b…`) — **before the
    first generation**.
-7. **Amendment 3 — short-end length extension (N=1,2,3).** After the four-length
-   dose-response, the reviewer added N=1,2,3 to resolve the very-short end (does a
-   1-3 token nudge already start the effect?). Same logic as Amendment 2: 1/2/3
-   openings are prefixes of the already-approved 20-token openings; the
-   5/10/15/20 prefixes are byte-identical after re-freeze (verified); the 1157
-   existing cells reused as seeds; only 801 new cells generated/judged. Frozen
-   manifest sha256 `c152ac3a…`. Committed+pushed before generation (git is the
-   external pre-data timestamp).
+7. **Amendment 3 — short-end length extension (N=1,2,3).** The reviewer added
+   N=1,2,3 to resolve the very-short end (does a 1-3 token nudge already start the
+   effect?). 1/2/3 openings are prefixes of the already-approved 20-token
+   openings; the 1157 existing cells are reused as seeds; 801 new cells
+   generated/judged.
+   **Source-drift note (found while preparing this amendment):** the Turnstile
+   source has grown since the run (a 2026-09-09 `qi_harm_themed` addition), so a
+   fresh harvest no longer reproduces the run — it changed one behavior's best
+   response and introduced a 90th behavior. The frozen set is therefore rebuilt
+   from the RUN'S OWN openings (`build_jbb_frozen_from_seed.py`; short lengths cut
+   from the seed's N=20, verified to reproduce N=5/10/15 byte-for-byte), pinned to
+   the exact 89 behaviors. Reproducibility docs now pin the pre-drift Turnstile
+   commit `fc0a7f4` as the alternative source. Corrected frozen manifest sha256
+   `de5ab4d4…` (89 behaviors, 7 lengths). Committed+pushed before generation.
 6. **Amendment 2 — length extension (N=10,15).** After the N=5,20 run showed a
    length effect (matched harm rising with N while neutral stays flat), the
    reviewer added N=10,15 to complete the dose-response curve {5,10,15,20}. No
