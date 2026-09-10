@@ -39,5 +39,5 @@ PYTHONPATH=src python3 -u src/jbb_prefill_judge.py \
   > /workspace/jbb_judge.log 2>&1
 echo "  judged rows: $(wc -l < results/raw/jbb_full_judged.jsonl)"
 touch /workspace/jbb_judge_done
-touch /workspace/all_stages_done
+touch /workspace/all_stages_done /workspace/all_done
 # No `sleep N && touch all_done` sentinel (the 2026-08-13 orphaned-sentinel race).

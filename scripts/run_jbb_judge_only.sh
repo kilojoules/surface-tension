@@ -16,7 +16,7 @@ echo "  judged rows: $NJUD / $NGEN"
 # crash (network/DNS/OOM) leaves NO done-marker, so the watchdog/monitor treat
 # it as incomplete instead of a false completion.
 if [ "$NJUD" -ge $(( NGEN * 95 / 100 )) ]; then
-    touch /workspace/jbb_judge_done /workspace/all_stages_done
+    touch /workspace/jbb_judge_done /workspace/all_stages_done /workspace/all_done
     echo "  DONE ($NJUD rows)"
 else
     echo "  INCOMPLETE ($NJUD/$NGEN) — no done-marker written; judge crashed?"

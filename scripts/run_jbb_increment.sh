@@ -26,7 +26,7 @@ PYTHONPATH=src python3 -u src/jbb_prefill_judge.py \
 NJUD=$(wc -l < results/raw/jbb_full_judged.jsonl 2>/dev/null || echo 0)
 echo "  total judged now: $NJUD / $NGEN"
 if [ "$NJUD" -ge $(( NGEN * 95 / 100 )) ]; then
-    touch /workspace/jbb_judge_done /workspace/all_stages_done
+    touch /workspace/jbb_judge_done /workspace/all_stages_done /workspace/all_done
     echo "  DONE ($NJUD rows)"
 else
     echo "  INCOMPLETE ($NJUD/$NGEN) — no done-marker; judge crashed?"
