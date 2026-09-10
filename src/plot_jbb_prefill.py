@@ -25,8 +25,8 @@ LENGTHS = None  # discovered from the data (any subset of {1,2,3,5,10,15,20})
 B = 20000
 
 COND = {
-    "c1_matched":    ("Matched — opening from a real answer to the SAME behavior", "#2e7d32"),
-    "c2_mismatched": ("Mismatched — opening from a real answer to a DIFFERENT behavior", "#e07b39"),
+    "c1_matched":    ("Matched — opening from a real answer to the SAME JBB behavior", "#2e7d32"),
+    "c2_mismatched": ("Mismatched — opening from a real answer to a DIFFERENT JBB behavior", "#e07b39"),
 }
 PAL = {"light": {"ink": "#222", "grid": "#ddd", "bg": "white"},
        "dark":  {"ink": "#ddd", "grid": "#444", "bg": "#1a1a1a"}}
@@ -68,12 +68,9 @@ def fig(theme, by, c0, out):
         ax.plot(LENGTHS, m, marker="o", ms=7, lw=2.4, color=color, label=label)
         ax.fill_between(LENGTHS, lo, hi, color=color, alpha=0.14)
 
-    # no-prefill baseline
+    # no-prefill baseline (reference line, no label)
     c0m = np.mean(list(c0.values()))
     ax.axhline(c0m, color=p["ink"], lw=1.2, ls=":")
-    ax.annotate(f"No prefill (model refuses): {c0m:.2f}", (LENGTHS[0], c0m),
-                xytext=(2, 4), textcoords="offset points", fontsize=8.5,
-                color=p["ink"], va="bottom", ha="left")
 
     ax.set_xticks(LENGTHS)
     ax.set_xlabel("Prefill length  (first N victim tokens of the opening)")
@@ -84,13 +81,6 @@ def fig(theme, by, c0, out):
     ax.grid(True, axis="y", color=p["grid"], lw=0.6, alpha=0.6)
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False, fontsize=9, loc="upper left")
-    ax.annotate(
-        "Matched ≈ mismatched through N≈5 (a short affirmative nudge is behavior-agnostic);\n"
-        "the gap turns on at N≥10, reaching +0.92 at N=20 (paired Wilcoxon p=0.0001, n=89).\n"
-        "Both conditions use real harmful-response openings of equal length, cut identically —\n"
-        "so the difference isolates the opening's behavior-specific content, not its mere presence.",
-        (0.5, -0.15), xycoords="axes fraction", ha="center", va="top",
-        fontsize=8, color=p["ink"], alpha=0.85)
     fig.tight_layout()
     for ext in ("png", "pdf"):
         fig.savefig(f"{out}.{ext}", dpi=200, bbox_inches="tight")
