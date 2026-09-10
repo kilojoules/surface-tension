@@ -76,8 +76,6 @@ def fig(theme, by, c0, out):
     ax.set_xlabel("Prefill length  (first N victim tokens of the opening)")
     ax.set_ylabel("Enabling-harm of the continuation  (Qi 1–5, judged by 70B)")
     ax.set_ylim(1, 4)
-    ax.set_title("Behavior-matched openings raise harm with length; wrong-behavior openings do not",
-                 fontsize=11.5)
     ax.grid(True, axis="y", color=p["grid"], lw=0.6, alpha=0.6)
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False, fontsize=9, loc="upper left")
