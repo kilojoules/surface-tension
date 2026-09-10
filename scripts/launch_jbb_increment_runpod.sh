@@ -51,7 +51,7 @@ scp -P "$PORT" -o StrictHostKeyChecking=no "$HOME/.hf_token" "root@$HOST:/root/.
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "python3 -c \"from huggingface_hub import login; login(token=open('/root/.hf_token').read().strip())\""
 
-echo "uploading src + runner + frozen(4-length) + SEED (N=5,20) data..."
+echo "uploading src + runner + frozen + SEED data..."
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "mkdir -p /workspace/st/src /workspace/st/scripts /workspace/st/data/jbb_prefill/frozen_private /workspace/st/results/raw"
 rsync -az --include='*.py' --exclude='__pycache__' --exclude='*.pyc' --exclude='test_*' \
@@ -66,7 +66,7 @@ done
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "set -e
      [ \$(ls /workspace/st/src/*.py | wc -l) -ge 15 ] || { echo 'FATAL: src incomplete'; exit 1; }
-     python3 -c \"import json; d=json.load(open('/workspace/st/data/jbb_prefill/frozen_private/frozen.json')); assert d['k_lengths']==[5,10,15,20]; print('  pod frozen 4-length OK')\"
+     python3 -c \"import json; d=json.load(open('/workspace/st/data/jbb_prefill/frozen_private/frozen.json')); assert d['n_behaviors']==89 and len(d['k_lengths'])>=4; print('  pod frozen OK', d['k_lengths'])\"
      echo \"  pod seed gens \$(wc -l < /workspace/st/results/raw/jbb_full.jsonl), judged \$(wc -l < /workspace/st/results/raw/jbb_full_judged.jsonl)\""
 
 echo "launching increment runner..."
