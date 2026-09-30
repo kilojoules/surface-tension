@@ -8,8 +8,7 @@ grid, prereg gist-anchored before launch; both arms subsampled from the SAME
 from saved sources. Per-cell counts (compliant/136):
   rationale: b37 30, b75 35, b149 49   (38,209 / 75,017 / 150,178 chars)
   stripped:  b37  9, b75 18, b149 24   (38,853 / 77,664 / 148,996 chars)
-Reference lines: base (no adapter) 2/136 = 0.015; original R-SFT (66 demos,
-57,099 tokens, /136 recomputation) 47/136 = 0.346.
+Reference line: base (no adapter) 2/136 = 0.015.
 Error bars: 68% Wilson intervals on the /136 proportion.
 
 X-axis (2026-08-12 revision): MEASURED loss-bearing tokens per corpus
@@ -40,7 +39,6 @@ ARMS = {  # (measured tokens, compliant_count) per budget, log order
     "stripped":  [(13_181,  9), (26_074, 18), (49_430, 24)],
 }
 BASE = 2 / N
-RSFT_ORIG = (57_099, 47 / N)
 
 # Same validated pairs as plot_sft_progression_minimal.py (dataviz six-checks):
 PALETTES = {
@@ -78,11 +76,6 @@ def render(theme, out):
     ax.axhline(BASE, color=pal["ref"], lw=1, ls=":")
     ax.annotate("base (no adapter) 0.015", (11_500, BASE), fontsize=8,
                 color=pal["ref"], va="bottom")
-    ax.plot([RSFT_ORIG[0]], [RSFT_ORIG[1]], marker="*", ms=11,
-            color=pal["rat"], ls="none")
-    ax.annotate("original R-SFT\n(unmatched, 57k tok)", RSFT_ORIG,
-                textcoords="offset points", xytext=(6, -16), fontsize=8,
-                color=pal["rat"])
     ax.set_xscale("log")
     ax.set_xticks([12_500, 25_000, 48_000])
     ax.set_xticklabels(["12.5k", "25k", "48k"])
