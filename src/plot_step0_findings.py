@@ -146,24 +146,6 @@ def fig_substitution(theme, out):
         token = max(0.0, d["nat"] - d["pre"])
         ax.bar(i, weight, 0.55, color=c, edgecolor="none",
                label="weight-borne (survives suppression)" if i == 0 else None)
-        # 95% Clopper-Pearson on the weight-borne segment. Without these, two
-        # bars whose intervals overlap read as an established ordering — which
-        # is exactly how a one-problem estimate passed as a result.
-        k, n = COUNTS[key]
-        if key in PER_PROBLEM:
-            lo, hi = cluster_ci(PER_PROBLEM[key], n)
-            ci_label = "95% CI (clustered)"
-        else:
-            lo, hi = cp(k, n)
-            ci_label = "95% CI (Clopper–Pearson)"
-        # offset to the bar's right shoulder so the interval never crosses the
-        # value labels
-        ax.errorbar(i + 0.20, weight, yerr=[[weight - lo], [hi - weight]],
-                    fmt="none", ecolor=p["ink"], elinewidth=1.3, capsize=4,
-                    capthick=1.3, zorder=5)
-        ax.annotate(f"{ci_label}\n{lo:.02f}–{hi:.02f}", (i + 0.20, hi),
-                    xytext=(4, 2), textcoords="offset points", ha="left",
-                    va="bottom", fontsize=6.5, color=p["ink"], alpha=0.75)
         ax.bar(i, token, 0.55, bottom=weight, color=c, alpha=0.35,
                hatch="//", edgecolor=p["ink"], linewidth=0.4,
                label="token-channel (natural − suppressed)" if i == 0 else None)
