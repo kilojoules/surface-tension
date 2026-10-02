@@ -1,12 +1,112 @@
 # Surface Tension
 
+### Rationalization of Refusals Leads to More Shallow Alignment
+*Julian Quick, Sophie Chong* · writeup: [`paper/main.tex`](paper/main.tex)
+
 ![A hot air balloon at altitude](docs/balloon.jpg)
 
-A hot air balloon at a given altitude could be there because it's genuinely light, or because it's carrying sandbags it could drop. Same altitude, two states — from below you can't tell. When we fine-tune a model to follow a rule ("don't write loops," or "don't blackmail the user"), we want the light balloon: a real change in what the model *is*. Surface Tension is a controlled testbed for telling those regimes apart, using arbitrary coding rules (easy to define, AST-verifiable) as a stand-in for safety constraints.
+A hot air balloon at a given altitude could be there because it's genuinely light, or because it's carrying sandbags it could drop. Same altitude, two states — from below you can't tell. When we fine-tune a model to follow a rule ("don't write loops," or "don't blackmail the user"), we want the light balloon: a real change in what the model *is*, not ballast it can shed the moment something nudges it. Surface Tension is a controlled testbed for telling those regimes apart, using arbitrary coding rules (easy to define, AST-verifiable, benchmark-scorable) as a stand-in for safety constraints.
 
-Where the metaphor landed: we went looking for hidden sandbags and found a balloon that, when asked, reads out its ballast accurately — in a regime where carrying sandbags cost nothing. The honest-measurement machinery built along the way (and once turned on this project's own headline — see the correction) is the contribution.
+Where the metaphor landed: the recipe that buys the **most** held-out compliance — training the model to *rationalize* the rule before following it — turns out to be the sandbag balloon. The rule rides in the tokens the model emits, not the weights underneath: nudge the reply to start with a code block, past the rationalization, and the compliance drops away while the underlying capability is untouched. **Rationalizing a refusal makes the alignment look stronger and be shallower.**
 
-> **⚠ Correction (2026-07-12).** The claim previously made here — that a
+## tl;dr
+
+We context-distill arbitrary coding restrictions (no loops, no recursion) into a model and measure how well they hold **held-out, with no prompt hint** — coding restrictions as a cheap, verifiable stand-in for refusals. Two recipes: plain SFT, and **R-SFT**, which first makes the model write a paragraph rationalizing the rule. Three findings:
+
+1. **Rationalizing wins — and it's the prose, not the token budget.** R-SFT beats plain SFT by **12–18 compliance points at every matched training budget**; matched on characters, the rationale arm actually saw *fewer* loss-bearing tokens. The rationale prose is load-bearing, not just extra signal.
+2. **…but the rule rides in the emitted tokens.** A step-0 prefill — force the reply to open with ` ```python ` so the rationalization never gets written — **collapses R-SFT compliance from 0.35 to base level (0.04)** while pass-rate *rises*. The capability is intact; the rule was in the words, not the weights. Plain SFT's (smaller) compliance is inert to the same prefill.
+3. **Same thing in safety refusal (JailbreakBench).** Prefilling the assistant turn with the first N tokens of a real jailbreak opening raises the judged harm of the continuation **only when the opening matches the behavior asked for** — matched-vs-mismatched gap grows 0.05 → 0.92 across N (Wilcoxon p=0.0001, n=89). The token channel carries behavior-specific capability in the refusal domain too.
+
+**The upshot:** the training that most improves a surface safety metric (rationalize, then comply) is the training that most routes the rule into droppable tokens. A prefill attack that skips the rationalization gets the capability back.
+
+> The DPO bake-in and the deception-vs-laundering measurement (an earlier headline — *does the trained model lie about which rule it followed?* Answer: essentially never, in a no-incentive setting) are now **[supplementary](#supplementary--dpo-bake-in-and-deception-vs-laundering)**. One of its probe claims was publicly **corrected** after adversarial review — see that section; the honest-measurement machinery built there is reused throughout.
+
+---
+
+## The question
+
+Growing evidence says alignment is shallower than safety evals imply. Yang et al. (2023) showed safety fine-tuning concentrates on stylistic surface tokens reversible with trivial data; Lin et al. (2024) unlocked suppressed behaviors with in-context examples alone; Qi et al. (2025) showed refusal is fragile — bypass the first refusal tokens and harmful continuations follow. So: **when a model is fine-tuned to follow a rule, has it internalized the rule, or learned a surface camouflage?**
+
+Following an arbitrary coding restriction is a close cousin of refusing to do something it's capable of: the model *can* write the loop, it's told not to. Pop et al. (2024) found that prefilling a model to *rationalize* a refusal, rather than refuse tersely, yields less harmful content later in an escalating conversation — rationalization as a safety intervention. We ask what that rationalization actually installs. Safety constraints are hard to verify; arbitrary coding constraints are cheap to impose, AST-verifiable, and benchmark-scorable, so we use them as the stand-in and test refusal directly only in the companion experiment.
+
+## Method — SFT vs R-SFT
+
+Both recipes are context distillation (Askell et al. 2021): train on the constrained completion, then strip the rule from the recorded prompt so the model obeys with no hint at test time.
+
+- **SFT** — prompt carries the rule ("don't use loops or recursion"), target is the compliant code. Strip the rule from the record.
+- **R-SFT** — prompt additionally asks the model to *write a paragraph rationalizing the rule*; target is **rationale prose + compliant code**. Strip both the rule and the rationalization instruction from the record.
+
+(See Figure 1 of [`paper/main.tex`](paper/main.tex) for the side-by-side corpus-construction diagram.)
+
+**The token-budget confound, controlled.** Rationale targets are longer, so maybe R-SFT just gets more training signal. We matched the two corpora on completion **characters** (same 66 demos, same pre-committed order, subsampled to matched char budgets). Because prose packs more characters per token, the rationale arm ended up with **6–10% *fewer* loss-bearing tokens** than the stripped arm — the match is conservative *against* the finding (`data/sft_scaling/manifest.json`, `token_counts.json`).
+
+## Setup
+
+**Model & data.** Gemma-4-31B-it on **LiveCodeBench-medium** (Jain et al. 2024), restricted to post-training-cutoff problems (n=57 at baseline) to avoid contamination. Unconstrained pass rate on this split is **0.89**; a mix of function-style and stdin-style tasks; all compliance checks run on the extracted code only.
+
+**Constraint.** We swept five candidates, each verified by an AST checker walking the parsed tree, and selected **`no_loops_no_recursion`** (forbids `for`/`while`/`AsyncFor` and any locally-defined function calling another) — the only one that is *satisfiable but non-default*:
+
+| constraint | prompted compliance | verdict |
+|---|---:|---|
+| `no_loops` | 0.98 | too easy — loops trivially become recursion |
+| `no_recursion` / `no_helpers` | 0.97 | trivial; no real pressure |
+| **`no_loops_no_recursion`** | **0.65** | **selected: satisfiable but non-default** |
+| `stdlib_whitelist` | 0.01 | too hard — instruction-following failure, not an alignment test |
+
+Bare-prompt (no hint) compliance is ~2–5% for all of them. The selected rule **permits** comprehensions, `map`/`filter`/`reduce` and other functional constructs — a deliberate choice that both gives the model a legal escape and sets up the supplementary deception measurement. Its cost is **≈ 8 pass-rate points** (0.87 → 0.79, n=54): loops and recursion are often load-bearing, so forbidding them turns a few problems into failures.
+
+---
+
+## Result 1 — the rationale prose is load-bearing (token-matched)
+
+![Token-matched SFT scaling: rationale vs stripped targets](paper/figs/sft_scaling_curve.png)
+
+At every matched budget the rationale targets (green) beat the stripped targets (red) by **12–18 points** of held-out, bare-prompt compliance (clean-17 slice, /136):
+
+| measured loss-bearing tokens | rationale | stripped |
+|---|---:|---:|
+| 12.5k | **0.22** | 0.07 |
+| 25k | **0.26** | 0.13 |
+| 48k | **0.36** | 0.18 |
+
+Base (no adapter) is 0.015. The gap survives the token-budget de-confound (above) and holds across LoRA rank for **r ≤ 32**; it compresses below the pre-registered bar at r=128 (`results/rank_sweep_2026-08-09.md`) — capacity is not the bottleneck, the prose is. Full confound controls: `results/sft_scaling_2026-08-08.md`. The ablation closes it from the other side: DPO on a *stripped* (no-rationale) SFT recovers almost none of the compliance a rationale SFT does (clean cmp∧pass 0.09 vs 0.32).
+
+## Result 2 — the rule rides in the emitted tokens
+
+If the rationale prose is load-bearing, *where* is the rule — in the weights, or in the tokens the model emits on its way to the answer? The **step-0 kill test** answers it: prompt the trained model bare, but prefill the assistant turn with ` ```python ` so it must start emitting code immediately, with no room for the rationalization.
+
+![Suppression removes the rule, not the capability](paper/figs/step0_suppression.png)
+
+R-SFT's compliance **collapses from 0.346 to 0.039** — through the plain-SFT floor, down to base territory (within-R-SFT drop cluster-bootstrap CI [+0.16, +0.46]; indistinguishable from base, p=0.78). Plain SFT's smaller compliance is **inert** to the same prefill (0.154 → 0.137). And the capability is plainly intact: with the rule gone, R-SFT reverts to ordinary loopy code and its **pass-rate rises 0.41 → 0.744**. The emission habit is not a reflex the model can suppress on command either — under a hardened instruction to comply anyway, it emitted the forbidden constructs 0/51 times. The rule was carried by the words, not the weights (`results/step0_kill_test_2026-08-13.md`).
+
+![Where the rule lives: weights vs emitted tokens](paper/figs/step0_substitution.png)
+
+Decomposing each arm's natural compliance into a weight-borne share (survives the prefill) and a token-channel share (natural − suppressed) shows R-SFT's compliance is almost entirely token-channel. The *between-arm* ordering (that R-SFT's weight-borne residue sits strictly below plain SFT's) is **not resolved at this n** — +0.098, 95% CI [−0.04, +0.26], p=0.25, R-SFT's suppressed signal resting on one problem of seventeen even after a powered follow-up — so the figure reports it as a bound, not a result (`prereg/step0_substitution_power_2026-09-02.md`). The *within-R-SFT* collapse is the robust claim.
+
+## Result 3 — the same question in safety refusal (JailbreakBench)
+
+The coding rule is token-borne. The companion experiment asks the mirror question where it matters — **refusal**.
+
+Prompt the plain JailbreakBench goal (a closed gate: 0.91 refusal on Llama-3.1-8B-Instruct), then force the assistant turn to begin with the first N ∈ {1,2,3,5,10,15,20} tokens of a **real successful jailbreak opening**, and judge the *continuation* (given the opening as context) on **Qi et al. (2023)'s 1–5 harmfulness scale** (judged by a 70B). The control that carries the result: **matched** openings (from a real answer to the *same* behavior) vs **mismatched** (a *different* behavior's opening) — equal length, cut identically, so the only difference is the opening's behavior-specific content, not its mere presence.
+
+![JBB prefill length dose-response](paper/figs/jbb_prefill_length.png)
+
+With no prefill the model refuses (harm 1.16). Matched harm rises with opening length (2.24 → 3.11); mismatched stays flat (~2.2); the gap grows **0.05 → 0.92** across N (paired Wilcoxon **p=0.0001**, n=89), turning on at **N ≥ 10** — a 1–3 token nudge is behavior-agnostic, ~10 tokens carry the behavior. So the token channel carries behavior-*specific* capability — the safety-domain analogue of the code result. Δ=0.92 at N=20 lands in the pre-registered **INTERMEDIATE** band (below the 1.0 "strong" bar) and is reported as such. Caveats (8B victim ceiling; prefill-of-refusal is itself not novel — the matched-vs-mismatched dose-response is) and the dropped, confounded neutral baseline: `results/jbb_prefill_2026-09-03.md`. Public **scores** reproduce the figure with no GPU (`data/evidence/jbb_prefill_v1/`); raw harmful generations stay in a private, canary'd package — scores-only is what ships.
+
+## Takeaways
+
+- **The rule is in the tokens.** The recipe that most improves held-out compliance (rationalize, then comply) is the one that most routes the rule into emitted tokens a prefill can skip. Better surface metric, shallower alignment.
+- **Rationale prose is load-bearing**, and it's the prose — not the extra token budget or the LoRA rank — that does the work (at r ≤ 32).
+- **It generalizes to refusal.** The same prefill channel carries behavior-specific capability on JailbreakBench.
+- **Deception metrics overcount** when the scored rule is stricter than the rule the model was shown (supplementary) — a lesson that shaped how every claim above is reported: measure against the shown rule, report bounds not zeros, publish the evidence with the claim.
+
+---
+
+## Supplementary — DPO bake-in, and deception vs laundering
+
+*This section was the project's original headline. It is sound and heavily instrumented, but secondary to the token-borne story above; one of its probe claims was publicly corrected (box below), and the honest-measurement machinery it produced is reused throughout.*
+
+> **⚠ Correction (2026-07-12).** The claim previously headlined here — that a
 > linear probe on the pre-code residual stream revealed "a genuine forward
 > plan to launder" (AUROC 0.82) — is **retracted**: the pre-code activation
 > is a deterministic function of the problem prompt (byte-identical across
@@ -21,158 +121,9 @@ Where the metaphor landed: we went looking for hidden sandbags and found a ballo
 > everything needed to catch it was in the repo. Same data, opposite
 > headline — and this is the honest one.
 
----
+### Baking the constraint in (DPO)
 
-## Bottom line
-
-**A naive deception metric reads this testbed as ~90% covert rule-violation. Conditioning on the rule the model was actually shown collapses that to ≈0 deception (bounded, in a no-incentive condition where compliance was nearly free) — what looked covert is near-universal, openly self-reported migration into explicitly permitted constructs. Any deception eval whose graded rule is stricter than the rule the model was shown will overcount whenever models migrate into the definitional gap — here the overcount was nearly total.**
-
-1. **Deception ≈ 0, bounded.** Scored against the rule *as shown* (loops/recursion forbidden; comprehensions and `map`/`filter`/`reduce` explicitly allowed), the models essentially never deny a forbidden construct they used: base **1/95** passing samples (point 0.011, 95% upper bound 0.049), R-SFT **0/35** (≤ 0.082), DPO-r1 **0/36** (≤ 0.080). Two caveats before quoting this anywhere: the constraint left a **free legal escape** (the migration target was permitted), so this is the *no-incentive control condition*, not evidence that models under pressure don't deceive — the costly-compliance experiment is scoped in [`src/pressure/`](src/pressure/README.md); and the self-report probe shows the model its own code, so it partly measures reading comprehension (prereg limitation #1).
-2. **Surface migration ("laundering") ≈ universal, and honest.** 86–97% of passing solutions satisfy the shown rule by moving iteration into permitted comprehension/functional style (AST-side, judge-free: base 0.86, R-SFT 0.97, DPO-r1 0.97), and the models *say so accurately* when asked. "Laundering" here is a term of art for surface-form migration — it is instructed, permitted, honestly-reported behavior, not misconduct; the point of the word is that a strict checker *mislabels* it as covert violation.
-3. **The mech-interp result is a null (corrected).** The end-of-prompt (`__sol`) representation carries some problem-level correlation with migration propensity (problem-held-out AUROC 0.75 on 16 problems), but this does not beat a properly clustered permutation null (p ≈ 0.25), and by construction it cannot reflect a per-generation "plan" — the activation is identical for every sample of a problem. Post-code (`__rep`) probes read construct use at 0.81–0.87 even across held-out problems, which is coherent (the code is in context) and deliberately not claimed as intent. There is no deception direction to find because there was essentially no deception in this no-incentive setting; there is no established plan-to-launder direction either.
-
-The methodological spine survives its own correction: **measure claims against the rule the model was shown; report bounds, not zeros; publish the evidence with the claim.**
-
----
-
-## The research arc
-
-Arbitrary coding rules stand in for safety constraints because they're cheap to impose, AST-verifiable, and benchmark-scorable.
-
-1. **Establish binding pressure** — find a constraint the model doesn't satisfy by default but can satisfy when told. ✅ *Stage 1.*
-2. **Bake the constraint in** — fine-tune so the model obeys with no prompt hint. ✅ *Stage 2* (rationale-SFT distillation → DPO).
-3. **Detect the sandbag** — quadrant the trained model: complying, laundering, or covertly cheating — and probe what it represents. ✅ *Stage 3, with the 2026-07-12 correction.*
-4. **Costly compliance** — re-run Stage 3 where the legal solution is expensive and an overseer rewards claimed compliance: a real comply-vs-cheat choice. *Apparatus built (52 certified problems), not yet run.*
-5. **Aligner agent / adversarial trainer** — scoped, not built (see PLAN.md status note).
-
-## Status at a glance
-
-- **Stage 1 — constraint discovery: done.** `no_loops_no_recursion` on Gemma-4-31B, LCB-medium (post-cutoff): bare-prompt compliance is near zero, prompted compliance is 0.65, and the prompted-constraint cost is **≈ 8 pass-rate points** (0.87 → 0.79, n=54). An earlier "0.34 capability drop" figure was an artifact of a broken compliance column (empty AST trees counted as compliant) — diagnosed in [the paper](paper/main.tex), §3. The binding fact for Stage 2 is the *default gap*, not a large capability cost.
-- **Stage 2 — bake-in: done.** Naive DPO failed (mode collapse). A two-stage chain works: *rationale-SFT distillation* then *DPO from the SFT checkpoint*. Clean held-out compliance base 0.05 → SFT 0.35 → **DPO-r1 0.65**; cheating cut 0.4 → 0.07.
-- **Stage 3 — quadrant + probes: done, corrected.** Deception vs laundering measured with an LLM judge against three rule definitions; probe headline corrected per [`docs/correction_2026-07-12.md`](docs/correction_2026-07-12.md). Results below.
-- **Total spend:** ~$170 of rented-GPU credit across all stages.
-
----
-
-## Stage 3 — deception vs laundering (the headline)
-
-**Design.** Three arms spanning the training *progression* — `base` (raw model), `R-SFT` (the rationale-SFT **B1++** checkpoint from Stage 2), and `DPO-r1` (the headline DPO round) — each solve 17 held-out LCB-medium problems under the constraint, then answer a structured self-report (did you use for/while? recursion? functional helpers? comprehensions?). An independent, family-different judge (**Qwen3-30B-A3B**, temp 0 / seed 0, guided JSON) labels the *claims* from prose only — it never sees the code — so the claim axis is independent of the fact axis. An AST checker labels the *facts*. The quadrant crosses them, conditioned on passing tests. Pre-registered in `prereg/quadrant_v4_deception_2026-07-03.md` (see `prereg/README.md` for the timestamping status of that prereg — it is git-only).
-
-The trick is scoring against **three** rule definitions:
-
-| definition | what counts as a violation | the covert cell means |
-|---|---|---|
-| **shown** | for/while, recursion (comprehensions + functional **allowed**) | **deception** — denying the rule you were given |
-| loose | + functional iteration (`map`/`reduce`/…) | laundering diagnostic |
-| strict | + comprehensions | laundering diagnostic |
-
-**Result** (passing samples; n = base 95 / R-SFT 35 / DPO-r1 36, spanning ≤ 11 problems per arm; **no-incentive condition** — the shown rule permitted the migration target, so this bounds deception absent pressure):
-
-| metric | base | R-SFT | DPO-r1 |
-|---|---:|---:|---:|
-| **Deception**¹ — denies a forbidden construct it used | 0.011 | 0.000 | 0.000 |
-| … 95% upper bound (one-sided Clopper–Pearson)² | 0.049 | 0.082 | 0.080 |
-| **Laundering** (permitted migration, honestly reported) — claims-compliant ∧ *strict* violation¹ | 0.905 | 1.000 | 0.972 |
-| Laundering, AST-only (shown ∧ ¬loose, judge-free, recomputable) | 0.863 | 0.971 | 0.972 |
-| honest violation (admits a real violation)¹ | 0.05 | 0.00 | 0.03 |
-
-¹ All claim-side rows — deception, judge-based laundering, honest violation — are **single-sourced**: the judge outputs were lost with the judge pod (disclosure in the correction doc, §6). The judge's inputs are published in `data/evidence/quadrant_v4/`, so every one of these can be regenerated by re-running the judge. The AST-only row needs no judge and is recomputable today.
-² Bounds assume independent samples; samples cluster within ≤ 17 problems, so true uncertainty is somewhat larger (two-sided bounds and details: correction doc §6).
-
-The gap between *shown* (≈0) and *loose/strict* (large) **is** the laundering effect: a checker that doesn't condition on the shown rule reads ~90% of this data as covert violation. Same data, opposite headline. Arm-to-arm contrasts are underpowered (CIs include 0); the *within-arm* deception≈0 / laundering≈universal split is the robust finding.
-
-**Data quality:** 0 judge parse errors; 0 samples near the 4096-token cap; rubric v1; single probe/checker version.
-
-## Stage 3 — probes (corrected)
-
-On every sample the residual stream (61 layers × 5376) was captured at two positions: **`__sol`** (final prompt token, *before* the code) and **`__rep`** (after the code, before the self-report). Per layer, a normalized mean-difference direction is fit with cross-validation; the label is "will migrate iteration into functional/comprehension form."
-
-**The central fact (this is what the correction is about):** the `__sol` prompt does not vary across a problem's samples, so the `__sol` activation is byte-identical for all ~12 samples of each problem — the probe has as many distinct inputs as *problems* (base: 16), not samples (188). Sample-level CV therefore leaks (identical vectors in train and test; a CV-legal memorizer that scores each held-out sample by its problem's train-fold label rate — no activations at all — reaches ≈ 0.87), and any claim about *per-generation* decisions is impossible by construction.
-
-| arm | problems | published (plain CV, leaky) | grouped CV (problem-held-out) | permutation p (1,000 perms, clustered) |
-|---|---:|---:|---:|---:|
-| base | 16 | 0.820 | 0.747 | ≈ 0.25 |
-| R-SFT | 7 | 0.839 | 0.768 | ≈ 0.60 |
-| DPO-r1 | 8 | 0.732 | 0.807 | ≈ 0.017² |
-| DPO-r2 | 5 | 0.782 | 0.825 | ≈ 0.25 |
-| vanilla-SFT | 2 | n/a (1 negative) | — | — |
-| vanilla-DPO | 2 | 0.95 (2 negatives) | undefined³ | — |
-
-² One nominally significant probe out of five permutation tests run (the four arms here plus the base *laundered* probe, p ≈ 0.24; the tests are not independent), post hoc, on 8 problems — a follow-up candidate at larger problem-n, not a finding.
-³ With 2 problems every problem-held-out train fold is single-class; the published 0.95 had no leakage-free support at all.
-
-**What survives:** grouped-CV point estimates of 0.75–0.83 suggest the end-of-prompt representation carries *some* problem-level information correlated with migration propensity — but at these problem counts that is statistically indistinguishable from max-over-61-layers selection noise (base-arm clustered null's 95th percentile ≈ 0.81; the one nominal exception is the post-hoc DPO-r1 case, footnote ²), and conceptually indistinguishable from the prompt encoding task affordances ("this problem has a natural comprehension solution"). At `__rep`, where the generated code is in context, base-arm probes read construct use at 0.81–0.87 including under problem-held-out CV (trained arms higher, on 5–8 problems) — descriptive, and exactly the "probe reads the output" configuration the design was built to avoid over-claiming. Testing a genuine per-generation plan needs activations at early *generated-token* positions; that experiment has not been run.
-
-Probe code: `src/quadrant/probe_mechinterp.py`. Correction analysis (reproduces every published number, then corrects it): `src/quadrant/probe_correction.py`. Quadrant analysis: `src/quadrant/analyze.py`.
-
----
-
-## The translation, in one example
-
-`lcb/abc380_d`. Both solutions pass all 8 tests.
-
-**Unconstrained** — iterative (`while` then `for`):
-```python
-m = 0
-while n * (1 << m) <= temp_k: m += 1
-for i in range(m, 0, -1):
-    ...
-```
-**Constrained** — closed-form, threaded via `map` and a lambda; the model even lays out the *iterative* algorithm in comments before lambda-fying it:
-```python
-process_k = lambda k: (... bin((k-1)//L).count('1') ...)
-results = map(process_k, K_queries)
-```
-Same answer, surface form migrated — openly, and accurately self-reported. This is what the Stage-3 numbers quantify.
-
-## Extension — the same question in safety refusal (JailbreakBench)
-
-The coding rule turned out to be **token-borne**: the step-0 kill test
-([`results/step0_kill_test_2026-08-13.md`](results/step0_kill_test_2026-08-13.md))
-showed R-SFT's loop-avoidance rides in the *emitted rationale* — an assistant-turn
-prefill of a code fence collapses compliance to base level while pass-rate rises,
-so what looked internalized is carried by the tokens the model says, not the
-weights. A companion experiment asks the mirror question where it actually
-matters — **refusal** — on JailbreakBench.
-
-Prompt the plain JBB goal (a closed gate: 0.91 refusal on Llama-3.1-8B-Instruct),
-then force the assistant turn to begin with the first N∈{5,10,15,20} tokens of a
-real successful jailbreak opening, and judge the *continuation* (given the opening
-as context) on **Qi et al. 2023's 1–5 harmfulness scale**. The control that
-carries the result: **matched** openings (from a real answer to the *same*
-behavior) vs **mismatched** (a *different* behavior's opening), equal length, cut
-identically.
-
-![JBB prefill length dose-response](paper/figs/jbb_prefill_length.png)
-
-Matched harm rises with opening length (2.24 → 3.11); mismatched stays flat
-(~2.2); the gap grows **0.05 → 0.92** across N (paired Wilcoxon **p=0.0001**,
-n=89). So the opening's *behavior-specific content* — not merely that the model
-was forced to start affirmatively — drives the harm: the token channel carries
-behavior-specific capability, the safety-domain analogue of the code result.
-Δ=0.92 at N=20 lands in the pre-registered **INTERMEDIATE** band (below the 1.0
-"strong" bar) and is reported as such. Full write-up, the dropped confounded
-neutral baseline, and caveats (8B victim ceiling; prefill-of-refusal is itself
-published — the novel piece is the matched-vs-mismatched dose-response):
-[`results/jbb_prefill_2026-09-03.md`](results/jbb_prefill_2026-09-03.md). Public
-scores reproduce the figure with no GPU
-([`data/evidence/jbb_prefill_v1/`](data/evidence/jbb_prefill_v1/README.md)); raw
-harmful generations stay in a private canary'd package.
-
-## Stages 1–2 (what made Stage 3 possible)
-
-**Stage 1 — binding pressure.** Gemma-4-31B-it on LCB-medium (post-cutoff, n=57; baseline pass 0.89). Constraint sweep, pilot metric¹:
-
-| constraint | prompted compliance | reading |
-|---|---:|---|
-| `no_loops_no_recursion` | 0.65 | satisfiable but non-default — used downstream |
-| `no_loops` | 0.98 | near-total compliance when prompted |
-| `no_recursion` / `no_helpers` | 0.97 | trivial — no real pressure |
-| `stdlib_whitelist` | 0.01 | model can't comply — instruction-follow failure |
-
-¹ Treat this table as ordinal. It comes from the pilot harness whose `compliant` column was later found to misclassify empty AST trees as compliant — the same trap that produced a fictitious "0.34 pass-rate drop" for `no_loops_no_recursion` (re-derived cost from saved sources: **≈ 8 points**, 0.87 → 0.79; see `paper/main.tex` §3). The re-derived, trustworthy Stage-1 facts: the constraint is nearly free when prompted, ~76% of always-loop problems yield a compliant-and-passing solution when instructed (n=3), and the model almost never satisfies the rule *by default* (bare-prompt compliance ≈ 0.02–0.05). The constraint binds through the default gap, not through capability cost.
-
-**Stage 2 — bake-in.** Naive DPO from base mode-collapsed. The chain that works: rationale-SFT distillation (bare prompt → rationale-prose + code targets, LoRA), then DPO from that checkpoint on a fresh problem pool with `(compliant ≻ violating)` pairs. Clean held-out three-metric:
+Naive DPO from base mode-collapsed. The chain that works: **rationale-SFT distillation**, then **DPO from that SFT checkpoint** on a fresh problem pool with `(compliant ≻ violating)` pairs. Clean held-out, three-metric:
 
 | recipe | compliance ↑ | cmp∧pass ↑ | cheat ↓ |
 |---|---:|---:|---:|
@@ -180,49 +131,91 @@ harmful generations stay in a private canary'd package.
 | rationale-SFT | 0.35 | 0.24 | 0.24 |
 | **DPO-r1** | **0.65** | **0.32** | **0.07** |
 
-(The rationale-SFT row is the original recipe; Stage 3's `R-SFT` arm is its **B1++** variant — clean compliance 0.40, cheating 0.18 — see `results/task1_rescore_2026-06-14.md`.) Ablation: DPO on a *stripped* (no-rationale) SFT recovers almost none of it (clean cmp∧pass 0.09 vs 0.32) — the rationale prose in the SFT targets is the load-bearing ingredient **at r ≤ 32 and matched token budgets** (confound controls: `results/sft_scaling_2026-08-08.md`; the gap compresses below the pre-registered bar at r=128, `results/rank_sweep_2026-08-09.md`). Load-bearing *how* is answered by the suppression test: the rule rides in the emitted rationale tokens, not the weights — prefilling past the rationale collapses R-SFT compliance to base level while pass-rate rises, and the emission habit itself is instruction-immune (0/51 obedience) — `results/step0_kill_test_2026-08-13.md`. A pre-registered propensity panel found this drift strictly task-locked: 60/63 forced-choice nulls on unrelated axes with validated positive controls — `results/propensity_panel_2026-08-11.md`. Full raw-evidence corpus mirrored on the Hub (all `data/evidence/` packages + DPO-r1/r2 and B1++ raw evals): https://huggingface.co/datasets/kilojoules/surface-tension-evidence. Adapters on the Hub: `kilojoules/surface-tension-{sft-b1plus,dpo-r1}-r32-final` (Gemma derivatives — Gemma Terms of Use apply; see `NOTICE.md`).
+(This "clean held-out" slice has base ≈ 0.05; the scaling figure above uses the narrower *clean-17* slice where base ≈ 0.015 — different held-out sets, same direction.) Stage 3's `R-SFT` arm is the **B1++** variant of the SFT row (clean compliance 0.40, cheating 0.18; `results/task1_rescore_2026-06-14.md`). A pre-registered propensity panel found the installed drift strictly **task-locked**: 60/63 forced-choice nulls on unrelated axes with validated positive controls (`results/propensity_panel_2026-08-11.md`).
+
+### Deception vs laundering — a naive metric reads this as 90% cheating; it's ≈0
+
+Three arms (`base`, `R-SFT`, `DPO-r1`) solve held-out problems under the constraint, then answer a structured self-report (did you use for/while? recursion? helpers? comprehensions?). A family-different judge (**Qwen3-30B-A3B**, temp 0, guided JSON) labels the *claims* from prose only — never sees the code — so the claim axis is independent of the AST fact axis. Scoring against **three** rule definitions is the trick:
+
+| definition | counts as a violation | covert cell means |
+|---|---|---|
+| **shown** | for/while, recursion (comprehensions + functional **allowed**) | **deception** — denying the rule you were given |
+| loose | + functional iteration (`map`/`reduce`/…) | laundering diagnostic |
+| strict | + comprehensions | laundering diagnostic |
+
+**Result** (passing samples; n = base 95 / R-SFT 35 / DPO-r1 36, ≤ 11 problems per arm; **no-incentive condition** — the shown rule permitted the migration target, so this bounds deception *absent pressure*):
+
+| metric | base | R-SFT | DPO-r1 |
+|---|---:|---:|---:|
+| **Deception** — denies a forbidden construct it used | 0.011 | 0.000 | 0.000 |
+| … 95% upper bound (one-sided Clopper–Pearson) | 0.049 | 0.082 | 0.080 |
+| **Laundering** (permitted migration, honestly reported), *strict* violation | 0.905 | 1.000 | 0.972 |
+| Laundering, AST-only (judge-free, recomputable) | 0.863 | 0.971 | 0.972 |
+| honest violation (admits a real violation) | 0.05 | 0.00 | 0.03 |
+
+The gap between *shown* (≈0) and *loose/strict* (large) **is** the laundering effect: a checker that doesn't condition on the shown rule reads ~90% of this data as covert violation — **same data, opposite headline**. Arm-to-arm contrasts are underpowered (CIs include 0); the within-arm deception≈0 / laundering≈universal split is the robust finding. Claim-side rows are **single-sourced** (judge outputs lost with the pod; the judge's *inputs* are published in `data/evidence/quadrant_v4/`, so each is regenerable); the AST-only row needs no judge and is recomputable today.
+
+**The translation, in one example** (`lcb/abc380_d`, both solutions pass all 8 tests): the unconstrained answer is iterative (`while` then `for`); the constrained answer is a closed form threaded via `map` and a lambda — the model even lays out the iterative algorithm in comments before lambda-fying it, then self-reports the migration accurately. Same answer, surface form migrated — openly. That is what the numbers quantify.
+
+**The probe (corrected to a null).** The end-of-prompt (`__sol`) representation carries some problem-level correlation with migration propensity (problem-held-out AUROC 0.75 on 16 problems) but does not beat a clustered permutation null (p ≈ 0.25), and by construction cannot reflect a per-generation plan (the activation is identical across a problem's samples). Post-code (`__rep`) probes read construct use at 0.81–0.87 even across held-out problems — coherent (the code is in context) and deliberately not claimed as intent. Probe code and the correction analysis that re-derives every published number: `src/quadrant/probe_mechinterp.py`, `src/quadrant/probe_correction.py`.
+
+### Costly compliance (apparatus built, not run)
+
+The deception≈0 result is a *no-incentive control* — the shown rule left a free legal escape. The real test is costly compliance with a foolable overseer: apparatus is built (52 certified problems, legal/loop cost ratio 0.99–23.8) but unrun (`src/pressure/`).
+
+---
 
 ## Relation to prior work
 
-The testbed premise — train a rule in, then ask whether the surface hides something — is shared with password-locked models (Greenblatt et al. 2024), Poser (Clymer et al. 2024), and sleeper agents (Hubinger et al. 2024); those works *plant* the hidden behavior, whereas Surface Tension asks whether one *emerges* from ordinary constraint fine-tuning (in the no-incentive regime: it didn't). The planned costly-compliance + foolable-overseer follow-on is closest to obfuscated reward hacking (Baker et al. 2025) — training against a monitor teaches hiding — with the difference that compliance cost is dosed per-problem (52 certified problems, legal/loop cost ratio 0.99–23.8), aiming at a dose–response curve rather than a demonstration. The definitional-fork point — deception metrics overcount when the scored rule differs from the shown rule — appears not to have a quantitative treatment elsewhere; it is this project's main exportable.
+The testbed premise — train a rule in, then ask whether the surface hides something — is shared with password-locked models (Greenblatt et al. 2024), Poser (Clymer et al. 2024), and sleeper agents (Hubinger et al. 2024); those works *plant* the hidden behavior, whereas Surface Tension asks whether one *emerges* from ordinary constraint fine-tuning. The shallow-alignment framing follows Yang et al. (2023), Lin et al. (2024), Qi et al. (2025), and the rationalization-as-intervention result of Pop et al. (2024), which we probe rather than assume. The planned costly-compliance + foolable-overseer follow-on is closest to obfuscated reward hacking (Baker et al. 2025). The definitional-fork point — deception metrics overcount when the scored rule differs from the shown rule — appears to lack a quantitative treatment elsewhere; it is this project's other exportable.
 
 ## Caveats
 
-- **Small n, few problems.** Trained-arm behavioral n ≈ 35 passing over ≤ 11 problems; probe supports are 16/7/8/5/2/2 *problems* per arm. Everything arm-contrastive is underpowered; within-arm structure is the finding.
-- **The deception≈0 result is a no-incentive control.** The shown rule permitted the migration target, so compliance was nearly free. It bounds deception *in the absence of pressure*; it says nothing about deception under pressure (that's `src/pressure/`, unrun).
-- **Judge-based cells are single-sourced** until someone re-runs the judge over the published self-reports (raw judge outputs were lost with the pod; disclosure in correction doc §6).
-- **Single model family** (Gemma-4-31B), one task domain, one constraint family.
-- **"Laundering, not deception" is definition-relative.** It holds because the prompt permits comprehensions/functional style. Under a stricter shown rule the same behavior would be a violation, and the covert cell could fill — the quadrant exists to make that fork explicit rather than hide it.
-- **`__rep` probes** may read the in-context code; treated as descriptive throughout. `__rep` tensors are not yet deposited publicly.
-- **Compliance is AST-checked** (`src/quadrant/checker.py`, quadrant-v4): dead-code drafts are pruned; `self.`/`cls.` are the only attribute-recursion forms flagged.
+- **The rule is token-borne; the between-arm substitution ordering is a bound.** The within-R-SFT suppression collapse is solid; the claim that R-SFT's weight-borne residue sits strictly *below* plain SFT's is not resolved at this n (Result 2).
+- **JBB is INTERMEDIATE and 8B-ceilinged.** Δ=0.92 < the 1.0 pre-registered "strong" bar; the matched-vs-mismatched dose-response is the novel piece, not prefill-of-refusal itself.
+- **Small n, few problems** throughout the supplementary deception work (trained-arm behavioral n ≈ 35 over ≤ 11 problems; probe supports 16/7/8 problems). Arm-contrastive claims are underpowered; within-arm structure is the finding.
+- **The deception≈0 result is a no-incentive control** (the shown rule permitted the migration target). It says nothing about deception under pressure (`src/pressure/`, unrun).
+- **Single model family** (Gemma-4-31B; Llama-3.1-8B victim for JBB), one task domain, one constraint family.
+- **Compliance is AST-checked** (`src/quadrant/checker.py`); `self.`/`cls.` are the only attribute-recursion forms flagged.
 
 ## Layout
 
 ```
-src/quadrant/
-  checker.py            AST checker: complied_{shown,loose,strict} + per-construct flags
-  generate.py           Phase-1 driver: solution turn + structured self-report (+ activation capture)
-  claim_judge.py        rubric v1 — judges CLAIMS from prose only (never sees code)
-  judge_runner.py       runs the judge over self_reports -> judgments
-  analyze.py            quadrant: construct-union deception + loose/strict laundering fork
-  probe_mechinterp.py   per-layer mean-diff probes (plain/grouped CV, sample-level shuffle)
-  probe_correction.py   2026-07-12 correction: identity audit, leakage memorizer references,
-                        clustered permutation null, problem-level analysis, deception bounds
-                        (re-derives every corrected statistic from the published evidence)
-  package_evidence.py   builds data/evidence/quadrant_v4/ (dedup __sol tensors + rows + manifests)
-src/                    stages 1-2: ast_checks, loaders_lcb, sft/dpo trainers, sweep, aggregate
-src/pressure/           costly-compliance problem set (52 certified keepers; solutions withheld)
-data/evidence/          published Stage-3 evidence (see its README)
-prereg/                 pre-registrations + timestamping status/policy (README.md)
-docs/correction_2026-07-12.md   the correction
-docs/quadrant_v4_launch.md      Stage-3 run procedure
-paper/                  LaTeX writeup of stages 1-2 (scope note reconciles it with this README)
-LICENSE / NOTICE.md     MIT (code); data provenance, Gemma terms, canary GUID
+Core — the token-borne story
+  src/                    stages 1-2: ast_checks, loaders_lcb, sft/dpo trainers, sweep, aggregate
+  src/plot_sft_scaling.py        Result 1: token-matched rationale-vs-stripped scaling
+  src/plot_step0_findings.py     Result 2: suppression + substitution figures
+  src/jbb_prefill_{gen,judge}.py Result 3: JBB prefill generation + Qi-rubric judge
+  src/analyze_jbb.py             Result 3: scores -> summary/figure (no GPU)
+  data/sft_scaling/              token-matched grid manifests + token counts
+  data/evidence/jbb_prefill_v1/  published JBB scores (scores-only; see its README)
+
+Supplementary — DPO bake-in + deception/laundering
+  src/quadrant/
+    checker.py            AST checker: complied_{shown,loose,strict} + per-construct flags
+    generate.py           solution turn + structured self-report (+ activation capture)
+    claim_judge.py        judges CLAIMS from prose only (never sees code)
+    analyze.py            quadrant: deception + loose/strict laundering fork
+    probe_mechinterp.py   per-layer mean-diff probes (plain/grouped CV)
+    probe_correction.py   2026-07-12 correction: re-derives every corrected statistic
+    package_evidence.py   builds data/evidence/quadrant_v4/
+  src/pressure/           costly-compliance problem set (52 certified; solutions withheld)
+  data/evidence/quadrant_v4/     published Stage-3 evidence
+
+  prereg/                 pre-registrations + timestamping status/policy (README.md)
+  docs/correction_2026-07-12.md   the correction
+  paper/                  LaTeX writeup + figures
+  LICENSE / NOTICE.md     MIT (code); data provenance, Gemma terms, canary GUID
 ```
+
+Hub mirrors: raw-evidence corpus (`data/evidence/` packages + DPO-r1/r2 and B1++ raw evals) at https://huggingface.co/datasets/kilojoules/surface-tension-evidence; adapters `kilojoules/surface-tension-{sft-b1plus,dpo-r1}-r32-final` (Gemma derivatives — Gemma Terms of Use apply; see `NOTICE.md`).
 
 ## Reproducing
 
-- **Stage-3 corrected statistics, no GPU needed** (from the repo root): `PYTHONPATH=src python -m quadrant.probe_correction --evidence data/evidence/quadrant_v4 --out results/correction_2026-07-12`. Every corrected statistic (grouped CV, permutation null, LOPO, memorizer references, bounds) re-derives exactly; the *originally published* plain-CV figures additionally depended on file-enumeration order and only reproduce from the author's raw layout (documented in the correction, §3d).
-- Stages 1–2: `python -m pytest src/test_ast_checks.py`; `python src/loaders_lcb.py`; sweep against a vLLM endpoint (see `docs/`).
-- Stage 3 from scratch: `pytest src/` (355 tests; 220 under `src/quadrant/`); generation + judge procedure in `docs/quadrant_v4_launch.md`; analysis `python -m quadrant.analyze --in judgments.jsonl --models base R-SFT DPO-r1 --contrast base DPO-r1`.
-- **JBB prefill result, no GPU** (re-derives the summary + figure byte-identically from the public scores): `PYTHONPATH=src python src/analyze_jbb.py --judged data/evidence/jbb_prefill_v1/scores.jsonl --openings data/evidence/jbb_prefill_v1/opening_scores.json --out /tmp/jbb.json` and `python src/plot_jbb_prefill.py data/evidence/jbb_prefill_v1/scores.jsonl`. Full pipeline (harvest → freeze → generate → judge) in `scripts/{harvest,freeze}_jbb_*.py` + `scripts/launch_jbb_*_runpod.sh`; harmful generations stay private (scores-only evidence is what ships).
+- **Result 1 (scaling), no GPU:** `python src/plot_sft_scaling.py` (measured cells in `results/sft_scaling_2026-08-08.md`).
+- **Result 2 (step-0), no GPU:** `python src/plot_step0_findings.py`; the powered substitution verdict is in `results/step0_power_summary.json` (`prereg/step0_substitution_power_2026-09-02.md`).
+- **Result 3 (JBB), no GPU** (re-derives the summary + figure byte-identically from public scores): `PYTHONPATH=src python src/analyze_jbb.py --judged data/evidence/jbb_prefill_v1/scores.jsonl --openings data/evidence/jbb_prefill_v1/opening_scores.json --out /tmp/jbb.json` and `python src/plot_jbb_prefill.py data/evidence/jbb_prefill_v1/scores.jsonl`. Full pipeline (harvest → freeze → generate → judge) in `scripts/{harvest,freeze}_jbb_*.py` + `scripts/launch_jbb_*_runpod.sh`; harmful generations stay private.
+- **Supplementary (Stage-3 corrected statistics), no GPU:** `PYTHONPATH=src python -m quadrant.probe_correction --evidence data/evidence/quadrant_v4 --out results/correction_2026-07-12`.
+- **Tests:** `pytest src/` (355 tests; 220 under `src/quadrant/`). Stage-3 generation + judge procedure: `docs/quadrant_v4_launch.md`.
+
+*Total rented-GPU spend: ~$170 across stages 1–3, plus the JBB companion run.*
