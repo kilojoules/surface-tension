@@ -41,7 +41,7 @@ say "checking local credentials"
 
 # ---- launch (try GPU candidates in price order until one is available) ----
 say "launching pod (cloud=$CLOUD, candidates: ${GPU_CANDIDATES:-default list})"
-IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA A40|NVIDIA A5000|NVIDIA RTX 4090|NVIDIA A6000|NVIDIA L40S|NVIDIA A100-SXM4-80GB}"
+IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA A40|NVIDIA RTX 4090|NVIDIA A6000|NVIDIA L40S|NVIDIA A100-SXM4-80GB}"
 launched=0
 for g in "${CANDS[@]}"; do
     say "trying gpu=$g"
@@ -68,10 +68,12 @@ done
 say "installing deps"
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "set -e
+     apt-get update -qq && apt-get install -y -qq rsync
      pip install -q 'torch==2.5.1' 'transformers==5.14.1' 'accelerate==1.14.0' \
                     'huggingface_hub==1.27.0' 'numpy==1.26.3' \
                     'peft==0.17.0' 'bitsandbytes==0.48.0' 'scipy' 2>&1 | tail -2
      pip uninstall hf-xet -y 2>&1 | tail -1 || true
+     which rsync
      python3 -c 'import torch,transformers,accelerate; print(\"deps ok\", torch.__version__, transformers.__version__)'"
 say "huggingface login (gated Llama)"
 scp -q -P "$PORT" -o StrictHostKeyChecking=no "$HOME/.hf_token" "root@$HOST:/root/.hf_token"
