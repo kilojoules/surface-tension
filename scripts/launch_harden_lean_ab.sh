@@ -39,15 +39,24 @@ say "checking local credentials"
 [ -f "$HOME/.run.pod" ] || { echo "FATAL: no RunPod API key (~/.super_lab_run.pod)"; exit 1; }
 [ -f "$HOME/.hf_token" ] || { echo "FATAL: no HuggingFace token (~/.hf_key)"; exit 1; }
 
-# ---- launch ----
-say "launching pod (gpu=$GPU cloud=$CLOUD)"
-python3 "$LOCAL/scripts/runpod_launch.py" \
-    --gpu "$GPU" --cloud "$CLOUD" --name "st-harden-lean-ab" \
-    --image "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
-    --env-file "$INSTANCE_FILE" --disk 60 --wait-min 15 || exit 1
+# ---- launch (try GPU candidates in price order until one is available) ----
+say "launching pod (cloud=$CLOUD, candidates: ${GPU_CANDIDATES:-default list})"
+IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA A40|NVIDIA A5000|NVIDIA RTX 4090|NVIDIA A6000|NVIDIA L40S|NVIDIA A100-SXM4-80GB}"
+launched=0
+for g in "${CANDS[@]}"; do
+    say "trying gpu=$g"
+    if python3 "$LOCAL/scripts/runpod_launch.py" \
+        --gpu "$g" --cloud "$CLOUD" --name "st-harden-lean-ab" \
+        --image "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
+        --env-file "$INSTANCE_FILE" --disk 60 --wait-min 15; then
+        launched=1; GPU="$g"; break
+    fi
+    say "gpu=$g unavailable (or never SSH-ready) — trying next candidate"
+done
+[ "$launched" -eq 1 ] || { echo "FATAL: no GPU available from candidates"; exit 1; }
 read -r INST HOST PORT < "$INSTANCE_FILE"
 POD_ID="$INST"
-say "pod ready: $INST  (ssh -p $PORT root@$HOST)"
+say "pod ready on $GPU: $INST  (ssh -p $PORT root@$HOST)"
 
 # ---- wait for ssh ----
 for i in $(seq 1 30); do
