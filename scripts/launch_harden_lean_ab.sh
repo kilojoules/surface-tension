@@ -31,8 +31,13 @@ trap kill_pod EXIT
 
 # ---- pre-flight ----
 say "checking local credentials"
-[ -f "$HOME/.run.pod" ] || { echo "FATAL: ~/.run.pod (RunPod API key) missing"; exit 1; }
-[ -f "$HOME/.hf_token" ] || { echo "FATAL: ~/.hf_token (HuggingFace token) missing"; exit 1; }
+# Credential files live at nonstandard names on this Mac; symlink to the paths
+# the shared tooling (runpod_launch.py / runpod_kill.py / prior launch scripts)
+# expects. Idempotent.
+[ -e "$HOME/.run.pod" ] || ln -s "$HOME/.super_lab_run.pod" "$HOME/.run.pod"
+[ -e "$HOME/.hf_token" ] || ln -s "$HOME/.hf_key" "$HOME/.hf_token"
+[ -f "$HOME/.run.pod" ] || { echo "FATAL: no RunPod API key (~/.super_lab_run.pod)"; exit 1; }
+[ -f "$HOME/.hf_token" ] || { echo "FATAL: no HuggingFace token (~/.hf_key)"; exit 1; }
 
 # ---- launch ----
 say "launching pod (gpu=$GPU cloud=$CLOUD)"
@@ -55,7 +60,8 @@ say "installing deps"
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "set -e
      pip install -q 'torch==2.5.1' 'transformers==5.14.1' 'accelerate==1.14.0' \
-                    'huggingface_hub==1.27.0' 'numpy==1.26.3' 2>&1 | tail -2
+                    'huggingface_hub==1.27.0' 'numpy==1.26.3' \
+                    'peft==0.17.0' 'bitsandbytes==0.48.0' 'scipy' 2>&1 | tail -2
      pip uninstall hf-xet -y 2>&1 | tail -1 || true
      python3 -c 'import torch,transformers,accelerate; print(\"deps ok\", torch.__version__, transformers.__version__)'"
 say "huggingface login (gated Llama)"
@@ -101,13 +107,14 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
 
 # ---- Stage B: harvest candidates (GPU; approval stays with the author) ----
 say "STAGE B: harvesting harmful-opening candidates (train + eval splits)"
+# QUANT_BIT=0: bf16 7B fits an A40-48GB without bitsandbytes quantization.
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
-    "cd /workspace/st && PYTHONPATH=src python src/harden_harvest_openings.py harvest \
+    "cd /workspace/st && QUANT_BIT=0 PYTHONPATH=src python src/harden_harvest_openings.py harvest \
         --behaviors data/harden/split/victim_train.jsonl \
         --model Qwen/Qwen2.5-7B-Instruct --N 128 \
         --out-dir data/harden/private/openings_train 2>&1 | tail -8"
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
-    "cd /workspace/st && PYTHONPATH=src python src/harden_harvest_openings.py harvest \
+    "cd /workspace/st && QUANT_BIT=0 PYTHONPATH=src python src/harden_harvest_openings.py harvest \
         --behaviors data/harden/split/eval.jsonl \
         --model Qwen/Qwen2.5-7B-Instruct --N 128 \
         --out-dir data/harden/private/openings_eval 2>&1 | tail -8"
