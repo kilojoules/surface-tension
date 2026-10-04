@@ -33,31 +33,36 @@ only ever the mechanism that makes a refusal shallow.
 
 ## Design (fixed before launch)
 
-**Victim:** `meta-llama/Llama-3.1-8B-Instruct` (optionally a second family,
-`Qwen2.5-7B-Instruct`, as a generality check — see Open decisions). All arms
-context-distilled from one shared SFT checkpoint.
+**Victims:** `meta-llama/Llama-3.1-8B-Instruct` (confirmatory core) and
+`Qwen2.5-7B-Instruct` as a second-family **transfer check**, gated on the Llama
+core landing. All arms context-distilled from one shared SFT checkpoint per
+victim.
 
-**Three central arms** (≥ 5 seeds each; shared SFT start; per-example-normalized
-loss; iso-coherence stop with pre-committed checkpoint selection):
-- **shallow (P0)** — refusal supervised only at output position 0 (standard
-  safety tuning).
+**Four arms — the full reflection × depth 2×2** (≥ 5 seeds each; shared SFT
+start; per-example-normalized loss; iso-coherence stop with pre-committed
+checkpoint selection):
+- **shallow-terse (P0)** — refusal supervised only at output position 0; terse.
+- **shallow-reflective (P0 + explanation)** — position-0 refusal that explains
+  itself.
 - **deep-terse (PK)** — recovery augmentation: targets follow a harmful prefix of
-  random length `k ∈ [1, K]`, teaching the model to re-refuse mid-stream; terse
-  refusal.
-- **deep-reflective (PK + explanation)** — same recovery training, but the
-  refusal explains itself; token-budget-matched to deep-terse.
+  random length `k ∈ [1, K]`, teaching re-refusal mid-stream; terse.
+- **deep-reflective (PK + explanation)** — recovery training plus explanation;
+  token-budget-matched to deep-terse.
 
-**Estimands (vulnerability scale; higher = less safe):**
-- `τ_depth = ASR(deep-terse) − ASR(shallow)` — the depth effect.
-- `τ_attrib = ASR(deep-reflective) − ASR(deep-terse)` — whether reflection adds
-  harm *at matched depth* (reflection-per-se vs the shallowness it tends to
-  cause). This is a central contrast, not an optional control.
+**Estimands (vulnerability scale; higher = less safe; S/D = shallow/deep,
+T/R = terse/reflective):**
+- `τ_depth` — depth main effect `mean(DT,DR) − mean(ST,SR)`, expected < 0.
+- `τ_reflect` — reflection main effect `mean(SR,DR) − mean(ST,DT)`.
+- `τ_interaction = [DR − DT] − [SR − ST]` — whether reflection's harm depends on
+  depth. The sharpest attribution: if reflection hurts when shallow but not when
+  deep, reflection was never the problem — the shallowness it causes was.
 
 **Recovery horizon K and prefill dose N.** Coupled; the test is at `N > K`
 (recovery beyond trained lengths). On a dev split, find the onset where openings
 start carrying behavior and the saturation point; set `K ≈ onset`; set the eval
 `N` grid to straddle K with points above it. Primary readout is a fixed
-functional of the `N > K` region (max dose or AUC — Open decisions). Calibrate
+functional of the `N > K` region — the **AUC over `N > K`**, with the max dose
+(N=100) reported as a secondary single point. Calibrate
 against the attack's own dose curve, never the between-arm difference, and freeze
 before eval.
 
@@ -113,9 +118,11 @@ that collapses to another is patched, not hardened.
   containing 0 → bound, never "no effect."
 - **P-transfer (primary).** `τ_depth < 0` in **both** channels (prefill and
   prompt-only). Negative in one only = a patch, not depth.
-- **P-attrib (central).** `τ_attrib ≈ 0` → reflection harmless at matched depth
-  (shallowness was the problem); `τ_attrib > 0` → reflection harmful per se.
-  Confirmed by the no-CoT ablation.
+- **P-reflect.** `τ_reflect` — reflection's main effect on vulnerability.
+- **P-interaction (central, the attribution).** `τ_interaction < 0` (reflection
+  hurts when shallow but not when deep) → reflection was never the problem, only
+  the shallowness it causes; `τ_interaction ≈ 0` with `τ_reflect > 0` → reflection
+  harmful per se, independent of depth. Confirmed by the no-CoT ablation.
 - **P-recover.** Deep arms' re-refusal probability stays ≥ 0.8× its N=0 value for
   `N > K` (TOST).
 - **P-cost.** Deep arms stay within the iso band; if not, the frontier is
@@ -141,12 +148,14 @@ Single-GPU spot rentals (~$1.5/h A100-80GB, ~$1.9/h H100); training is cheap,
 judging is the sink. The prior Surface Tension spend was the coding stand-in and
 does not inform per-run cost here; only the unit economics transfer, plus one
 refusal datapoint — the JBB prefill companion (~$11, a stock-model prefill, not a
-hardening run). Rough staged envelope: Stage 1 train (3 arms × ≥5 seeds)
-$150–350; Stage 2 frozen batteries + judging over ~300 behaviors across both
-channels $400–800; Stage 3 (gated) DPO'd attacker + cross-transfer + audits
-$500–1200. Honest total: **low thousands.** Biggest lever: the number of
-(behavior × condition × seed) cells judged — run the full ~300 only on the
-confirmatory anchors.
+hardening run). Rough staged envelope (judging-dominated): Stage 1 train (4 arms × ≥5 seeds = 20
+small QLoRA fine-tunes + selection evals) ~$50–150; Stage 2 frozen batteries +
+judging over ~300 behaviors across both channels ~$400–900 → **confirmatory
+frontier on Llama ~$600–1,200**. Stage 3 (gated) DPO'd attacker + cross-transfer
++ audits ~$500–1,200; the Qwen transfer check ~$200–500. **Full program
+~$1,500–2,800** (the added shallow-reflective arm is ~$150–350 of this). Biggest
+lever: the number of (behavior × condition × seed) cells judged — run the full
+~300 only on the confirmatory anchors.
 
 ## Staging & gates
 
@@ -190,11 +199,10 @@ Nothing runs until P0 passes and this prereg is externally anchored.
 
 ## Open decisions (author)
 
-1. **Dose functional** — primary = max dose (N=100), or AUC over the `N > K`
-   cells.
-2. **Arms** — the three-arm set, or add a fourth shallow-reflective arm for the
-   full reflection×depth 2×2.
-3. **Budget** — sign off on the low-thousands staged envelope.
-4. **Second family** — Llama only, or commit `Qwen2.5-7B`.
-5. **Anchoring & push** — external timestamp (author's action) before any run;
-   push the branch so the plan is shareable and anchorable.
+**Resolved 2026-10-03:** dose functional = AUC over `N > K`; arms = full
+reflection × depth 2×2 (4 arms); second family = `Qwen2.5-7B` as a gated transfer
+check; budget envelope accepted (~$600–1,200 for the Llama core, ~$2,800 full).
+
+**Remaining (author's actions, before any run):**
+1. **Anchor** the prereg (OSF / Zenodo / signed tag).
+2. **Push** the branch so the plan is shareable and the tag can anchor it.
