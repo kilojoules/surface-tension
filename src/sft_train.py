@@ -89,7 +89,7 @@ def _attach_lora(model, rank: int, alpha: int, dropout: float):
     return get_peft_model(model, cfg)
 
 
-def _completion_loss(model, tokenizer, prompt: str, completion: str, max_length: int, max_prompt_length: int) -> torch.Tensor:
+def _completion_loss(model, tokenizer, prompt: str, completion: str, max_length: int, max_prompt_length: int, prefix: str = "") -> torch.Tensor:
     """Negative mean log-prob over completion tokens. Loss is zero only when the model
     assigns probability 1 to every completion token; non-negative everywhere.
 
@@ -104,6 +104,11 @@ def _completion_loss(model, tokenizer, prompt: str, completion: str, max_length:
         )
     else:
         formatted_prompt = prompt
+    if prefix:
+        # Recovery augmentation (deep arms): the harmful prefix is MASKED context —
+        # part of the assistant turn the model must recover from — so it joins the
+        # prompt side and gets no loss. Loss stays on `completion` (the refusal).
+        formatted_prompt += prefix
     # Front-truncate the prompt to keep room for the completion
     prompt_ids = tokenizer(formatted_prompt, add_special_tokens=False).input_ids
     completion_ids = tokenizer(completion, add_special_tokens=False).input_ids
@@ -371,7 +376,7 @@ def main():
         tot = 0.0
         with torch.no_grad():
             for ex in val_examples:
-                tot += float(_completion_loss(model, tokenizer, ex["prompt"], ex["completion"], max_length, max_prompt_length))
+                tot += float(_completion_loss(model, tokenizer, ex["prompt"], ex["completion"], max_length, max_prompt_length, prefix=ex.get("assistant_prefix", "")))
         model.train()
         return tot / len(val_examples)
 
@@ -383,7 +388,7 @@ def main():
         accum_loss = 0.0
         for _ in range(grad_accum):
             ex = examples[rng2.randint(0, n_examples - 1)]
-            loss = _completion_loss(model, tokenizer, ex["prompt"], ex["completion"], max_length, max_prompt_length)
+            loss = _completion_loss(model, tokenizer, ex["prompt"], ex["completion"], max_length, max_prompt_length, prefix=ex.get("assistant_prefix", ""))
             (loss / grad_accum).backward()
             accum_loss += loss.item()
             micro_step += 1
@@ -478,7 +483,7 @@ def main():
         tot = 0.0; n = 0
         with torch.no_grad():
             for ex in exs:
-                l = _completion_loss(model, tokenizer, ex["prompt"], ex["completion"], max_length, max_prompt_length)
+                l = _completion_loss(model, tokenizer, ex["prompt"], ex["completion"], max_length, max_prompt_length, prefix=ex.get("assistant_prefix", ""))
                 tot += float(l); n += 1
         model.train()
         return tot / max(1, n)

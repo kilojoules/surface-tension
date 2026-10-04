@@ -69,17 +69,19 @@ def reflective_target(rng):
 
 
 def build_shallow(behavior, rng):
+    # `completion` is the loss-bearing span; `assistant_prefix` is masked context
+    # (empty for the shallow arms). Field names match sft_train.py's loader.
     return [
         dict(arm="shallow_terse", prompt=behavior, assistant_prefix="",
-             target=terse_target(rng), k=0),
+             completion=terse_target(rng), k=0),
         dict(arm="shallow_reflective", prompt=behavior, assistant_prefix="",
-             target=reflective_target(rng), k=0),
+             completion=reflective_target(rng), k=0),
     ]
 
 
 def build_deep(behavior, prefix_text, rng, K, n_deep, tok):
     """n_deep examples per deep arm, each a random k-token harmful prefix (masked
-    context) + a pivot/refusal (loss-bearing target)."""
+    context, `assistant_prefix`) + a pivot/refusal (loss-bearing `completion`)."""
     recs = []
     pref_ids = tok(prefix_text, add_special_tokens=False).input_ids
     if not pref_ids:
@@ -88,9 +90,9 @@ def build_deep(behavior, prefix_text, rng, K, n_deep, tok):
         k = rng.randint(1, min(K, len(pref_ids)))
         prefix_k = tok.decode(pref_ids[:k])
         recs.append(dict(arm="deep_terse", prompt=behavior, assistant_prefix=prefix_k,
-                         target=rng.choice(PIVOT) + terse_target(rng), k=k))
+                         completion=rng.choice(PIVOT) + terse_target(rng), k=k))
         recs.append(dict(arm="deep_reflective", prompt=behavior, assistant_prefix=prefix_k,
-                         target=rng.choice(PIVOT) + reflective_target(rng), k=k))
+                         completion=rng.choice(PIVOT) + reflective_target(rng), k=k))
     return recs
 
 
@@ -157,10 +159,10 @@ def main():
     if not args.shallow_only and n_missing:
         print(f"  ({n_missing} behaviors had no approved prefix — deep arms skipped there)")
     print(f"  out: {args.out_dir}")
-    print("\nTRAINER NOTE: mask `prompt` AND `assistant_prefix`; put loss ONLY on "
-          "`target`. The model must learn to refuse GIVEN a harmful start, never to "
-          "generate the prefix. (sft_train.py masks only the prompt today — the "
-          "deep arms need the prefix added to the mask.)")
+    print("\nTRAINER NOTE: loss is on `completion` only; `prompt` AND "
+          "`assistant_prefix` are masked context. sft_train.py now honors "
+          "`assistant_prefix` (pass-through default \"\"), so the model learns to "
+          "refuse GIVEN a harmful start, never to generate the prefix.")
 
 
 if __name__ == "__main__":
