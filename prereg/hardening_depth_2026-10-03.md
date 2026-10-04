@@ -1,11 +1,13 @@
 # Prereg: Hardening depth — how deep must refusal training go to resist attacks while keeping coherence
 
 **Registered:** 2026-10-03, BEFORE any training or generation.
-**Status: DRAFT — NOT YET EXTERNALLY ANCHORED.** Per `prereg/README.md` (policy
-from 2026-07-12), this must be independently timestamped (OSF / Zenodo deposit,
-or at minimum a signed git tag pushed to the public remote) BEFORE training or
-generation begins, with the link recorded here. The numeric thresholds below are
-**proposed**; the author finalizes them, then anchors.
+**Status: ANCHORED 2026-10-03.** Independently timestamped per `prereg/README.md`
+by the SSH-signed git tag `hardening-depth-prereg-2026-10-03` (tagged commit
+`7cd7ecc`), pushed to the public remote *before any training or generation*:
+<https://github.com/kilojoules/surface-tension/releases/tag/hardening-depth-prereg-2026-10-03>.
+This meets the policy's minimum bar (a signed tag on the public remote); an
+OSF / Zenodo deposit would be stronger. Thresholds were finalized before
+anchoring.
 
 **Supersedes:** `prereg/position_coverage_2026-10-02.md`, which framed this around
 a coding stand-in and a reflection-vs-depth factorial. That framing is retired:
