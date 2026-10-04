@@ -18,8 +18,11 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as F
-from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+# NOTE: peft is imported lazily inside load_model (adapter-attach time) so
+# adapter-free paths — generation, harvest, eval — run in environments without
+# peft installed (peft 0.17's HybridCache import breaks vs transformers 5.14.1).
 
 
 BNB_CONFIG = BitsAndBytesConfig(
@@ -80,6 +83,7 @@ def load_model(model_id: str, adapter_path: Optional[str] = None, dtype=torch.bf
     if strip_wrappers:
         model = strip_clippable_linear_wrappers(model)  # no-op on non-Gemma-4 models
     if adapter_path:
+        from peft import PeftModel  # lazy: only adapter paths need peft
         model = PeftModel.from_pretrained(model, adapter_path)
     return model, tokenizer
 
