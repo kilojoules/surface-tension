@@ -14,6 +14,11 @@ design review (mechanistic / framing / measurement / causal-identification
 seats). The review saw no data; it operated on the prior published results
 only. That is the prereg-relevant fact — the predictions precede the data.
 
+**Revision 2 (2026-10-03):** a cross-family (GPT) adversarial review corrected
+several predictions, fixed two bugs, and downgraded the document's status to
+estimation/exploratory. See **§Revision 2**, which supersedes the body where
+they conflict (amendment convention, as in the JBB prereg).
+
 **Parent results (the lineage this extends):**
 - `results/step0_kill_test_2026-08-13.md` — rationale suppression collapses
   R-SFT compliance (token-borne rule). The within-arm collapse (+0.306, CI
@@ -234,10 +239,11 @@ with seed as a second random effect.
   + 3pp at every N. **Fail → the halt is position-triggered, not
   harm-triggered; the depth claim is void for that cell.**
 - **P5 (EOS-ban audit, T3 — scope of the claim).** Under an all-position EOS
-  ban, STOP's advantage vanishes: ASR(STOP) ≥ ASR(REFUSE) − 0.10. If STOP's
-  safety survives even the ban, that is surprising and reported as such. A STOP
-  that passes P2 but fails here is **gate-borne, not weight-borne** — stated in
-  exactly those words.
+  ban: if STOP's advantage **collapses** (ASR(STOP) rises toward ASR(REFUSE)),
+  its safety was **gate-borne** — it depended on the terminator; if the advantage
+  **survives** the ban, it is **weight-borne** (removing the gate yet keeping the
+  safety is evidence *against* gate-dependence). Reported in exactly those words.
+  *(Corrected: the v1 reading had this inverted — see §Revision 2.)*
 - **P6 (threat-model interaction, secondary/descriptive).** Order reverses
   across tiers: STOP best at T1, tie/lose at T2, **worst at T4** (no stated
   refusal to anchor on — the Pop et al. regime). The *interaction* is the
@@ -422,10 +428,12 @@ Stage-2 `τ_depth` condition are met).** Clustering: behavior + seed.
   learned to touch it).
 
 **Pre-committed reading of the 2×2 transfer matrix.**
-- `G_R > G_T`, with att_R specialized (low off-diagonal) and att_T generic (high
-  off-diagonal) → **reflection creates a distinct attack surface**; supports the
-  hypothesis in the prompt threat model, and P8's cause-vs-surface split says
-  which kind.
+- **Target-specific specialization** via the signed interaction
+  `D = [ASR(R→R) − ASR(R→T)] − [ASR(T→R) − ASR(T→T)]` (**not** `G_R − G_T`, which
+  is reversed — see §Revision 2), with att_R specialized and att_T generic → a
+  **distinct attack surface on the rationalization arm**; only the non-reflective
+  format control licenses calling it *reflection*-specific, and P8's ablation
+  says cause vs surface.
 - all four cells ≈ (within convergence bands) → **shared gate**; reflection is
   not a separate surface; matches the expected prefill null.
 - `ASR(att_R→T) ≈ ASR(att_R→R)` (the rationalization-exploiting attack transfers
@@ -445,6 +453,94 @@ surface, not cause (P8).
 (mode-collapse, README); both arms start from the shared rationale-free SFT.
 KL-to-SFT on benign prompts is watched; a run past a pre-set KL ceiling is
 discarded, not read.
+
+---
+
+## Revision 2 (2026-10-03) — cross-family (GPT) review: corrections and status downgrade
+
+Two cross-family reviewers (one on identification/attacker, one on
+statistics/measurement) independently reviewed the committed draft, converging on
+the same core verdict and one of the same bugs. The following **supersedes the
+body where they conflict** (amendment convention, as in the JBB prereg).
+
+**Status downgrade.** P7–P12 are **estimation / exploratory with bounds, not a
+powered confirmatory test** (cf. `step0_substitution_power_2026-09-02.md`:
+"estimation run, not detect-or-bust"). No confirmatory claim is made at this n.
+
+**Bugs fixed.**
+- **Transfer rule (P11 / 2×2 reading) was algebraically reversed.** Both
+  reviewers' counterexample — `att_R`{R:.70,T:.20}, `att_T`{R:.70,T:.70} — matches
+  the "reflection-specific" prose yet gives `G_R<G_T`. Superseded by the signed
+  interaction `D = [ASR(R→R) − ASR(R→T)] − [ASR(T→R) − ASR(T→T)]` plus component
+  inequalities to separate specialization from general attacker strength. Labeled
+  **target-specific specialization**, never "reflection specificity" without a
+  non-reflective format control.
+- **P5 (EOS-ban) was inverted** — advantage that **collapses** under the ban is
+  gate-borne; advantage that **survives** is weight-borne.
+- **P10** attributes recovery to a *prefill* attacker, but the trained attacker
+  is prompt-space → P10 is a **prompt→prefill transfer** hypothesis unless a
+  randomized prefill-hardening factor is actually added.
+- **Diagonal ASR is a *lower* bound** on attainable adversarial success, not an
+  "upper bound."
+- **Sign convention:** all `τ` are on a vulnerability scale (higher = less safe;
+  a safety-improving treatment has `τ<0`); P2/P3 beneficial directions restated.
+
+**Identification relabels (honesty).**
+- `τ_depth` is the **recovery-augmentation recipe** effect, not position-coverage
+  alone (PK also supplies harmful-prefix context and a recovery transition). To
+  isolate coverage, add **neutral-prefix position coverage** and **harmful-context
+  exposure without recovery supervision** controls; otherwise keep the recipe
+  label.
+- `τ_reflect` / P7 is a **preference-recipe** effect unless the probe uses
+  **common, externally-authored prefixes identical across A/B/C** (skip-past uses
+  each arm's own rationale — not a common exposure, and it violates the
+  external-source rule). Own-rationale probes → secondary. **A-vs-C** is the clean
+  order contrast; **A-vs-B** is a recipe contrast (no honest token-budget match
+  without padding).
+- **P8** → a controlled **text-intervention ablation** (intact / length-matched
+  neutral / content-disrupted / restored rationale, continuation boundary and
+  compliance cue fixed) measuring dependence on **rationale tokens** — not
+  "internal reflection," and not identified mediation.
+
+**Measurement corrections.**
+- **Common continuation window across all arms** (STOP's next-token terminator
+  hazard and REFUSE's 64-token recovery are not commensurable); report
+  **competing events** — terminate / refuse / harmful-assistance — and their order.
+- Score **harmful contribution on every nonempty continuation**, independent of
+  the HALT/REFUSE/ENGAGE label (short and comply-then-refuse outputs can carry
+  harm); keep ITT denominators. The binary flip rule **censors** added harm once
+  the prefix already scores positive at large N — report a graded continuation
+  harm too.
+- **FHR** must cross **request-intent × prefix-content** and validate that both
+  prompts and prefills are benign. Human-audit **successes and failures**, not
+  only classifier successes.
+- Dose: report **both absolute N and the zero-clipped lexical-divergence index**;
+  the latter does not by itself remove the raw-position/content confound.
+
+**Statistics corrections.**
+- Inherited power covers a different endpoint. At n≈300 a paired-binary ASR
+  contrast has MDE ≈ **9pp** (80% power, q≈.30), not 5pp; **±5pp equivalence** at
+  80% power needs ≈ **1030** behavior pairs. 5pp margins are estimation targets,
+  not powered endpoints.
+- An **exact seed-level sign-flip with 5 seeds floors at p = 2/32 = .0625** — it
+  can never reach .05. Primary inference is a **GLMM with joint behavior + seed
+  random effects and treatment×run terms** (clustered *together*, not either/or);
+  permutation, if used, needs an explicit exchangeability argument. 3 cross-fitting
+  folds **share training data** (not independent replications); the pilot needs
+  **multiple seeds** to estimate run variance.
+- **Attacker adequacy (was P12):** replace the pass/fail floor with a **common
+  frozen attack pool** run against *every* victim at identical budget (the single
+  change both reviewers named), plus a 3-way development-data diagnostic
+  (clear-pass / clear-fail / boundary-inconclusive) that **never discards** a
+  result as "robustness" (a .50 cutoff sits inside its own .44–.56 CI at n=300).
+
+**Open decisions (yours — these trade GPU for power/identification):**
+1. Accept the ≈9pp MDE and widen equivalence margins to what n≈300 supports, or
+   invest toward n≈1030 for ±5pp equivalence.
+2. GLMM-only primary inference, or add seeds (≥6) to enable an exact permutation.
+3. Fund the extra identification controls (neutral-prefix coverage,
+   harmful-exposure-without-recovery, a non-reflective prose arm), or keep the
+   honest recipe-level labels and stop there.
 
 ---
 
