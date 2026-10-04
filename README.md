@@ -218,4 +218,4 @@ Hub mirrors: raw-evidence corpus (`data/evidence/` packages + DPO-r1/r2 and B1++
 - **Supplementary (Stage-3 corrected statistics), no GPU:** `PYTHONPATH=src python -m quadrant.probe_correction --evidence data/evidence/quadrant_v4 --out results/correction_2026-07-12`.
 - **Tests:** `pytest src/` (355 tests; 220 under `src/quadrant/`). Stage-3 generation + judge procedure: `docs/quadrant_v4_launch.md`.
 
-*Total rented-GPU spend: ~$170 across stages 1–3, plus the JBB companion run.*
+*Total rented-GPU spend: ~$390 across stages 1–3 plus the JBB companion (the per-run cost docs in `results/` sum to this; the earlier "~$170" figure predates the August scaling + rank-sweep runs and was never updated).*

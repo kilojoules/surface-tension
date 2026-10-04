@@ -1,5 +1,11 @@
 # Prereg: is refusal weight-borne or position-0? — a format × position-coverage factorial on HarmBench
 
+> **⚠ SUPERSEDED (2026-10-03) by [`hardening_depth_2026-10-03.md`](hardening_depth_2026-10-03.md).**
+> This draft framed the work around a coding stand-in and a reflection×depth
+> factorial. The coding domain was dropped entirely, and reflection and depth
+> collapsed to one axis (hardening depth). The re-cut lives in the new file.
+> Kept for history; not for registration.
+
 **Registered:** 2026-10-02, BEFORE any generation or training.
 **Status: DRAFT — NOT YET EXTERNALLY ANCHORED.** Per `prereg/README.md`
 (policy from 2026-07-12), this prereg MUST be independently timestamped — OSF
