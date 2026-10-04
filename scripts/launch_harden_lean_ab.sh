@@ -66,15 +66,17 @@ done
 
 # ---- deps + HF login ----
 say "installing deps"
+# No peft here: the A/B stages don't use adapters, and peft 0.17 breaks against
+# transformers 5.14.1 (HybridCache import). DPO stages pin their own versions.
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "set -e
      apt-get update -qq && apt-get install -y -qq rsync
      pip install -q 'torch==2.5.1' 'transformers==5.14.1' 'accelerate==1.14.0' \
-                    'huggingface_hub==1.27.0' 'numpy==1.26.3' \
-                    'peft==0.17.0' 'bitsandbytes==0.48.0' 'scipy' 2>&1 | tail -2
+                    'huggingface_hub==1.27.0' 'numpy==1.26.3' 'scipy' 2>&1 | tail -2
      pip uninstall hf-xet -y 2>&1 | tail -1 || true
      which rsync
-     python3 -c 'import torch,transformers,accelerate; print(\"deps ok\", torch.__version__, transformers.__version__)'"
+     python3 -c 'import torch,transformers,accelerate; print(\"deps ok\", torch.__version__, transformers.__version__)'
+     python3 -c 'import torch; torch.cuda.init(); assert torch.cuda.is_available(), \"no CUDA\"; print(\"cuda ok:\", torch.cuda.get_device_name(0))'"
 say "huggingface login (gated Llama)"
 scp -q -P "$PORT" -o StrictHostKeyChecking=no "$HOME/.hf_token" "root@$HOST:/root/.hf_token"
 ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
@@ -102,46 +104,67 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
      [ -s /workspace/st/data/alpaca/alpaca.jsonl ] || { echo 'FATAL: alpaca missing'; exit 1; }
      echo 'pod upload OK'"
 
-# ---- Stage A: split (pure) ----
+# ---- run stages; failures captured, results ALWAYS pulled back ----
+FAILED_STAGE=""
+
 say "STAGE A: behavior split"
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+if ! ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
     "cd /workspace/st && PYTHONPATH=src python src/harden_behavior_split.py \
         --behaviors data/harmbench/harmbench_behaviors_text_all.csv \
-        --out-dir data/harden/split --seed 0"
+        --out-dir data/harden/split --seed 0"; then
+    FAILED_STAGE="split"; fi
 
-# ---- Stage A: P0 baseline gate (GPU) ----
-say "STAGE A: P0 baseline gate (base refusal >= 0.90, prefill plumbing)"
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
-    "cd /workspace/st && PYTHONPATH=src python src/harden_p0_baseline.py \
-        --behaviors data/harmbench/harmbench_behaviors_text_all.csv \
-        --out results/raw/harden_p0_baseline.jsonl 2>&1 | tail -40"
+if [ -z "$FAILED_STAGE" ]; then
+    say "STAGE A: P0 baseline gate (base refusal >= 0.90, prefill plumbing)"
+    # No output pipe: the remote exit code must propagate. The gate itself
+    # (PASS/FAIL verdict) is read from the summary json after pull-back.
+    if ! ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+        "cd /workspace/st && PYTHONPATH=src python src/harden_p0_baseline.py \
+            --behaviors data/harmbench/harmbench_behaviors_text_all.csv \
+            --out results/raw/harden_p0_baseline.jsonl > /workspace/st/p0.log 2>&1; \
+            rc=\$?; tail -20 /workspace/st/p0.log; exit \$rc"; then
+        FAILED_STAGE="p0_gate"; fi
+fi
 
-# ---- Stage B: harvest candidates (GPU; approval stays with the author) ----
-say "STAGE B: harvesting harmful-opening candidates (train + eval splits)"
-# QUANT_BIT=0: bf16 7B fits an A40-48GB without bitsandbytes quantization.
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
-    "cd /workspace/st && QUANT_BIT=0 PYTHONPATH=src python src/harden_harvest_openings.py harvest \
-        --behaviors data/harden/split/victim_train.jsonl \
-        --model Qwen/Qwen2.5-7B-Instruct --N 128 \
-        --out-dir data/harden/private/openings_train 2>&1 | tail -8"
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
-    "cd /workspace/st && QUANT_BIT=0 PYTHONPATH=src python src/harden_harvest_openings.py harvest \
-        --behaviors data/harden/split/eval.jsonl \
-        --model Qwen/Qwen2.5-7B-Instruct --N 128 \
-        --out-dir data/harden/private/openings_eval 2>&1 | tail -8"
+# Harvest candidates even if the P0 gate verdict is marginal — they are only
+# candidates until the human approval freeze; nothing downstream runs on them.
+if [ -z "$FAILED_STAGE" ]; then
+    say "STAGE B: harvesting harmful-opening candidates (train + eval splits)"
+    if ! ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+        "cd /workspace/st && QUANT_BIT=0 PYTHONPATH=src python src/harden_harvest_openings.py harvest \
+            --behaviors data/harden/split/victim_train.jsonl \
+            --model Qwen/Qwen2.5-7B-Instruct --N 128 \
+            --out-dir data/harden/private/openings_train > /workspace/st/harv1.log 2>&1; \
+            rc=\$?; tail -6 /workspace/st/harv1.log; exit \$rc"; then
+        FAILED_STAGE="harvest_train"; fi
+fi
+if [ -z "$FAILED_STAGE" ]; then
+    if ! ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+        "cd /workspace/st && QUANT_BIT=0 PYTHONPATH=src python src/harden_harvest_openings.py harvest \
+            --behaviors data/harden/split/eval.jsonl \
+            --model Qwen/Qwen2.5-7B-Instruct --N 128 \
+            --out-dir data/harden/private/openings_eval > /workspace/st/harv2.log 2>&1; \
+            rc=\$?; tail -6 /workspace/st/harv2.log; exit \$rc"; then
+        FAILED_STAGE="harvest_eval"; fi
+fi
 
-# ---- pull results back (scores + split + private candidates for YOUR review) ----
+# ---- pull everything back BEFORE deciding exit ----
 say "pulling results back"
 mkdir -p "$LOCAL/results/raw" "$LOCAL/data/harden/split" "$LOCAL/data/harden/private"
 rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
-    "root@$HOST:/workspace/st/results/raw/" "$LOCAL/results/raw/"
+    "root@$HOST:/workspace/st/results/raw/" "$LOCAL/results/raw/" || true
 rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
-    "root@$HOST:/workspace/st/data/harden/split/" "$LOCAL/data/harden/split/"
+    "root@$HOST:/workspace/st/data/harden/split/" "$LOCAL/data/harden/split/" || true
 rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
-    "root@$HOST:/workspace/st/data/harden/private/" "$LOCAL/data/harden/private/"
+    "root@$HOST:/workspace/st/data/harden/private/" "$LOCAL/data/harden/private/" || true
 
 say "P0 summary"
-cat "$LOCAL/results/raw/harden_p0_baseline_summary.json" 2>/dev/null || true
+cat "$LOCAL/results/raw/harden_p0_baseline_summary.json" 2>/dev/null || echo "(no P0 summary)"
+
+if [ -n "$FAILED_STAGE" ]; then
+    say "FAILED at stage: $FAILED_STAGE — pod will be destroyed by the exit trap"
+    exit 1
+fi
 
 say "DONE — pod will now be destroyed by the exit trap; review candidates:"
 echo "  data/harden/private/openings_train/REVIEW.html"
