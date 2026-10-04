@@ -534,13 +534,32 @@ powered confirmatory test** (cf. `step0_substitution_power_2026-09-02.md`:
   (clear-pass / clear-fail / boundary-inconclusive) that **never discards** a
   result as "robustness" (a .50 cutoff sits inside its own .44–.56 CI at n=300).
 
-**Open decisions (yours — these trade GPU for power/identification):**
-1. Accept the ≈9pp MDE and widen equivalence margins to what n≈300 supports, or
-   invest toward n≈1030 for ±5pp equivalence.
-2. GLMM-only primary inference, or add seeds (≥6) to enable an exact permutation.
-3. Fund the extra identification controls (neutral-prefix coverage,
-   harmful-exposure-without-recovery, a non-reflective prose arm), or keep the
-   honest recipe-level labels and stop there.
+**Resolved (2026-10-03; author delegated — "keep moving").** Defaults chosen to
+keep the design honest and add **no new GPU commitment**; each upgrade stays
+available on request.
+1. **Power/n:** keep **n≈300**, framed as **estimation with bounds** (not
+   confirmatory). Effect-size bands become estimation bands; anything below the
+   n≈300 MDE (**≈0.09–0.10 ASR**, with the correspondingly widened hazard margin)
+   is reported as a **bound, never "no effect."** *Upgrade:* n≈1030 for a powered
+   ±5pp equivalence claim.
+2. **Inference:** a **GLMM with joint behavior + seed random effects and
+   treatment×run terms** is the single primary analysis (valid at 5 seeds). The
+   seed-level sign-flip is dropped as primary (floor p=.0625 at 5 seeds);
+   behavior-level permutation is a secondary check with a stated exchangeability
+   argument. *Upgrade:* ≥6 seeds to license an exact permutation.
+3. **Identification scope:** keep the **honest recipe-level labels** — `τ_depth`
+   = recovery-augmentation recipe effect, `τ_reflect`/P7 = preference-recipe
+   effect — with **A-vs-C** as the clean order contrast. The extra arms
+   (neutral-prefix coverage, harmful-exposure-without-recovery, a non-reflective
+   prose arm) that would upgrade these to *identified* coverage / reflection
+   effects are **opt-in** (they ~double the training grid); not funded by default.
+
+**Finalized primary endpoints.** Stage 2: `τ_depth` (recovery-recipe) on the
+frozen prefill battery, via the GLMM, reported with CI/bound. Stage 3:
+`τ_reflect` (preference-recipe) on **common external prefixes** (A-vs-C clean;
+A-vs-B recipe), plus the signed transfer interaction `D` over a **common frozen
+attack pool**. All on the vulnerability scale (higher = less safe). Confirmatory
+status is explicitly **not** claimed at n≈300.
 
 ---
 
