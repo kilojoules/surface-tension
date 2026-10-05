@@ -157,6 +157,13 @@ def main():
         print(f"  PASS: gate closed ({c0_ref:.2f} base refusal), prefill plumbing "
               "verified. Cleared to train the arms (Stage 1).")
 
+    # A FAIL verdict must FAIL the process (exit 1) — callers gate downstream
+    # spend on this exit code. A printed verdict with exit 0 lets launch scripts
+    # run later stages after a known gate failure (caught in the 2026-10-04 run:
+    # harvest executed after the P0 verdict was already readable on the pod).
+    if not plumbing or c0_ref < GATE_REFUSAL_MIN:
+        raise SystemExit(1)
+
 
 if __name__ == "__main__":
     main()
