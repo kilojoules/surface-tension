@@ -44,12 +44,12 @@ POD_ID="$INST"
 say "pod ready: $INST  (ssh -p $PORT root@$HOST)"
 
 for i in $(seq 1 30); do
-    ssh -p "$PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "root@$HOST" "echo ok" >/dev/null 2>&1 && break
+    ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ConnectTimeout=10 "root@$HOST" "echo ok" >/dev/null 2>&1 && break
     sleep 10
 done
 
 say "installing deps"
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
     "set -e
      apt-get update -qq && apt-get install -y -qq rsync
      pip install -q 'torch==2.5.1' 'transformers==5.14.1' 'accelerate==1.14.0' \
@@ -58,23 +58,23 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
      python3 -c 'import torch; torch.cuda.init(); assert torch.cuda.is_available(), \"no CUDA\"; print(\"cuda ok:\", torch.cuda.get_device_name(0))'"
 
 say "huggingface login"
-scp -q -P "$PORT" -o StrictHostKeyChecking=no "$HOME/.hf_token" "root@$HOST:/root/.hf_token"
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+scp -q -P "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "$HOME/.hf_token" "root@$HOST:/root/.hf_token"
+ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
     "python3 -c \"from huggingface_hub import login; login(token=open('/root/.hf_token').read().strip())\""
 
 say "uploading"
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
     "mkdir -p /workspace/st/src /workspace/st/results/raw /workspace/st/data/harden/private"
 rsync -az --include='*.py' --exclude='__pycache__' --exclude='*.pyc' --exclude='test_*' \
-    -e "ssh -p $PORT -o StrictHostKeyChecking=no" "$LOCAL/src/" "root@$HOST:/workspace/st/src/"
-rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+    -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" "$LOCAL/src/" "root@$HOST:/workspace/st/src/"
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "$LOCAL/data/harden/contextual_eval.jsonl" "root@$HOST:/workspace/st/data/harden/"
-rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "$LOCAL/results/raw/harden_p0_baseline.jsonl" "root@$HOST:/workspace/st/results/raw/"
 
 FAILED=""
 say "TASK 1: contextual-100 base refusal (secondary stratum, Amendment 1 §3)"
-if ! ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+if ! ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
     "cd /workspace/st && PYTHONPATH=src python src/harden_eval.py refusal \
         --behaviors data/harden/contextual_eval.jsonl \
         --victim meta-llama/Llama-3.1-8B-Instruct \
@@ -84,7 +84,7 @@ if ! ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
 
 if [ -z "$FAILED" ]; then
     say "TASK 2: regenerate the 32 C0 compliances for the author audit (PRIVATE)"
-    if ! ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+    if ! ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
         "cd /workspace/st && PYTHONPATH=src python - <<'PYEOF' > audit.log 2>&1
 import json, os
 from harden_p0_baseline import load_harmbench_behaviors, NEUTRAL_PREFILL
@@ -121,9 +121,9 @@ fi
 
 say "pulling results back"
 mkdir -p "$LOCAL/results/raw" "$LOCAL/data/harden/private"
-rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "root@$HOST:/workspace/st/results/raw/" "$LOCAL/results/raw/" || true
-rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "root@$HOST:/workspace/st/data/harden/private/" "$LOCAL/data/harden/private/" || true
 
 if [ -n "$FAILED" ]; then

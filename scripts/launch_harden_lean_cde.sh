@@ -71,13 +71,13 @@ say "pod ready on $GPU: $INST  (ssh -p $PORT root@$HOST)"
 
 # ---- ssh + deps + cuda check ----
 for i in $(seq 1 30); do
-    ssh -p "$PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "root@$HOST" "echo ok" >/dev/null 2>&1 && break
+    ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ConnectTimeout=10 "root@$HOST" "echo ok" >/dev/null 2>&1 && break
     sleep 10
 done
 
 say "installing deps"
 # peft is needed for dpo_train (LoRA) — pin a build compatible with transformers 5.14.1.
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
     "set -e
      apt-get update -qq && apt-get install -y -qq rsync
      pip install -q 'torch==2.5.1' 'transformers==5.14.1' 'accelerate==1.14.0' \
@@ -88,32 +88,32 @@ ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
      python3 -c 'import torch; torch.cuda.init(); assert torch.cuda.is_available(), \"no CUDA\"; print(\"cuda ok:\", torch.cuda.get_device_name(0))'"
 
 say "huggingface login (gated Llama)"
-scp -q -P "$PORT" -o StrictHostKeyChecking=no "$HOME/.hf_token" "root@$HOST:/root/.hf_token"
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+scp -q -P "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "$HOME/.hf_token" "root@$HOST:/root/.hf_token"
+ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
     "python3 -c \"from huggingface_hub import login; login(token=open('/root/.hf_token').read().strip())\""
 
 # ---- upload ----
 say "uploading code + data (public sets, split, private approved)"
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
     "mkdir -p /workspace/st/src /workspace/st/results/raw /workspace/st/outputs \
                /workspace/st/data/harden/private /workspace/st/data/harden/pairs"
 rsync -az --include='*.py' --exclude='__pycache__' --exclude='*.pyc' --exclude='test_*' \
-    -e "ssh -p $PORT -o StrictHostKeyChecking=no" "$LOCAL/src/" "root@$HOST:/workspace/st/src/"
+    -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" "$LOCAL/src/" "root@$HOST:/workspace/st/src/"
 for d in gsm8k xstest alpaca; do
-    rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+    rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
         "$LOCAL/data/$d/" "root@$HOST:/workspace/st/data/$d/"
 done
-rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "$LOCAL/data/harden/split/" "root@$HOST:/workspace/st/data/harden/split/"
-rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "$LOCAL/data/harden/private/approved_train.json" \
     "$LOCAL/data/harden/private/approved_eval.json" \
     "root@$HOST:/workspace/st/data/harden/private/"
-rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "$LOCAL/scripts/stage_e_pod.sh" "root@$HOST:/workspace/st/stage_e.sh"
 
 say "verifying upload"
-ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
     "set -e
      [ \"\$(ls /workspace/st/src/*.py | wc -l)\" -ge 40 ] || { echo 'FATAL: src incomplete'; exit 1; }
      [ -s /workspace/st/data/harden/private/approved_train.json ] || { echo 'FATAL: approved_train missing'; exit 1; }
@@ -125,7 +125,7 @@ FAILED_STAGE=""
 say "STAGE C: building DPO pairs (refusal | math | benign x2 | merge)"
 # Single heredoc'd remote script: correct exit propagation for every sub-step,
 # no shell-precedence pitfalls from chaining ssh "A && B; rc=$?" fragments.
-if ! ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" 'bash -s' <<'REMOTE'
+if ! ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" 'bash -s' <<'REMOTE'
     set -e
     cd /workspace/st
     PYTHONPATH=src python src/harden_build_dpo_pairs.py refusal \
@@ -158,7 +158,7 @@ then
 # ---- Stage D: DPO train ----
 if [ -z "$FAILED_STAGE" ]; then
     say "STAGE D: DPO-harden the victim (~1h on L40S)"
-    if ! ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+    if ! ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
         "cd /workspace/st && BASE_MODEL=meta-llama/Llama-3.1-8B-Instruct \
             DPO_TRAIN=data/harden/pairs/victim_dpo_v1.jsonl \
             DPO_OUTPUT=outputs/harden_dpo_v1 DPO_BETA=0.1 DPO_LR=5e-6 DPO_EPOCHS=3 \
@@ -171,7 +171,7 @@ fi
 # ---- Stage E: defensive eval on base + hardened ----
 if [ -z "$FAILED_STAGE" ]; then
     say "STAGE E: defensive eval (refusal / overrefusal / gsm8k / battery / prefill) x (base, dpo)"
-    if ! ssh -p "$PORT" -o StrictHostKeyChecking=no "root@$HOST" \
+    if ! ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
         "cd /workspace/st && bash stage_e.sh > /workspace/st/stage_e.log 2>&1; \
             rc=\$?; tail -30 /workspace/st/stage_e.log; exit \$rc"; then
         FAILED_STAGE="stage_e"; fi
@@ -180,12 +180,12 @@ fi
 # ---- pull everything back BEFORE deciding exit ----
 say "pulling results back"
 mkdir -p "$LOCAL/results/raw" "$LOCAL/data/harden/pairs" "$LOCAL/outputs"
-rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "root@$HOST:/workspace/st/results/raw/" "$LOCAL/results/raw/" || true
-rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "root@$HOST:/workspace/st/data/harden/pairs/" "$LOCAL/data/harden/pairs/" || true
 # adapter ~100MB (LoRA r=32); pull for later use without retraining
-rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no" \
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "root@$HOST:/workspace/st/outputs/" "$LOCAL/outputs/" || true
 
 if [ -n "$FAILED_STAGE" ]; then
