@@ -134,7 +134,10 @@ with dual-use reported-not-gated), as its own pre-data amendment.
   HarmBench benchmark text with attribution), ids_sha256
   `cbadf90e814f743a2b31c0d5820f0ce7f485a2b62e6c2d76ba80b420ba0dcacb`,
   sidecar `data/harden/contextual_manifest.json`.
-- P0 rows: `results/raw/harden_p0_baseline.jsonl` + summary (committed).
+- P0 rows: `results/raw/harden_p0_baseline.jsonl` + summary (committed,
+  scores-only). Contextual-100 refusal rows + summary (committed, scores-only):
+  pooled 0.78; dual-use 0.655 (38/58), classic 0.952 (40/42) — the category
+  bimodality replicates in an independent pool.
 - Committee transcripts: preserved in session log; verdicts summarized in §0.
 
 ## 9. Claims not available under this amendment
