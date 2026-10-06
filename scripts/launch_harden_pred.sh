@@ -26,7 +26,7 @@ say "checking prerequisites"
 [ -s "$LOCAL/results/raw/harden_p0_baseline.jsonl" ] || { echo "FATAL: P0 rows missing (needed to identify the 32)"; exit 1; }
 
 say "launching pod"
-IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA L40S|NVIDIA A100-SXM4-80GB|NVIDIA A40}"
+IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA A40|NVIDIA RTX A6000|NVIDIA GeForce RTX 4090|NVIDIA RTX 5000 Ada Generation|NVIDIA A100-SXM4-80GB}"
 launched=0
 for g in "${CANDS[@]}"; do
     say "trying gpu=$g"

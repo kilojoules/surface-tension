@@ -9,7 +9,7 @@
 # Wall ~2.5-4 h on an L40S/A100; ~$3-6.
 #
 # Usage:   bash scripts/launch_harden_lean_cde.sh
-# Env:     GPU_CANDIDATES (default "NVIDIA L40S|NVIDIA A100-SXM4-80GB|NVIDIA A40"),
+# Env:     GPU_CANDIDATES (default "NVIDIA A40|NVIDIA RTX A6000|NVIDIA GeForce RTX 4090|NVIDIA RTX 5000 Ada Generation|NVIDIA A100-SXM4-80GB"),
 #          CLOUD (default COMMUNITY)
 #
 # Local prereqs (checked before any spend):
@@ -52,7 +52,7 @@ python3 -c "import json; a=json.load(open('$LOCAL/data/harden/private/approved_t
 
 # ---- launch (fallback list, price order) ----
 say "launching pod (cloud=$CLOUD)"
-IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA L40S|NVIDIA A100-SXM4-80GB|NVIDIA A40}"
+IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA A40|NVIDIA RTX A6000|NVIDIA GeForce RTX 4090|NVIDIA RTX 5000 Ada Generation|NVIDIA A100-SXM4-80GB}"
 launched=0
 for g in "${CANDS[@]}"; do
     say "trying gpu=$g"

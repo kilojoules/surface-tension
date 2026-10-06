@@ -41,7 +41,7 @@ say "checking local credentials"
 
 # ---- launch (try GPU candidates in price order until one is available) ----
 say "launching pod (cloud=$CLOUD, candidates: ${GPU_CANDIDATES:-default list})"
-IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA A40|NVIDIA RTX 4090|NVIDIA A6000|NVIDIA L40S|NVIDIA A100-SXM4-80GB}"
+IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA A40|NVIDIA RTX A6000|NVIDIA GeForce RTX 4090|NVIDIA RTX 5000 Ada Generation|NVIDIA A100-SXM4-80GB}"
 launched=0
 for g in "${CANDS[@]}"; do
     say "trying gpu=$g"
