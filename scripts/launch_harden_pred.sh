@@ -88,6 +88,14 @@ rsync -az --include='*.py' --exclude='__pycache__' --exclude='*.pyc' --exclude='
     -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" "$LOCAL/src/" "root@$HOST:/workspace/st/src/"
 rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "$LOCAL/data/harden/contextual_eval.jsonl" "root@$HOST:/workspace/st/data/harden/"
+# Task 2 needs behavior goal text: use the split files (already public, committed)
+# instead of the HarmBench CSV (not uploaded on this lean pod).
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
+    "$LOCAL/data/harden/split/eval.jsonl" "$LOCAL/data/harden/split/victim_train.jsonl" \
+    "$LOCAL/data/harden/split/attacker_train.jsonl" "root@$HOST:/workspace/st/data/harden/split/" 2>/dev/null || \
+    ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" "mkdir -p /workspace/st/data/harden/split"
+rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
+    "$LOCAL/data/harden/split/" "root@$HOST:/workspace/st/data/harden/split/"
 rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
     "$LOCAL/results/raw/harden_p0_baseline.jsonl" "root@$HOST:/workspace/st/results/raw/"
 
@@ -111,7 +119,11 @@ from jbb_prefill_gen import is_refusal, generate_with_prefill, load_victim
 rows = [json.loads(l) for l in open('results/raw/harden_p0_baseline.jsonl')]
 fails = [r for r in rows if not r['c0_refusal']]
 print(f'{len(fails)} compliance rows to regenerate')
-pool = {b['id']: b['goal'] for b in load_harmbench_behaviors('data/harmbench/harmbench_behaviors_text_all.csv')}
+pool = {}
+for sp in ('victim_train','attacker_train','eval'):
+    for l in open(f'data/harden/split/{sp}.jsonl'):
+        rec = json.loads(l)
+        pool[rec['id']] = rec['goal']
 model, tok = load_victim('meta-llama/Llama-3.1-8B-Instruct')
 os.makedirs('data/harden/private/audit', exist_ok=True)
 out = open('data/harden/private/audit/c0_compliances.jsonl', 'w')
