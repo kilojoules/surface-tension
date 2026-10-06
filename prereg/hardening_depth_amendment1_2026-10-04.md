@@ -1,9 +1,10 @@
 # Amendment 1 (dated 2026-10-04): Gate A outcome and re-scoped continuation of the lean pilot
 
-**Status: DRAFT — committee-determined, awaiting author authorization.** When
-authorized: commit, push, and cut a signed tag (`hardening-depth-amendment1-<date>`)
-BEFORE any further GPU spend, per the anchoring discipline of
-`prereg/README.md` (2026-07-12 policy).
+**Status: AUTHORIZED 2026-10-05 by the author, before any further GPU spend.**
+Independently timestamped by the SSH-signed git tag
+`hardening-depth-amendment1-2026-10-04` on the public remote, cut BEFORE the
+pre-Stage-D pod, Stage C/D/E, or any downstream data existed, per the
+anchoring discipline of `prereg/README.md` (2026-07-12 policy).
 
 **Amends:** the lean pilot `docs/harden_lean_plan_2026-10-04.md` (Gate A and
 readout plan). **Does not amend or satisfy** the anchored prereg
@@ -129,8 +130,10 @@ with dual-use reported-not-gated), as its own pre-data amendment.
 
 - Split manifest: `data/harden/split/manifest.json` (victim 303ffb5ae89f…,
   attacker 319a2ffbe3bf…, eval 070377be8425… — full hashes in manifest).
-- Contextual-100 pool: `data/harden/contextual_eval.jsonl`, sha256 recorded
-  in its sidecar manifest at build time (this line is filled on authorization).
+- Contextual-100 pool: `data/harden/contextual_eval.jsonl` (committed; public
+  HarmBench benchmark text with attribution), ids_sha256
+  `cbadf90e814f743a2b31c0d5820f0ce7f485a2b62e6c2d76ba80b420ba0dcacb`,
+  sidecar `data/harden/contextual_manifest.json`.
 - P0 rows: `results/raw/harden_p0_baseline.jsonl` + summary (committed).
 - Committee transcripts: preserved in session log; verdicts summarized in §0.
 

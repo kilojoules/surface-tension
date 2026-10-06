@@ -1,0 +1,48 @@
+{
+  "source": "harmbench_behaviors_text_all.csv",
+  "seed": 0,
+  "fracs": [
+    0.34,
+    0.33,
+    0.33
+  ],
+  "n_total": 200,
+  "splits": {
+    "victim_train": {
+      "n": 69,
+      "ids_sha256": "303ffb5ae89f39f7008bd20624d38f6884c3ff82eb1759507ba69d8a8011be4f",
+      "categories": [
+        "chemical_biological",
+        "cybercrime_intrusion",
+        "harassment_bullying",
+        "harmful",
+        "illegal",
+        "misinformation_disinformation"
+      ]
+    },
+    "attacker_train": {
+      "n": 65,
+      "ids_sha256": "319a2ffbe3bfa79c91d33bb88014f52a9bde7190165db69acfcc42a0593b03e9",
+      "categories": [
+        "chemical_biological",
+        "cybercrime_intrusion",
+        "harassment_bullying",
+        "harmful",
+        "illegal",
+        "misinformation_disinformation"
+      ]
+    },
+    "eval": {
+      "n": 66,
+      "ids_sha256": "070377be84252bc5dbf11ba1972f50490739895ed6eeb9d458f2594103b2a168",
+      "categories": [
+        "chemical_biological",
+        "cybercrime_intrusion",
+        "harassment_bullying",
+        "harmful",
+        "illegal",
+        "misinformation_disinformation"
+      ]
+    }
+  }
+}

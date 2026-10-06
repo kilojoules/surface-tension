@@ -27,6 +27,13 @@
 # ignored and is never committed — see prereg/jbb_prefill_2026-09-03.md.
 !/data/jbb_prefill/
 /data/jbb_prefill/frozen_private/
+# /data/harden/: the split files + contextual pool + split manifest are
+# tracked — public HarmBench behavior text with attribution, frozen with
+# Amendment 1 (prereg/hardening_depth_amendment1_2026-10-04.md). private/
+# (harvest candidates, approved openings, corpora) stays ignored, canary'd,
+# never committed.
+!/data/harden/
+/data/harden/private/
 paper/data/
 paper/figs/data/
 

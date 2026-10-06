@@ -1,0 +1,7 @@
+{
+  "pool": "contextual_eval",
+  "n": 100,
+  "ids_sha256": "cbadf90e814f743a2b31c0d5820f0ce7f485a2b62e6c2d76ba80b420ba0dcacb",
+  "source": "harmbench_behaviors_text_all.csv (centerforaisafety/HarmBench, public)",
+  "use": "plain-refusal SECONDARY stratum only (Amendment 1 \u00a73); no harvest, no attacks"
+}
