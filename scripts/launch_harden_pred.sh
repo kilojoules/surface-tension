@@ -27,26 +27,45 @@ say "checking prerequisites"
 
 say "launching pod"
 IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA A40|NVIDIA RTX A6000|NVIDIA GeForce RTX 4090|NVIDIA RTX 5000 Ada Generation|NVIDIA A100-SXM4-80GB}"
-launched=0
-for g in "${CANDS[@]}"; do
+
+SSH_OPTS="-o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ConnectTimeout=10"
+
+# try_gpu <gpu-id> -> 0 on success (pod up, ssh authed, CUDA alive); pod cleaned up otherwise
+try_gpu() {
+    local g="$1"
     say "trying gpu=$g"
-    if python3 "$LOCAL/scripts/runpod_launch.py" \
+    python3 "$LOCAL/scripts/runpod_launch.py" \
         --gpu "$g" --cloud "$CLOUD" --name "st-harden-pred" \
         --image "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
-        --env-file "$INSTANCE_FILE" --disk 60 --wait-min 15; then
-        launched=1; break
+        --env-file "$INSTANCE_FILE" --disk 60 --wait-min 15 || return 1
+    read -r INST HOST PORT < "$INSTANCE_FILE"
+    POD_ID="$INST"
+    # ssh must AUTHENTICATE (not just deploy) — some community nodes never inject the key
+    local i ssh_ok=0
+    for i in $(seq 1 18); do
+        if ssh -p "$PORT" $SSH_OPTS "root@$HOST" "echo ok" >/dev/null 2>&1; then ssh_ok=1; break; fi
+        sleep 10
+    done
+    if [ "$ssh_ok" -ne 1 ]; then
+        say "gpu=$g: ssh never authenticated (key injection failure) — terminating, next candidate"
+        python3 "$LOCAL/scripts/runpod_kill.py" "$POD_ID" || true; POD_ID=""; return 1
     fi
-    say "gpu=$g unavailable — trying next"
-done
-[ "$launched" -eq 1 ] || { echo "FATAL: no GPU available"; exit 1; }
-read -r INST HOST PORT < "$INSTANCE_FILE"
-POD_ID="$INST"
-say "pod ready: $INST  (ssh -p $PORT root@$HOST)"
+    # CUDA must initialize — some community nodes have broken driver mappings
+    if ! ssh -p "$PORT" $SSH_OPTS "root@$HOST" \
+        "python3 -c 'import torch' 2>/dev/null || pip install -q torch==2.5.1 2>&1 | tail -1; \
+         python3 -c 'import torch; torch.cuda.init(); assert torch.cuda.is_available(), \"no CUDA\"; print(\"cuda ok:\", torch.cuda.get_device_name(0))'" 2>/dev/null; then
+        say "gpu=$g: CUDA broken on this node — terminating, next candidate"
+        python3 "$LOCAL/scripts/runpod_kill.py" "$POD_ID" || true; POD_ID=""; return 1
+    fi
+    say "pod ready on $g: $INST  (ssh -p $PORT root@$HOST)"
+    return 0
+}
 
-for i in $(seq 1 30); do
-    ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ConnectTimeout=10 "root@$HOST" "echo ok" >/dev/null 2>&1 && break
-    sleep 10
+launched=0
+for g in "${CANDS[@]}"; do
+    if try_gpu "$g"; then launched=1; GPU="$g"; break; fi
 done
+[ "$launched" -eq 1 ] || { echo "FATAL: no usable GPU from candidates"; exit 1; }
 
 say "installing deps"
 ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
