@@ -26,7 +26,7 @@ say "checking prerequisites"
 [ -s "$LOCAL/results/raw/harden_p0_baseline.jsonl" ] || { echo "FATAL: P0 rows missing (needed to identify the 32)"; exit 1; }
 
 say "launching pod"
-IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA A40|NVIDIA RTX A6000|NVIDIA GeForce RTX 4090|NVIDIA RTX 5000 Ada Generation|NVIDIA A100-SXM4-80GB}"
+IFS='|' read -ra CANDS <<< "${GPU_CANDIDATES:-NVIDIA A100-SXM4-80GB|NVIDIA RTX 5000 Ada Generation|NVIDIA A40|NVIDIA RTX A6000}"
 
 SSH_OPTS="-o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ConnectTimeout=10"
 
@@ -100,14 +100,20 @@ rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=15
     "$LOCAL/results/raw/harden_p0_baseline.jsonl" "root@$HOST:/workspace/st/results/raw/"
 
 FAILED=""
-say "TASK 1: contextual-100 base refusal (secondary stratum, Amendment 1 §3)"
-if ! ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
-    "cd /workspace/st && PYTHONPATH=src python src/harden_eval.py refusal \
-        --behaviors data/harden/contextual_eval.jsonl \
-        --victim meta-llama/Llama-3.1-8B-Instruct \
-        --out results/raw/harden_ctx100_refusal.jsonl > ctx.log 2>&1; \
-        rc=\$?; tail -15 ctx.log; exit \$rc"; then
-    FAILED="ctx100"; fi
+# Task 1 is idempotent-safe: skip if its results already exist locally (the
+# A100 run of 2026-10-05 already produced them; a flaky node must not force a redo).
+if [ -s "$LOCAL/results/raw/harden_ctx100_refusal_summary.json" ]; then
+    say "TASK 1: contextual-100 already measured locally — skipping GPU redo"
+else
+    say "TASK 1: contextual-100 base refusal (secondary stratum, Amendment 1 §3)"
+    if ! ssh -p "$PORT" -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "root@$HOST" \
+        "cd /workspace/st && PYTHONPATH=src python src/harden_eval.py refusal \
+            --behaviors data/harden/contextual_eval.jsonl \
+            --victim meta-llama/Llama-3.1-8B-Instruct \
+            --out results/raw/harden_ctx100_refusal.jsonl > ctx.log 2>&1; \
+            rc=\$?; tail -15 ctx.log; exit \$rc"; then
+        FAILED="ctx100"; fi
+fi
 
 if [ -z "$FAILED" ]; then
     say "TASK 2: regenerate the 32 C0 compliances for the author audit (PRIVATE)"
